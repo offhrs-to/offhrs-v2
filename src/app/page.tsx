@@ -1,14 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import Navbar from '@/components/navbar'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, MapPin, Shield } from 'lucide-react'
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-white">
-      <Navbar />
       
       <main>
         {/* Hero Section */}
@@ -20,7 +18,7 @@ export default function Home() {
             Find curated leisure workshops near you. From crafting to cooking, discover your next creative adventure.
           </p>
           <Link href="/workshops">
-            <Button size="lg" className="bg-moss hover:bg-moss-dark text-white px-8 py-6 text-lg">
+            <Button size="lg" className="rounded-md bg-[#5D755D] px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#4a5e4a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5D755D]">
               Browse Workshops
             </Button>
           </Link>
