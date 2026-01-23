@@ -237,8 +237,25 @@ export default function AdminAddPage() {
       // Hide success message after 5 seconds
       setTimeout(() => setSuccess(false), 5000)
     } catch (err: any) {
+      // Enhanced error logging for debugging
       console.error('Error adding event:', err)
-      setError(err.message || 'Failed to add event. Please try again.')
+      console.error('Error details (JSON):', JSON.stringify(err, null, 2))
+      
+      if (err?.message) {
+        console.error('Error message:', err.message)
+      }
+      
+      if (err?.details) {
+        console.error('Error details:', err.details)
+      }
+      
+      if (err?.hint) {
+        console.error('Error hint:', err.hint)
+      }
+      
+      // Set user-friendly error message
+      const errorMessage = err?.message || err?.details || err?.hint || 'Failed to add event. Please try again.'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

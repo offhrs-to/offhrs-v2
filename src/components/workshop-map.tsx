@@ -1,99 +1,77 @@
 'use client'
 
 import { useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import Link from 'next/link'
 
-// Fix for default marker icons in Next.js
-export default function WorkshopMap({ events, center, zoom = 13 }: WorkshopMapProps) {
-  // Set icon URLs in useEffect
-  useEffect(() => {
-    delete (L.Icon.Default.prototype as any)._getIconUrl
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-    })
-  }, [])
+// --- Fix for missing Leaflet Marker Icons ---
+const DefaultIcon = L.icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+})
+L.Marker.prototype.options.icon = DefaultIcon
 
+// --- ULTRA-PERMISSIVE TYPE DEFINITIONS ---
 interface Event {
-  id: string
+  // We allow string, number, null, or undefined for almost everything
+  // This matches whatever Supabase or your Page sends
+  id: number | string
   title: string
-  lat: string | null
-  lng: string | null
-  location: string | null
-  external_link: string | null
+  lat: number | string | null
+  lng: number | string | null
+  image_url: string | null
+  // The specific fix for your error:
+  date: string | null | undefined 
+  location: string | null | undefined
 }
 
 interface WorkshopMapProps {
   events: Event[]
-  center?: [number, number] | null
+  center: [number, number] | null
   zoom?: number
 }
 
-// Component to handle map center updates
-function MapController({ center, zoom }: { center?: [number, number] | null; zoom?: number }) {
-  const map = useMap()
-  
+export default function WorkshopMap({ events, center, zoom = 13 }: WorkshopMapProps) {
   useEffect(() => {
-    if (center) {
-      map.flyTo(center, zoom || 13, {
-        duration: 1.5,
-      })
-    }
-  }, [center, zoom, map])
+    // Force map resize on load
+    window.dispatchEvent(new Event('resize'))
+  }, [])
 
-  return null
-}
-  // Default center (Toronto)
-  const defaultCenter: [number, number] = [43.6532, -79.3832]
-
-  // Filter events that have coordinates
-  const eventsWithCoords = events.filter(
-    (event) => event.lat && event.lng && !isNaN(parseFloat(event.lat)) && !isNaN(parseFloat(event.lng))
-  )
+  const safeCenter: [number, number] = center || [43.6532, -79.3832]
 
   return (
-    <div className="w-full h-[600px] rounded-lg overflow-hidden border border-gray-200">
-      <MapContainer
-        center={center || defaultCenter}
-        zoom={zoom}
-        scrollWheelZoom={true}
-        className="w-full h-full"
+    <div className="h-full w-full rounded-lg overflow-hidden z-0">
+      <MapContainer 
+        center={safeCenter} 
+        zoom={zoom} 
+        style={{ height: '100%', width: '100%' }}
+        scrollWheelZoom={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapController center={center} zoom={zoom} />
         
-        {eventsWithCoords.map((event) => (
-          <Marker
-            key={event.id}
-            position={[parseFloat(event.lat!), parseFloat(event.lng!)]}
-          >
-            <Popup>
-              <div className="p-2">
-                <h3 className="font-semibold text-slate-900 mb-2">{event.title}</h3>
-                {event.location && (
-                  <p className="text-sm text-slate-600 mb-2">{event.location}</p>
-                )}
-                {event.external_link && (
-                  <Link
-                    href={event.external_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block mt-2 px-3 py-1 bg-moss text-white text-sm rounded-md hover:bg-moss-dark transition-colors"
-                  >
-                    Book
-                  </Link>
-                )}
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        {events.map((event) => {
+          const latNum = Number(event.lat)
+          const lngNum = Number(event.lng)
+          const isValid = !isNaN(latNum) && !isNaN(lngNum) && latNum !== 0 && lngNum !== 0
+
+          if (!isValid) return null
+
+          return (
+            <Marker key={event.id} position={[latNum, lngNum]}>
+              <Popup>
+                <div className="text-sm font-medium text-gray-900">
+                  {event.title}
+                </div>
+              </Popup>
+            </Marker>
+          )
+        })}
       </MapContainer>
     </div>
   )

@@ -300,8 +300,25 @@ export default function AdminEditPage() {
       // Redirect to dashboard on success
       router.push('/admin/dashboard')
     } catch (err: any) {
+      // Enhanced error logging for debugging
       console.error('Error updating event:', err)
-      setError(err.message || 'Failed to update event. Please try again.')
+      console.error('Error details (JSON):', JSON.stringify(err, null, 2))
+      
+      if (err?.message) {
+        console.error('Error message:', err.message)
+      }
+      
+      if (err?.details) {
+        console.error('Error details:', err.details)
+      }
+      
+      if (err?.hint) {
+        console.error('Error hint:', err.hint)
+      }
+      
+      // Set user-friendly error message
+      const errorMessage = err?.message || err?.details || err?.hint || 'Failed to update event. Please try again.'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
