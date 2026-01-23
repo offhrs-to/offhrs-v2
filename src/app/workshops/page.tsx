@@ -1,5 +1,6 @@
 'use client'
 
+// 1. Force dynamic rendering so search params work
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, Suspense } from 'react'
@@ -9,7 +10,7 @@ import { supabase } from '@/lib/supabase'
 import EventCard from '@/components/event-card'
 import { Search, MapPin } from 'lucide-react'
 
-// Load Map dynamically
+// 2. Load Map dynamically (Client side only)
 const WorkshopMap = nextDynamic(() => import('@/components/workshop-map'), {
   ssr: false,
   loading: () => <div className="h-full w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center text-gray-400">Loading Map...</div>
@@ -21,13 +22,13 @@ interface Event {
   description: string
   date: string
   location: string
-  price: number | string 
   image_url: string
   category: string
   lat: number | null
   lng: number | null
   is_multiple_dates: boolean | null
   external_link: string
+  price?: number | string | null // Added price
 }
 
 function WorkshopsContent() {
@@ -44,7 +45,7 @@ function WorkshopsContent() {
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid')
 
-  // --- UPDATED CATEGORIES ---
+  // --- YOUR CUSTOM CATEGORIES ---
   const categories = [
     'All', 
     'Beauty & Fragrance', 
@@ -225,6 +226,7 @@ function WorkshopsContent() {
   )
 }
 
+// 4. Wrap in Suspense to prevent build errors with useSearchParams
 export default function WorkshopsPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
