@@ -79,7 +79,7 @@ function WorkshopsContent() {
 
       // 2. Search Text Filter
       if (searchTerm) {
-        query = query.ilike('title', `%${searchTerm}%`)
+        query = query.or(`title.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`)
       }
 
       // 3. Simple Location Text Filter
