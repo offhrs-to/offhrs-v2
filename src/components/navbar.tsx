@@ -23,7 +23,7 @@ export default function Navbar() {
         </Link>
 
         {/* LINKS SECTION */}
-        <div className="flex gap-8 text-lg font-medium text-gray-600">
+        <div className="flex gap-8 text-base font-medium text-gray-600">
           <Link href="/workshops" className={`transition-colors ${HOVER_COLOR}`}>
             Workshops
           </Link>
