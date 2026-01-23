@@ -1,0 +1,231 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ExternalLink, Edit, Trash2, Loader2, Image as ImageIcon } from 'lucide-react'
+import Image from 'next/image'
+import Link from 'next/link'
+import Navbar from '@/components/navbar'
+import { deleteEvent } from '@/app/actions/events'
+
+interface Event {
+  id: string
+  title: string
+  date: string | null
+  image_url: string | null
+  created_at: string
+  external_link: string | null
+  is_multiple_dates: boolean | null
+}
+
+export default function AdminDashboard() {
+  const [events, setEvents] = useState<Event[]>([])
+  const [loading, setLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchEvents()
+  }, [])
+
+  const fetchEvents = async () => {
+    setLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, title, date, image_url, created_at, external_link, is_multiple_dates')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setEvents(data || [])
+    } catch (error) {
+      console.error('Error fetching events:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = async (id: string, title: string) => {
+    const confirmed = window.confirm(`Are you sure you want to delete "${title}"?`)
+    
+    if (!confirmed) return
+
+    setDeletingId(id)
+    try {
+      await deleteEvent(id)
+      // Refresh the events list
+      await fetchEvents()
+    } catch (error: any) {
+      alert(`Failed to delete event: ${error.message}`)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Date TBD'
+    try {
+      const date = new Date(dateString)
+      return date.toLocaleString('en-US', {
+        timeZone: 'America/Toronto',
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+    } catch {
+      return dateString
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      <Navbar />
+      <main className="container mx-auto px-4 py-12 max-w-7xl">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-slate-900 mb-2">Admin Dashboard</h1>
+          <p className="text-slate-600">Manage your workshop events</p>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto mb-4" />
+            <p className="text-slate-600">Loading events...</p>
+          </div>
+        ) : events.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-12">
+                <p className="text-slate-600 mb-4">No events found.</p>
+                <Link href="/admin/add">
+                  <Button className="bg-moss hover:bg-moss-dark text-white">
+                    Add Your First Event
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>All Events ({events.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Image</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Title</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Date</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {events.map((event) => (
+                      <tr key={event.id} className="border-b border-gray-100 hover:bg-slate-50/50">
+                        <td className="py-4 px-4">
+                          <div className="w-16 h-16 rounded-md overflow-hidden bg-slate-100 flex items-center justify-center">
+                            {event.image_url ? (
+                              <Image
+                                src={event.image_url}
+                                alt={event.title}
+                                width={64}
+                                height={64}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <ImageIcon className="h-6 w-6 text-slate-400" />
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="max-w-xs">
+                            <p className="font-medium text-slate-900 truncate">{event.title}</p>
+                            {event.external_link && (
+                              <a
+                                href={event.external_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-moss hover:text-moss-dark inline-flex items-center gap-1 mt-1"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                View Link
+                              </a>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="text-sm text-slate-600">
+                            {event.is_multiple_dates ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded bg-moss/10 text-moss text-xs font-medium">
+                                Multiple Dates
+                              </span>
+                            ) : (
+                              formatDate(event.date)
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Published
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link href={`/admin/edit/${event.id}`}>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 border-moss text-moss hover:bg-moss/10"
+                              >
+                                <Edit className="h-4 w-4" />
+                                Edit
+                              </Button>
+                            </Link>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDelete(event.id, event.title)}
+                              disabled={deletingId === event.id}
+                              className="gap-2 border-red-300 text-red-600 hover:bg-red-50"
+                            >
+                              {deletingId === event.id ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Deleting...
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 className="h-4 w-4" />
+                                  Delete
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="mt-8">
+          <Link href="/admin/add">
+            <Button className="bg-moss hover:bg-moss-dark text-white">
+              Add New Event
+            </Button>
+          </Link>
+        </div>
+      </main>
+    </div>
+  )
+}
