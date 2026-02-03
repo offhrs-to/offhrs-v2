@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { randomUUID } from 'crypto'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
@@ -57,10 +56,11 @@ export async function POST(request: NextRequest) {
     const confirmUrl = `${APP_URL}/api/confirm-attendance?token=${confirmationToken}`
     const eventName = event_title || 'your workshop'
 
-    if (process.env.RESEND_API_KEY) {
+    if (process.env.RESEND_API_KEY && user.email) {
+      const resend = new Resend(process.env.RESEND_API_KEY)
       await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || 'Offhrs <onboarding@resend.dev>',
-        to: user.email!,
+        to: user.email,
         subject: `Confirm your workshop attendance`,
         html: `
           <p>You booked <strong>${eventName}</strong>.</p>
