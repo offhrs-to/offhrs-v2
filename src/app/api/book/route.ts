@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     const confirmationToken = randomUUID()
 
-    const { error: insertError } = await supabaseClient
+    const { error: insertError } = await supabase
       .from('bookings')
       .upsert(
         {
