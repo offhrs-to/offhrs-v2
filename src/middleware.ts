@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  // Supabase session refresh (must run first to keep tokens fresh)
+  const supabaseResponse = await updateSession(request)
+
   // Check if the path starts with /admin
   if (request.nextUrl.pathname.startsWith('/admin')) {
     // Get the Authorization header
@@ -61,11 +65,11 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Allow request to proceed
-  return NextResponse.next()
+  // Allow request to proceed (use supabaseResponse to preserve auth cookies)
+  return supabaseResponse
 }
 
-// Configure the matcher to only run on /admin paths
+// Run on all routes except static files (for Supabase session refresh and route protection)
 export const config = {
-  matcher: '/admin/:path*',
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }

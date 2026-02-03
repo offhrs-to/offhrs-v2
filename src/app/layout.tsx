@@ -2,7 +2,8 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import Navbar from '@/components/navbar'
-import Footer from '@/components/footer' // <--- 1. Import this
+import Footer from '@/components/footer'
+import { AuthProviderWrapper } from '@/components/auth-provider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -18,10 +19,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} min-h-screen flex flex-col`}> {/* Added flex flex-col */}
-        <Navbar />
-        <main className="flex-grow">{children}</main> {/* Added flex-grow */}
-        <Footer /> {/* <--- 2. Add this line at the bottom! */}
+      <body className={`${inter.className} min-h-screen flex flex-col`}>
+        <AuthProviderWrapper>
+          <Navbar />
+          <main className="flex-grow">{children}</main>
+          <Footer />
+        </AuthProviderWrapper>
       </body>
     </html>
   )

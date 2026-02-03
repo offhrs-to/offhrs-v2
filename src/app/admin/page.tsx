@@ -28,6 +28,7 @@ export default function AdminPage() {
     description: '',
     date: '',
     location: '',
+    organizer: '',
     category: 'Beauty & Fragrance',
     image_url: '',
     external_link: '',
@@ -88,6 +89,7 @@ export default function AdminPage() {
         image_url: data.image_url || prev.image_url,
         external_link: data.external_link || magicLink, // Use fetched link or input
         location: data.location || prev.location,
+        organizer: data.organizer || prev.organizer,
         price: data.price ? String(data.price) : prev.price,
         // Try to format date if it exists, otherwise leave blank
         date: data.date ? data.date.slice(0, 16) : prev.date
@@ -119,6 +121,7 @@ export default function AdminPage() {
       description: event.description || '',
       date: event.date ? event.date.slice(0, 16) : '',
       location: event.location || '',
+      organizer: event.organizer || '',
       category: event.category || 'Other',
       image_url: event.image_url || '',
       external_link: event.external_link || '',
@@ -149,6 +152,7 @@ export default function AdminPage() {
         description: formData.description,
         date: formData.date || null,
         location: formData.location,
+        organizer: formData.organizer?.trim() || null,
         category: formData.category,
         image_url: formData.image_url,
         external_link: formData.external_link,
@@ -170,7 +174,7 @@ export default function AdminPage() {
       if (error) throw error
 
       setFormData({
-        title: '', description: '', date: '', location: '',
+        title: '', description: '', date: '', location: '', organizer: '',
         category: 'Beauty & Fragrance', image_url: '', external_link: '',
         price: '', is_multiple_dates: false
       })
@@ -329,6 +333,18 @@ export default function AdminPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700">Location</label>
                 <input type="text" name="location" value={formData.location} onChange={handleChange} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Vendor / Organizer</label>
+                <input
+                  type="text"
+                  name="organizer"
+                  value={formData.organizer}
+                  onChange={handleChange}
+                  placeholder="Enter vendor or organizer name (e.g. studio or host name)"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
               </div>
 
               <div>

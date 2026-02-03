@@ -527,15 +527,15 @@ export default function AdminEditPage() {
                 <input type="hidden" name="lng" value={formData.lng} />
               </div>
 
-              {/* Organizer */}
+              {/* Vendor / Organizer */}
               <div className="space-y-2">
-                <Label htmlFor="organizer">Organizer</Label>
+                <Label htmlFor="organizer">Vendor / Organizer</Label>
                 <Input
                   id="organizer"
                   name="organizer"
                   value={formData.organizer}
                   onChange={handleChange}
-                  placeholder="Event organizer or host"
+                  placeholder="Enter vendor or organizer name (e.g. studio or host name)"
                   disabled={loading}
                 />
               </div>

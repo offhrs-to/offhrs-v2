@@ -1,7 +1,11 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Calendar, MapPin, ExternalLink, DollarSign } from 'lucide-react' // Added DollarSign icon
+import Link from 'next/link'
+import { Calendar, MapPin, ExternalLink, DollarSign, Heart } from 'lucide-react'
+import { useAuth } from '@/contexts/auth-context'
+import { createClient } from '@/lib/supabase/browser'
 
 interface Event {
   id: number | string
@@ -13,10 +17,51 @@ interface Event {
   category: string
   is_multiple_dates?: boolean | null
   external_link?: string
-  price?: number | string | null // Ensure price is included here
+  price?: number | string | null
+  vendor_id?: string | null
 }
 
 export default function EventCard({ event }: { event: Event }) {
+  const { user } = useAuth()
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!user?.id || !event.vendor_id) return
+
+    const supabase = createClient()
+    supabase
+      .from('user_vendor_saves')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('vendor_id', event.vendor_id)
+      .maybeSingle()
+      .then(({ data }) => setSaved(!!data))
+  }, [user?.id, event.vendor_id])
+
+  const handleSave = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user || !event.vendor_id || saving) return
+
+    setSaving(true)
+    const supabase = createClient()
+
+    if (saved) {
+      await supabase
+        .from('user_vendor_saves')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('vendor_id', event.vendor_id)
+      setSaved(false)
+    } else {
+      await supabase
+        .from('user_vendor_saves')
+        .insert({ user_id: user.id, vendor_id: event.vendor_id })
+      setSaved(true)
+    }
+    setSaving(false)
+  }
   
   const handleBookClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -41,7 +86,19 @@ export default function EventCard({ event }: { event: Event }) {
       })
     }
 
-    // 3. Open Link
+    // Create booking & send confirmation email if logged in
+    if (user?.id) {
+      fetch('/api/book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id: event.id,
+          event_title: event.title,
+        }),
+      }).catch(() => {})
+    }
+
+    // Open external link
     if (event.external_link) {
       setTimeout(() => {
         window.open(event.external_link, '_blank')
@@ -78,8 +135,21 @@ export default function EventCard({ event }: { event: Event }) {
             No Image
           </div>
         )}
-        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold text-gray-700 shadow-sm">
-          {event.category}
+        <div className="absolute top-3 left-3 flex items-center gap-2">
+          <span className="bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold text-gray-700 shadow-sm">
+            {event.category}
+          </span>
+          {user && event.vendor_id && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className={`p-1.5 rounded-full bg-white/90 backdrop-blur-sm shadow-sm ${
+                saved ? 'text-red-500' : 'text-gray-400 hover:text-red-400'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${saved ? 'fill-current' : ''}`} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -116,11 +186,19 @@ export default function EventCard({ event }: { event: Event }) {
         </div>
 
         <div className="mt-auto pt-4 border-t border-gray-50">
+          {event.vendor_id && (
+            <Link
+              href={`/vendors/${event.vendor_id}`}
+              className="text-xs text-[#5D755D] hover:underline mb-2 block"
+            >
+              View vendor
+            </Link>
+          )}
           <button
             onClick={handleBookClick}
             className="w-full bg-black hover:bg-gray-800 text-white font-medium py-2.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
           >
-            Visit Website
+            Book
             <ExternalLink className="w-4 h-4" />
           </button>
         </div>

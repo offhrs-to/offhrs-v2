@@ -15,7 +15,6 @@ export async function deleteEvent(id: string) {
     }
 
     // Revalidate paths to refresh cached data
-    revalidatePath('/workshops')
     revalidatePath('/')
     revalidatePath('/admin/dashboard')
 
@@ -112,7 +111,6 @@ export async function updateEvent(id: string, data: {
     }
 
     // Revalidate paths to refresh cached data
-    revalidatePath('/workshops')
     revalidatePath('/')
     revalidatePath('/admin/dashboard')
 
