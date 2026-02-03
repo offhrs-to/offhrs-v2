@@ -31,8 +31,8 @@ interface Review {
   id: string
   rating: number
   comment: string | null
+  author_name: string | null
   created_at: string
-  profiles: { display_name: string | null } | null
 }
 
 export default function VendorProfilePage() {
@@ -67,7 +67,7 @@ export default function VendorProfilePage() {
     ]).then(([vendorRes, eventsRes, reviewsRes]) => {
       setVendor(vendorRes.data ?? null)
       setEvents(eventsRes.data ?? [])
-      const revs = (reviewsRes.data ?? []) as Review[]
+      const revs: Review[] = (reviewsRes.data ?? [])
       setReviews(revs)
       if (revs.length > 0) {
         const avg = revs.reduce((s, r) => s + r.rating, 0) / revs.length
