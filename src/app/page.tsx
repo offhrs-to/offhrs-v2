@@ -76,7 +76,7 @@ function smoothstep(t: number) {
 
 /** Returns opacity 0-1 for layer i based on scroll Y. Crossfade happens over a short scroll range with smooth easing to reduce overlap. */
 const CROSSFADE_FRACTION = 0.42 // transition in last 42% of viewport scroll (smooth, slightly slower)
-const SCALE_MIN = 0.94 // scale when layer is fading in/out (1 = full size when fully visible)
+const SCALE_MIN = 0.88 // min scale when fading; current page shrinks to this, next page zooms from this to 1
 
 function useLayerOpacity(scrollY: ReturnType<typeof useScroll>['scrollY'], index: number) {
   return useTransform(scrollY, (y) => {
