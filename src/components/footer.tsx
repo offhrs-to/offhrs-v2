@@ -12,7 +12,7 @@ export default function Footer() {
         <div className="text-xs text-gray-400 mt-4 flex items-center gap-4">
           <p>© {new Date().getFullYear()} Offhrs. All rights reserved.</p>
           <span className="text-gray-300">|</span>
-          <Link href="/admin" className="hover:text-gray-600 transition-colors">
+          <Link href="/admin" prefetch={false} className="hover:text-gray-600 transition-colors">
             Admin
           </Link>
         </div>
