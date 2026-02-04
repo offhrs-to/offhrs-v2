@@ -187,13 +187,13 @@ function Section1Hero() {
       initial={{ opacity: 0, y: 48 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: easeOut }}
-      className="flex flex-col items-center"
+      className="flex flex-col items-center justify-center w-full"
     >
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1, ease: easeOut }}
-        className="mb-0"
+        className="mb-0 flex justify-center"
       >
         <Image
           src="/logo.png"
@@ -208,7 +208,7 @@ function Section1Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.9, delay: 0.35, ease: easeOut }}
-        className="text-[2.7rem] md:text-[3.6rem] font-bold text-neutral-600 text-center mb-12 max-w-3xl -mt-12 whitespace-nowrap"
+        className="text-[2.7rem] md:text-[3.6rem] font-bold text-neutral-600 text-center mb-12 max-w-3xl -mt-12 whitespace-nowrap w-full"
       >
         Make your free time flourish
       </motion.p>
@@ -216,7 +216,7 @@ function Section1Hero() {
         initial={{ opacity: 0, y: 34 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.4, ease: easeOut }}
-        className="flex flex-col sm:flex-row gap-4"
+        className="flex flex-col sm:flex-row gap-4 items-center justify-center w-full"
       >
         <Link
           href={APP_STORE_URL}
