@@ -208,7 +208,7 @@ function Section1Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.9, delay: 0.35, ease: easeOut }}
-        className="text-[2.7rem] md:text-[3.6rem] text-neutral-600 text-center mb-12 max-w-3xl"
+        className="text-[2.7rem] md:text-[3.6rem] font-bold text-neutral-600 text-center mb-12 max-w-3xl -mt-6"
       >
         Make your free time flourish
       </motion.p>
@@ -289,7 +289,7 @@ function Section5Categories() {
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-[2.7rem] md:text-[3.6rem] text-neutral-600 text-center mb-14 max-w-6xl leading-tight"
+        className="text-[2.7rem] md:text-[3.6rem] font-bold text-neutral-600 text-center mb-14 max-w-6xl leading-tight"
       >
         From pottery, coffee, culinary, beauty, wellness, floral, and more.
       </motion.p>
@@ -341,7 +341,7 @@ function Section6Mastery() {
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-[2.7rem] md:text-[3.6rem] text-neutral-600 text-center mb-14 max-w-6xl leading-tight"
+        className="text-[2.7rem] md:text-[3.6rem] font-bold text-neutral-600 text-center mb-14 max-w-6xl leading-tight"
       >
         Level up your skills from Novice to Master, step-by-step.
       </motion.p>
@@ -381,7 +381,7 @@ function Section7Join() {
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-[3.6rem] md:text-[4.5rem] text-neutral-600 text-center mb-5"
+        className="text-[3.6rem] md:text-[4.5rem] font-bold text-neutral-600 text-center mb-5"
       >
         Why wait?
       </motion.p>
