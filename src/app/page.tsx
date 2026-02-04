@@ -208,7 +208,7 @@ function Section1Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.9, delay: 0.35, ease: easeOut }}
-        className="text-[2.7rem] md:text-[3.6rem] font-bold text-neutral-600 text-center mb-12 max-w-3xl -mt-6"
+        className="text-[2.7rem] md:text-[3.6rem] font-bold text-neutral-600 text-center mb-12 max-w-3xl -mt-12 whitespace-nowrap"
       >
         Make your free time flourish
       </motion.p>
