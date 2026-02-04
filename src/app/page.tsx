@@ -74,19 +74,26 @@ export default function Home() {
           transition={{ duration: 0.8, ease: easeOut }}
           className="flex flex-col items-center"
         >
-          <Image
-            src="/logo.png"
-            alt="Offhrs"
-            width={200}
-            height={60}
-            className="object-contain mb-6"
-            priority
-          />
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, ease: easeOut }}
+            className="mb-6"
+          >
+            <Image
+              src="/logo.png"
+              alt="Offhrs"
+              width={400}
+              height={120}
+              className="object-contain"
+              priority
+            />
+          </motion.div>
           <motion.p
-            initial={{ opacity: 0, y: 28 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2, ease: easeOut }}
-            className="text-xl md:text-2xl text-slate-600 text-center mb-10 max-w-md"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.9, delay: 0.35, ease: easeOut }}
+            className="text-4xl md:text-5xl text-slate-600 text-center mb-10 max-w-2xl"
           >
             Make your free time flourish
           </motion.p>
@@ -98,13 +105,13 @@ export default function Home() {
           >
             <Link
               href={APP_STORE_URL}
-              className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-sm font-medium hover:bg-slate-800 transition-colors"
+              className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-8 py-4 text-2xl font-medium hover:bg-slate-800 transition-colors"
             >
               App Store
             </Link>
             <Link
               href={PLAY_STORE_URL}
-              className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-sm font-medium hover:bg-slate-800 transition-colors"
+              className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-8 py-4 text-2xl font-medium hover:bg-slate-800 transition-colors"
             >
               Google Play
             </Link>
@@ -116,7 +123,7 @@ export default function Home() {
       <section className="min-h-[80vh] flex items-center justify-center px-4 py-20">
         <AnimatedHeadline
           text="Discover, book, and master your next passion project."
-          className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 text-center max-w-4xl leading-tight"
+          className="text-6xl md:text-7xl lg:text-8xl font-bold text-slate-900 text-center max-w-5xl leading-tight"
         />
       </section>
 
@@ -124,7 +131,7 @@ export default function Home() {
       <section className="min-h-[80vh] flex items-center justify-center px-4 py-20 bg-slate-50">
         <AnimatedHeadline
           text="Don't just spend your time off - create with it"
-          className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 text-center max-w-4xl leading-tight"
+          className="text-6xl md:text-7xl lg:text-8xl font-bold text-slate-900 text-center max-w-5xl leading-tight"
         />
       </section>
 
@@ -137,7 +144,7 @@ export default function Home() {
         transition={transition}
         className="min-h-[80vh] flex items-center justify-center px-4 py-20"
       >
-        <p className="text-2xl md:text-3xl lg:text-4xl text-slate-700 text-center max-w-4xl leading-snug">
+        <p className="text-5xl md:text-6xl lg:text-7xl text-slate-700 text-center max-w-5xl leading-snug">
           Offhrs is your companion for productive leisure, from novice to master in the skills you&apos;ve always wanted to learn
         </p>
       </motion.section>
@@ -161,14 +168,14 @@ export default function Home() {
         <motion.h2
           variants={fadeInUp}
           transition={transition}
-          className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-4"
+          className="text-6xl md:text-7xl font-bold text-slate-900 text-center mb-6"
         >
           Master your skills.
         </motion.h2>
         <motion.p
           variants={fadeInUp}
           transition={transition}
-          className="text-lg text-slate-600 text-center mb-12 max-w-2xl"
+          className="text-4xl text-slate-600 text-center mb-12 max-w-4xl"
         >
           From pottery, coffee, culinary, beauty, wellness, floral, and more.
         </motion.p>
@@ -180,10 +187,10 @@ export default function Home() {
               transition={transition}
               className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm flex flex-col"
             >
-              <div className="aspect-square bg-slate-200 flex items-center justify-center text-slate-500 text-xs p-2 text-center">
+              <div className="aspect-square bg-slate-200 flex items-center justify-center text-slate-500 text-2xl p-4 text-center">
                 {name}
               </div>
-              <p className="p-3 text-sm font-medium text-slate-900 text-center">
+              <p className="p-4 text-2xl font-medium text-slate-900 text-center">
                 {name}
               </p>
             </motion.div>
@@ -210,14 +217,14 @@ export default function Home() {
         <motion.h2
           variants={fadeInUp}
           transition={transition}
-          className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-4"
+          className="text-6xl md:text-7xl font-bold text-slate-900 text-center mb-6"
         >
           Track Your Mastery
         </motion.h2>
         <motion.p
           variants={fadeInUp}
           transition={transition}
-          className="text-lg text-slate-600 text-center mb-12 max-w-2xl"
+          className="text-4xl text-slate-600 text-center mb-12 max-w-4xl"
         >
           Level up your skills from Novice to Master, step-by-step.
         </motion.p>
@@ -227,7 +234,7 @@ export default function Home() {
               key={n}
               variants={fadeInUpScale}
               transition={transition}
-              className="aspect-[3/4] rounded-xl bg-slate-200 flex items-center justify-center text-slate-500 text-sm border border-slate-200"
+              className="aspect-[3/4] rounded-xl bg-slate-200 flex items-center justify-center text-slate-500 text-2xl border border-slate-200"
             >
               Image {n}
             </motion.div>
@@ -254,7 +261,7 @@ export default function Home() {
         <motion.h2
           variants={fadeInUp}
           transition={transition}
-          className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-10"
+          className="text-6xl md:text-7xl font-bold text-slate-900 text-center mb-10"
         >
           Join the Fun.
         </motion.h2>
@@ -265,13 +272,13 @@ export default function Home() {
         >
           <Link
             href={APP_STORE_URL}
-            className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-sm font-medium hover:bg-slate-800 transition-colors"
+            className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-8 py-4 text-2xl font-medium hover:bg-slate-800 transition-colors"
           >
             App Store
           </Link>
           <Link
             href={PLAY_STORE_URL}
-            className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-sm font-medium hover:bg-slate-800 transition-colors"
+            className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-8 py-4 text-2xl font-medium hover:bg-slate-800 transition-colors"
           >
             Google Play
           </Link>
