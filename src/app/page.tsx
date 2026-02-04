@@ -59,7 +59,7 @@ function AnimatedHeadline({
           key={`${word}-${i}`}
           variants={fadeInUp}
           transition={transition}
-          className={`inline-block mr-[0.25em] ${greySet?.has(i) ? 'text-slate-500' : ''}`}
+          className={`inline-block mr-[0.25em] ${greySet?.has(i) ? 'text-neutral-600' : ''}`}
         >
           {word}
         </motion.span>
@@ -156,11 +156,11 @@ export default function Home() {
       {[
         { bg: 'bg-white', content: <Section1Hero /> },
         { bg: 'bg-white', content: <Section2Headline /> },
-        { bg: 'bg-slate-50', content: <Section3Headline /> },
+        { bg: 'bg-neutral-50', content: <Section3Headline /> },
         { bg: 'bg-white', content: <Section4Tagline /> },
-        { bg: 'bg-slate-50', content: <Section5Categories /> },
+        { bg: 'bg-neutral-50', content: <Section5Categories /> },
         { bg: 'bg-white', content: <Section6Mastery /> },
-        { bg: 'bg-slate-50', content: <Section7WithFooter /> },
+        { bg: 'bg-neutral-50', content: <Section7WithFooter /> },
       ].map((section, i) => (
         <motion.div
           key={i}
@@ -208,7 +208,7 @@ function Section1Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.9, delay: 0.35, ease: easeOut }}
-        className="text-4xl md:text-5xl text-slate-600 text-center mb-10 max-w-2xl"
+        className="text-4xl md:text-5xl text-neutral-600 text-center mb-10 max-w-2xl"
       >
         Make your free time flourish
       </motion.p>
@@ -220,13 +220,13 @@ function Section1Hero() {
       >
         <Link
           href={APP_STORE_URL}
-          className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-lg font-medium hover:bg-slate-800 transition-colors"
+          className="inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white px-6 py-3 text-lg font-medium hover:bg-neutral-800 transition-colors"
         >
           App Store
         </Link>
         <Link
           href={PLAY_STORE_URL}
-          className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-lg font-medium hover:bg-slate-800 transition-colors"
+          className="inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white px-6 py-3 text-lg font-medium hover:bg-neutral-800 transition-colors"
         >
           Google Play
         </Link>
@@ -237,9 +237,9 @@ function Section1Hero() {
 
 function Section2Headline() {
   return (
-    <p className="text-6xl md:text-7xl lg:text-8xl font-bold text-slate-900 text-center max-w-5xl leading-tight">
+    <p className="text-6xl md:text-7xl lg:text-8xl font-bold text-neutral-900 text-center max-w-5xl leading-tight">
       Discover, book, and master{' '}
-      <span className="text-slate-500">your next passion project.</span>
+      <span className="text-neutral-600">your next passion project.</span>
     </p>
   )
 }
@@ -248,7 +248,7 @@ function Section3Headline() {
   return (
     <AnimatedHeadline
       text="Don't just spend your time off - create with it"
-      className="text-6xl md:text-7xl lg:text-8xl font-bold text-slate-900 text-center max-w-5xl leading-tight"
+      className="text-6xl md:text-7xl lg:text-8xl font-bold text-neutral-900 text-center max-w-5xl leading-tight"
       greyWordIndices={[0, 1, 2, 3, 8, 9]}
     />
   )
@@ -256,8 +256,8 @@ function Section3Headline() {
 
 function Section4Tagline() {
   return (
-    <p className="text-6xl md:text-7xl lg:text-8xl font-bold text-slate-900 text-center max-w-5xl leading-tight">
-      Offhrs <span className="text-slate-500">is your</span> companion <span className="text-slate-500">for productive leisure, from</span> novice to master <span className="text-slate-500">in the skills you&apos;ve always wanted to learn</span>
+    <p className="text-6xl md:text-7xl lg:text-8xl font-bold text-neutral-900 text-center max-w-5xl leading-tight">
+      Offhrs <span className="text-neutral-600">is your</span> companion <span className="text-neutral-600">for productive leisure, from</span> novice to master <span className="text-neutral-600">in the skills you&apos;ve always wanted to learn</span>
     </p>
   )
 }
@@ -282,14 +282,14 @@ function Section5Categories() {
       <motion.h2
         variants={fadeInUp}
         transition={transition}
-        className="text-6xl md:text-7xl font-bold text-slate-900 text-center mb-6"
+        className="text-6xl md:text-7xl font-bold text-neutral-900 text-center mb-6"
       >
         Master your skills.
       </motion.h2>
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-4xl text-slate-600 text-center mb-12 max-w-4xl"
+        className="text-4xl text-neutral-600 text-center mb-12 max-w-4xl"
       >
         From pottery, coffee, culinary, beauty, wellness, floral, and more.
       </motion.p>
@@ -299,12 +299,12 @@ function Section5Categories() {
             key={name}
             variants={fadeInUpScale}
             transition={transition}
-            className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm flex flex-col"
+            className="rounded-xl overflow-hidden border border-neutral-200 bg-white shadow-sm flex flex-col"
           >
-            <div className="aspect-square bg-slate-200 flex items-center justify-center text-slate-500 text-2xl p-4 text-center">
+            <div className="aspect-square bg-neutral-200 flex items-center justify-center text-neutral-600 text-2xl p-4 text-center">
               {name}
             </div>
-            <p className="p-4 text-2xl font-medium text-slate-900 text-center">
+            <p className="p-4 text-2xl font-medium text-neutral-900 text-center">
               {name}
             </p>
           </motion.div>
@@ -334,14 +334,14 @@ function Section6Mastery() {
       <motion.h2
         variants={fadeInUp}
         transition={transition}
-        className="text-6xl md:text-7xl font-bold text-slate-900 text-center mb-6"
+        className="text-6xl md:text-7xl font-bold text-neutral-900 text-center mb-6"
       >
         Track Your Mastery
       </motion.h2>
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-4xl text-slate-600 text-center mb-12 max-w-4xl"
+        className="text-4xl text-neutral-600 text-center mb-12 max-w-4xl"
       >
         Level up your skills from Novice to Master, step-by-step.
       </motion.p>
@@ -351,7 +351,7 @@ function Section6Mastery() {
             key={n}
             variants={fadeInUpScale}
             transition={transition}
-            className="aspect-[3/4] rounded-xl bg-slate-200 flex items-center justify-center text-slate-500 text-2xl border border-slate-200"
+            className="aspect-[3/4] rounded-xl bg-neutral-200 flex items-center justify-center text-neutral-600 text-2xl border border-neutral-200"
           >
             Image {n}
           </motion.div>
@@ -381,14 +381,14 @@ function Section7Join() {
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-5xl md:text-6xl text-slate-500 text-center mb-4"
+        className="text-5xl md:text-6xl text-neutral-600 text-center mb-4"
       >
         Why wait?
       </motion.p>
       <motion.h2
         variants={fadeInUp}
         transition={transition}
-        className="text-7xl md:text-8xl font-bold text-slate-900 text-center mb-10"
+        className="text-7xl md:text-8xl font-bold text-neutral-900 text-center mb-10"
       >
         Join the Fun.
       </motion.h2>
@@ -399,13 +399,13 @@ function Section7Join() {
       >
         <Link
           href={APP_STORE_URL}
-          className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-lg font-medium hover:bg-slate-800 transition-colors"
+          className="inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white px-6 py-3 text-lg font-medium hover:bg-neutral-800 transition-colors"
         >
           App Store
         </Link>
         <Link
           href={PLAY_STORE_URL}
-          className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-lg font-medium hover:bg-slate-800 transition-colors"
+          className="inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white px-6 py-3 text-lg font-medium hover:bg-neutral-800 transition-colors"
         >
           Google Play
         </Link>
@@ -427,10 +427,10 @@ function Section7WithFooter() {
 
 function LandingFooter() {
   return (
-    <footer className="w-full border-t border-slate-200 bg-slate-50 py-4 px-4 shrink-0">
-      <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 text-sm text-slate-500">
+    <footer className="w-full border-t border-neutral-200 bg-neutral-50 py-4 px-4 shrink-0">
+      <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 text-sm text-neutral-600">
         <p>© {new Date().getFullYear()} Offhrs. All rights reserved.</p>
-        <Link href="/admin" prefetch={false} className="hover:text-slate-700 transition-colors font-medium">
+        <Link href="/admin" prefetch={false} className="hover:text-neutral-700 transition-colors font-medium">
           Admin
         </Link>
       </div>
