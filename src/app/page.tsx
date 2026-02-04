@@ -14,12 +14,12 @@ const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL || '#'
 const easeOut = [0.16, 1, 0.3, 1] as const
 
 const fadeInUp = {
-  initial: { opacity: 0, y: 56 },
+  initial: { opacity: 0, y: 68 },
   animate: { opacity: 1, y: 0 },
 }
 
 const fadeInUpScale = {
-  initial: { opacity: 0, y: 48, scale: 0.98 },
+  initial: { opacity: 0, y: 58, scale: 0.98 },
   animate: { opacity: 1, y: 0, scale: 1 },
 }
 
@@ -59,7 +59,7 @@ function AnimatedHeadline({
           key={`${word}-${i}`}
           variants={fadeInUp}
           transition={transition}
-          className={`inline-block mr-[0.25em] ${greySet?.has(i) ? 'text-neutral-600' : ''}`}
+          className={`inline-block mr-[0.3em] ${greySet?.has(i) ? 'text-neutral-600' : ''}`}
         >
           {word}
         </motion.span>
@@ -172,7 +172,7 @@ export default function Home() {
           }}
           initial={false}
         >
-          <div className={`flex flex-col w-full max-w-5xl mx-auto ${i === 6 ? 'flex-1 min-h-0' : ''} ${i !== 6 ? 'items-center justify-center' : ''}`}>
+          <div className={`flex flex-col w-full max-w-6xl mx-auto ${i === 6 ? 'flex-1 min-h-0' : ''} ${i !== 6 ? 'items-center justify-center' : ''}`}>
             {section.content}
           </div>
         </motion.div>
@@ -184,7 +184,7 @@ export default function Home() {
 function Section1Hero() {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 40 }}
+      initial={{ opacity: 0, y: 48 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: easeOut }}
       className="flex flex-col items-center"
@@ -198,8 +198,8 @@ function Section1Hero() {
         <Image
           src="/logo.png"
           alt="Offhrs"
-          width={800}
-          height={240}
+          width={960}
+          height={288}
           className="object-contain"
           priority
         />
@@ -208,25 +208,25 @@ function Section1Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.9, delay: 0.35, ease: easeOut }}
-        className="text-[2.25rem] md:text-[3rem] text-neutral-600 text-center mb-10 max-w-2xl"
+        className="text-[2.7rem] md:text-[3.6rem] text-neutral-600 text-center mb-12 max-w-3xl"
       >
         Make your free time flourish
       </motion.p>
       <motion.div
-        initial={{ opacity: 0, y: 28 }}
+        initial={{ opacity: 0, y: 34 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.4, ease: easeOut }}
-        className="flex flex-col sm:flex-row gap-3"
+        className="flex flex-col sm:flex-row gap-4"
       >
         <Link
           href={APP_STORE_URL}
-          className="inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white px-6 py-3 text-lg font-medium hover:bg-neutral-800 transition-colors"
+          className="inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white px-8 py-4 text-[1.35rem] font-medium hover:bg-neutral-800 transition-colors"
         >
           App Store
         </Link>
         <Link
           href={PLAY_STORE_URL}
-          className="inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white px-6 py-3 text-lg font-medium hover:bg-neutral-800 transition-colors"
+          className="inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white px-8 py-4 text-[1.35rem] font-medium hover:bg-neutral-800 transition-colors"
         >
           Google Play
         </Link>
@@ -237,7 +237,7 @@ function Section1Hero() {
 
 function Section2Headline() {
   return (
-    <p className="text-[3.75rem] md:text-[4.5rem] lg:text-[6rem] font-bold text-neutral-900 text-center max-w-5xl leading-tight">
+    <p className="text-[4.5rem] md:text-[5.4rem] lg:text-[7.2rem] font-bold text-neutral-900 text-center max-w-6xl leading-tight">
       Discover, book, and master{' '}
       <span className="text-neutral-600">your next passion project.</span>
     </p>
@@ -248,7 +248,7 @@ function Section3Headline() {
   return (
     <AnimatedHeadline
       text="Don't just spend your time off - create with it"
-      className="text-[3.75rem] md:text-[4.5rem] lg:text-[6rem] font-bold text-neutral-900 text-center max-w-5xl leading-tight"
+      className="text-[4.5rem] md:text-[5.4rem] lg:text-[7.2rem] font-bold text-neutral-900 text-center max-w-6xl leading-tight"
       greyWordIndices={[0, 1, 2, 3, 8, 9]}
     />
   )
@@ -256,7 +256,7 @@ function Section3Headline() {
 
 function Section4Tagline() {
   return (
-    <p className="text-[3.75rem] md:text-[4.5rem] lg:text-[6rem] font-bold text-neutral-900 text-center max-w-5xl leading-tight">
+    <p className="text-[4.5rem] md:text-[5.4rem] lg:text-[7.2rem] font-bold text-neutral-900 text-center max-w-6xl leading-tight">
       Offhrs <span className="text-neutral-600">is your</span> companion <span className="text-neutral-600">for productive leisure, from</span> novice to master <span className="text-neutral-600">in the skills you&apos;ve always wanted to learn</span>
     </p>
   )
@@ -282,18 +282,18 @@ function Section5Categories() {
       <motion.h2
         variants={fadeInUp}
         transition={transition}
-        className="text-[3.75rem] md:text-[4.5rem] lg:text-[6rem] font-bold text-neutral-900 text-center max-w-5xl leading-tight mb-6"
+        className="text-[4.5rem] md:text-[5.4rem] lg:text-[7.2rem] font-bold text-neutral-900 text-center max-w-6xl leading-tight mb-8"
       >
         Master your skills.
       </motion.h2>
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-[2.25rem] md:text-[3rem] text-neutral-600 text-center mb-12 max-w-5xl leading-tight"
+        className="text-[2.7rem] md:text-[3.6rem] text-neutral-600 text-center mb-14 max-w-6xl leading-tight"
       >
         From pottery, coffee, culinary, beauty, wellness, floral, and more.
       </motion.p>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-5 w-full max-w-5xl">
         {LANDING_CATEGORIES.map((name) => (
           <motion.div
             key={name}
@@ -301,10 +301,10 @@ function Section5Categories() {
             transition={transition}
             className="rounded-xl overflow-hidden border border-neutral-200 bg-white shadow-sm flex flex-col"
           >
-            <div className="aspect-square bg-neutral-200 flex items-center justify-center text-neutral-600 text-2xl p-4 text-center">
+            <div className="aspect-square bg-neutral-200 flex items-center justify-center text-neutral-600 text-[1.8rem] p-5 text-center">
               {name}
             </div>
-            <p className="p-4 text-2xl font-medium text-neutral-900 text-center">
+            <p className="p-5 text-[1.8rem] font-medium text-neutral-900 text-center">
               {name}
             </p>
           </motion.div>
@@ -334,24 +334,24 @@ function Section6Mastery() {
       <motion.h2
         variants={fadeInUp}
         transition={transition}
-        className="text-[3.75rem] md:text-[4.5rem] lg:text-[6rem] font-bold text-neutral-900 text-center max-w-5xl leading-tight mb-6"
+        className="text-[4.5rem] md:text-[5.4rem] lg:text-[7.2rem] font-bold text-neutral-900 text-center max-w-6xl leading-tight mb-8"
       >
         Track Your Mastery
       </motion.h2>
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-[2.25rem] md:text-[3rem] text-neutral-600 text-center mb-12 max-w-5xl leading-tight"
+        className="text-[2.7rem] md:text-[3.6rem] text-neutral-600 text-center mb-14 max-w-6xl leading-tight"
       >
         Level up your skills from Novice to Master, step-by-step.
       </motion.p>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 w-full max-w-4xl">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-5 w-full max-w-5xl">
         {[1, 2, 3, 4, 5].map((n) => (
           <motion.div
             key={n}
             variants={fadeInUpScale}
             transition={transition}
-            className="aspect-[3/4] rounded-xl bg-neutral-200 flex items-center justify-center text-neutral-600 text-2xl border border-neutral-200"
+            className="aspect-[3/4] rounded-xl bg-neutral-200 flex items-center justify-center text-neutral-600 text-[1.8rem] border border-neutral-200"
           >
             Image {n}
           </motion.div>
@@ -381,31 +381,31 @@ function Section7Join() {
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-[3rem] md:text-[3.75rem] text-neutral-600 text-center mb-4"
+        className="text-[3.6rem] md:text-[4.5rem] text-neutral-600 text-center mb-5"
       >
         Why wait?
       </motion.p>
       <motion.h2
         variants={fadeInUp}
         transition={transition}
-        className="text-[4.5rem] md:text-[6rem] font-bold text-neutral-900 text-center mb-10"
+        className="text-[5.4rem] md:text-[7.2rem] font-bold text-neutral-900 text-center mb-12"
       >
         Join the Fun.
       </motion.h2>
       <motion.div
         variants={fadeInUp}
         transition={transition}
-        className="flex flex-col sm:flex-row gap-3"
+        className="flex flex-col sm:flex-row gap-4"
       >
         <Link
           href={APP_STORE_URL}
-          className="inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white px-6 py-3 text-lg font-medium hover:bg-neutral-800 transition-colors"
+          className="inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white px-8 py-4 text-[1.35rem] font-medium hover:bg-neutral-800 transition-colors"
         >
           App Store
         </Link>
         <Link
           href={PLAY_STORE_URL}
-          className="inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white px-6 py-3 text-lg font-medium hover:bg-neutral-800 transition-colors"
+          className="inline-flex items-center justify-center rounded-lg bg-neutral-900 text-white px-8 py-4 text-[1.35rem] font-medium hover:bg-neutral-800 transition-colors"
         >
           Google Play
         </Link>
@@ -427,8 +427,8 @@ function Section7WithFooter() {
 
 function LandingFooter() {
   return (
-    <footer className="w-full border-t border-neutral-200 bg-neutral-50 py-4 px-4 shrink-0">
-      <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 text-sm text-neutral-600">
+    <footer className="w-full border-t border-neutral-200 bg-neutral-50 py-5 px-5 shrink-0">
+      <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-4 text-[1.05rem] text-neutral-600">
         <p>© {new Date().getFullYear()} Offhrs. All rights reserved.</p>
         <Link href="/admin" prefetch={false} className="hover:text-neutral-700 transition-colors font-medium">
           Admin
