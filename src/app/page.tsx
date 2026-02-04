@@ -6,7 +6,7 @@ import { motion, useScroll, useTransform } from 'framer-motion'
 import { CATEGORIES } from '@/constants/categories'
 
 const LANDING_CATEGORIES = CATEGORIES.filter((c) => c !== 'Other')
-const NUM_SECTIONS = 8
+const NUM_SECTIONS = 7
 
 const APP_STORE_URL = process.env.NEXT_PUBLIC_APP_STORE_URL || '#'
 const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL || '#'
@@ -75,7 +75,8 @@ function smoothstep(t: number) {
 }
 
 /** Returns opacity 0-1 for layer i based on scroll Y. Crossfade happens over a short scroll range with smooth easing to reduce overlap. */
-const CROSSFADE_FRACTION = 0.32 // transition in last 32% of viewport scroll (faster, less overlap)
+const CROSSFADE_FRACTION = 0.42 // transition in last 42% of viewport scroll (smooth, slightly slower)
+const SCALE_MIN = 0.94 // scale when layer is fading in/out (1 = full size when fully visible)
 
 function useLayerOpacity(scrollY: ReturnType<typeof useScroll>['scrollY'], index: number) {
   return useTransform(scrollY, (y) => {
@@ -92,6 +93,21 @@ function useLayerOpacity(scrollY: ReturnType<typeof useScroll>['scrollY'], index
   })
 }
 
+/** Returns scale for layer i, synced with crossfade: content scales up as it fades in, down as it fades out. */
+function useLayerScale(scrollY: ReturnType<typeof useScroll>['scrollY'], index: number) {
+  return useTransform(scrollY, (y) => {
+    const v = typeof window === 'undefined' ? 900 : window.innerHeight
+    const pageIndex = Math.min(Math.floor(y / v), NUM_SECTIONS - 1)
+    const rawProgress = v > 0 ? Math.min((y % v) / v, 1) : 0
+    const t = rawProgress <= 1 - CROSSFADE_FRACTION ? 0 : (rawProgress - (1 - CROSSFADE_FRACTION)) / CROSSFADE_FRACTION
+    const progress = smoothstep(t)
+    if (index < pageIndex) return SCALE_MIN
+    if (index === pageIndex) return SCALE_MIN + (1 - SCALE_MIN) * (1 - progress) // 1 -> SCALE_MIN as we scroll
+    if (index === pageIndex + 1) return SCALE_MIN + (1 - SCALE_MIN) * progress // SCALE_MIN -> 1 as we scroll
+    return SCALE_MIN
+  })
+}
+
 export default function Home() {
   const { scrollY } = useScroll()
   const opacity0 = useLayerOpacity(scrollY, 0)
@@ -101,9 +117,16 @@ export default function Home() {
   const opacity4 = useLayerOpacity(scrollY, 4)
   const opacity5 = useLayerOpacity(scrollY, 5)
   const opacity6 = useLayerOpacity(scrollY, 6)
-  const opacity7 = useLayerOpacity(scrollY, 7)
+  const scale0 = useLayerScale(scrollY, 0)
+  const scale1 = useLayerScale(scrollY, 1)
+  const scale2 = useLayerScale(scrollY, 2)
+  const scale3 = useLayerScale(scrollY, 3)
+  const scale4 = useLayerScale(scrollY, 4)
+  const scale5 = useLayerScale(scrollY, 5)
+  const scale6 = useLayerScale(scrollY, 6)
 
-  const opacities = [opacity0, opacity1, opacity2, opacity3, opacity4, opacity5, opacity6, opacity7]
+  const opacities = [opacity0, opacity1, opacity2, opacity3, opacity4, opacity5, opacity6]
+  const scales = [scale0, scale1, scale2, scale3, scale4, scale5, scale6]
   const pointerEvents0 = useTransform(opacity0, (o) => (o > 0.5 ? 'auto' : 'none'))
   const pointerEvents1 = useTransform(opacity1, (o) => (o > 0.5 ? 'auto' : 'none'))
   const pointerEvents2 = useTransform(opacity2, (o) => (o > 0.5 ? 'auto' : 'none'))
@@ -111,7 +134,6 @@ export default function Home() {
   const pointerEvents4 = useTransform(opacity4, (o) => (o > 0.5 ? 'auto' : 'none'))
   const pointerEvents5 = useTransform(opacity5, (o) => (o > 0.5 ? 'auto' : 'none'))
   const pointerEvents6 = useTransform(opacity6, (o) => (o > 0.5 ? 'auto' : 'none'))
-  const pointerEvents7 = useTransform(opacity7, (o) => (o > 0.5 ? 'auto' : 'none'))
   const pointerEvents = [
     pointerEvents0,
     pointerEvents1,
@@ -120,12 +142,11 @@ export default function Home() {
     pointerEvents4,
     pointerEvents5,
     pointerEvents6,
-    pointerEvents7,
   ]
 
   return (
     <div className="bg-white">
-      {/* Scrollable spacer: 8 viewport heights so scroll position drives "page" */}
+      {/* Scrollable spacer: 7 viewport heights so scroll position drives "page" */}
       <div
         className="overflow-x-hidden"
         style={{ height: `calc(100vh * ${NUM_SECTIONS})` }}
@@ -139,19 +160,19 @@ export default function Home() {
         { bg: 'bg-white', content: <Section4Tagline /> },
         { bg: 'bg-slate-50', content: <Section5Categories /> },
         { bg: 'bg-white', content: <Section6Mastery /> },
-        { bg: 'bg-slate-50', content: <Section7Join /> },
-        { bg: 'bg-slate-50', content: <LandingFooter /> },
+        { bg: 'bg-slate-50', content: <Section7WithFooter /> },
       ].map((section, i) => (
         <motion.div
           key={i}
-          className={`fixed inset-0 flex flex-col items-center ${i === 7 ? 'justify-end' : 'justify-center'} px-4 ${section.bg}`}
+          className={`fixed inset-0 flex flex-col items-center ${i === 6 ? 'justify-between' : 'justify-center'} px-4 ${section.bg}`}
           style={{
             opacity: opacities[i],
+            scale: scales[i],
             pointerEvents: pointerEvents[i],
           }}
           initial={false}
         >
-          <div className={`flex flex-col w-full max-w-6xl mx-auto ${i === 7 ? '' : 'items-center justify-center'}`}>
+          <div className={`flex flex-col w-full max-w-6xl mx-auto ${i === 6 ? 'flex-1 min-h-0' : ''} ${i !== 6 ? 'items-center justify-center' : ''}`}>
             {section.content}
           </div>
         </motion.div>
@@ -393,9 +414,20 @@ function Section7Join() {
   )
 }
 
+function Section7WithFooter() {
+  return (
+    <>
+      <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+        <Section7Join />
+      </div>
+      <LandingFooter />
+    </>
+  )
+}
+
 function LandingFooter() {
   return (
-    <footer className="w-full border-t border-slate-200 bg-slate-50 py-4 px-4">
+    <footer className="w-full border-t border-slate-200 bg-slate-50 py-4 px-4 shrink-0">
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 text-sm text-slate-500">
         <p>© {new Date().getFullYear()} Offhrs. All rights reserved.</p>
         <Link href="/admin" prefetch={false} className="hover:text-slate-700 transition-colors font-medium">
