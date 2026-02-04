@@ -95,5 +95,6 @@
   }
   html {
     @apply bg-white;
+    scroll-behavior: smooth;
   }
 }
