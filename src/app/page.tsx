@@ -1,172 +1,134 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { useAuth } from '@/contexts/auth-context'
-import { createClient } from '@/lib/supabase/browser'
-import { Button } from '@/components/ui/button'
-import { CheckCircle, MapPin, Shield } from 'lucide-react'
 import { CATEGORIES } from '@/constants/categories'
 
+const LANDING_CATEGORIES = CATEGORIES.filter((c) => c !== 'Other')
+
+const APP_STORE_URL = process.env.NEXT_PUBLIC_APP_STORE_URL || '#'
+const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL || '#'
+
 export default function Home() {
-  const router = useRouter()
-  const { user } = useAuth()
-  const [profile, setProfile] = useState<{ expertise_level: string | null; experience_points: number | null } | null>(null)
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
-  const [searchQuery, setSearchQuery] = useState('')
-
-  useEffect(() => {
-    if (!user?.id) return
-    const supabase = createClient()
-    supabase
-      .from('profiles')
-      .select('expertise_level, experience_points')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => setProfile(data ?? null))
-  }, [user?.id])
-
-  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || null
-  const level = profile?.expertise_level || 'Novice'
-  const points = profile?.experience_points ?? 0
-
-  const toggleCategory = (cat: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
-    )
-  }
-
-  const handleBrowse = () => {
-    // Workshops page removed for redesign; stay on home
-    router.push('/')
-  }
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    handleBrowse()
-  }
-
   return (
     <div className="min-h-screen bg-white">
-      {/* Header with Welcome + Level for logged-in users */}
-      {user && (
-        <div className="border-b border-gray-100 bg-white/80">
-          <div className="container mx-auto px-4 py-4 max-w-7xl flex justify-between items-center">
-            <div>
-              <p className="text-sm text-gray-500">Welcome</p>
-              <p className="text-lg font-semibold text-gray-900">{displayName}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-medium text-[#5D755D]">{level}</p>
-              <p className="text-xs text-gray-500">{points}/10 points</p>
-            </div>
-          </div>
+      {/* Section 1 – Hero */}
+      <section className="min-h-screen flex flex-col items-center justify-center px-4 py-16">
+        <Image
+          src="/logo.png"
+          alt="Offhrs"
+          width={200}
+          height={60}
+          className="object-contain mb-6"
+          priority
+        />
+        <p className="text-xl md:text-2xl text-slate-600 text-center mb-10 max-w-md">
+          Make your free time flourish
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link
+            href={APP_STORE_URL}
+            className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-sm font-medium hover:bg-slate-800 transition-colors"
+          >
+            App Store
+          </Link>
+          <Link
+            href={PLAY_STORE_URL}
+            className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-sm font-medium hover:bg-slate-800 transition-colors"
+          >
+            Google Play
+          </Link>
         </div>
-      )}
+      </section>
 
-      <main>
-        {/* Hero Section */}
-        <section className="container mx-auto px-4 py-16 max-w-7xl">
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6 text-center">
-            Ready to learn a new skill? Discover Workshops around you.
-          </h1>
-          <p className="text-xl text-slate-600 mb-8 max-w-2xl mx-auto text-center">
-            Find curated leisure workshops near you. From crafting to cooking, discover your next creative adventure.
-          </p>
+      {/* Section 2 */}
+      <section className="min-h-[80vh] flex items-center justify-center px-4 py-20">
+        <p className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 text-center max-w-4xl leading-tight">
+          Discover, book, and master your next passion project.
+        </p>
+      </section>
 
-          <form onSubmit={handleSearchSubmit} className="max-w-xl mx-auto mb-8">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Search classes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#5D755D]/50"
-              />
-              <Button type="submit" size="lg" className="rounded-md bg-[#5D755D] hover:bg-[#4a5e4a]">
-                Search
-              </Button>
-            </div>
-          </form>
+      {/* Section 3 */}
+      <section className="min-h-[80vh] flex items-center justify-center px-4 py-20 bg-slate-50">
+        <p className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 text-center max-w-4xl leading-tight">
+          Don&apos;t just spend your time off - create with it
+        </p>
+      </section>
 
-          <p className="text-center text-gray-700 font-medium mb-4">What sparks your curiosity?</p>
-          <div className="flex flex-wrap justify-center gap-2 mb-8">
-            {CATEGORIES.filter((cat) => cat !== 'Other').map((cat) => {
-              const isActive = selectedCategories.includes(cat)
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => toggleCategory(cat)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                    isActive ? 'bg-[#5D755D] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {cat}
-                </button>
-              )
-            })}
-          </div>
+      {/* Section 4 */}
+      <section className="min-h-[80vh] flex items-center justify-center px-4 py-20">
+        <p className="text-2xl md:text-3xl lg:text-4xl text-slate-700 text-center max-w-4xl leading-snug">
+          Offhrs is your companion for productive leisure, from novice to master in the skills you&apos;ve always wanted to learn
+        </p>
+      </section>
 
-          <div className="text-center">
-            <Button
-              onClick={handleBrowse}
-              size="lg"
-              className="rounded-md bg-[#5D755D] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#4a5e4a]"
+      {/* Section 5 – Master your skills + categories */}
+      <section className="min-h-[80vh] flex flex-col items-center justify-center px-4 py-20 bg-slate-50">
+        <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-4">
+          Master your skills.
+        </h2>
+        <p className="text-lg text-slate-600 text-center mb-12 max-w-2xl">
+          From pottery, coffee, culinary, beauty, wellness, floral, and more.
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl">
+          {LANDING_CATEGORIES.map((name) => (
+            <div
+              key={name}
+              className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm flex flex-col"
             >
-              Browse Workshops
-            </Button>
-          </div>
-        </section>
-
-        {/* Value Prop Section */}
-        <section className="container mx-auto px-4 py-16 max-w-7xl">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Curated */}
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-moss/10 mb-4">
-                <CheckCircle className="h-8 w-8 text-moss" />
+              <div className="aspect-square bg-slate-200 flex items-center justify-center text-slate-500 text-xs p-2 text-center">
+                {/* Placeholder: replace with /placeholders/category-{slug}.jpg */}
+                {name}
               </div>
-              <h3 className="text-2xl font-semibold text-slate-900 mb-2">Curated</h3>
-              <p className="text-slate-600">
-                We compiled the best workshops in Toronto, so you don't have to search through individual listings.
+              <p className="p-3 text-sm font-medium text-slate-900 text-center">
+                {name}
               </p>
             </div>
+          ))}
+        </div>
+      </section>
 
-            {/* Local */}
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-moss/10 mb-4">
-                <MapPin className="h-8 w-8 text-moss" />
-              </div>
-              <h3 className="text-2xl font-semibold text-slate-900 mb-2">Local</h3>
-              <p className="text-slate-600">
-                Focused on Toronto's vibrant workshop scene. Discover hidden gems in your own backyard.
-              </p>
+      {/* Section 6 – Track Your Mastery */}
+      <section className="min-h-[80vh] flex flex-col items-center justify-center px-4 py-20">
+        <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-4">
+          Track Your Mastery
+        </h2>
+        <p className="text-lg text-slate-600 text-center mb-12 max-w-2xl">
+          Level up your skills from Novice to Master, step-by-step.
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 w-full max-w-4xl">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <div
+              key={n}
+              className="aspect-[3/4] rounded-xl bg-slate-200 flex items-center justify-center text-slate-500 text-sm border border-slate-200"
+            >
+              {/* Placeholder: replace with /placeholders/mastery-{n}.jpg */}
+              Image {n}
             </div>
+          ))}
+        </div>
+      </section>
 
-            {/* Verified */}
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-moss/10 mb-4">
-                <Shield className="h-8 w-8 text-moss" />
-              </div>
-              <h3 className="text-2xl font-semibold text-slate-900 mb-2">Verified</h3>
-              <p className="text-slate-600">
-                All workshops are verified to ensure quality and reliability for your peace of mind.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Footer */}
-        <footer className="border-t border-gray-100 bg-slate-50 mt-20">
-          <div className="container mx-auto px-4 py-8 max-w-7xl text-center">
-            <p className="text-slate-500 text-sm">
-              © {new Date().getFullYear()} Offhrs. All rights reserved.
-            </p>
-          </div>
-        </footer>
-      </main>
+      {/* Section 7 – Join the Fun */}
+      <section className="min-h-[80vh] flex flex-col items-center justify-center px-4 py-20 bg-slate-50">
+        <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-10">
+          Join the Fun.
+        </h2>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link
+            href={APP_STORE_URL}
+            className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-sm font-medium hover:bg-slate-800 transition-colors"
+          >
+            App Store
+          </Link>
+          <Link
+            href={PLAY_STORE_URL}
+            className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-sm font-medium hover:bg-slate-800 transition-colors"
+          >
+            Google Play
+          </Link>
+        </div>
+      </section>
     </div>
   )
 }
