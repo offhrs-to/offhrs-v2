@@ -2,7 +2,8 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { useRef } from 'react'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import { CATEGORIES } from '@/constants/categories'
 
 const LANDING_CATEGORIES = CATEGORIES.filter((c) => c !== 'Other')
@@ -24,6 +25,39 @@ const fadeInUpScale = {
 
 const viewport = { once: true, amount: 0.15 }
 const transition = { duration: 0.7, ease: easeOut }
+
+/** Wraps section content and drives scale + opacity from scroll position (Stryds-style) */
+function ScrollSection({
+  children,
+  className = '',
+  bgClass = 'bg-white',
+}: {
+  children: React.ReactNode
+  className?: string
+  bgClass?: string
+}) {
+  const ref = useRef<HTMLElement>(null)
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start end', 'end start'],
+  })
+  const scale = useTransform(scrollYProgress, [0, 0.2, 0.7, 1], [0.96, 1, 1, 1.12])
+  const opacity = useTransform(scrollYProgress, [0, 0.2, 0.7, 1], [0, 1, 1, 0])
+
+  return (
+    <section
+      ref={ref}
+      className={`h-screen min-h-screen flex flex-col items-center justify-center px-4 overflow-hidden ${bgClass} ${className}`}
+    >
+      <motion.div
+        style={{ scale, opacity }}
+        className="flex flex-col items-center justify-center w-full max-w-6xl mx-auto"
+      >
+        {children}
+      </motion.div>
+    </section>
+  )
+}
 
 function AnimatedHeadline({
   text,
@@ -65,9 +99,9 @@ function AnimatedHeadline({
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white">
-      {/* Section 1 – Hero: entrance on load */}
-      <section className="min-h-screen flex flex-col items-center justify-center px-4 py-16">
+    <div className="bg-white">
+      {/* Section 1 – Hero */}
+      <ScrollSection bgClass="bg-white">
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
@@ -78,13 +112,13 @@ export default function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1, ease: easeOut }}
-            className="mb-6"
+            className="mb-2"
           >
             <Image
               src="/logo.png"
               alt="Offhrs"
-              width={400}
-              height={120}
+              width={800}
+              height={240}
               className="object-contain"
               priority
             />
@@ -105,185 +139,184 @@ export default function Home() {
           >
             <Link
               href={APP_STORE_URL}
-              className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-8 py-4 text-2xl font-medium hover:bg-slate-800 transition-colors"
+              className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-lg font-medium hover:bg-slate-800 transition-colors"
             >
               App Store
             </Link>
             <Link
               href={PLAY_STORE_URL}
-              className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-8 py-4 text-2xl font-medium hover:bg-slate-800 transition-colors"
+              className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-lg font-medium hover:bg-slate-800 transition-colors"
             >
               Google Play
             </Link>
           </motion.div>
         </motion.div>
-      </section>
+      </ScrollSection>
 
-      {/* Section 2 – word-staggered headline */}
-      <section className="min-h-[80vh] flex items-center justify-center px-4 py-20">
+      {/* Section 2 */}
+      <ScrollSection bgClass="bg-white">
         <AnimatedHeadline
           text="Discover, book, and master your next passion project."
           className="text-6xl md:text-7xl lg:text-8xl font-bold text-slate-900 text-center max-w-5xl leading-tight"
         />
-      </section>
+      </ScrollSection>
 
       {/* Section 3 */}
-      <section className="min-h-[80vh] flex items-center justify-center px-4 py-20 bg-slate-50">
+      <ScrollSection bgClass="bg-slate-50">
         <AnimatedHeadline
           text="Don't just spend your time off - create with it"
           className="text-6xl md:text-7xl lg:text-8xl font-bold text-slate-900 text-center max-w-5xl leading-tight"
         />
-      </section>
+      </ScrollSection>
 
       {/* Section 4 */}
-      <motion.section
-        initial="initial"
-        whileInView="animate"
-        viewport={viewport}
-        variants={fadeInUpScale}
-        transition={transition}
-        className="min-h-[80vh] flex items-center justify-center px-4 py-20"
-      >
+      <ScrollSection bgClass="bg-white">
         <p className="text-5xl md:text-6xl lg:text-7xl text-slate-700 text-center max-w-5xl leading-snug">
           Offhrs is your companion for productive leisure, from novice to master in the skills you&apos;ve always wanted to learn
         </p>
-      </motion.section>
+      </ScrollSection>
 
-      {/* Section 5 – Master your skills + categories (staggered tiles) */}
-      <motion.section
-        initial="initial"
-        whileInView="animate"
-        viewport={viewport}
-        variants={{
-          initial: {},
-          animate: {
-            transition: {
-              staggerChildren: 0.07,
-              delayChildren: 0.2,
+      {/* Section 5 – Master your skills + categories */}
+      <ScrollSection bgClass="bg-slate-50">
+        <motion.div
+          initial="initial"
+          whileInView="animate"
+          viewport={viewport}
+          variants={{
+            initial: {},
+            animate: {
+              transition: {
+                staggerChildren: 0.07,
+                delayChildren: 0.2,
+              },
             },
-          },
-        }}
-        className="min-h-[80vh] flex flex-col items-center justify-center px-4 py-20 bg-slate-50"
-      >
-        <motion.h2
-          variants={fadeInUp}
-          transition={transition}
-          className="text-6xl md:text-7xl font-bold text-slate-900 text-center mb-6"
+          }}
+          className="flex flex-col items-center w-full"
         >
-          Master your skills.
-        </motion.h2>
-        <motion.p
-          variants={fadeInUp}
-          transition={transition}
-          className="text-4xl text-slate-600 text-center mb-12 max-w-4xl"
-        >
-          From pottery, coffee, culinary, beauty, wellness, floral, and more.
-        </motion.p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl">
-          {LANDING_CATEGORIES.map((name) => (
-            <motion.div
-              key={name}
-              variants={fadeInUpScale}
-              transition={transition}
-              className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm flex flex-col"
-            >
-              <div className="aspect-square bg-slate-200 flex items-center justify-center text-slate-500 text-2xl p-4 text-center">
-                {name}
-              </div>
-              <p className="p-4 text-2xl font-medium text-slate-900 text-center">
-                {name}
-              </p>
-            </motion.div>
-          ))}
-        </div>
-      </motion.section>
+          <motion.h2
+            variants={fadeInUp}
+            transition={transition}
+            className="text-6xl md:text-7xl font-bold text-slate-900 text-center mb-6"
+          >
+            Master your skills.
+          </motion.h2>
+          <motion.p
+            variants={fadeInUp}
+            transition={transition}
+            className="text-4xl text-slate-600 text-center mb-12 max-w-4xl"
+          >
+            From pottery, coffee, culinary, beauty, wellness, floral, and more.
+          </motion.p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl">
+            {LANDING_CATEGORIES.map((name) => (
+              <motion.div
+                key={name}
+                variants={fadeInUpScale}
+                transition={transition}
+                className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm flex flex-col"
+              >
+                <div className="aspect-square bg-slate-200 flex items-center justify-center text-slate-500 text-2xl p-4 text-center">
+                  {name}
+                </div>
+                <p className="p-4 text-2xl font-medium text-slate-900 text-center">
+                  {name}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </ScrollSection>
 
-      {/* Section 6 – Track Your Mastery (staggered placeholders) */}
-      <motion.section
-        initial="initial"
-        whileInView="animate"
-        viewport={viewport}
-        variants={{
-          initial: {},
-          animate: {
-            transition: {
-              staggerChildren: 0.1,
-              delayChildren: 0.15,
+      {/* Section 6 – Track Your Mastery */}
+      <ScrollSection bgClass="bg-white">
+        <motion.div
+          initial="initial"
+          whileInView="animate"
+          viewport={viewport}
+          variants={{
+            initial: {},
+            animate: {
+              transition: {
+                staggerChildren: 0.1,
+                delayChildren: 0.15,
+              },
             },
-          },
-        }}
-        className="min-h-[80vh] flex flex-col items-center justify-center px-4 py-20"
-      >
-        <motion.h2
-          variants={fadeInUp}
-          transition={transition}
-          className="text-6xl md:text-7xl font-bold text-slate-900 text-center mb-6"
+          }}
+          className="flex flex-col items-center w-full"
         >
-          Track Your Mastery
-        </motion.h2>
-        <motion.p
-          variants={fadeInUp}
-          transition={transition}
-          className="text-4xl text-slate-600 text-center mb-12 max-w-4xl"
-        >
-          Level up your skills from Novice to Master, step-by-step.
-        </motion.p>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 w-full max-w-4xl">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <motion.div
-              key={n}
-              variants={fadeInUpScale}
-              transition={transition}
-              className="aspect-[3/4] rounded-xl bg-slate-200 flex items-center justify-center text-slate-500 text-2xl border border-slate-200"
-            >
-              Image {n}
-            </motion.div>
-          ))}
-        </div>
-      </motion.section>
+          <motion.h2
+            variants={fadeInUp}
+            transition={transition}
+            className="text-6xl md:text-7xl font-bold text-slate-900 text-center mb-6"
+          >
+            Track Your Mastery
+          </motion.h2>
+          <motion.p
+            variants={fadeInUp}
+            transition={transition}
+            className="text-4xl text-slate-600 text-center mb-12 max-w-4xl"
+          >
+            Level up your skills from Novice to Master, step-by-step.
+          </motion.p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 w-full max-w-4xl">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <motion.div
+                key={n}
+                variants={fadeInUpScale}
+                transition={transition}
+                className="aspect-[3/4] rounded-xl bg-slate-200 flex items-center justify-center text-slate-500 text-2xl border border-slate-200"
+              >
+                Image {n}
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </ScrollSection>
 
       {/* Section 7 – Join the Fun */}
-      <motion.section
-        initial="initial"
-        whileInView="animate"
-        viewport={viewport}
-        variants={{
-          initial: {},
-          animate: {
-            transition: {
-              staggerChildren: 0.12,
-              delayChildren: 0.1,
-            },
-          },
-        }}
-        className="min-h-[80vh] flex flex-col items-center justify-center px-4 py-20 bg-slate-50"
-      >
-        <motion.h2
-          variants={fadeInUp}
-          transition={transition}
-          className="text-6xl md:text-7xl font-bold text-slate-900 text-center mb-10"
-        >
-          Join the Fun.
-        </motion.h2>
+      <ScrollSection bgClass="bg-slate-50">
         <motion.div
-          variants={fadeInUp}
-          transition={transition}
-          className="flex flex-col sm:flex-row gap-3"
+          initial="initial"
+          whileInView="animate"
+          viewport={viewport}
+          variants={{
+            initial: {},
+            animate: {
+              transition: {
+                staggerChildren: 0.12,
+                delayChildren: 0.1,
+              },
+            },
+          }}
+          className="flex flex-col items-center"
         >
-          <Link
-            href={APP_STORE_URL}
-            className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-8 py-4 text-2xl font-medium hover:bg-slate-800 transition-colors"
+          <motion.h2
+            variants={fadeInUp}
+            transition={transition}
+            className="text-6xl md:text-7xl font-bold text-slate-900 text-center mb-10"
           >
-            App Store
-          </Link>
-          <Link
-            href={PLAY_STORE_URL}
-            className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-8 py-4 text-2xl font-medium hover:bg-slate-800 transition-colors"
+            Join the Fun.
+          </motion.h2>
+          <motion.div
+            variants={fadeInUp}
+            transition={transition}
+            className="flex flex-col sm:flex-row gap-3"
           >
-            Google Play
-          </Link>
+            <Link
+              href={APP_STORE_URL}
+              className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-lg font-medium hover:bg-slate-800 transition-colors"
+            >
+              App Store
+            </Link>
+            <Link
+              href={PLAY_STORE_URL}
+              className="inline-flex items-center justify-center rounded-lg bg-slate-900 text-white px-6 py-3 text-lg font-medium hover:bg-slate-800 transition-colors"
+            >
+              Google Play
+            </Link>
+          </motion.div>
         </motion.div>
-      </motion.section>
+      </ScrollSection>
     </div>
   )
 }
