@@ -16,7 +16,7 @@ const fadeInUp = {
 }
 
 const viewport = { once: true, amount: 0.25 }
-const transition = { duration: 0.5, ease: [0.22, 1, 0.36, 1] }
+const transition = { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const }
 
 export default function Home() {
   return (
@@ -26,7 +26,7 @@ export default function Home() {
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] as const }}
           className="flex flex-col items-center"
         >
           <Image
@@ -40,7 +40,7 @@ export default function Home() {
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.5, delay: 0.15, ease: [0.22, 1, 0.36, 1] as const }}
             className="text-xl md:text-2xl text-slate-600 text-center mb-10 max-w-md"
           >
             Make your free time flourish
@@ -48,7 +48,7 @@ export default function Home() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.5, delay: 0.3, ease: [0.22, 1, 0.36, 1] as const }}
             className="flex flex-col sm:flex-row gap-3"
           >
             <Link
