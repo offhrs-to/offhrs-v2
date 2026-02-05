@@ -2,11 +2,12 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { motion, useScroll, useTransform } from 'framer-motion'
+import { motion, useScroll, useTransform, useMotionValue } from 'framer-motion'
+import { InfiniteGridBackground } from '@/components/ui/the-infinite-grid'
 import { CATEGORIES } from '@/constants/categories'
 
 const LANDING_CATEGORIES = CATEGORIES.filter((c) => c !== 'Other')
-const NUM_SECTIONS = 7
+const NUM_SECTIONS = 6
 
 const APP_STORE_URL = process.env.NEXT_PUBLIC_APP_STORE_URL || '#'
 const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL || '#'
@@ -110,30 +111,36 @@ function useLayerScale(scrollY: ReturnType<typeof useScroll>['scrollY'], index: 
 
 export default function Home() {
   const { scrollY } = useScroll()
+  const mouseX = useMotionValue(0)
+  const mouseY = useMotionValue(0)
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const { left, top } = e.currentTarget.getBoundingClientRect()
+    mouseX.set(e.clientX - left)
+    mouseY.set(e.clientY - top)
+  }
+
   const opacity0 = useLayerOpacity(scrollY, 0)
   const opacity1 = useLayerOpacity(scrollY, 1)
   const opacity2 = useLayerOpacity(scrollY, 2)
   const opacity3 = useLayerOpacity(scrollY, 3)
   const opacity4 = useLayerOpacity(scrollY, 4)
   const opacity5 = useLayerOpacity(scrollY, 5)
-  const opacity6 = useLayerOpacity(scrollY, 6)
   const scale0 = useLayerScale(scrollY, 0)
   const scale1 = useLayerScale(scrollY, 1)
   const scale2 = useLayerScale(scrollY, 2)
   const scale3 = useLayerScale(scrollY, 3)
   const scale4 = useLayerScale(scrollY, 4)
   const scale5 = useLayerScale(scrollY, 5)
-  const scale6 = useLayerScale(scrollY, 6)
 
-  const opacities = [opacity0, opacity1, opacity2, opacity3, opacity4, opacity5, opacity6]
-  const scales = [scale0, scale1, scale2, scale3, scale4, scale5, scale6]
+  const opacities = [opacity0, opacity1, opacity2, opacity3, opacity4, opacity5]
+  const scales = [scale0, scale1, scale2, scale3, scale4, scale5]
   const pointerEvents0 = useTransform(opacity0, (o) => (o > 0.5 ? 'auto' : 'none'))
   const pointerEvents1 = useTransform(opacity1, (o) => (o > 0.5 ? 'auto' : 'none'))
   const pointerEvents2 = useTransform(opacity2, (o) => (o > 0.5 ? 'auto' : 'none'))
   const pointerEvents3 = useTransform(opacity3, (o) => (o > 0.5 ? 'auto' : 'none'))
   const pointerEvents4 = useTransform(opacity4, (o) => (o > 0.5 ? 'auto' : 'none'))
   const pointerEvents5 = useTransform(opacity5, (o) => (o > 0.5 ? 'auto' : 'none'))
-  const pointerEvents6 = useTransform(opacity6, (o) => (o > 0.5 ? 'auto' : 'none'))
   const pointerEvents = [
     pointerEvents0,
     pointerEvents1,
@@ -141,38 +148,45 @@ export default function Home() {
     pointerEvents3,
     pointerEvents4,
     pointerEvents5,
-    pointerEvents6,
   ]
 
   return (
     <div className="bg-white">
-      {/* Scrollable spacer: 7 viewport heights so scroll position drives "page" */}
+      {/* Scrollable spacer: 6 viewport heights so scroll position drives "page" */}
       <div
         className="overflow-x-hidden"
         style={{ height: `calc(100vh * ${NUM_SECTIONS})` }}
       />
 
+      {/* Infinite grid background: fixed behind sections, cursor-reveal driven by section onMouseMove */}
+      <InfiniteGridBackground
+        mouseX={mouseX}
+        mouseY={mouseY}
+        gridOpacity={0.14}
+        maskOpacity={0.5}
+      />
+
       {/* Fixed full-screen layers: content does not move, only opacity crossfades */}
       {[
-        { bg: 'bg-white', content: <Section1Hero /> },
-        { bg: 'bg-white', content: <Section2Headline /> },
-        { bg: 'bg-neutral-50', content: <Section3Headline /> },
-        { bg: 'bg-white', content: <Section4Tagline /> },
-        { bg: 'bg-neutral-50', content: <Section5Categories /> },
-        { bg: 'bg-white', content: <Section6Mastery /> },
-        { bg: 'bg-neutral-50', content: <Section7WithFooter /> },
+        { bg: 'bg-white/75', content: <Section1Hero /> },
+        { bg: 'bg-white/75', content: <Section2Headline /> },
+        { bg: 'bg-white/75', content: <Section4Tagline /> },
+        { bg: 'bg-neutral-50/75', content: <Section5Categories /> },
+        { bg: 'bg-white/75', content: <Section6Mastery /> },
+        { bg: 'bg-neutral-50/75', content: <Section7WithFooter /> },
       ].map((section, i) => (
         <motion.div
           key={i}
-          className={`fixed inset-0 flex flex-col items-center ${i === 6 ? 'justify-between' : 'justify-center'} px-4 ${section.bg}`}
+          className={`fixed inset-0 z-10 flex flex-col items-center ${i === 5 ? 'justify-between' : 'justify-center'} px-4 ${section.bg}`}
           style={{
             opacity: opacities[i],
             scale: scales[i],
             pointerEvents: pointerEvents[i],
           }}
           initial={false}
+          onMouseMove={handleMouseMove}
         >
-          <div className={`flex flex-col w-full max-w-6xl mx-auto ${i === 6 ? 'flex-1 min-h-0' : ''} ${i !== 6 ? 'items-center justify-center' : ''}`}>
+          <div className={`flex flex-col w-full max-w-6xl mx-auto ${i === 5 ? 'flex-1 min-h-0' : ''} ${i !== 5 ? 'items-center justify-center' : ''}`}>
             {section.content}
           </div>
         </motion.div>
@@ -241,16 +255,6 @@ function Section2Headline() {
       Discover, book, and master{' '}
       <span className="text-neutral-600">your next passion project.</span>
     </p>
-  )
-}
-
-function Section3Headline() {
-  return (
-    <AnimatedHeadline
-      text="Don't just spend your time off - create with it"
-      className="text-[4.5rem] md:text-[5.4rem] lg:text-[7.2rem] font-bold text-neutral-900 text-center max-w-6xl leading-tight"
-      greyWordIndices={[0, 1, 2, 3, 8, 9]}
-    />
   )
 }
 
