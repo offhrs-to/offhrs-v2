@@ -48,6 +48,8 @@
   /* Moss color palette */
   --color-moss: #738A6E;
   --color-moss-dark: #5A6B56;
+  /* Dark green – matches mobile CTA/buttons, used for landing headings */
+  --color-heading-dark: #38511B;
 }
 
 :root {
