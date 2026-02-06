@@ -24,7 +24,11 @@ import {
   View,
 } from 'react-native';
 
-type EventWithCoords = Event & { lat?: number | null; lng?: number | null };
+type EventWithCoords = Event & {
+  lat?: number | null;
+  lng?: number | null;
+  date_iso?: string | null;
+};
 
 const CATEGORIES = ['All', ...CATEGORY_LIST];
 
@@ -112,18 +116,22 @@ export default function WorkshopsScreen() {
       const { data, error } = await query;
       if (error) throw error;
 
-      const list = (data ?? []).map((row) => ({
-        id: row.id,
-        title: row.title ?? '',
-        date: formatDate(row.date ?? ''),
-        location: row.location ?? '',
-        image_url: row.image_url ?? null,
-        price: row.price ?? null,
-        external_link: row.external_link ?? '',
-        lat: row.lat ?? null,
-        lng: row.lng ?? null,
-        vendor_id: row.vendor_id ?? null,
-      }));
+      const now = new Date();
+      const list = (data ?? [])
+        .map((row) => ({
+          id: row.id,
+          title: row.title ?? '',
+          date: formatDate(row.date ?? ''),
+          date_iso: row.date ?? null,
+          location: row.location ?? '',
+          image_url: row.image_url ?? null,
+          price: row.price ?? null,
+          external_link: row.external_link ?? '',
+          lat: row.lat ?? null,
+          lng: row.lng ?? null,
+          vendor_id: row.vendor_id ?? null,
+        }))
+        .filter((e) => !e.date_iso || new Date(e.date_iso) > now);
       setEvents(list);
     } catch (e) {
       console.error('Error fetching events:', e);
@@ -342,7 +350,7 @@ export default function WorkshopsScreen() {
           onPress={() => setViewMode((m) => (m === 'list' ? 'map' : 'list'))}
           style={{
             position: 'absolute',
-            bottom: 24,
+            bottom: 84,
             right: DesignSpacing.horizontalPadding,
             width: 56,
             height: 56,

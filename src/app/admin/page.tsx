@@ -16,7 +16,8 @@ export default function AdminPage() {
   const [fetching, setFetching] = useState(false) // State for Magic Link loading
   const [message, setMessage] = useState('')
   const [events, setEvents] = useState<any[]>([])
-  
+  const [redirectCounts, setRedirectCounts] = useState<Record<string, number>>({})
+
   // --- FORM STATE ---
   const [editingId, setEditingId] = useState<number | null>(null)
   
@@ -55,13 +56,13 @@ export default function AdminPage() {
   // --- 2. DATA FETCHING ---
   async function fetchEvents() {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .order('id', { ascending: false })
-
-    if (error) console.error('Error loading events:', error)
-    else setEvents(data || [])
+    const [eventsRes, countsRes] = await Promise.all([
+      supabase.from('events').select('*').order('id', { ascending: false }),
+      fetch('/api/admin/event-redirect-counts').then((r) => (r.ok ? r.json() : { counts: {} })).catch(() => ({ counts: {} })),
+    ])
+    if (eventsRes.error) console.error('Error loading events:', eventsRes.error)
+    else setEvents(eventsRes.data || [])
+    setRedirectCounts(countsRes.counts || {})
     setLoading(false)
   }
 
@@ -246,21 +247,34 @@ export default function AdminPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Redirects</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {events.map((event) => (
+                {events.map((event) => {
+                  const isExpired = event.date && new Date(event.date) < new Date();
+                  const redirects = redirectCounts[String(event.id)] ?? 0;
+                  return (
                   <tr key={event.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{event.title}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{event.date ? new Date(event.date).toLocaleDateString() : 'TBD'}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{event.category}</td>
+                    <td className="px-6 py-4 text-sm">
+                      {isExpired ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">Expired</span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Upcoming</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{redirects} user{redirects !== 1 ? 's' : ''} redirected</td>
                     <td className="px-6 py-4 text-right text-sm font-medium flex justify-end gap-3">
                       <button onClick={() => handleEdit(event)} className="text-blue-600 hover:text-blue-900"><Edit className="w-5 h-5" /></button>
                       <button onClick={() => handleDelete(event.id)} className="text-red-600 hover:text-red-900"><Trash2 className="w-5 h-5" /></button>
                     </td>
                   </tr>
-                ))}
+                );})}
               </tbody>
             </table>
           </div>

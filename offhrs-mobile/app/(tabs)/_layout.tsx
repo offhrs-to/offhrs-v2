@@ -1,27 +1,117 @@
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import React from 'react';
-import { Image, View } from 'react-native';
+import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
+import {
+  DocumentMagnifyingGlassIcon,
+  EnvelopeIcon,
+  HomeIcon,
+  UserCircleIcon,
+} from 'react-native-heroicons/solid';
 
-import { HapticTab } from '@/components/haptic-tab';
+import { DesignColors } from '@/constants/design-template';
 
-const TAB_ICON_SIZE = 50;
+const TAB_ICON_SIZE = 24;
 
-const TAB_ICON_TOP_OFFSET = 12;
+/** Same size as Browse Workshops button (index.tsx: HORIZONTAL_PADDING 24, paddingVertical 12) */
+const HORIZONTAL_PADDING = 24;
+const TAB_BAR_HEIGHT = 48;
+
+/** White bar with green border; active icon circle and inactive icon tint */
+const TAB_BAR_BG = '#FFFFFF';
+const TAB_BAR_ACTIVE_BG = '#E8F0E5';
+const INACTIVE_TINT = '#6B6B6B';
+
+const ICON_WRAP_SIZE = 40;
+
+const ICON_MAP: Record<string, typeof HomeIcon> = {
+  index: HomeIcon,
+  workshops: DocumentMagnifyingGlassIcon,
+  contact: EnvelopeIcon,
+  profile: UserCircleIcon,
+};
 
 function TabIcon({
-  source,
+  IconComponent,
   focused,
 }: {
-  source: number;
+  IconComponent: typeof HomeIcon;
   focused: boolean;
 }) {
+  const color = focused ? DesignColors.primary : INACTIVE_TINT;
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: TAB_ICON_TOP_OFFSET }}>
-      <Image
-        source={source}
-        style={{ width: TAB_ICON_SIZE, height: TAB_ICON_SIZE, opacity: focused ? 1 : 0.6 }}
-        resizeMode="contain"
-      />
+    <View
+      style={{
+        width: ICON_WRAP_SIZE,
+        height: ICON_WRAP_SIZE,
+        borderRadius: ICON_WRAP_SIZE / 2,
+        backgroundColor: focused ? TAB_BAR_ACTIVE_BG : 'transparent',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <IconComponent size={TAB_ICON_SIZE} color={color} />
+    </View>
+  );
+}
+
+function CustomTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
+  const { width: screenWidth } = useWindowDimensions();
+  const barWidth = screenWidth - HORIZONTAL_PADDING * 2;
+  const barLeft = (screenWidth - barWidth) / 2;
+  const bottomInset = Platform.OS === 'ios' ? 28 : 24;
+
+  const routes = state.routes.filter((r) => r.name !== 'explore');
+
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: barLeft,
+        bottom: bottomInset,
+        width: barWidth,
+        height: TAB_BAR_HEIGHT,
+        borderRadius: TAB_BAR_HEIGHT / 2,
+        backgroundColor: TAB_BAR_BG,
+        borderWidth: 1,
+        borderColor: DesignColors.primary,
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-evenly',
+      }}
+    >
+      {routes.map((route, index) => {
+        const focused = state.index === index;
+        const IconComponent = ICON_MAP[route.name];
+        const onPress = () => {
+          if (Platform.OS === 'ios') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+          navigation.navigate(route.name, route.params);
+        };
+        return (
+          <Pressable
+            key={route.key}
+            onPress={onPress}
+            style={{
+              flex: 1,
+              height: TAB_BAR_HEIGHT,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {IconComponent ? (
+              <TabIcon IconComponent={IconComponent} focused={focused} />
+            ) : null}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -29,20 +119,23 @@ function TabIcon({
 export default function TabLayout() {
   return (
     <Tabs
+      tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
-        tabBarStyle: { backgroundColor: '#FFFFFF' },
-        tabBarActiveTintColor: '#38511B',
-        tabBarInactiveTintColor: '#5E5F56',
+        tabBarActiveTintColor: DesignColors.primary,
+        tabBarInactiveTintColor: INACTIVE_TINT,
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarButton: HapticTab,
-      }}>
+        sceneContainerStyle: {
+          paddingBottom: Platform.OS === 'ios' ? 84 : 80,
+        },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
           tabBarIcon: ({ focused }) => (
-            <TabIcon source={require('@/assets/images/Home.png')} focused={focused} />
+            <TabIcon IconComponent={HomeIcon} focused={focused} />
           ),
         }}
       />
@@ -51,7 +144,7 @@ export default function TabLayout() {
         options={{
           title: 'Workshops',
           tabBarIcon: ({ focused }) => (
-            <TabIcon source={require('@/assets/images/Workshop.png')} focused={focused} />
+            <TabIcon IconComponent={DocumentMagnifyingGlassIcon} focused={focused} />
           ),
         }}
       />
@@ -60,7 +153,7 @@ export default function TabLayout() {
         options={{
           title: 'Contact',
           tabBarIcon: ({ focused }) => (
-            <TabIcon source={require('@/assets/images/Contact.png')} focused={focused} />
+            <TabIcon IconComponent={EnvelopeIcon} focused={focused} />
           ),
         }}
       />
@@ -69,7 +162,7 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ focused }) => (
-            <TabIcon source={require('@/assets/images/Profile.png')} focused={focused} />
+            <TabIcon IconComponent={UserCircleIcon} focused={focused} />
           ),
         }}
       />

@@ -5,16 +5,15 @@ import {
 } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, Text, View, Pressable } from 'react-native';
 
-import { supabase } from '@/lib/supabase';
 import OnboardingModal from '@/components/OnboardingModal';
+import { SignInForm } from '@/components/SignInForm';
+import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const router = useRouter();
   const [profile, setProfile] = useState<{
     display_name: string | null;
     avatar_url: string | null;
@@ -22,6 +21,7 @@ export default function ProfileScreen() {
     expertise_level: string | null;
     experience_points: number | null;
     onboarding_completed: boolean | null;
+    instructor_categories: string[] | null;
   } | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [savedVendors, setSavedVendors] = useState<{ id: string; name: string }[]>([]);
@@ -33,7 +33,7 @@ export default function ProfileScreen() {
 
     supabase
       .from('profiles')
-      .select('display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed')
+      .select('display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories')
       .eq('id', user.id)
       .single()
       .then(({ data }) => {
@@ -75,7 +75,7 @@ export default function ProfileScreen() {
     if (!user?.id) return;
     supabase
       .from('profiles')
-      .select('display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed')
+      .select('display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories')
       .eq('id', user.id)
       .single()
       .then(({ data }) => setProfile(data ?? null));
@@ -90,39 +90,7 @@ export default function ProfileScreen() {
   }
 
   if (!user) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: DesignColors.creamBg,
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: DesignSpacing.horizontalPadding,
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 18,
-            color: DesignColors.charcoal,
-            textAlign: 'center',
-            marginBottom: 24,
-          }}
-        >
-          Sign in to view your profile
-        </Text>
-        <Pressable
-          onPress={() => router.push('/login')}
-          style={{
-            paddingVertical: DesignSpacing.ctaPaddingVertical,
-            paddingHorizontal: DesignSpacing.ctaPaddingHorizontal,
-            borderRadius: 9999,
-            backgroundColor: DesignColors.primary,
-          }}
-        >
-          <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFF' }}>Sign in</Text>
-        </Pressable>
-      </View>
-    );
+    return <SignInForm />;
   }
 
   const displayName =
@@ -199,7 +167,8 @@ export default function ProfileScreen() {
           marginBottom: 20,
         }}
       >
-        {level} {typeof points === 'number' ? `• ${points}/10 points` : ''}
+        {level}
+        {level !== 'Master' && typeof points === 'number' ? ` • ${points} pts` : ''}
       </Text>
 
       {/* Stats row – horizontal, with dividers */}

@@ -20,10 +20,21 @@ interface Event {
   is_multiple_dates: boolean | null
 }
 
+type EventFilter = 'all' | 'upcoming' | 'expired'
+
 export default function AdminDashboard() {
   const [events, setEvents] = useState<Event[]>([])
+  const [redirectCounts, setRedirectCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [eventFilter, setEventFilter] = useState<EventFilter>('all')
+
+  const filteredEvents = events.filter((event) => {
+    const isExpired = event.date != null && new Date(event.date) < new Date()
+    if (eventFilter === 'upcoming') return !isExpired
+    if (eventFilter === 'expired') return isExpired
+    return true
+  })
 
   useEffect(() => {
     fetchEvents()
@@ -32,13 +43,16 @@ export default function AdminDashboard() {
   const fetchEvents = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('events')
-        .select('id, title, date, image_url, created_at, external_link, is_multiple_dates')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setEvents(data || [])
+      const [eventsRes, countsRes] = await Promise.all([
+        supabase
+          .from('events')
+          .select('id, title, date, image_url, created_at, external_link, is_multiple_dates')
+          .order('created_at', { ascending: false }),
+        fetch('/api/admin/event-redirect-counts').then((r) => (r.ok ? r.json() : { counts: {} })).catch(() => ({ counts: {} })),
+      ])
+      if (eventsRes.error) throw eventsRes.error
+      setEvents(eventsRes.data || [])
+      setRedirectCounts(countsRes.counts || {})
     } catch (error) {
       console.error('Error fetching events:', error)
     } finally {
@@ -91,6 +105,24 @@ export default function AdminDashboard() {
           <p className="text-slate-600">Manage your workshop events</p>
         </div>
 
+        {!loading && events.length > 0 && (
+          <div className="mb-6 flex flex-wrap items-center gap-4">
+            <label htmlFor="event-filter" className="text-sm font-medium text-slate-700">
+              Filter:
+            </label>
+            <select
+              id="event-filter"
+              value={eventFilter}
+              onChange={(e) => setEventFilter(e.target.value as EventFilter)}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-moss focus:outline-none focus:ring-1 focus:ring-moss"
+            >
+              <option value="all">All events</option>
+              <option value="upcoming">Upcoming events</option>
+              <option value="expired">Expired events</option>
+            </select>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto mb-4" />
@@ -109,10 +141,29 @@ export default function AdminDashboard() {
               </div>
             </CardContent>
           </Card>
+        ) : filteredEvents.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-12">
+                <p className="text-slate-600 mb-4">
+                  {eventFilter === 'upcoming' ? 'No upcoming events.' : 'No expired events.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setEventFilter('all')}
+                  className="text-sm font-medium text-moss hover:text-moss-dark"
+                >
+                  Show all events
+                </button>
+              </div>
+            </CardContent>
+          </Card>
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>All Events ({events.length})</CardTitle>
+              <CardTitle>
+                {eventFilter === 'all' ? 'All' : eventFilter === 'upcoming' ? 'Upcoming' : 'Expired'} Events ({filteredEvents.length})
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -123,11 +174,14 @@ export default function AdminDashboard() {
                       <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Title</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Date</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Redirects</th>
                       <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {events.map((event) => (
+                    {filteredEvents.map((event) => {
+                      const redirects = redirectCounts[String(event.id)] ?? 0
+                      return (
                       <tr key={event.id} className="border-b border-gray-100 hover:bg-slate-50/50">
                         <td className="py-4 px-4">
                           <div className="w-16 h-16 rounded-md overflow-hidden bg-slate-100 flex items-center justify-center">
@@ -172,9 +226,18 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td className="py-4 px-4">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Published
-                          </span>
+                          {event.date && new Date(event.date) < new Date() ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                              Expired
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Published
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-4 px-4 text-sm text-slate-600">
+                          {redirects} user{redirects !== 1 ? 's' : ''} redirected
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center justify-end gap-2">
@@ -210,7 +273,7 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                    );})}
                   </tbody>
                 </table>
               </div>

@@ -29,11 +29,18 @@ export default function OnboardingModal({
 }) {
   const [step, setStep] = useState(1);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [instructorCategories, setInstructorCategories] = useState<string[]>([]);
   const [experience, setExperience] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const toggleCategory = (cat: string) => {
     setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+    );
+  };
+
+  const toggleInstructorCategory = (cat: string) => {
+    setInstructorCategories((prev) =>
       prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
     );
   };
@@ -47,6 +54,8 @@ export default function OnboardingModal({
         .from('profiles')
         .update({
           category_of_interest: selectedCategories.length > 0 ? selectedCategories : null,
+          instructor_categories: instructorCategories.length > 0 ? instructorCategories : null,
+          is_instructor: instructorCategories.length > 0,
           years_experience: experience,
           expertise_level: option?.level ?? 'Novice',
           experience_points: option?.points ?? 0,
@@ -107,17 +116,20 @@ export default function OnboardingModal({
           }}
         >
           {step === 1
-            ? 'Select categories you\'re interested in (optional)'
+            ? 'Select interests and optionally mark categories where you teach'
             : "We'll use this to personalize your experience"}
         </Text>
 
         {step === 1 ? (
           <>
             <ScrollView
-              style={{ maxHeight: 240 }}
+              style={{ maxHeight: 360 }}
               showsVerticalScrollIndicator={false}
             >
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.charcoal, marginBottom: 8 }}>
+                What sparks your curiosity?
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
                 {CATEGORIES.map((cat) => {
                   const isActive = selectedCategories.includes(cat);
                   return (
@@ -138,6 +150,38 @@ export default function OnboardingModal({
                           fontSize: 14,
                           fontWeight: '500',
                           color: isActive ? '#FFF' : DesignColors.sageGreen,
+                        }}
+                      >
+                        {cat}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.charcoal, marginBottom: 8 }}>
+                I'm an Instructor in (optional)
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                {CATEGORIES.map((cat) => {
+                  const isInstructor = instructorCategories.includes(cat);
+                  return (
+                    <Pressable
+                      key={cat}
+                      onPress={() => toggleInstructorCategory(cat)}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        borderRadius: 9999,
+                        backgroundColor: isInstructor ? DesignColors.primary : DesignColors.inputBg,
+                        borderWidth: 1,
+                        borderColor: DesignColors.lightGreenBorder,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: '500',
+                          color: isInstructor ? '#FFF' : DesignColors.sageGreen,
                         }}
                       >
                         {cat}

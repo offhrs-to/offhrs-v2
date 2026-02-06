@@ -10,15 +10,18 @@ END $$;
 -- If events.id is bigint, the FK in bookings is correct. If integer, we need to alter.
 -- Most Supabase/Postgres default serial is integer. Let's assume integer for compatibility.
 
--- Trigger to auto-create profile on user signup
+-- Trigger to auto-create profile on user signup.
+-- New users default to Novice in all categories with 0/10 progression unless they set years of experience in onboarding.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, display_name, avatar_url)
+  INSERT INTO public.profiles (id, display_name, avatar_url, expertise_level, experience_points)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-    NEW.raw_user_meta_data->>'avatar_url'
+    NEW.raw_user_meta_data->>'avatar_url',
+    'Novice',
+    0
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
