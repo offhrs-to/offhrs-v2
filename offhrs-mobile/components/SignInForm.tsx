@@ -56,22 +56,28 @@ export function SignInForm({
     }
   };
 
-  const handleGoogleAuth = async () => {
+  const redirectUrl = Linking.createURL('/auth/callback');
+
+  const handleOAuth = async (provider: 'google' | 'apple' | 'facebook') => {
     setLoading(true);
     setError(null);
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: Linking.createURL('/auth/callback'),
-        },
+        provider,
+        options: { redirectTo: redirectUrl },
       });
       if (error) throw error;
       if (data?.url) {
         await Linking.openURL(data.url);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Google sign-in failed');
+      const message =
+        provider === 'google'
+          ? 'Google sign-in failed'
+          : provider === 'apple'
+            ? 'Apple sign-in failed'
+            : 'Meta sign-in failed';
+      setError(err instanceof Error ? err.message : message);
     } finally {
       setLoading(false);
     }
@@ -157,7 +163,7 @@ export function SignInForm({
         )}
 
         <Pressable
-          onPress={handleGoogleAuth}
+          onPress={() => handleOAuth('google')}
           disabled={loading}
           style={{
             flexDirection: 'row',
@@ -168,7 +174,7 @@ export function SignInForm({
             borderWidth: 1,
             borderColor: DesignColors.lightGreenBorder,
             backgroundColor: '#FFF',
-            marginBottom: 24,
+            marginBottom: 12,
           }}
         >
           {loading ? (
@@ -176,6 +182,54 @@ export function SignInForm({
           ) : (
             <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>
               Continue with Google
+            </Text>
+          )}
+        </Pressable>
+
+        <Pressable
+          onPress={() => handleOAuth('apple')}
+          disabled={loading}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 14,
+            borderRadius: 9999,
+            borderWidth: 1,
+            borderColor: '#000',
+            backgroundColor: '#000',
+            marginBottom: 12,
+          }}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <Text style={{ fontSize: 16, color: '#FFF', fontWeight: '600' }}>
+              Continue with Apple
+            </Text>
+          )}
+        </Pressable>
+
+        <Pressable
+          onPress={() => handleOAuth('facebook')}
+          disabled={loading}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 14,
+            borderRadius: 9999,
+            borderWidth: 1,
+            borderColor: '#1877F2',
+            backgroundColor: '#1877F2',
+            marginBottom: 24,
+          }}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <Text style={{ fontSize: 16, color: '#FFF', fontWeight: '600' }}>
+              Continue with Meta
             </Text>
           )}
         </Pressable>

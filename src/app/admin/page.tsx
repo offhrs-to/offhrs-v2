@@ -17,6 +17,15 @@ export default function AdminPage() {
   const [message, setMessage] = useState('')
   const [events, setEvents] = useState<any[]>([])
   const [redirectCounts, setRedirectCounts] = useState<Record<string, number>>({})
+  type EventFilter = 'all' | 'upcoming' | 'expired'
+  const [eventFilter, setEventFilter] = useState<EventFilter>('all')
+
+  const filteredEvents = events.filter((event) => {
+    const isExpired = event.date != null && new Date(event.date) < new Date()
+    if (eventFilter === 'upcoming') return !isExpired
+    if (eventFilter === 'expired') return isExpired
+    return true
+  })
 
   // --- FORM STATE ---
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -240,43 +249,81 @@ export default function AdminPage() {
 
         {/* --- TAB 1: MANAGE EVENTS --- */}
         {activeTab === 'manage' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Redirects</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {events.map((event) => {
-                  const isExpired = event.date && new Date(event.date) < new Date();
-                  const redirects = redirectCounts[String(event.id)] ?? 0;
-                  return (
-                  <tr key={event.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{event.title}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{event.date ? new Date(event.date).toLocaleDateString() : 'TBD'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{event.category}</td>
-                    <td className="px-6 py-4 text-sm">
-                      {isExpired ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">Expired</span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Upcoming</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{redirects} user{redirects !== 1 ? 's' : ''} redirected</td>
-                    <td className="px-6 py-4 text-right text-sm font-medium flex justify-end gap-3">
-                      <button onClick={() => handleEdit(event)} className="text-blue-600 hover:text-blue-900"><Edit className="w-5 h-5" /></button>
-                      <button onClick={() => handleDelete(event.id)} className="text-red-600 hover:text-red-900"><Trash2 className="w-5 h-5" /></button>
-                    </td>
-                  </tr>
-                );})}
-              </tbody>
-            </table>
+          <div>
+            {events.length > 0 && (
+              <div className="mb-4 flex flex-wrap items-center gap-4">
+                <label htmlFor="event-filter" className="text-sm font-medium text-gray-700">
+                  Filter:
+                </label>
+                <select
+                  id="event-filter"
+                  value={eventFilter}
+                  onChange={(e) => setEventFilter(e.target.value as EventFilter)}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+                >
+                  <option value="all">All events</option>
+                  <option value="upcoming">Upcoming events</option>
+                  <option value="expired">Expired events</option>
+                </select>
+                <span className="text-sm text-gray-500">
+                  {filteredEvents.length} {eventFilter === 'all' ? 'total' : eventFilter === 'upcoming' ? 'upcoming' : 'expired'}
+                </span>
+              </div>
+            )}
+
+            {filteredEvents.length === 0 && events.length > 0 ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+                <p className="text-gray-600 mb-4">
+                  {eventFilter === 'upcoming' ? 'No upcoming events.' : 'No expired events.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setEventFilter('all')}
+                  className="text-gray-900 font-medium underline hover:no-underline"
+                >
+                  Show all events
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Redirects</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredEvents.map((event) => {
+                      const isExpired = event.date && new Date(event.date) < new Date();
+                      const redirects = redirectCounts[String(event.id)] ?? 0;
+                      return (
+                      <tr key={event.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{event.title}</td>
+                        <td className="px-6 py-4 text-sm text-gray-500">{event.date ? new Date(event.date).toLocaleDateString() : 'TBD'}</td>
+                        <td className="px-6 py-4 text-sm text-gray-500">{event.category}</td>
+                        <td className="px-6 py-4 text-sm">
+                          {isExpired ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">Expired</span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Upcoming</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{redirects} user{redirects !== 1 ? 's' : ''} redirected</td>
+                        <td className="px-6 py-4 text-right text-sm font-medium flex justify-end gap-3">
+                          <button onClick={() => handleEdit(event)} className="text-blue-600 hover:text-blue-900"><Edit className="w-5 h-5" /></button>
+                          <button onClick={() => handleDelete(event.id)} className="text-red-600 hover:text-red-900"><Trash2 className="w-5 h-5" /></button>
+                        </td>
+                      </tr>
+                    );})}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
