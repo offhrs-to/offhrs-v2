@@ -35,11 +35,11 @@ export default function WorkshopsPage() {
       .then(({ data, error }) => {
         if (error) {
           console.error('Error fetching events:', error)
-          return
+        } else {
+          setEvents((data as EventRow[]) ?? [])
         }
-        setEvents((data as EventRow[]) ?? [])
+        setLoading(false)
       })
-      .finally(() => setLoading(false))
   }, [])
 
   return (
