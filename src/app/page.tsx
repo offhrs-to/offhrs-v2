@@ -1,9 +1,10 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { motion, useScroll, useTransform, useMotionValue } from 'framer-motion'
-import { InfiniteGridBackground } from '@/components/ui/the-infinite-grid'
 // Master your skills section: categories with Other last
 const LANDING_CATEGORIES: string[] = [
   'Beauty & Fragrance',
@@ -36,6 +37,23 @@ const MASTERY_OTHER_ICONS: { src: string; label: string }[] = [
   { src: '/categories/other-master.png', label: 'Master' },
 ]
 const NUM_SECTIONS = 6
+
+const InfiniteGridBackground = dynamic(
+  () => import('@/components/ui/the-infinite-grid').then((m) => ({ default: m.InfiniteGridBackground })),
+  { ssr: false }
+)
+
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(false)
+  useEffect(() => {
+    const m = window.matchMedia('(min-width: 768px)')
+    setIsDesktop(m.matches)
+    const listener = () => setIsDesktop(m.matches)
+    m.addEventListener('change', listener)
+    return () => m.removeEventListener('change', listener)
+  }, [])
+  return isDesktop
+}
 
 const APP_STORE_URL = process.env.NEXT_PUBLIC_APP_STORE_URL || '#'
 const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL || '#'
@@ -138,6 +156,7 @@ function useLayerScale(scrollY: ReturnType<typeof useScroll>['scrollY'], index: 
 }
 
 export default function Home() {
+  const isDesktop = useIsDesktop()
   const { scrollY } = useScroll()
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
@@ -186,13 +205,29 @@ export default function Home() {
         style={{ height: `calc(100vh * ${NUM_SECTIONS})` }}
       />
 
-      {/* Infinite grid background: fixed behind sections, cursor-reveal driven by section onMouseMove */}
-      <InfiniteGridBackground
-        mouseX={mouseX}
-        mouseY={mouseY}
-        gridOpacity={0.18}
-        maskOpacity={0.58}
-      />
+      {/* Mobile: static grid (no JS). Desktop: animated grid with cursor-reveal (dynamic import). */}
+      {!isDesktop && (
+        <div
+          className="fixed inset-0 z-0 pointer-events-none"
+          aria-hidden
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)
+            `,
+            backgroundSize: '40px 40px',
+            opacity: 0.18,
+          }}
+        />
+      )}
+      {isDesktop && (
+        <InfiniteGridBackground
+          mouseX={mouseX}
+          mouseY={mouseY}
+          gridOpacity={0.18}
+          maskOpacity={0.58}
+        />
+      )}
 
       {/* Fixed full-screen layers: content does not move, only opacity crossfades */}
       {[
@@ -205,7 +240,7 @@ export default function Home() {
       ].map((section, i) => (
         <motion.div
           key={i}
-          className={`fixed inset-0 z-10 flex flex-col items-center ${i === 5 ? 'justify-between' : 'justify-center'} px-4 ${section.bg} max-md:pt-[max(env(safe-area-inset-top,0px),3.5rem)] max-md:pb-[max(env(safe-area-inset-bottom,0px),5rem)]`}
+          className={`fixed inset-0 z-10 flex flex-col items-center ${i === 5 ? 'justify-between' : 'justify-center'} px-4 ${section.bg} max-md:pt-[max(env(safe-area-inset-top,0px),3.5rem)] max-md:pb-[max(env(safe-area-inset-bottom,0px),6rem)]`}
           style={{
             opacity: opacities[i],
             scale: scales[i],
@@ -214,7 +249,9 @@ export default function Home() {
           initial={false}
           onMouseMove={handleMouseMove}
         >
-          <div className={`flex flex-col w-full max-w-4xl mx-auto ${i === 5 ? 'flex-1 min-h-0' : ''} ${i !== 5 ? 'items-center justify-center' : ''}`}>
+          <div
+            className={`flex flex-col w-full max-w-4xl mx-auto ${i === 5 ? 'flex-1 min-h-0' : ''} ${i !== 5 ? 'items-center justify-center' : ''} ${i === 3 || i === 4 ? 'max-md:flex-1 max-md:min-h-0 max-md:overflow-y-auto max-md:overscroll-contain' : ''}`}
+          >
             {section.content}
           </div>
         </motion.div>
@@ -349,6 +386,7 @@ function Section5Categories() {
                     alt={name}
                     width={96}
                     height={96}
+                    sizes="(max-width: 640px) 100px, (max-width: 768px) 120px, 96px"
                     className="object-contain"
                   />
                 ) : (
@@ -417,6 +455,7 @@ function Section6Mastery() {
                 alt={label}
                 width={120}
                 height={120}
+                sizes="(max-width: 768px) 50vw, 152px"
                 className="object-contain max-w-full max-h-full"
               />
             </div>

@@ -22,8 +22,13 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+
   return (
     <html lang="en">
+      <head>
+        {supabaseUrl && <link rel="preconnect" href={supabaseUrl} />}
+      </head>
       <body className={`${inter.variable} min-h-screen flex flex-col font-sans`}>
         <AuthProviderWrapper>
           <main className="flex-grow">{children}</main>

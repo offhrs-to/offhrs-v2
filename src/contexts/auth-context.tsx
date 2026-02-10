@@ -26,12 +26,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     })
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user ?? null)
-      setLoading(false)
-    })
+    const deferredGetSession = () => {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        setUser(user ?? null)
+        setLoading(false)
+      })
+    }
 
-    return () => subscription.unsubscribe()
+    const useIdle = typeof requestIdleCallback !== 'undefined'
+    const id = useIdle
+      ? requestIdleCallback(deferredGetSession, { timeout: 200 })
+      : setTimeout(deferredGetSession, 0)
+
+    return () => {
+      subscription.unsubscribe()
+      if (useIdle && typeof cancelIdleCallback !== 'undefined') cancelIdleCallback(id)
+      else clearTimeout(id)
+    }
   }, [])
 
   const signOut = async () => {
