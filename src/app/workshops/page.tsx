@@ -1,15 +1,17 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/browser'
 import Navbar from '@/components/navbar'
 import EventCard from '@/components/event-card'
-import WorkshopMap from '@/components/workshop-map'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ArrowLeft, Loader2, Search, LayoutGrid, MapPin, X } from 'lucide-react'
 import { CATEGORIES } from '@/constants/categories'
+
+const WorkshopMap = dynamic(() => import('@/components/workshop-map'), { ssr: false })
 
 const WORKSHOP_CATEGORIES = ['All', ...CATEGORIES]
 
