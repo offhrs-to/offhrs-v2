@@ -448,19 +448,19 @@ function Section6Mastery() {
             key={label}
             variants={fadeInUpScale}
             transition={transition}
-            className="aspect-[3/4] rounded-lg bg-white flex flex-col items-center justify-center p-2 sm:p-3 border border-neutral-200 shadow-sm overflow-hidden min-w-0 max-md:aspect-[4/5] max-md:rounded-md max-md:p-1.5"
+            className="aspect-[3/4] rounded-lg bg-white flex flex-col items-center justify-center p-2 sm:p-3 border border-neutral-200 shadow-sm overflow-hidden min-w-0 max-md:aspect-auto max-md:rounded-md max-md:p-0"
           >
-            <div className="relative w-full flex-1 min-h-0 flex items-center justify-center min-w-0 max-md:max-w-[40px]">
+            <div className="relative w-full flex-1 min-h-0 flex items-center justify-center min-w-0 max-md:flex-none max-md:h-14 max-md:min-h-[3.5rem] max-md:max-w-[40px]">
               <Image
                 src={`${src}?v=${CATEGORY_ICONS_CACHE}`}
                 alt={label}
                 width={120}
                 height={120}
-                sizes="(max-width: 768px) 50vw, 152px"
+                sizes="(max-width: 640px) 40px, (max-width: 768px) 50vw, 152px"
                 className="object-contain max-w-full max-h-full"
               />
             </div>
-            <p className="text-primary font-medium text-sm sm:text-base text-center mt-1 sm:mt-2 max-md:text-xs max-md:mt-0.5 max-md:leading-tight">
+            <p className="text-primary font-medium text-sm sm:text-base text-center mt-1 sm:mt-2 max-md:text-xs max-md:mt-0 max-md:py-1 max-md:leading-tight">
               {label}
             </p>
           </motion.div>
