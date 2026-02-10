@@ -29,12 +29,13 @@ const MEDIUM_GRAY = '#6B6B6B';
 
 const HORIZONTAL_PADDING = 24;
 
+// Each level is 10 points; progression shown as X/10 for all levels (Novice → Master)
 const LEVEL_THRESHOLDS: Record<string, { start: number; step: number }> = {
   Novice: { start: 0, step: 10 },
   Intermediate: { start: 10, step: 10 },
-  Advanced: { start: 20, step: 20 },
-  Expert: { start: 40, step: 40 },
-  Master: { start: 80, step: 0 },
+  Advanced: { start: 20, step: 10 },
+  Expert: { start: 30, step: 10 },
+  Master: { start: 40, step: 0 },
 };
 
 function getLevelProgress(level: string, points: number): { progress: number; label: string } {

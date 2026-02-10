@@ -48,7 +48,7 @@ export default function AdminPage() {
 
   const categories = [
     'Beauty & Fragrance', 'Culinary', 'Coffee', 'Floral', 
-    'Pottery', 'Textiles', 'Music', 'Wellness', 'Other'
+    'Pottery', 'Music', 'Wellness', 'Other'
   ]
 
   // --- 1. LOGIN LOGIC ---

@@ -18,7 +18,6 @@ const categories = [
   'Pottery',
   'Coffee',
   'Florals',
-  'Textiles',
   'Jewelry',
   'Wellness',
   'Culinary',

@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { motion, useScroll, useTransform, useMotionValue } from 'framer-motion'
 import { InfiniteGridBackground } from '@/components/ui/the-infinite-grid'
-// Master your skills section: all categories except Textiles, with Other last
+// Master your skills section: categories with Other last
 const LANDING_CATEGORIES: string[] = [
   'Beauty & Fragrance',
   'Culinary',
@@ -179,7 +179,7 @@ export default function Home() {
   ]
 
   return (
-    <div className="bg-white">
+    <div className="bg-white overflow-x-hidden">
       {/* Scrollable spacer: 6 viewport heights so scroll position drives "page" */}
       <div
         className="overflow-x-hidden"
@@ -339,10 +339,10 @@ function Section5Categories() {
             key={name}
             variants={fadeInUpScale}
             transition={transition}
-            className="rounded-lg overflow-hidden border border-neutral-200 bg-white shadow-sm flex flex-col"
+            className="rounded-lg overflow-hidden border border-neutral-200 bg-white shadow-sm flex flex-col min-w-0"
           >
-            <div className="aspect-square bg-white flex items-center justify-center p-4">
-              <div className={`rounded-full border-2 border-primary overflow-hidden bg-white shrink-0 w-[152px] h-[152px] ${name === 'Other' ? 'flex items-center justify-center' : 'relative'}`}>
+            <div className="aspect-square bg-white flex items-center justify-center p-2 sm:p-4">
+              <div className={`rounded-full border-2 border-primary overflow-hidden bg-white w-[100px] h-[100px] sm:w-[120px] sm:h-[120px] md:w-[152px] md:h-[152px] md:shrink-0 ${name === 'Other' ? 'flex items-center justify-center' : 'relative'}`}>
                 {name === 'Other' ? (
                   <Image
                     src={`${CATEGORY_NOVICE_ICONS[name] ?? '/categories/other-novice.png'}?v=${CATEGORY_ICONS_CACHE}`}
@@ -357,7 +357,7 @@ function Section5Categories() {
                     alt={name}
                     fill
                     className="object-cover"
-                    sizes="152px"
+                    sizes="(max-width: 768px) 50vw, 152px"
                   />
                 )}
               </div>
@@ -409,15 +409,15 @@ function Section6Mastery() {
             key={label}
             variants={fadeInUpScale}
             transition={transition}
-            className="aspect-[3/4] rounded-lg bg-white flex flex-col items-center justify-center p-3 border border-neutral-200 shadow-sm overflow-hidden"
+            className="aspect-[3/4] rounded-lg bg-white flex flex-col items-center justify-center p-3 border border-neutral-200 shadow-sm overflow-hidden min-w-0"
           >
-            <div className="relative w-full flex-1 min-h-0 flex items-center justify-center">
+            <div className="relative w-full flex-1 min-h-0 flex items-center justify-center min-w-0">
               <Image
                 src={`${src}?v=${CATEGORY_ICONS_CACHE}`}
                 alt={label}
                 width={120}
                 height={120}
-                className="object-contain"
+                className="object-contain max-w-full max-h-full"
               />
             </div>
             <p className="text-primary font-medium text-sm sm:text-base text-center mt-2">

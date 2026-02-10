@@ -11,7 +11,6 @@ One image per category. Use these filenames (replace with your assets):
 - `category-coffee.jpg` – Coffee
 - `category-floral.jpg` – Floral
 - `category-pottery.jpg` – Pottery
-- `category-textiles.jpg` – Textiles
 - `category-music.jpg` – Music
 - `category-wellness.jpg` – Wellness
 

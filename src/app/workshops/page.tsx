@@ -1,12 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/browser'
 import Navbar from '@/components/navbar'
 import EventCard from '@/components/event-card'
+import WorkshopMap from '@/components/workshop-map'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { ArrowLeft, Loader2, Search, LayoutGrid, MapPin, X } from 'lucide-react'
+import { CATEGORIES } from '@/constants/categories'
+
+const WORKSHOP_CATEGORIES = ['All', ...CATEGORIES]
 
 interface EventRow {
   id: number
@@ -20,27 +25,99 @@ interface EventRow {
   is_multiple_dates: boolean | null
   price: number | string | null
   vendor_id: string | null
+  lat?: number | null
+  lng?: number | null
 }
 
+const DEFAULT_MAP_CENTER: [number, number] = [43.6532, -79.3832]
+
 export default function WorkshopsPage() {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('All')
+  const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid')
   const [events, setEvents] = useState<EventRow[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 300)
+    return () => clearTimeout(t)
+  }, [searchTerm])
+
+  const fetchEvents = useCallback(async () => {
     const supabase = createClient()
-    supabase
-      .from('events')
-      .select('id, title, description, date, location, image_url, external_link, category, is_multiple_dates, price, vendor_id')
-      .order('date', { ascending: true, nullsFirst: false })
-      .then(({ data, error }) => {
-        if (error) {
-          console.error('Error fetching events:', error)
-        } else {
-          setEvents((data as EventRow[]) ?? [])
-        }
-        setLoading(false)
-      })
-  }, [])
+    setLoading(true)
+    try {
+      let query = supabase
+        .from('events')
+        .select('id, title, description, date, location, image_url, external_link, category, is_multiple_dates, price, vendor_id, lat, lng')
+        .order('date', { ascending: true, nullsFirst: false })
+
+      if (debouncedSearch.trim()) {
+        query = query.or(
+          `title.ilike.%${debouncedSearch.trim()}%,category.ilike.%${debouncedSearch.trim()}%`
+        )
+      }
+      if (selectedCategory !== 'All') {
+        query = query.eq('category', selectedCategory)
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+
+      const list = (data as EventRow[]) ?? []
+      const now = new Date()
+      const upcoming = list.filter(
+        (e) => !e.date || new Date(e.date) > now
+      )
+      setEvents(upcoming)
+    } catch (e) {
+      console.error('Error fetching events:', e)
+      setEvents([])
+    } finally {
+      setLoading(false)
+    }
+  }, [debouncedSearch, selectedCategory])
+
+  useEffect(() => {
+    fetchEvents()
+  }, [fetchEvents])
+
+  const handleClearFilters = () => {
+    setSearchTerm('')
+    setSelectedCategory('All')
+  }
+
+  const hasActiveFilters = searchTerm.trim() !== '' || selectedCategory !== 'All'
+
+  const mapCenter = (() => {
+    const withCoords = events.find(
+      (e) =>
+        e.lat != null &&
+        e.lng != null &&
+        !isNaN(Number(e.lat)) &&
+        !isNaN(Number(e.lng)) &&
+        Number(e.lat) !== 0 &&
+        Number(e.lng) !== 0
+    )
+    if (withCoords) {
+      return [Number(withCoords.lat), Number(withCoords.lng)] as [number, number]
+    }
+    return DEFAULT_MAP_CENTER
+  })()
+
+  const mapEvents = events.map((e) => ({
+    id: e.id,
+    title: e.title,
+    date: e.date,
+    location: e.location,
+    image_url: e.image_url,
+    external_link: e.external_link ?? undefined,
+    is_multiple_dates: e.is_multiple_dates ?? false,
+    price: e.price,
+    lat: e.lat ?? null,
+    lng: e.lng ?? null,
+  }))
 
   return (
     <div className="min-h-screen bg-gray-50/50">
@@ -60,6 +137,75 @@ export default function WorkshopsPage() {
           </div>
         </div>
 
+        {/* Search + Clear row */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && fetchEvents()}
+              className="pl-9 h-9 rounded-full border-gray-200 bg-white"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClearFilters}
+            className="h-9 rounded-full border-gray-200 text-[#5D755D] font-medium shrink-0"
+          >
+            <X className="h-4 w-4 mr-1.5" />
+            Clear
+          </Button>
+        </div>
+
+        {/* Category filter pills */}
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+          {WORKSHOP_CATEGORIES.map((cat) => {
+            const isActive = cat === 'All' ? selectedCategory === 'All' : selectedCategory === cat
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
+                className={`shrink-0 h-9 px-3 rounded-full text-sm font-medium border transition-colors ${
+                  isActive
+                    ? 'bg-[#5D755D] text-white border-[#5D755D]'
+                    : 'bg-white text-[#5D755D] border-gray-200 hover:border-[#5D755D]/50'
+                }`}
+              >
+                {cat}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* View toggle: Grid | Map */}
+        <div className="flex gap-1 p-1 rounded-lg bg-gray-100 w-fit mb-4">
+          <button
+            type="button"
+            onClick={() => setViewMode('grid')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              viewMode === 'grid' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <LayoutGrid className="h-4 w-4" />
+            Grid
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('map')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              viewMode === 'map' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <MapPin className="h-4 w-4" />
+            Map
+          </button>
+        </div>
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-[#5D755D] mb-3" />
@@ -67,12 +213,14 @@ export default function WorkshopsPage() {
           </div>
         ) : events.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
-            <p className="text-gray-600 mb-4 text-sm">No workshops at the moment. Check back soon.</p>
-            <Link href="/">
-              <Button variant="outline">Back to home</Button>
-            </Link>
+            <p className="text-gray-600 mb-4 text-sm">
+              No workshops found. Try different search or filters, or check back later.
+            </p>
+            <Button variant="outline" onClick={handleClearFilters}>
+              Clear filters
+            </Button>
           </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {events.map((event) => (
               <EventCard
@@ -92,6 +240,10 @@ export default function WorkshopsPage() {
                 }}
               />
             ))}
+          </div>
+        ) : (
+          <div className="rounded-lg overflow-hidden border border-gray-200 bg-white shadow-sm h-[500px] min-h-[400px]">
+            <WorkshopMap events={mapEvents} center={mapCenter} zoom={11} />
           </div>
         )}
       </main>

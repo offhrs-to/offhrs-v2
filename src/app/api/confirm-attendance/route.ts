@@ -43,11 +43,12 @@ export async function GET(request: NextRequest) {
   const currentPoints = profile?.experience_points ?? 0
   const newPoints = currentPoints + 1
 
+  // Each level requires 10 more points to advance (Novice→10, Intermediate→20, Advanced→30, Expert→40, Master=cap)
   const levelThresholds: Record<string, number> = {
     Novice: 10,
     Intermediate: 20,
-    Advanced: 40,
-    Expert: 80,
+    Advanced: 30,
+    Expert: 40,
     Master: Infinity,
   }
   const levels = ['Novice', 'Intermediate', 'Advanced', 'Expert', 'Master'] as const
