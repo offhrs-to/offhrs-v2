@@ -125,17 +125,17 @@ export default function VendorProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50/50">
-      <div className="container mx-auto max-w-4xl px-4 py-12">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">{vendor.name}</h1>
-          <p className="text-gray-600 mt-2">Workshop host</p>
+      <div className="container mx-auto max-w-4xl px-4 py-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">{vendor.name}</h1>
+          <p className="text-gray-600 mt-1 text-sm">Workshop host</p>
           {avgRating != null && (
-            <div className="flex items-center gap-2 mt-4">
+            <div className="flex items-center gap-2 mt-3">
               <div className="flex">
                 {[1, 2, 3, 4, 5].map((s) => (
                   <Star
                     key={s}
-                    className={`w-5 h-5 ${s <= avgRating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`}
+                    className={`w-4 h-4 ${s <= avgRating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`}
                   />
                 ))}
               </div>
@@ -145,21 +145,21 @@ export default function VendorProfilePage() {
         </div>
 
         {user && (
-          <form onSubmit={handleSubmitReview} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Leave a review</h2>
-            <div className="flex gap-2 mb-4">
+          <form onSubmit={handleSubmitReview} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+            <h2 className="text-base font-bold text-gray-900 mb-3">Leave a review</h2>
+            <div className="flex gap-1 mb-3">
               {[1, 2, 3, 4, 5].map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setRating(s)}
-                  className={`p-1 rounded ${s <= rating ? 'text-amber-500' : 'text-gray-300'}`}
+                  className={`p-0.5 rounded ${s <= rating ? 'text-amber-500' : 'text-gray-300'}`}
                 >
-                  <Star className={`w-8 h-8 ${s <= rating ? 'fill-current' : ''}`} />
+                  <Star className={`w-6 h-6 ${s <= rating ? 'fill-current' : ''}`} />
                 </button>
               ))}
             </div>
-            <div className="mb-4">
+            <div className="mb-3">
               <Label htmlFor="comment">Comment (optional)</Label>
               <Textarea
                 id="comment"
@@ -176,45 +176,45 @@ export default function VendorProfilePage() {
           </form>
         )}
 
-        <div className="mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Reviews</h2>
+        <div className="mb-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-3">Reviews</h2>
           {reviews.length === 0 ? (
-            <p className="text-gray-600">No reviews yet.</p>
+            <p className="text-gray-600 text-sm">No reviews yet.</p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {reviews.map((r) => (
-                <div key={r.id} className="bg-white rounded-lg border border-gray-100 p-4">
-                  <div className="flex items-center gap-2 mb-2">
+                <div key={r.id} className="bg-white rounded-lg border border-gray-100 p-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
                     <div className="flex">
                       {[1, 2, 3, 4, 5].map((s) => (
                         <Star
                           key={s}
-                          className={`w-4 h-4 ${s <= r.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`}
+                          className={`w-3.5 h-3.5 ${s <= r.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`}
                         />
                       ))}
                     </div>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-xs text-gray-500">
                       {r.author_name || 'Anonymous'} • {new Date(r.created_at).toLocaleDateString()}
                     </span>
                   </div>
-                  {r.comment && <p className="text-gray-700 text-sm">{r.comment}</p>}
+                  {r.comment && <p className="text-gray-700 text-xs">{r.comment}</p>}
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Upcoming Workshops</h2>
+        <h2 className="text-lg font-bold text-gray-900 mb-3">Upcoming Workshops</h2>
         {events.length === 0 ? (
-          <p className="text-gray-600">No upcoming workshops from this vendor.</p>
+          <p className="text-gray-600 text-sm">No upcoming workshops from this vendor.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {events.map((event) => (
               <div
                 key={event.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+                className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden"
               >
-                <div className="relative h-40 bg-gray-100">
+                <div className="relative h-32 bg-gray-100">
                   {event.image_url ? (
                     <Image
                       src={event.image_url}
@@ -231,11 +231,11 @@ export default function VendorProfilePage() {
                     </div>
                   )}
                 </div>
-                <div className="p-4">
-                  <h3 className="font-bold text-gray-900 mb-2">{event.title}</h3>
+                <div className="p-3">
+                  <h3 className="font-bold text-base text-gray-900 mb-1.5">{event.title}</h3>
                   {event.date && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                      <Calendar className="w-4 h-4" />
+                    <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-1">
+                      <Calendar className="w-3.5 h-3.5 shrink-0" />
                       {new Date(event.date).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
@@ -245,8 +245,8 @@ export default function VendorProfilePage() {
                     </div>
                   )}
                   {event.location && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                      <MapPin className="w-4 h-4" />
+                    <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-1.5">
+                      <MapPin className="w-3.5 h-3.5 shrink-0" />
                       {event.location}
                     </div>
                   )}
@@ -266,9 +266,9 @@ export default function VendorProfilePage() {
           </div>
         )}
 
-        <div className="mt-8">
+        <div className="mt-6">
           <Link href="/">
-            <Button variant="outline">Back to Workshops</Button>
+            <Button variant="outline" size="sm">Back to Workshops</Button>
           </Link>
         </div>
       </div>

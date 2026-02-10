@@ -139,10 +139,10 @@ export default function ProfilePage() {
       {showOnboarding && (
         <OnboardingModal userId={user.id} onComplete={refreshProfile} />
       )}
-      <div className="container mx-auto max-w-2xl px-4 py-12">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-          <div className="flex flex-col items-center text-center mb-8">
-            <div className="relative w-24 h-24 rounded-full overflow-hidden bg-gray-200 mb-4">
+      <div className="container mx-auto max-w-2xl px-4 py-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="relative w-16 h-16 rounded-full overflow-hidden bg-gray-200 mb-3">
               {avatarUrl ? (
                 <Image
                   src={avatarUrl}
@@ -151,21 +151,21 @@ export default function ProfilePage() {
                   className="object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-gray-400">
+                <div className="w-full h-full flex items-center justify-center text-lg font-bold text-gray-400">
                   {displayName.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">{displayName}</h1>
+            <h1 className="text-xl font-bold text-gray-900">{displayName}</h1>
             {level && (
-              <p className="text-sm text-[#5D755D] mt-1">
+              <p className="text-xs text-[#5D755D] mt-0.5">
                 {level} {typeof points === 'number' ? `• ${points}/10 points` : ''}
               </p>
             )}
             <Button
               variant="outline"
               size="sm"
-              className="mt-4"
+              className="mt-3"
               onClick={() => signOut()}
             >
               <LogOut className="h-4 w-4 mr-2" />
@@ -173,22 +173,22 @@ export default function ProfilePage() {
             </Button>
           </div>
 
-          <div className="border-t border-gray-100 pt-6 flex gap-8 mb-6">
+          <div className="border-t border-gray-100 pt-4 flex gap-6 mb-4">
             <div>
-              <p className="text-2xl font-bold text-gray-900">{workshopsAttended}</p>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Workshops attended</p>
+              <p className="text-xl font-bold text-gray-900">{workshopsAttended}</p>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Workshops attended</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{savedVendors.length}</p>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Saved vendors</p>
+              <p className="text-xl font-bold text-gray-900">{savedVendors.length}</p>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Saved vendors</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{reviewsCount}</p>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Reviews</p>
+              <p className="text-xl font-bold text-gray-900">{reviewsCount}</p>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Reviews</p>
             </div>
           </div>
 
-          <div className="border-t border-gray-100 pt-6 space-y-4">
+          <div className="border-t border-gray-100 pt-4 space-y-3">
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wide">Email</p>
               <p className="text-gray-900">{email}</p>
@@ -199,8 +199,8 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-gray-100">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Saved Vendors ({savedVendors.length})</h2>
+          <div className="mt-6 pt-4 border-t border-gray-100">
+            <h2 className="text-base font-bold text-gray-900 mb-3">Saved Vendors ({savedVendors.length})</h2>
             {savedVendors.length === 0 ? (
               <p className="text-gray-600 text-sm">No saved vendors yet. Save vendors from workshop cards to see them here.</p>
             ) : (
@@ -219,7 +219,7 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <div className="mt-8 pt-6 border-t border-gray-100 flex gap-4">
+          <div className="mt-6 pt-4 border-t border-gray-100 flex gap-3">
             <Link href="/" className="flex-1">
               <Button variant="outline" className="w-full">
                 Browse Workshops

@@ -9,8 +9,8 @@ export default function Navbar() {
 
   return (
     <nav className="border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-50">
-      <div className="container mx-auto px-4 h-25 flex items-center justify-end">
-        <div className="flex gap-6 text-base font-medium text-gray-600 items-center">
+      <div className="container mx-auto px-4 h-14 flex items-center justify-end">
+        <div className="flex gap-4 text-sm font-medium text-gray-600 items-center">
           {!loading && user && (
             <Link href="/profile" className={`transition-colors ${HOVER_COLOR}`}>
               Profile

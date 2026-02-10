@@ -4,9 +4,37 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { motion, useScroll, useTransform, useMotionValue } from 'framer-motion'
 import { InfiniteGridBackground } from '@/components/ui/the-infinite-grid'
-import { CATEGORIES } from '@/constants/categories'
-
-const LANDING_CATEGORIES = CATEGORIES.filter((c) => c !== 'Other')
+// Master your skills section: all categories except Textiles, with Other last
+const LANDING_CATEGORIES: string[] = [
+  'Beauty & Fragrance',
+  'Culinary',
+  'Coffee',
+  'Floral',
+  'Pottery',
+  'Music',
+  'Wellness',
+  'Other',
+]
+// Novice icon path per category (same assets as mobile app)
+const CATEGORY_NOVICE_ICONS: Record<string, string> = {
+  'Beauty & Fragrance': '/categories/beauty-fragrance-novice.png',
+  Culinary: '/categories/culinary-novice.png',
+  Coffee: '/categories/coffee-novice.png',
+  Floral: '/categories/floral-novice.png',
+  Pottery: '/categories/pottery-novice.png',
+  Music: '/categories/music-novice.png',
+  Wellness: '/categories/wellness-novice.png',
+  Other: '/categories/other-novice.png',
+}
+const CATEGORY_ICONS_CACHE = '4'
+// Other category icons for Track Your Mastery (Novice → Master)
+const MASTERY_OTHER_ICONS: { src: string; label: string }[] = [
+  { src: '/categories/other-novice.png', label: 'Novice' },
+  { src: '/categories/other-intermediate.png', label: 'Intermediate' },
+  { src: '/categories/other-advanced.png', label: 'Advanced' },
+  { src: '/categories/other-expert.png', label: 'Expert' },
+  { src: '/categories/other-master.png', label: 'Master' },
+]
 const NUM_SECTIONS = 6
 
 const APP_STORE_URL = process.env.NEXT_PUBLIC_APP_STORE_URL || '#'
@@ -186,7 +214,7 @@ export default function Home() {
           initial={false}
           onMouseMove={handleMouseMove}
         >
-          <div className={`flex flex-col w-full max-w-6xl mx-auto ${i === 5 ? 'flex-1 min-h-0' : ''} ${i !== 5 ? 'items-center justify-center' : ''}`}>
+          <div className={`flex flex-col w-full max-w-4xl mx-auto ${i === 5 ? 'flex-1 min-h-0' : ''} ${i !== 5 ? 'items-center justify-center' : ''}`}>
             {section.content}
           </div>
         </motion.div>
@@ -207,14 +235,14 @@ function Section1Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1, ease: easeOut }}
-        className="mb-0 flex justify-center"
+        className="mb-0 flex justify-center max-w-[90vw] ml-2"
       >
         <Image
           src="/logo.png"
           alt="Offhrs"
-          width={960}
-          height={288}
-          className="object-contain"
+          width={480}
+          height={144}
+          className="object-contain w-full max-h-24 sm:max-h-28 md:max-h-32"
           priority
         />
       </motion.div>
@@ -222,7 +250,7 @@ function Section1Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.9, delay: 0.35, ease: easeOut }}
-        className="text-[2.7rem] md:text-[3.6rem] font-bold text-primary text-center mb-12 max-w-3xl -mt-12 whitespace-nowrap w-full"
+        className="text-xl sm:text-2xl md:text-3xl font-bold text-primary text-center mb-6 max-w-2xl -mt-6 w-full"
       >
         Make your free time flourish
       </motion.p>
@@ -230,19 +258,27 @@ function Section1Hero() {
         initial={{ opacity: 0, y: 34 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.4, ease: easeOut }}
-        className="flex flex-col sm:flex-row gap-4 items-center justify-center w-full"
+        className="flex flex-col gap-3 items-center justify-center w-full"
       >
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Link
+            href={APP_STORE_URL}
+            className="inline-flex items-center justify-center rounded-lg bg-heading-dark text-white px-5 py-2.5 text-sm font-medium hover:bg-heading-dark/90 transition-colors w-[11rem] min-w-[11rem]"
+          >
+            App Store
+          </Link>
+          <Link
+            href={PLAY_STORE_URL}
+            className="inline-flex items-center justify-center rounded-lg bg-heading-dark text-white px-5 py-2.5 text-sm font-medium hover:bg-heading-dark/90 transition-colors w-[11rem] min-w-[11rem]"
+          >
+            Google Play
+          </Link>
+        </div>
         <Link
-          href={APP_STORE_URL}
-          className="inline-flex items-center justify-center rounded-lg bg-heading-dark text-white px-8 py-4 text-[1.35rem] font-medium hover:bg-heading-dark/90 transition-colors"
+          href="/workshops"
+          className="inline-flex items-center justify-center rounded-lg border-2 border-heading-dark text-heading-dark bg-transparent px-5 py-2.5 text-sm font-medium hover:bg-heading-dark/5 transition-colors"
         >
-          App Store
-        </Link>
-        <Link
-          href={PLAY_STORE_URL}
-          className="inline-flex items-center justify-center rounded-lg bg-heading-dark text-white px-8 py-4 text-[1.35rem] font-medium hover:bg-heading-dark/90 transition-colors"
-        >
-          Google Play
+          Browse Workshops
         </Link>
       </motion.div>
     </motion.div>
@@ -251,7 +287,7 @@ function Section1Hero() {
 
 function Section2Headline() {
   return (
-    <p className="text-[4.5rem] md:text-[5.4rem] lg:text-[7.2rem] font-bold text-heading-dark text-center max-w-6xl leading-tight">
+    <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-heading-dark text-center max-w-4xl leading-tight px-2">
       Discover, book, and master{' '}
       <span className="text-primary">your next passion project.</span>
     </p>
@@ -260,7 +296,7 @@ function Section2Headline() {
 
 function Section4Tagline() {
   return (
-    <p className="text-[4.5rem] md:text-[5.4rem] lg:text-[7.2rem] font-bold text-heading-dark text-center max-w-6xl leading-tight">
+    <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-heading-dark text-center max-w-4xl leading-tight px-2">
       Offhrs <span className="text-primary">is your</span> companion <span className="text-primary">for productive leisure, from</span> novice to master <span className="text-primary">in the skills you&apos;ve always wanted to learn</span>
     </p>
   )
@@ -286,29 +322,47 @@ function Section5Categories() {
       <motion.h2
         variants={fadeInUp}
         transition={transition}
-        className="text-[4.5rem] md:text-[5.4rem] lg:text-[7.2rem] font-bold text-heading-dark text-center max-w-6xl leading-tight mb-8"
+        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-heading-dark text-center max-w-4xl leading-tight mb-4"
       >
         Master your skills.
       </motion.h2>
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-[2.7rem] md:text-[3.6rem] font-bold text-primary text-center mb-14 max-w-6xl leading-tight"
+        className="text-lg sm:text-xl md:text-2xl font-bold text-primary text-center mb-8 max-w-4xl leading-tight"
       >
         From pottery, coffee, culinary, beauty, wellness, floral, and more.
       </motion.p>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-5 w-full max-w-5xl">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-4xl">
         {LANDING_CATEGORIES.map((name) => (
           <motion.div
             key={name}
             variants={fadeInUpScale}
             transition={transition}
-            className="rounded-xl overflow-hidden border border-neutral-200 bg-white shadow-sm flex flex-col"
+            className="rounded-lg overflow-hidden border border-neutral-200 bg-white shadow-sm flex flex-col"
           >
-            <div className="aspect-square bg-neutral-200 flex items-center justify-center text-primary text-[1.8rem] p-5 text-center">
-              {name}
+            <div className="aspect-square bg-white flex items-center justify-center p-4">
+              <div className={`rounded-full border-2 border-primary overflow-hidden bg-white shrink-0 w-[152px] h-[152px] ${name === 'Other' ? 'flex items-center justify-center' : 'relative'}`}>
+                {name === 'Other' ? (
+                  <Image
+                    src={`${CATEGORY_NOVICE_ICONS[name] ?? '/categories/other-novice.png'}?v=${CATEGORY_ICONS_CACHE}`}
+                    alt={name}
+                    width={96}
+                    height={96}
+                    className="object-contain"
+                  />
+                ) : (
+                  <Image
+                    src={`${CATEGORY_NOVICE_ICONS[name] ?? '/categories/other-novice.png'}?v=${CATEGORY_ICONS_CACHE}`}
+                    alt={name}
+                    fill
+                    className="object-cover"
+                    sizes="152px"
+                  />
+                )}
+              </div>
             </div>
-            <p className="p-5 text-[1.8rem] font-medium text-heading-dark text-center">
+            <p className="p-3 text-sm sm:text-base font-medium text-heading-dark text-center">
               {name}
             </p>
           </motion.div>
@@ -338,26 +392,37 @@ function Section6Mastery() {
       <motion.h2
         variants={fadeInUp}
         transition={transition}
-        className="text-[4.5rem] md:text-[5.4rem] lg:text-[7.2rem] font-bold text-heading-dark text-center max-w-6xl leading-tight mb-8"
+        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-heading-dark text-center max-w-4xl leading-tight mb-4"
       >
         Track Your Mastery
       </motion.h2>
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-[2.7rem] md:text-[3.6rem] font-bold text-primary text-center mb-14 max-w-6xl leading-tight"
+        className="text-lg sm:text-xl md:text-2xl font-bold text-primary text-center mb-8 max-w-4xl leading-tight"
       >
         Level up your skills from Novice to Master, step-by-step.
       </motion.p>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-5 w-full max-w-5xl">
-        {[1, 2, 3, 4, 5].map((n) => (
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 w-full max-w-4xl">
+        {MASTERY_OTHER_ICONS.map(({ src, label }) => (
           <motion.div
-            key={n}
+            key={label}
             variants={fadeInUpScale}
             transition={transition}
-            className="aspect-[3/4] rounded-xl bg-neutral-200 flex items-center justify-center text-primary text-[1.8rem] border border-neutral-200"
+            className="aspect-[3/4] rounded-lg bg-white flex flex-col items-center justify-center p-3 border border-neutral-200 shadow-sm overflow-hidden"
           >
-            Image {n}
+            <div className="relative w-full flex-1 min-h-0 flex items-center justify-center">
+              <Image
+                src={`${src}?v=${CATEGORY_ICONS_CACHE}`}
+                alt={label}
+                width={120}
+                height={120}
+                className="object-contain"
+              />
+            </div>
+            <p className="text-primary font-medium text-sm sm:text-base text-center mt-2">
+              {label}
+            </p>
           </motion.div>
         ))}
       </div>
@@ -385,33 +450,41 @@ function Section7Join() {
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-[3.6rem] md:text-[4.5rem] font-bold text-primary text-center mb-5"
+        className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary text-center mb-3"
       >
         Why wait?
       </motion.p>
       <motion.h2
         variants={fadeInUp}
         transition={transition}
-        className="text-[5.4rem] md:text-[7.2rem] font-bold text-heading-dark text-center mb-12"
+        className="text-3xl sm:text-4xl md:text-5xl font-bold text-heading-dark text-center mb-6"
       >
-        Join the Fun.
+        Join the Fun
       </motion.h2>
       <motion.div
         variants={fadeInUp}
         transition={transition}
-        className="flex flex-col sm:flex-row gap-4"
+        className="flex flex-col gap-3 items-center"
       >
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Link
+            href={APP_STORE_URL}
+            className="inline-flex items-center justify-center rounded-lg bg-heading-dark text-white px-5 py-2.5 text-sm font-medium hover:bg-heading-dark/90 transition-colors w-[11rem] min-w-[11rem]"
+          >
+            App Store
+          </Link>
+          <Link
+            href={PLAY_STORE_URL}
+            className="inline-flex items-center justify-center rounded-lg bg-heading-dark text-white px-5 py-2.5 text-sm font-medium hover:bg-heading-dark/90 transition-colors w-[11rem] min-w-[11rem]"
+          >
+            Google Play
+          </Link>
+        </div>
         <Link
-          href={APP_STORE_URL}
-          className="inline-flex items-center justify-center rounded-lg bg-heading-dark text-white px-8 py-4 text-[1.35rem] font-medium hover:bg-heading-dark/90 transition-colors"
+          href="/workshops"
+          className="inline-flex items-center justify-center rounded-lg border-2 border-heading-dark text-heading-dark bg-transparent px-5 py-2.5 text-sm font-medium hover:bg-heading-dark/5 transition-colors"
         >
-          App Store
-        </Link>
-        <Link
-          href={PLAY_STORE_URL}
-          className="inline-flex items-center justify-center rounded-lg bg-heading-dark text-white px-8 py-4 text-[1.35rem] font-medium hover:bg-heading-dark/90 transition-colors"
-        >
-          Google Play
+          Browse Workshops
         </Link>
       </motion.div>
     </motion.div>
@@ -431,8 +504,8 @@ function Section7WithFooter() {
 
 function LandingFooter() {
   return (
-    <footer className="w-full border-t border-neutral-200 bg-neutral-50 py-5 px-5 shrink-0">
-      <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-4 text-[1.05rem] text-primary">
+    <footer className="w-full border-t border-neutral-200 bg-neutral-50 py-3 px-4 shrink-0">
+      <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 text-sm text-primary">
         <p>© {new Date().getFullYear()} Offhrs. All rights reserved.</p>
         <Link href="/admin" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
           Admin

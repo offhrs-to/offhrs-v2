@@ -63,9 +63,9 @@ export default function SignupPage() {
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-md text-center space-y-6">
-          <h1 className="text-2xl font-bold text-gray-900">Check your email</h1>
-          <p className="text-gray-600">
+        <div className="w-full max-w-md text-center space-y-4">
+          <h1 className="text-xl font-bold text-gray-900">Check your email</h1>
+          <p className="text-gray-600 text-sm">
             We&apos;ve sent you a confirmation link. Click it to activate your account.
           </p>
           <Link href="/" className="text-[#5D755D] font-medium hover:underline">
@@ -77,14 +77,14 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-6">
+      <div className="w-full max-w-md space-y-6">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Create an account</h1>
-          <p className="mt-2 text-gray-600">Join Offhrs to discover workshops</p>
+          <h1 className="text-2xl font-bold text-gray-900">Create an account</h1>
+          <p className="mt-1 text-gray-600 text-sm">Join Offhrs to discover workshops</p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 space-y-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
           {error && (
             <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">
               {error}
