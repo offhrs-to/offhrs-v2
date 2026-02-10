@@ -362,7 +362,7 @@ function Section5Categories() {
         transition={transition}
         className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-heading-dark text-center max-w-4xl leading-tight mb-4 max-md:mb-2"
       >
-        Master your skills.
+        Master Your Skills
       </motion.h2>
       <motion.p
         variants={fadeInUp}
