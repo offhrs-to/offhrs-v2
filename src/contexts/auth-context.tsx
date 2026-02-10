@@ -33,15 +33,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
     }
 
-    const useIdle = typeof requestIdleCallback !== 'undefined'
-    const id = useIdle
-      ? requestIdleCallback(deferredGetSession, { timeout: 200 })
-      : setTimeout(deferredGetSession, 0)
+    let idleId: ReturnType<typeof requestIdleCallback> | undefined
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    if (typeof requestIdleCallback !== 'undefined') {
+      idleId = requestIdleCallback(deferredGetSession, { timeout: 200 })
+    } else {
+      timeoutId = setTimeout(deferredGetSession, 0)
+    }
 
     return () => {
       subscription.unsubscribe()
-      if (useIdle && typeof cancelIdleCallback !== 'undefined') cancelIdleCallback(id)
-      else clearTimeout(id)
+      if (idleId !== undefined && typeof cancelIdleCallback !== 'undefined') cancelIdleCallback(idleId)
+      if (timeoutId !== undefined) clearTimeout(timeoutId)
     }
   }, [])
 
