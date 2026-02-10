@@ -205,7 +205,7 @@ export default function Home() {
       ].map((section, i) => (
         <motion.div
           key={i}
-          className={`fixed inset-0 z-10 flex flex-col items-center ${i === 5 ? 'justify-between' : 'justify-center'} px-4 ${section.bg}`}
+          className={`fixed inset-0 z-10 flex flex-col items-center ${i === 5 ? 'justify-between' : 'justify-center'} px-4 ${section.bg} max-md:pt-[max(env(safe-area-inset-top,0px),3.5rem)] max-md:pb-[max(env(safe-area-inset-bottom,0px),5rem)]`}
           style={{
             opacity: opacities[i],
             scale: scales[i],
