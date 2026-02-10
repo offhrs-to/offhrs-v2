@@ -240,7 +240,7 @@ export default function Home() {
       ].map((section, i) => (
         <motion.div
           key={i}
-          className={`fixed inset-0 z-10 flex flex-col items-center ${i === 5 ? 'justify-between' : 'justify-center'} px-4 ${section.bg} max-md:pt-[max(env(safe-area-inset-top,0px),3.5rem)] max-md:pb-[max(env(safe-area-inset-bottom,0px),6rem)]`}
+          className={`fixed inset-0 z-10 flex flex-col items-center ${i === 5 ? 'justify-between' : 'justify-center'} px-4 ${section.bg} max-md:pt-[max(env(safe-area-inset-top,0px),3.5rem)] max-md:pb-[env(safe-area-inset-bottom,0.5rem)]`}
           style={{
             opacity: opacities[i],
             scale: scales[i],
@@ -359,18 +359,18 @@ function Section5Categories() {
       <motion.h2
         variants={fadeInUp}
         transition={transition}
-        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-heading-dark text-center max-w-4xl leading-tight mb-4"
+        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-heading-dark text-center max-w-4xl leading-tight mb-4 max-md:mb-2"
       >
         Master your skills.
       </motion.h2>
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-lg sm:text-xl md:text-2xl font-bold text-primary text-center mb-8 max-w-4xl leading-tight"
+        className="text-lg sm:text-xl md:text-2xl font-bold text-primary text-center mb-8 max-w-4xl leading-tight max-md:mb-4"
       >
         From pottery, coffee, culinary, beauty, wellness, floral, and more.
       </motion.p>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-4xl">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-4xl max-md:gap-2">
         {LANDING_CATEGORIES.map((name) => (
           <motion.div
             key={name}
@@ -378,15 +378,15 @@ function Section5Categories() {
             transition={transition}
             className="rounded-lg overflow-hidden border border-neutral-200 bg-white shadow-sm flex flex-col min-w-0"
           >
-            <div className="aspect-square bg-white flex items-center justify-center p-2 sm:p-4">
-              <div className={`rounded-full border-2 border-primary overflow-hidden bg-white w-[100px] h-[100px] sm:w-[120px] sm:h-[120px] md:w-[152px] md:h-[152px] md:shrink-0 ${name === 'Other' ? 'flex items-center justify-center' : 'relative'}`}>
+            <div className="aspect-square bg-white flex items-center justify-center p-1.5 sm:p-4">
+              <div className={`rounded-full border-2 border-primary overflow-hidden bg-white w-[64px] h-[64px] sm:w-[120px] sm:h-[120px] md:w-[152px] md:h-[152px] md:shrink-0 ${name === 'Other' ? 'flex items-center justify-center' : 'relative'}`}>
                 {name === 'Other' ? (
                   <Image
                     src={`${CATEGORY_NOVICE_ICONS[name] ?? '/categories/other-novice.png'}?v=${CATEGORY_ICONS_CACHE}`}
                     alt={name}
                     width={96}
                     height={96}
-                    sizes="(max-width: 640px) 100px, (max-width: 768px) 120px, 96px"
+                    sizes="(max-width: 640px) 64px, (max-width: 768px) 120px, 96px"
                     className="object-contain"
                   />
                 ) : (
@@ -395,12 +395,12 @@ function Section5Categories() {
                     alt={name}
                     fill
                     className="object-cover"
-                    sizes="(max-width: 768px) 50vw, 152px"
+                    sizes="(max-width: 640px) 64px, (max-width: 768px) 50vw, 152px"
                   />
                 )}
               </div>
             </div>
-            <p className="p-3 text-sm sm:text-base font-medium text-heading-dark text-center">
+            <p className="p-2 sm:p-3 text-xs sm:text-base font-medium text-heading-dark text-center">
               {name}
             </p>
           </motion.div>
@@ -430,26 +430,26 @@ function Section6Mastery() {
       <motion.h2
         variants={fadeInUp}
         transition={transition}
-        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-heading-dark text-center max-w-4xl leading-tight mb-4"
+        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-heading-dark text-center max-w-4xl leading-tight mb-4 max-md:mb-2"
       >
         Track Your Mastery
       </motion.h2>
       <motion.p
         variants={fadeInUp}
         transition={transition}
-        className="text-lg sm:text-xl md:text-2xl font-bold text-primary text-center mb-8 max-w-4xl leading-tight"
+        className="text-lg sm:text-xl md:text-2xl font-bold text-primary text-center mb-8 max-w-4xl leading-tight max-md:mb-4"
       >
         Level up your skills from Novice to Master, step-by-step.
       </motion.p>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 w-full max-w-4xl">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 w-full max-w-4xl max-md:gap-2">
         {MASTERY_OTHER_ICONS.map(({ src, label }) => (
           <motion.div
             key={label}
             variants={fadeInUpScale}
             transition={transition}
-            className="aspect-[3/4] rounded-lg bg-white flex flex-col items-center justify-center p-3 border border-neutral-200 shadow-sm overflow-hidden min-w-0"
+            className="aspect-[3/4] rounded-lg bg-white flex flex-col items-center justify-center p-2 sm:p-3 border border-neutral-200 shadow-sm overflow-hidden min-w-0"
           >
-            <div className="relative w-full flex-1 min-h-0 flex items-center justify-center min-w-0">
+            <div className="relative w-full flex-1 min-h-0 flex items-center justify-center min-w-0 max-md:max-w-[56px]">
               <Image
                 src={`${src}?v=${CATEGORY_ICONS_CACHE}`}
                 alt={label}
@@ -459,7 +459,7 @@ function Section6Mastery() {
                 className="object-contain max-w-full max-h-full"
               />
             </div>
-            <p className="text-primary font-medium text-sm sm:text-base text-center mt-2">
+            <p className="text-primary font-medium text-sm sm:text-base text-center mt-1 sm:mt-2 max-md:text-xs">
               {label}
             </p>
           </motion.div>
