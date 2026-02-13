@@ -1,10 +1,12 @@
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
 import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
+import * as Linking from 'expo-linking';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   Text,
@@ -25,6 +27,8 @@ export function SignInForm({
   showBackButton = false,
   onBack,
 }: Props) {
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,10 +41,14 @@ export function SignInForm({
     setError(null);
     try {
       if (isSignUp) {
+        const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: undefined },
+          options: {
+            emailRedirectTo: undefined,
+            data: { full_name: fullName || undefined },
+          },
         });
         if (error) throw error;
         setSuccess(true);
@@ -58,7 +66,7 @@ export function SignInForm({
 
   const redirectUrl = Linking.createURL('/auth/callback');
 
-  const handleOAuth = async (provider: 'google' | 'apple' | 'facebook') => {
+  const handleOAuth = async (provider: 'google' | 'apple') => {
     setLoading(true);
     setError(null);
     try {
@@ -72,11 +80,7 @@ export function SignInForm({
       }
     } catch (err: unknown) {
       const message =
-        provider === 'google'
-          ? 'Google sign-in failed'
-          : provider === 'apple'
-            ? 'Apple sign-in failed'
-            : 'Meta sign-in failed';
+        provider === 'google' ? 'Google sign-in failed' : 'Apple sign-in failed';
       setError(err instanceof Error ? err.message : message);
     } finally {
       setLoading(false);
@@ -180,9 +184,16 @@ export function SignInForm({
           {loading ? (
             <ActivityIndicator size="small" color={DesignColors.primary} />
           ) : (
-            <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>
-              Continue with Google
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Image
+                source={require('@/assets/images/google-logo.png')}
+                style={{ width: 20, height: 20 }}
+                resizeMode="contain"
+              />
+              <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>
+                Continue with Google
+              </Text>
+            </View>
           )}
         </Pressable>
 
@@ -198,39 +209,22 @@ export function SignInForm({
             borderWidth: 1,
             borderColor: '#000',
             backgroundColor: '#000',
-            marginBottom: 12,
-          }}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : (
-            <Text style={{ fontSize: 16, color: '#FFF', fontWeight: '600' }}>
-              Continue with Apple
-            </Text>
-          )}
-        </Pressable>
-
-        <Pressable
-          onPress={() => handleOAuth('facebook')}
-          disabled={loading}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingVertical: 14,
-            borderRadius: 9999,
-            borderWidth: 1,
-            borderColor: '#1877F2',
-            backgroundColor: '#1877F2',
             marginBottom: 24,
           }}
         >
           {loading ? (
             <ActivityIndicator size="small" color="#FFF" />
           ) : (
-            <Text style={{ fontSize: 16, color: '#FFF', fontWeight: '600' }}>
-              Continue with Meta
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <MaterialCommunityIcons
+                name="apple"
+                size={20}
+                color="#FFF"
+              />
+              <Text style={{ fontSize: 16, color: '#FFF', fontWeight: '600' }}>
+                Continue with Apple
+              </Text>
+            </View>
           )}
         </Pressable>
 
@@ -243,6 +237,49 @@ export function SignInForm({
         >
           or
         </Text>
+
+        {isSignUp && (
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+            <TextInput
+              placeholder="First name"
+              placeholderTextColor={DesignColors.mediumGray}
+              value={firstName}
+              onChangeText={setFirstName}
+              autoCapitalize="words"
+              autoComplete="given-name"
+              style={{
+                flex: 1,
+                backgroundColor: DesignColors.inputBg,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontSize: 16,
+                color: DesignColors.charcoal,
+              }}
+            />
+            <TextInput
+              placeholder="Last name"
+              placeholderTextColor={DesignColors.mediumGray}
+              value={lastName}
+              onChangeText={setLastName}
+              autoCapitalize="words"
+              autoComplete="family-name"
+              style={{
+                flex: 1,
+                backgroundColor: DesignColors.inputBg,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontSize: 16,
+                color: DesignColors.charcoal,
+              }}
+            />
+          </View>
+        )}
 
         <TextInput
           placeholder="Email"
@@ -288,13 +325,24 @@ export function SignInForm({
 
         <Pressable
           onPress={handleEmailAuth}
-          disabled={loading || !email || !password}
+          disabled={
+            loading ||
+            !email ||
+            !password ||
+            (isSignUp && (!firstName.trim() || !lastName.trim()))
+          }
           style={{
             paddingVertical: 14,
             borderRadius: 9999,
             backgroundColor: DesignColors.primary,
             alignItems: 'center',
-            opacity: loading || !email || !password ? 0.6 : 1,
+            opacity:
+              loading ||
+              !email ||
+              !password ||
+              (isSignUp && (!firstName.trim() || !lastName.trim()))
+                ? 0.6
+                : 1,
           }}
         >
           {loading ? (
@@ -310,6 +358,10 @@ export function SignInForm({
           onPress={() => {
             setIsSignUp(!isSignUp);
             setError(null);
+            if (!isSignUp) {
+              setFirstName('');
+              setLastName('');
+            }
           }}
           style={{ marginTop: 24, alignItems: 'center' }}
         >
