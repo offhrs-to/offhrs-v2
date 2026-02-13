@@ -1,15 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import * as SecureStore from 'expo-secure-store';
 import { AppState, type AppStateStatus, Platform } from 'react-native';
 
 const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ??
-  process.env.EXPO_PUBLIC_SUPABASE_URL ??
-  'https://gzoymzlegnfhdfmkblpd.supabase.co';
+  process.env.EXPO_PUBLIC_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6b3ltemxlZ25maGRmbWtibHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMDQ3ODEsImV4cCI6MjA4NDY4MDc4MX0.DCDfJP-hoi4IlWkrD3jc4Pxu1JV3n-PHYg_IRS7xE00';
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Missing Supabase env: set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY (e.g. in EAS secrets for production builds, or .env for local).'
+  );
+}
 
 // During Node/build, window is undefined; AsyncStorage would throw. Use no-op storage.
 const isNode =
@@ -23,9 +26,44 @@ const noopStorage = {
   removeItem: async () => {},
 };
 
+/** Secure storage for auth on native (Keychain/Keystore); AsyncStorage on web; fallback to AsyncStorage if SecureStore fails (e.g. value > 2KB on iOS). */
+function getAuthStorage(): {
+  getItem: (key: string) => Promise<string | null>;
+  setItem: (key: string, value: string) => Promise<void>;
+  removeItem: (key: string) => Promise<void>;
+} {
+  if (isNode) return noopStorage;
+  if (Platform.OS === 'web') return AsyncStorage;
+
+  return {
+    getItem: async (key: string) => {
+      try {
+        return await SecureStore.getItemAsync(key);
+      } catch {
+        return await AsyncStorage.getItem(key);
+      }
+    },
+    setItem: async (key: string, value: string) => {
+      try {
+        await SecureStore.setItemAsync(key, value);
+      } catch {
+        await AsyncStorage.setItem(key, value);
+      }
+    },
+    removeItem: async (key: string) => {
+      try {
+        await SecureStore.deleteItemAsync(key);
+      } catch {
+        /* ignore */
+      }
+      await AsyncStorage.removeItem(key);
+    },
+  };
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: isNode ? noopStorage : AsyncStorage,
+    storage: getAuthStorage(),
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

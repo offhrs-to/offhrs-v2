@@ -52,13 +52,20 @@ export default function AdminPage() {
   ]
 
   // --- 1. LOGIN LOGIC ---
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (username === 'admin' && password === 'Am19em26!') {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+      credentials: 'include',
+    })
+    if (res.ok) {
       setIsAuthenticated(true)
       fetchEvents()
     } else {
-      alert('Invalid credentials')
+      const data = await res.json().catch(() => ({}))
+      alert(data.error ?? 'Invalid credentials')
     }
   }
 
@@ -67,7 +74,7 @@ export default function AdminPage() {
     setLoading(true)
     const [eventsRes, countsRes] = await Promise.all([
       supabase.from('events').select('*').order('id', { ascending: false }),
-      fetch('/api/admin/event-redirect-counts').then((r) => (r.ok ? r.json() : { counts: {} })).catch(() => ({ counts: {} })),
+      fetch('/api/admin/event-redirect-counts', { credentials: 'include' }).then((r) => (r.ok ? r.json() : { counts: {} })).catch(() => ({ counts: {} })),
     ])
     if (eventsRes.error) console.error('Error loading events:', eventsRes.error)
     else setEvents(eventsRes.data || [])

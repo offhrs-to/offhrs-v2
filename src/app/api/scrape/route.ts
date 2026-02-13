@@ -1,13 +1,19 @@
+import { scrapeBodySchema } from '@/lib/api-validation'
 import { NextResponse } from 'next/server'
 import * as cheerio from 'cheerio'
 
 export async function POST(request: Request) {
   try {
-    const { url } = await request.json()
-
-    if (!url) {
-      return NextResponse.json({ error: 'URL is required' }, { status: 400 })
+    const raw = await request.json()
+    if (typeof raw !== 'object' || raw === null) {
+      return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
     }
+    const parsed = scrapeBodySchema.safeParse(raw)
+    if (!parsed.success) {
+      const msg = parsed.error.flatten().formErrors[0] ?? 'URL is required and must be valid'
+      return NextResponse.json({ error: msg }, { status: 400 })
+    }
+    const { url } = parsed.data
 
     // 1. Fetch the website content
     const response = await fetch(url, {

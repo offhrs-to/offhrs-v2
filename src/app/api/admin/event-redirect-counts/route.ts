@@ -1,13 +1,19 @@
+import { verifyAdminCookie } from '@/app/api/admin/login/route'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * GET /api/admin/event-redirect-counts
  * Returns how many users were redirected (booked) from the app to each event.
  * Uses service role to count rows in bookings per event_id.
- * Expired events remain in Supabase; this count includes them.
+ * Requires admin session cookie (set via POST /api/admin/login).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const cookieHeader = request.headers.get('cookie')
+  if (!verifyAdminCookie(cookieHeader)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const supabase = createAdminClient()
   if (!supabase) {
     return NextResponse.json(

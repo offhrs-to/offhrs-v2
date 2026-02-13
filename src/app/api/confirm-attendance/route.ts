@@ -1,15 +1,39 @@
+import { confirmAttendanceTokenSchema } from '@/lib/api-validation'
 import { createClient } from '@/lib/supabase/server'
+import { getRateLimitKey, rateLimit } from '@/lib/rate-limit'
 import { NextRequest, NextResponse } from 'next/server'
 
+const CONFIRM_RATE_LIMIT = 30 // per minute per IP (token guessing)
+
 export async function GET(request: NextRequest) {
+  const key = getRateLimitKey(request)
+  if (!rateLimit(`confirm:${key}`, CONFIRM_RATE_LIMIT)) {
+    return NextResponse.redirect(new URL('/profile?error=too_many_requests', request.url))
+  }
+
   const { searchParams } = new URL(request.url)
   const token = searchParams.get('token')
 
-  if (!token) {
+  if (!token || !confirmAttendanceTokenSchema.safeParse(token).success) {
     return NextResponse.redirect(new URL('/profile?error=invalid_token', request.url))
   }
 
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const authHeader = request.headers.get('authorization')
+  let resolvedUser = user
+  if (!resolvedUser && authHeader?.startsWith('Bearer ')) {
+    const { createClient: createSupabase } = await import('@supabase/supabase-js')
+    const client = createSupabase(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: authHeader } } }
+    )
+    resolvedUser = (await client.auth.getUser()).data.user
+  }
 
   const { data: booking, error: fetchError } = await supabase
     .from('bookings')
@@ -19,6 +43,10 @@ export async function GET(request: NextRequest) {
 
   if (fetchError || !booking) {
     return NextResponse.redirect(new URL('/profile?error=invalid_token', request.url))
+  }
+
+  if (resolvedUser && booking.user_id !== resolvedUser.id) {
+    return NextResponse.redirect(new URL('/profile?error=forbidden', request.url))
   }
 
   if (booking.status === 'attended') {

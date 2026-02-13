@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { useAuth } from '@/contexts/auth-context'
 import { createClient } from '@/lib/supabase/browser'
 import { Button } from '@/components/ui/button'
-import { LogOut } from 'lucide-react'
+import { LogOut, Trash2 } from 'lucide-react'
 import OnboardingModal from '@/components/onboarding-modal'
 
 export default function ProfilePage() {
@@ -23,6 +23,7 @@ export default function ProfilePage() {
   const [workshopsAttended, setWorkshopsAttended] = useState(0)
   const [reviewsCount, setReviewsCount] = useState(0)
   const [profileLoaded, setProfileLoaded] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (!user?.id) return
@@ -68,6 +69,33 @@ export default function ProfilePage() {
 
   const showOnboarding =
     user && profileLoaded && profile?.onboarding_completed === false
+
+  const deleteAccount = async () => {
+    if (!confirm('Permanently delete your account and all data? This cannot be undone.')) return
+    setDeleting(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/account/delete', {
+        method: 'POST',
+        headers: session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : {},
+        credentials: 'include',
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(body.error ?? 'Failed to delete account')
+        return
+      }
+      await signOut()
+      window.location.href = '/'
+    } catch {
+      alert('Something went wrong')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   const refreshProfile = () => {
     if (!user?.id) return
@@ -219,12 +247,26 @@ export default function ProfilePage() {
             )}
           </div>
 
-          <div className="mt-6 pt-4 border-t border-gray-100 flex gap-3">
-            <Link href="/" className="flex-1">
-              <Button variant="outline" className="w-full">
-                Browse Workshops
-              </Button>
+          <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col gap-3">
+            <Link href="/privacy" className="text-xs text-gray-500 hover:text-gray-700">
+              Privacy Policy
             </Link>
+            <div className="flex gap-3">
+              <Link href="/" className="flex-1">
+                <Button variant="outline" className="w-full">
+                  Browse Workshops
+                </Button>
+              </Link>
+            </div>
+            <Button
+              variant="outline"
+              className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+              onClick={deleteAccount}
+              disabled={deleting}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {deleting ? 'Deleting…' : 'Delete my account'}
+            </Button>
           </div>
         </div>
       </div>

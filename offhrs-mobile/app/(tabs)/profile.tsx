@@ -5,6 +5,7 @@ import {
 } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { Image } from 'expo-image';
+import * as Linking from 'expo-linking';
 import { useEffect, useState } from 'react';
 import { ScrollView, Text, View, Pressable } from 'react-native';
 
@@ -264,6 +265,16 @@ export default function ProfileScreen() {
           <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>{phone}</Text>
         </View>
       </View>
+
+      <Pressable
+        onPress={() => {
+          const base = (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.com';
+          Linking.openURL(`${base}/privacy`);
+        }}
+        style={{ marginTop: 20, paddingVertical: 12, alignItems: 'center' }}
+      >
+        <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>Privacy Policy</Text>
+      </Pressable>
     </ScrollView>
     </>
   );

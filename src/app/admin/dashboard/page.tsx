@@ -48,7 +48,7 @@ export default function AdminDashboard() {
           .from('events')
           .select('id, title, date, image_url, created_at, external_link, is_multiple_dates')
           .order('created_at', { ascending: false }),
-        fetch('/api/admin/event-redirect-counts').then((r) => (r.ok ? r.json() : { counts: {} })).catch(() => ({ counts: {} })),
+        fetch('/api/admin/event-redirect-counts', { credentials: 'include' }).then((r) => (r.ok ? r.json() : { counts: {} })).catch(() => ({ counts: {} })),
       ])
       if (eventsRes.error) throw eventsRes.error
       setEvents(eventsRes.data || [])

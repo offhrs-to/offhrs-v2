@@ -1,4 +1,6 @@
+import { bookBodySchema } from '@/lib/api-validation'
 import { createClient } from '@/lib/supabase/server'
+import { getRateLimitKey, rateLimit } from '@/lib/rate-limit'
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { randomUUID } from 'crypto'
@@ -7,8 +9,15 @@ const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
+const BOOK_RATE_LIMIT = 15 // per minute per IP
+
 export async function POST(request: NextRequest) {
   try {
+    const key = getRateLimitKey(request)
+    if (!rateLimit(`book:${key}`, BOOK_RATE_LIMIT)) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     let supabase = await createClient()
     let user = (await supabase.auth.getUser()).data.user
 
@@ -29,10 +38,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { event_id, event_title } = await request.json()
-    if (!event_id) {
-      return NextResponse.json({ error: 'event_id required' }, { status: 400 })
+    const raw = await request.json()
+    if (typeof raw !== 'object' || raw === null) {
+      return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
     }
+    const parsed = bookBodySchema.safeParse(raw)
+    if (!parsed.success) {
+      const msg = parsed.error.flatten().formErrors[0] ?? 'Invalid request'
+      return NextResponse.json({ error: msg }, { status: 400 })
+    }
+    const { event_id, event_title } = parsed.data
 
     const confirmationToken = randomUUID()
 
