@@ -6,6 +6,7 @@
     "start": "expo start",
     "build:ios": "cross-env EXPO_NO_CAPABILITY_SYNC=1 npx eas-cli build --platform ios --profile production",
     "build:android": "npx eas-cli build --platform android --profile production",
+    "submit:ios": "npx eas-cli submit --platform ios --profile production --latest",
     "generate-icon": "node scripts/generate-app-icon.js",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",

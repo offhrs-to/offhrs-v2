@@ -93,7 +93,28 @@ eas submit --platform android --profile production --latest
 
 Select your Google Service Account (JSON key) and track (e.g. internal testing) when prompted. Add testers in Play Console → Release → Testing → Internal testing.
 
-### 4. Iterating
+### 4. Push an update to TestFlight
+
+After code changes, ship a new build to TestFlight:
+
+1. **Build** (runs on EAS servers; use your terminal so you can complete any Apple login prompts):
+
+   ```bash
+   cd offhrs-mobile
+   npm run build:ios
+   ```
+
+2. **Submit** (after the build succeeds):
+
+   ```bash
+   npm run submit:ios
+   ```
+
+3. In [App Store Connect](https://appstoreconnect.apple.com) → your app → **TestFlight**, the new build will appear; processing may take a few minutes. Testers see the update in the TestFlight app.
+
+EAS auto-increments the build number (`appVersionSource: remote` in `eas.json`), so you do not need to change the version in `app.json` for each update.
+
+### 5. Iterating
 
 After code changes, run the same build and submit commands; new builds will appear in TestFlight and Play Console for testers.
 
