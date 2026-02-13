@@ -7,17 +7,18 @@ import { supabase } from '@/lib/supabase';
 
 function parseAuthParams(url: string): { access_token?: string; refresh_token?: string } {
   const params: Record<string, string> = {};
-  const decode = (s: string) => decodeURIComponent(s.replace(/\+/g, ' '));
-  const parse = (s: string) => {
-    s.split('&').forEach((pair) => {
+  const s = typeof url === 'string' ? url : '';
+  const decode = (x: string) => decodeURIComponent(x.replace(/\+/g, ' '));
+  const parse = (x: string) => {
+    x.split('&').forEach((pair) => {
       const [k, v] = pair.split('=');
       if (k && v) params[decode(k)] = decode(v);
     });
   };
   // Supabase may send tokens in query (?...) or hash (#...) depending on flow
-  const afterQuery = url.includes('?') ? url.split('?')[1] ?? '' : '';
-  const queryPart = afterQuery.includes('#') ? afterQuery.split('#')[0] : afterQuery;
-  const hashPart = url.includes('#') ? url.split('#')[1] : '';
+  const afterQuery = s.indexOf('?') >= 0 ? s.split('?')[1] ?? '' : '';
+  const queryPart = afterQuery.indexOf('#') >= 0 ? afterQuery.split('#')[0] : afterQuery;
+  const hashPart = s.indexOf('#') >= 0 ? s.split('#')[1] : '';
   if (queryPart) parse(queryPart);
   if (hashPart) parse(hashPart);
   return { access_token: params.access_token, refresh_token: params.refresh_token };
@@ -35,8 +36,9 @@ export default function AuthCallbackScreen() {
     };
 
     const run = async () => {
-      const url = await Linking.getInitialURL();
-      if (url && url.includes('auth/callback')) {
+      const rawUrl = await Linking.getInitialURL();
+      const url = typeof rawUrl === 'string' ? rawUrl : '';
+      if (url && url.indexOf('auth/callback') >= 0) {
         const { access_token, refresh_token } = parseAuthParams(url);
         if (access_token) {
           const { error: err } = await supabase.auth.setSession({
@@ -58,9 +60,10 @@ export default function AuthCallbackScreen() {
 
     run();
 
-    const sub = Linking.addEventListener('url', ({ url }) => {
-      if (!url || !url.includes('auth/callback')) return;
-      const { access_token, refresh_token } = parseAuthParams(url);
+    const sub = Linking.addEventListener('url', ({ url: eventUrl }) => {
+      const u = typeof eventUrl === 'string' ? eventUrl : '';
+      if (!u || u.indexOf('auth/callback') < 0) return;
+      const { access_token, refresh_token } = parseAuthParams(u);
       if (access_token) {
         supabase.auth.setSession({ access_token, refresh_token: refresh_token ?? '' }).then(({ error: err }) => {
           if (cancelled) return;

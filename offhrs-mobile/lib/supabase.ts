@@ -33,21 +33,44 @@ function getAuthStorage(): {
   removeItem: (key: string) => Promise<void>;
 } {
   if (isNode) return noopStorage;
-  if (Platform.OS === 'web') return AsyncStorage;
+  if (Platform.OS === 'web') {
+    return {
+      getItem: async (key: string): Promise<string | null> => {
+        const v = await AsyncStorage.getItem(key);
+        return typeof v === 'string' && v.length > 0 ? v : null;
+      },
+      setItem: async (key: string, value: string) => {
+        await AsyncStorage.setItem(key, typeof value === 'string' ? value : String(value));
+      },
+      removeItem: async (key: string) => {
+        await AsyncStorage.removeItem(key);
+      },
+    };
+  }
 
   return {
-    getItem: async (key: string) => {
+    getItem: async (key: string): Promise<string | null> => {
       try {
-        return await SecureStore.getItemAsync(key);
+        const v = await SecureStore.getItemAsync(key);
+        if (typeof v === 'string' && v.length > 0) return v;
+        const fallback = await AsyncStorage.getItem(key);
+        if (typeof fallback === 'string' && fallback.length > 0) return fallback;
+        return null;
       } catch {
-        return await AsyncStorage.getItem(key);
+        try {
+          const v = await AsyncStorage.getItem(key);
+          return typeof v === 'string' && v.length > 0 ? v : null;
+        } catch {
+          return null;
+        }
       }
     },
     setItem: async (key: string, value: string) => {
+      const s = typeof value === 'string' ? value : value == null ? '' : String(value);
       try {
-        await SecureStore.setItemAsync(key, value);
+        await SecureStore.setItemAsync(key, s);
       } catch {
-        await AsyncStorage.setItem(key, value);
+        await AsyncStorage.setItem(key, s);
       }
     },
     removeItem: async (key: string) => {

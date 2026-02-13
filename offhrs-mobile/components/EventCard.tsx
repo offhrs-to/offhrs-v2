@@ -31,6 +31,10 @@ interface EventCardProps {
   onPress?: () => void;
 }
 
+const CARD_IMAGE_HEIGHT = 140;
+const CARD_BODY_HEIGHT = 132;
+const CARD_TOTAL_HEIGHT = CARD_IMAGE_HEIGHT + CARD_BODY_HEIGHT;
+
 const softShadow = {
   shadowColor: '#000',
   shadowOffset: { width: 0, height: 8 },
@@ -100,7 +104,7 @@ export function EventCard({ event, onPress }: EventCardProps) {
 
   const cardContent = (
     <>
-      <View style={{ height: 140, width: '100%', overflow: 'hidden', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: '#F5F5F5' }}>
+      <View style={{ height: CARD_IMAGE_HEIGHT, width: '100%', overflow: 'hidden', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: '#F5F5F5' }}>
         {event.image_url ? (
           <Image
             source={{ uri: event.image_url }}
@@ -113,21 +117,30 @@ export function EventCard({ event, onPress }: EventCardProps) {
           </View>
         )}
       </View>
-      <View style={{ backgroundColor: '#FFF', padding: 12 }}>
-        <Text
-          style={{ fontSize: 13, fontWeight: '700', color: DesignColors.charcoal }}
-          numberOfLines={2}
-        >
-          {event.title}
-        </Text>
-        <Text style={{ marginTop: 4, fontSize: 11, color: DesignColors.mediumGray }} numberOfLines={1}>
-          {event.date}
-        </Text>
-        {displayPrice != null && (
-          <Text style={{ marginTop: 6, fontSize: 12, fontWeight: '600', color: DesignColors.charcoal }}>
-            {displayPrice}
+      <View
+        style={{
+          height: CARD_BODY_HEIGHT,
+          backgroundColor: '#FFF',
+          padding: 12,
+          justifyContent: 'space-between',
+        }}
+      >
+        <View>
+          <Text
+            style={{ fontSize: 13, fontWeight: '700', color: DesignColors.charcoal }}
+            numberOfLines={2}
+          >
+            {event.title}
           </Text>
-        )}
+          <Text style={{ marginTop: 4, fontSize: 11, color: DesignColors.mediumGray }} numberOfLines={1}>
+            {event.date}
+          </Text>
+          {displayPrice != null && (
+            <Text style={{ marginTop: 6, fontSize: 12, fontWeight: '600', color: DesignColors.charcoal }}>
+              {displayPrice}
+            </Text>
+          )}
+        </View>
         <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
           {event.vendor_id && (
             <Pressable
@@ -165,7 +178,10 @@ export function EventCard({ event, onPress }: EventCardProps) {
     </>
   );
 
-  const wrapperStyle = [softShadow, { overflow: 'hidden', borderRadius: 20, backgroundColor: '#FFF' }];
+  const wrapperStyle = [
+    softShadow,
+    { overflow: 'hidden', borderRadius: 20, backgroundColor: '#FFF', height: CARD_TOTAL_HEIGHT },
+  ];
 
   if (onPress) {
     return (
