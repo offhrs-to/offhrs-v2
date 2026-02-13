@@ -42,11 +42,13 @@ export function SignInForm({
     try {
       if (isSignUp) {
         const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
+        const appUrl = (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '');
+        const emailRedirectTo = appUrl ? `${appUrl}/auth/callback` : undefined;
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: undefined,
+            emailRedirectTo,
             data: { full_name: fullName || undefined },
           },
         });
