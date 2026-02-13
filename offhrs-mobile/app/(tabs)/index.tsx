@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -28,6 +29,7 @@ const CHARCOAL = '#2C2C2C';
 const MEDIUM_GRAY = '#6B6B6B';
 
 const HORIZONTAL_PADDING = 24;
+const FIRST_TIME_SIGNUP_KEY = '@offhrs/hasSeenFirstTimeSignUpPrompt';
 
 // Each level is 10 points; progression shown as X/10 for all levels (Novice → Master)
 const LEVEL_THRESHOLDS: Record<string, { start: number; step: number }> = {
@@ -149,7 +151,8 @@ const getCategoryButtonWidth = () =>
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const [showFirstTimeSignUpPrompt, setShowFirstTimeSignUpPrompt] = useState(false);
   const [profile, setProfile] = useState<{
     expertise_level: string | null;
     experience_points: number | null;
@@ -171,6 +174,19 @@ export default function HomeScreen() {
       .single()
       .then(({ data }) => setProfile(data ?? null));
   }, [user?.id]);
+
+  useEffect(() => {
+    if (authLoading || user) return;
+    AsyncStorage.getItem(FIRST_TIME_SIGNUP_KEY).then((seen) => {
+      if (seen !== 'true') setShowFirstTimeSignUpPrompt(true);
+    });
+  }, [authLoading, user]);
+
+  const dismissFirstTimePrompt = (goToSignUp: boolean) => {
+    AsyncStorage.setItem(FIRST_TIME_SIGNUP_KEY, 'true');
+    setShowFirstTimeSignUpPrompt(false);
+    if (goToSignUp) router.push('/(tabs)/profile');
+  };
 
   const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Guest';
   // Default: Novice in all categories with 0/10 progression (unless set by years of experience in onboarding)
@@ -461,6 +477,78 @@ export default function HomeScreen() {
         </Pressable>
       </View>
       </ScrollView>
+
+      <Modal
+        visible={showFirstTimeSignUpPrompt}
+        transparent
+        animationType="fade"
+        onRequestClose={() => dismissFirstTimePrompt(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+          }}
+          onPress={() => dismissFirstTimePrompt(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: DesignColors.creamBg,
+              borderRadius: 16,
+              padding: 24,
+              minWidth: 280,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 12,
+              elevation: 8,
+            }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: '600',
+                color: DesignColors.charcoal,
+                textAlign: 'center',
+                marginBottom: 24,
+              }}
+            >
+              Sign-up to create your profile and begin tracking your Mastery!
+            </Text>
+            <View style={{ gap: 12 }}>
+              <Pressable
+                onPress={() => dismissFirstTimePrompt(true)}
+                style={{
+                  paddingVertical: 14,
+                  borderRadius: 9999,
+                  backgroundColor: DesignColors.primary,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFF' }}>
+                  Sign up
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => dismissFirstTimePrompt(false)}
+                style={{
+                  paddingVertical: 14,
+                  borderRadius: 9999,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 16, color: DesignColors.mediumGray }}>
+                  Maybe later
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={popupCategory !== null}

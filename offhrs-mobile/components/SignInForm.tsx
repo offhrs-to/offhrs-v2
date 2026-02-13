@@ -66,12 +66,11 @@ export function SignInForm({
     }
   };
 
-  // Use app deep link for OAuth callback (never localhost — TestFlight/device has no localhost)
-  const baseUrl = Linking.createURL('/auth/callback');
+  // Exact redirect URL for OAuth — must match Supabase Dashboard → Auth → URL Configuration → Redirect URLs
   const redirectUrl =
-    baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')
-      ? 'offhrsmobile://auth/callback'
-      : baseUrl;
+    Platform.OS === 'web'
+      ? Linking.createURL('/auth/callback')
+      : 'offhrsmobile://auth/callback';
 
   const handleOAuth = async (provider: 'google' | 'apple') => {
     setLoading(true);
