@@ -13,6 +13,7 @@
       "bundleIdentifier": "com.offhrs.app.offhrs"
     },
     "android": {
+      "package": "com.offhrs.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

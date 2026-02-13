@@ -42,6 +42,63 @@ To learn more about developing your project with Expo, look at the following res
 - [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
 - [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
+## EAS Build: TestFlight and Google Play
+
+To distribute the app via **TestFlight** (iOS) and **Google Play** (Android internal/closed testing):
+
+### Prerequisites
+
+- [Expo account](https://expo.dev). Run `eas login` before building or submitting.
+- **Apple Developer Program** ($99/year) for TestFlight
+- **Google Play Console** ($25 one-time) for Play Store
+- `eas.json` and `app.json` are already configured (production profile, Android `package`, iOS `bundleIdentifier`)
+
+### 1. Set EAS secrets (do not commit env values)
+
+From the `offhrs-mobile` directory, set your build-time env vars as EAS secrets:
+
+```bash
+cd offhrs-mobile
+eas secret:create --name EXPO_PUBLIC_SUPABASE_URL --value "https://YOUR_PROJECT.supabase.co" --type string
+eas secret:create --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "YOUR_ANON_KEY" --type string
+eas secret:create --name EXPO_PUBLIC_APP_URL --value "https://YOUR_NEXTJS_APP_URL" --type string
+```
+
+EAS injects these into production builds automatically.
+
+### 2. One-time app setup
+
+- **App Store Connect:** [App Store Connect](https://appstoreconnect.apple.com) → Apps → + → New App. Use bundle ID `com.offhrs.app.offhrs` (must match `app.json`).
+- **Google Play Console:** [Play Console](https://play.google.com/console) → Create app. Use package name `com.offhrs.app` (must match `app.json`). Enable Play App Signing when prompted.
+
+### 3. Build and submit
+
+**iOS (TestFlight):**
+
+```bash
+eas build --platform ios --profile production
+# After build completes:
+eas submit --platform ios --profile production --latest
+```
+
+Then in App Store Connect → TestFlight, add internal/external testers.
+
+**Android (Play Store internal testing):**
+
+```bash
+eas build --platform android --profile production
+# After build completes:
+eas submit --platform android --profile production --latest
+```
+
+Select your Google Service Account (JSON key) and track (e.g. internal testing) when prompted. Add testers in Play Console → Release → Testing → Internal testing.
+
+### 4. Iterating
+
+After code changes, run the same build and submit commands; new builds will appear in TestFlight and Play Console for testers.
+
+---
+
 ## Join the community
 
 Join our community of developers creating universal apps.
