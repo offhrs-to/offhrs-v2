@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.offhrs.app.offhrs"
+      "bundleIdentifier": "com.offhrs.app.offhrs",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.offhrs.app",
@@ -45,6 +48,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1014e351-ffd9-4953-b655-a54559e93f12"
+      }
+    },
+    "owner": "offhrs"
   }
 }

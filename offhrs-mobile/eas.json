@@ -1,14 +1,21 @@
 {
   "cli": {
-    "version": ">= 12.0.0"
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_NO_CAPABILITY_SYNC": "1"
+      }
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_NO_CAPABILITY_SYNC": "1"
+      },
       "ios": {
         "simulator": false
       },
@@ -17,6 +24,10 @@
       }
     },
     "production": {
+      "env": {
+        "EAS_BUILD_NO_EXPO_GO_WARNING": "true",
+        "EXPO_NO_CAPABILITY_SYNC": "1"
+      },
       "ios": {
         "resourceClass": "m1-medium",
         "distribution": "store"
