@@ -64,7 +64,12 @@ export function SignInForm({
     }
   };
 
-  const redirectUrl = Linking.createURL('/auth/callback');
+  // Use app deep link for OAuth callback (never localhost — TestFlight/device has no localhost)
+  const baseUrl = Linking.createURL('/auth/callback');
+  const redirectUrl =
+    baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')
+      ? 'offhrsmobile://auth/callback'
+      : baseUrl;
 
   const handleOAuth = async (provider: 'google' | 'apple') => {
     setLoading(true);
