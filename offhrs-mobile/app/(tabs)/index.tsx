@@ -12,8 +12,10 @@ import {
   View,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { UserCircleIcon } from 'react-native-heroicons/outline';
 
 import InstructorIcon from '@/components/InstructorIcon';
+import OnboardingModal from '@/components/OnboardingModal';
 import { CATEGORIES } from '@/constants/categories';
 import { DesignColors } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
@@ -154,10 +156,14 @@ export default function HomeScreen() {
   const { user, loading: authLoading } = useAuth();
   const [showFirstTimeSignUpPrompt, setShowFirstTimeSignUpPrompt] = useState(false);
   const [profile, setProfile] = useState<{
+    display_name: string | null;
+    avatar_url: string | null;
     expertise_level: string | null;
     experience_points: number | null;
     instructor_categories: string[] | null;
+    onboarding_completed: boolean | null;
   } | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [popupCategory, setPopupCategory] = useState<string | null>(null);
@@ -166,14 +172,35 @@ export default function HomeScreen() {
   const instructorCategories = profile?.instructor_categories ?? [];
 
   useEffect(() => {
+    if (!user?.id) {
+      setProfileLoaded(!!user);
+      return;
+    }
+    supabase
+      .from('profiles')
+      .select('display_name, avatar_url, expertise_level, experience_points, instructor_categories, onboarding_completed')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        setProfile(data ?? null);
+        setProfileLoaded(true);
+      });
+  }, [user?.id]);
+
+  const refreshProfile = () => {
     if (!user?.id) return;
     supabase
       .from('profiles')
-      .select('expertise_level, experience_points, instructor_categories')
+      .select('display_name, avatar_url, expertise_level, experience_points, instructor_categories, onboarding_completed')
       .eq('id', user.id)
       .single()
       .then(({ data }) => setProfile(data ?? null));
-  }, [user?.id]);
+  };
+
+  const showOnboarding =
+    user &&
+    profileLoaded &&
+    (profile == null || profile.onboarding_completed === false);
 
   useEffect(() => {
     if (authLoading || user) return;
@@ -188,7 +215,18 @@ export default function HomeScreen() {
     if (goToSignUp) router.push('/(tabs)/profile');
   };
 
-  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || String(user?.email ?? '').split('@')[0] || 'Guest';
+  const displayName =
+    profile?.display_name ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    String(user?.email ?? '').split('@')[0] ||
+    'Guest';
+  // Avatar: profile (synced from OAuth), then auth user_metadata (Google: avatar_url or picture)
+  const avatarUrl =
+    profile?.avatar_url ||
+    user?.user_metadata?.avatar_url ||
+    user?.user_metadata?.picture ||
+    null;
   // Default: Novice in all categories with 0/10 progression (unless set by years of experience in onboarding)
   const level = profile?.expertise_level || 'Novice';
   const points = profile?.experience_points ?? 0;
@@ -218,6 +256,9 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CREAM_BG }}>
+      {showOnboarding && user && (
+        <OnboardingModal userId={user.id} onComplete={refreshProfile} />
+      )}
       {/* Fixed header: logo + welcome row (stays in place when scrolling) */}
       <View
         style={{
@@ -240,9 +281,22 @@ export default function HomeScreen() {
               width: 52,
               height: 52,
               borderRadius: 26,
-              backgroundColor: '#E0E0E0',
+              backgroundColor: avatarUrl ? 'transparent' : '#E0E0E0',
+              overflow: 'hidden',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
-          />
+          >
+            {avatarUrl ? (
+              <Image
+                source={{ uri: avatarUrl }}
+                style={{ width: 52, height: 52 }}
+                contentFit="cover"
+              />
+            ) : (
+              <UserCircleIcon size={36} color={MEDIUM_GRAY} />
+            )}
+          </View>
           <View style={{ marginLeft: 12 }}>
             <Text
               className="text-xs"

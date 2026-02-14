@@ -4,10 +4,21 @@ import {
   DesignSizes,
 } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { useEffect, useState } from 'react';
-import { ScrollView, Text, View, Pressable } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import OnboardingModal from '@/components/OnboardingModal';
 import { SignInForm } from '@/components/SignInForm';
@@ -28,6 +39,12 @@ export default function ProfileScreen() {
   const [savedVendors, setSavedVendors] = useState<{ id: string; name: string }[]>([]);
   const [workshopsAttended, setWorkshopsAttended] = useState(0);
   const [reviewsCount, setReviewsCount] = useState(0);
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [settingsName, setSettingsName] = useState('');
+  const [settingsEmail, setSettingsEmail] = useState('');
+  const [settingsPhone, setSettingsPhone] = useState('');
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -70,7 +87,10 @@ export default function ProfileScreen() {
       .then(({ count }) => setReviewsCount(count ?? 0));
   }, [user?.id]);
 
-  const showOnboarding = user && profileLoaded && profile?.onboarding_completed === false;
+  const showOnboarding =
+    user &&
+    profileLoaded &&
+    (profile == null || profile.onboarding_completed === false);
 
   const refreshProfile = () => {
     if (!user?.id) return;
@@ -120,13 +140,45 @@ export default function ProfileScreen() {
           paddingHorizontal: DesignSpacing.horizontalPadding,
         }}
       >
-      {/* Logo – aligned with other pages */}
-      <View style={{ marginLeft: DesignSpacing.logoMarginLeft, paddingLeft: 0, marginBottom: 24 }}>
-        <Image
-          source={require('@/assets/images/logo.png')}
-          style={{ height: DesignSizes.logoHeight, width: DesignSizes.logoWidth }}
-          contentFit="contain"
-        />
+      {/* Top bar: logo left, Settings right */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 24,
+        }}
+      >
+        <View style={{ marginLeft: DesignSpacing.logoMarginLeft, paddingLeft: 0 }}>
+          <Image
+            source={require('@/assets/images/logo.png')}
+            style={{ height: DesignSizes.logoHeight, width: DesignSizes.logoWidth }}
+            contentFit="contain"
+          />
+        </View>
+        <Pressable
+          onPress={() => {
+            setSettingsName(displayName === '—' ? '' : displayName);
+            setSettingsEmail(email === '—' ? '' : email);
+            setSettingsPhone(phone === '—' ? '' : phone);
+            setSettingsError(null);
+            setSettingsVisible(true);
+          }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            borderRadius: 9999,
+            backgroundColor: DesignColors.creamBg,
+            borderWidth: 1,
+            borderColor: DesignColors.lightGreenBorder,
+          }}
+        >
+          <MaterialCommunityIcons name="cog" size={20} color={DesignColors.primary} />
+          <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>Settings</Text>
+        </Pressable>
       </View>
 
       {/* Profile picture – circular, centered */}
@@ -201,38 +253,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Action buttons – Sign out + Share Profile (outline) */}
-      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
-        <Pressable
-          onPress={() => signOut()}
-          style={{
-            flex: 1,
-            paddingVertical: DesignSpacing.ctaPaddingVertical,
-            borderRadius: 9999,
-            backgroundColor: '#B91C1C',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFF' }}>Sign out</Text>
-        </Pressable>
-        <Pressable
-          style={{
-            flex: 1,
-            paddingVertical: DesignSpacing.ctaPaddingVertical,
-            borderRadius: 9999,
-            backgroundColor: DesignColors.creamBg,
-            borderWidth: 1,
-            borderColor: DesignColors.primary,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.primary }}>Share Profile</Text>
-        </Pressable>
-      </View>
-
-      {/* Account details – Name, Email, Phone (existing content) */}
+      {/* Account details – Name, Email, Phone */}
       <Text
         style={{
           fontSize: 18,
@@ -275,7 +296,182 @@ export default function ProfileScreen() {
       >
         <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>Privacy Policy</Text>
       </Pressable>
+
+      <Pressable
+        onPress={() => signOut()}
+        style={{
+          marginTop: 32,
+          marginBottom: 24,
+          paddingVertical: DesignSpacing.ctaPaddingVertical,
+          borderRadius: 9999,
+          backgroundColor: '#B91C1C',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFF' }}>Sign out</Text>
+      </Pressable>
     </ScrollView>
+
+      {/* Settings modal – edit Name, Email, Phone */}
+      <Modal
+        visible={settingsVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setSettingsVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, backgroundColor: DesignColors.creamBg }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: DesignSpacing.horizontalPadding,
+              paddingTop: DesignSpacing.contentPaddingTop,
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: DesignColors.lightGreenBorder,
+              backgroundColor: '#FFF',
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>Account settings</Text>
+            <Pressable onPress={() => setSettingsVisible(false)} style={{ padding: 8 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.primary }}>Cancel</Text>
+            </Pressable>
+          </View>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              padding: DesignSpacing.horizontalPadding,
+              paddingTop: 24,
+              paddingBottom: 32,
+            }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 6 }}>Name</Text>
+            <TextInput
+              value={settingsName}
+              onChangeText={setSettingsName}
+              placeholder="Your name"
+              placeholderTextColor={DesignColors.mediumGray}
+              style={{
+                backgroundColor: DesignColors.inputBg,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontSize: 16,
+                color: DesignColors.charcoal,
+                marginBottom: 20,
+              }}
+            />
+            <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 6 }}>Email address</Text>
+            <TextInput
+              value={settingsEmail}
+              onChangeText={setSettingsEmail}
+              placeholder="Email"
+              placeholderTextColor={DesignColors.mediumGray}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={{
+                backgroundColor: DesignColors.inputBg,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontSize: 16,
+                color: DesignColors.charcoal,
+                marginBottom: 20,
+              }}
+            />
+            <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 6 }}>Phone number</Text>
+            <TextInput
+              value={settingsPhone}
+              onChangeText={setSettingsPhone}
+              placeholder="Phone"
+              placeholderTextColor={DesignColors.mediumGray}
+              keyboardType="phone-pad"
+              style={{
+                backgroundColor: DesignColors.inputBg,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontSize: 16,
+                color: DesignColors.charcoal,
+                marginBottom: 24,
+              }}
+            />
+            {settingsError ? (
+              <Text style={{ color: '#B91C1C', fontSize: 14, marginBottom: 16 }}>{settingsError}</Text>
+            ) : null}
+            <Pressable
+              onPress={async () => {
+                if (!user?.id) return;
+                setSettingsSaving(true);
+                setSettingsError(null);
+                try {
+                  const nameTrim = settingsName.trim();
+                  const emailTrim = settingsEmail.trim();
+                  const phoneTrim = settingsPhone.trim();
+
+                  await supabase
+                    .from('profiles')
+                    .update({
+                      display_name: nameTrim || null,
+                      phone: phoneTrim || null,
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', user.id);
+
+                  if (emailTrim && emailTrim !== (user.email ?? '')) {
+                    const { error: emailError } = await supabase.auth.updateUser({ email: emailTrim });
+                    if (emailError) {
+                      setSettingsError(emailError.message);
+                      setSettingsSaving(false);
+                      return;
+                    }
+                  }
+
+                  refreshProfile();
+                  setSettingsVisible(false);
+                } catch (e) {
+                  setSettingsError(e instanceof Error ? e.message : 'Something went wrong');
+                } finally {
+                  setSettingsSaving(false);
+                }
+              }}
+              disabled={settingsSaving}
+              style={{
+                paddingVertical: DesignSpacing.ctaPaddingVertical,
+                borderRadius: 9999,
+                backgroundColor: DesignColors.primary,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: settingsSaving ? 0.7 : 1,
+              }}
+            >
+              {settingsSaving ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFF' }}>Save</Text>
+              )}
+            </Pressable>
+            {settingsEmail.trim() && settingsEmail.trim() !== (user?.email ?? '') ? (
+              <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginTop: 12, textAlign: 'center' }}>
+                Changing your email may require you to confirm the new address.
+              </Text>
+            ) : null}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     </>
   );
 }

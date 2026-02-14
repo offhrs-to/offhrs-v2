@@ -51,18 +51,19 @@ export default function OnboardingModal({
     setLoading(true);
     try {
       const option = EXPERIENCE_OPTIONS.find((o) => o.value === experience);
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          category_of_interest: selectedCategories.length > 0 ? selectedCategories : null,
-          instructor_categories: instructorCategories.length > 0 ? instructorCategories : null,
-          is_instructor: instructorCategories.length > 0,
-          years_experience: experience,
-          expertise_level: option?.level ?? 'Novice',
-          experience_points: option?.points ?? 0,
-          onboarding_completed: true,
-        })
-        .eq('id', userId);
+      const payload = {
+        id: userId,
+        category_of_interest: selectedCategories.length > 0 ? selectedCategories : null,
+        instructor_categories: instructorCategories.length > 0 ? instructorCategories : null,
+        is_instructor: instructorCategories.length > 0,
+        years_experience: experience,
+        expertise_level: option?.level ?? 'Novice',
+        experience_points: option?.points ?? 0,
+        onboarding_completed: true,
+      };
+      const { error } = await supabase.from('profiles').upsert(payload, {
+        onConflict: 'id',
+      });
 
       if (error) throw error;
       onComplete();
