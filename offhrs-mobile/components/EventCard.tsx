@@ -31,9 +31,9 @@ interface EventCardProps {
   onPress?: () => void;
 }
 
-const CARD_IMAGE_HEIGHT = 140;
-const CARD_BODY_HEIGHT = 132;
-const CARD_TOTAL_HEIGHT = CARD_IMAGE_HEIGHT + CARD_BODY_HEIGHT;
+export const CARD_IMAGE_HEIGHT = 140;
+export const CARD_BODY_HEIGHT = 132;
+export const CARD_TOTAL_HEIGHT = CARD_IMAGE_HEIGHT + CARD_BODY_HEIGHT;
 
 const softShadow = {
   shadowColor: '#000',

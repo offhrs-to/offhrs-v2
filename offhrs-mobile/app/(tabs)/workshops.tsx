@@ -1,4 +1,4 @@
-import { EventCard, type Event } from '@/components/EventCard';
+import { EventCard, CARD_TOTAL_HEIGHT, type Event } from '@/components/EventCard';
 import WorkshopMapView from '@/components/WorkshopMapView';
 import {
   DesignColors,
@@ -329,7 +329,7 @@ export default function WorkshopsScreen() {
               }}
             >
               {events.map((event) => (
-                <View key={event.id} style={{ width: CARD_WIDTH }}>
+                <View key={event.id} style={{ width: CARD_WIDTH, height: CARD_TOTAL_HEIGHT }}>
                   <EventCard
                     event={event}
                     onPress={() => setQuickViewEvent(event)}
