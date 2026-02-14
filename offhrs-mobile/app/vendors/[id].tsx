@@ -95,7 +95,7 @@ export default function VendorProfileScreen() {
   const handleSubmitReview = async () => {
     if (!user || !id || submitting) return;
     setSubmitting(true);
-    const authorName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || null;
+    const authorName = user.user_metadata?.full_name || user.user_metadata?.name || String(user.email ?? '').split('@')[0] || null;
     await supabase.from('vendor_reviews').upsert(
       { user_id: user.id, vendor_id: id, rating, comment: comment.trim() || null, author_name: authorName },
       { onConflict: 'user_id,vendor_id' }

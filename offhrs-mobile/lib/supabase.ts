@@ -26,6 +26,23 @@ const noopStorage = {
   removeItem: async () => {},
 };
 
+/** If value is session-like JSON with missing/invalid access_token, return null to avoid decodeJWT(null) crash in auth-js. Otherwise return value. */
+function validSessionOrNull(value: string | null | undefined): string | null {
+  if (value == null || typeof value !== 'string' || value.length === 0) return null;
+  try {
+    const trimmed = value.trim();
+    if (trimmed.charAt(0) !== '{') return value;
+    const obj = JSON.parse(trimmed) as unknown;
+    if (obj && typeof obj === 'object' && 'access_token' in obj) {
+      const tok = (obj as { access_token?: unknown }).access_token;
+      if (typeof tok !== 'string' || tok.length === 0) return null;
+    }
+    return value;
+  } catch {
+    return null;
+  }
+}
+
 /** Secure storage for auth on native (Keychain/Keystore); AsyncStorage on web; fallback to AsyncStorage if SecureStore fails (e.g. value > 2KB on iOS). */
 function getAuthStorage(): {
   getItem: (key: string) => Promise<string | null>;
@@ -37,7 +54,8 @@ function getAuthStorage(): {
     return {
       getItem: async (key: string): Promise<string | null> => {
         const v = await AsyncStorage.getItem(key);
-        return typeof v === 'string' && v.length > 0 ? v : null;
+        if (typeof v !== 'string' || v.length === 0) return null;
+        return validSessionOrNull(v);
       },
       setItem: async (key: string, value: string) => {
         await AsyncStorage.setItem(key, typeof value === 'string' ? value : String(value));
@@ -52,34 +70,53 @@ function getAuthStorage(): {
     getItem: async (key: string): Promise<string | null> => {
       try {
         const v = await SecureStore.getItemAsync(key);
-        if (typeof v === 'string' && v.length > 0) return v;
-        const fallback = await AsyncStorage.getItem(key);
-        if (typeof fallback === 'string' && fallback.length > 0) return fallback;
-        return null;
-      } catch {
-        try {
-          const v = await AsyncStorage.getItem(key);
-          return typeof v === 'string' && v.length > 0 ? v : null;
-        } catch {
-          return null;
+        if (v != null && typeof v === 'string' && v.length > 0) {
+          return validSessionOrNull(v);
         }
+      } catch (err) {
+        console.warn('SecureStore.getItemAsync failed, falling back to AsyncStorage:', err);
       }
+      // Fallback: try AsyncStorage
+      try {
+        const fallback = await AsyncStorage.getItem(key);
+        if (fallback != null && typeof fallback === 'string' && fallback.length > 0) {
+          return validSessionOrNull(fallback);
+        }
+      } catch (err) {
+        console.warn('AsyncStorage.getItem failed:', err);
+      }
+      return null;
     },
     setItem: async (key: string, value: string) => {
-      const s = typeof value === 'string' ? value : value == null ? '' : String(value);
+      const s = value != null && typeof value === 'string' ? value : String(value ?? '');
+      if (s.length === 0) {
+        // Supabase might call setItem with empty string during sign-out; treat as removeItem
+        try {
+          await SecureStore.deleteItemAsync(key);
+        } catch {
+          /* ignore */
+        }
+        await AsyncStorage.removeItem(key);
+        return;
+      }
       try {
         await SecureStore.setItemAsync(key, s);
-      } catch {
+      } catch (err) {
+        console.warn('SecureStore.setItemAsync failed, falling back to AsyncStorage:', err);
         await AsyncStorage.setItem(key, s);
       }
     },
     removeItem: async (key: string) => {
       try {
         await SecureStore.deleteItemAsync(key);
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.warn('SecureStore.deleteItemAsync failed:', err);
       }
-      await AsyncStorage.removeItem(key);
+      try {
+        await AsyncStorage.removeItem(key);
+      } catch (err) {
+        console.warn('AsyncStorage.removeItem failed:', err);
+      }
     },
   };
 }

@@ -98,7 +98,7 @@ export default function ProfileScreen() {
     profile?.display_name ||
     user.user_metadata?.full_name ||
     user.user_metadata?.name ||
-    user.email?.split('@')[0] ||
+    String(user.email ?? '').split('@')[0] ||
     '—';
   const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url;
   const email = user.email || '—';

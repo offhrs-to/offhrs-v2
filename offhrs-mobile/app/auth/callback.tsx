@@ -10,6 +10,7 @@ function parseAuthParams(url: string): { access_token?: string; refresh_token?: 
   const s = typeof url === 'string' ? url : '';
   const decode = (x: string) => decodeURIComponent(x.replace(/\+/g, ' '));
   const parse = (x: string) => {
+    if (typeof x !== 'string') return;
     x.split('&').forEach((pair) => {
       const [k, v] = pair.split('=');
       if (k && v) params[decode(k)] = decode(v);

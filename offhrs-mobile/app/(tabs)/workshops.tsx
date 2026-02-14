@@ -63,7 +63,7 @@ const softShadow = {
 export default function WorkshopsScreen() {
   const params = useLocalSearchParams<{ q?: string; categories?: string }>();
   const initialQ = params.q ?? '';
-  const initialCategories = (params.categories ?? '').split(',').filter(Boolean);
+  const initialCategories = String(params.categories ?? '').split(',').filter(Boolean);
 
   const [searchTerm, setSearchTerm] = useState(initialQ);
   const [selectedCategory, setSelectedCategory] = useState(
@@ -89,7 +89,7 @@ export default function WorkshopsScreen() {
   const categoriesParam = params.categories ?? '';
 
   const fetchEvents = useCallback(async () => {
-    const initialCats = (params.categories ?? '').split(',').filter(Boolean);
+    const initialCats = String(params.categories ?? '').split(',').filter(Boolean);
     const effective =
       !userChangedCategory && initialCats.length > 0
         ? initialCats

@@ -188,7 +188,7 @@ export default function HomeScreen() {
     if (goToSignUp) router.push('/(tabs)/profile');
   };
 
-  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'Guest';
+  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.name || String(user?.email ?? '').split('@')[0] || 'Guest';
   // Default: Novice in all categories with 0/10 progression (unless set by years of experience in onboarding)
   const level = profile?.expertise_level || 'Novice';
   const points = profile?.experience_points ?? 0;
