@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
-import * as SecureStore from 'expo-secure-store';
 import { AppState, type AppStateStatus, Platform } from 'react-native';
 
 const supabaseUrl =
@@ -43,7 +42,27 @@ function validSessionOrNull(value: string | null | undefined): string | null {
   }
 }
 
-/** Secure storage for auth on native (Keychain/Keystore); AsyncStorage on web; fallback to AsyncStorage if SecureStore fails (e.g. value > 2KB on iOS). */
+/** In-memory store for auth on native (no native storage calls; avoids TestFlight crash). Session does not persist across app restarts. */
+const memoryStore = new Map<string, string>();
+
+const inMemoryStorage = {
+  getItem: async (key: string): Promise<string | null> => {
+    return memoryStore.get(key) ?? null;
+  },
+  setItem: async (key: string, value: string) => {
+    const s = value != null && typeof value === 'string' ? value : String(value ?? '');
+    if (s.length === 0) {
+      memoryStore.delete(key);
+      return;
+    }
+    memoryStore.set(key, s);
+  },
+  removeItem: async (key: string) => {
+    memoryStore.delete(key);
+  },
+};
+
+/** Auth storage: in-memory on native (no persistence), AsyncStorage on web, noop for Node. */
 function getAuthStorage(): {
   getItem: (key: string) => Promise<string | null>;
   setItem: (key: string, value: string) => Promise<void>;
@@ -65,60 +84,7 @@ function getAuthStorage(): {
       },
     };
   }
-
-  return {
-    getItem: async (key: string): Promise<string | null> => {
-      try {
-        const v = await SecureStore.getItemAsync(key);
-        if (v != null && typeof v === 'string' && v.length > 0) {
-          return validSessionOrNull(v);
-        }
-      } catch (err) {
-        console.warn('SecureStore.getItemAsync failed, falling back to AsyncStorage:', err);
-      }
-      // Fallback: try AsyncStorage
-      try {
-        const fallback = await AsyncStorage.getItem(key);
-        if (fallback != null && typeof fallback === 'string' && fallback.length > 0) {
-          return validSessionOrNull(fallback);
-        }
-      } catch (err) {
-        console.warn('AsyncStorage.getItem failed:', err);
-      }
-      return null;
-    },
-    setItem: async (key: string, value: string) => {
-      const s = value != null && typeof value === 'string' ? value : String(value ?? '');
-      if (s.length === 0) {
-        // Supabase might call setItem with empty string during sign-out; treat as removeItem
-        try {
-          await SecureStore.deleteItemAsync(key);
-        } catch {
-          /* ignore */
-        }
-        await AsyncStorage.removeItem(key);
-        return;
-      }
-      try {
-        await SecureStore.setItemAsync(key, s);
-      } catch (err) {
-        console.warn('SecureStore.setItemAsync failed, falling back to AsyncStorage:', err);
-        await AsyncStorage.setItem(key, s);
-      }
-    },
-    removeItem: async (key: string) => {
-      try {
-        await SecureStore.deleteItemAsync(key);
-      } catch (err) {
-        console.warn('SecureStore.deleteItemAsync failed:', err);
-      }
-      try {
-        await AsyncStorage.removeItem(key);
-      } catch (err) {
-        console.warn('AsyncStorage.removeItem failed:', err);
-      }
-    },
-  };
+  return inMemoryStorage;
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
