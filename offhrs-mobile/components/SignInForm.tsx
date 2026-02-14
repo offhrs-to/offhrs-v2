@@ -67,10 +67,7 @@ export function SignInForm({
   };
 
   // Exact redirect URL for OAuth — must match Supabase Dashboard → Auth → URL Configuration → Redirect URLs
-  const redirectUrl =
-    Platform.OS === 'web'
-      ? Linking.createURL('/auth/callback')
-      : 'offhrsmobile://auth/callback';
+  const redirectUrl = Linking.createURL('/auth/callback');
 
   const handleOAuth = async (provider: 'google' | 'apple') => {
     setLoading(true);
