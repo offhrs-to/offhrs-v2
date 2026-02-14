@@ -66,8 +66,12 @@ export function SignInForm({
     }
   };
 
-  // Exact redirect URL for OAuth — must match Supabase Dashboard → Auth → URL Configuration → Redirect URLs
-  const redirectUrl = Linking.createURL('/auth/callback');
+  // Use custom scheme so Supabase accepts the redirect (createURL() returns exp://... in dev which can trigger "requested path is invalid").
+  // Add exactly this (or offhrsmobile://**) in Supabase Dashboard → Auth → URL Configuration → Redirect URLs.
+  const redirectUrl =
+    Platform.OS === 'web'
+      ? Linking.createURL('/auth/callback')
+      : 'offhrsmobile://auth/callback';
 
   const handleOAuth = async (provider: 'google' | 'apple') => {
     setLoading(true);
