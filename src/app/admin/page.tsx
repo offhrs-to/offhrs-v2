@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Trash2, Edit, Plus, LogOut, Wand2, Loader2 } from 'lucide-react' // Added Wand2 & Loader2
+import { Trash2, Edit, Plus, LogOut, Wand2, Loader2 } from 'lucide-react'
+import { geocodeAddress } from '@/lib/geocode'
 
 export default function AdminPage() {
   // --- AUTH STATE ---
@@ -13,10 +14,12 @@ export default function AdminPage() {
   // --- APP STATE ---
   const [activeTab, setActiveTab] = useState<'add' | 'manage'>('manage')
   const [loading, setLoading] = useState(false)
-  const [fetching, setFetching] = useState(false) // State for Magic Link loading
+  const [fetching, setFetching] = useState(false)
   const [message, setMessage] = useState('')
   const [events, setEvents] = useState<any[]>([])
   const [redirectCounts, setRedirectCounts] = useState<Record<string, number>>({})
+  const [backfillLoading, setBackfillLoading] = useState(false)
+  const [backfillResult, setBackfillResult] = useState<string | null>(null)
   type EventFilter = 'all' | 'upcoming' | 'expired'
   const [eventFilter, setEventFilter] = useState<EventFilter>('all')
 
@@ -43,7 +46,9 @@ export default function AdminPage() {
     image_url: '',
     external_link: '',
     price: '',
-    is_multiple_dates: false
+    is_multiple_dates: false,
+    lat: '',
+    lng: '',
   })
 
   const categories = [
@@ -133,6 +138,8 @@ export default function AdminPage() {
 
   const handleEdit = (event: any) => {
     setEditingId(event.id)
+    const lat = event.lat != null ? String(event.lat) : ''
+    const lng = event.lng != null ? String(event.lng) : ''
     setFormData({
       title: event.title,
       description: event.description || '',
@@ -143,12 +150,13 @@ export default function AdminPage() {
       image_url: event.image_url || '',
       external_link: event.external_link || '',
       price: event.price ? String(event.price) : '',
-      is_multiple_dates: event.is_multiple_dates || false
+      is_multiple_dates: event.is_multiple_dates || false,
+      lat,
+      lng,
     })
     setActiveTab('add')
     setMessage('✏️ Editing Mode: Update details below')
-    // Clear magic link when editing existing
-    setMagicLink('') 
+    setMagicLink('')
   }
 
   const handleDelete = async (id: number) => {
@@ -158,12 +166,63 @@ export default function AdminPage() {
     else setEvents(events.filter(e => e.id !== id))
   }
 
+  const handleLocationBlur = async () => {
+    const location = formData.location.trim()
+    if (!location || location.toLowerCase().includes('online') || location.toLowerCase().includes('virtual')) {
+      setFormData((prev) => ({ ...prev, lat: '', lng: '' }))
+      return
+    }
+    try {
+      const coords = await geocodeAddress(location)
+      if (coords) {
+        setFormData((prev) => ({ ...prev, lat: coords.lat, lng: coords.lng }))
+      } else {
+        setFormData((prev) => ({ ...prev, lat: '', lng: '' }))
+      }
+    } catch {
+      setFormData((prev) => ({ ...prev, lat: '', lng: '' }))
+    }
+  }
+
+  const handleBackfillCoordinates = async () => {
+    setBackfillLoading(true)
+    setBackfillResult(null)
+    try {
+      const res = await fetch('/api/admin/backfill-event-coordinates', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setBackfillResult(data.error || `Error ${res.status}`)
+        return
+      }
+      setBackfillResult(data.message ?? `Updated ${data.updated ?? 0} event(s).`)
+      if (data.updated > 0) fetchEvents()
+    } catch (e: any) {
+      setBackfillResult(e?.message || 'Request failed')
+    } finally {
+      setBackfillLoading(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setMessage('')
 
     try {
+      let lat: string | null = formData.lat.trim() || null
+      let lng: string | null = formData.lng.trim() || null
+      const location = formData.location.trim()
+      if (location && (!lat || !lng) && !location.toLowerCase().includes('online') && !location.toLowerCase().includes('virtual')) {
+        const coords = await geocodeAddress(location)
+        if (coords) {
+          lat = coords.lat
+          lng = coords.lng
+        }
+      }
+
       const payload = {
         title: formData.title,
         description: formData.description,
@@ -174,7 +233,9 @@ export default function AdminPage() {
         image_url: formData.image_url,
         external_link: formData.external_link,
         price: formData.price ? Number(formData.price) : null,
-        is_multiple_dates: formData.is_multiple_dates
+        is_multiple_dates: formData.is_multiple_dates,
+        lat: lat ? parseFloat(lat) : null,
+        lng: lng ? parseFloat(lng) : null,
       }
 
       let error
@@ -193,7 +254,7 @@ export default function AdminPage() {
       setFormData({
         title: '', description: '', date: '', location: '', organizer: '',
         category: 'Beauty & Fragrance', image_url: '', external_link: '',
-        price: '', is_multiple_dates: false
+        price: '', is_multiple_dates: false, lat: '', lng: '',
       })
       setEditingId(null)
       setMagicLink('')
@@ -257,26 +318,46 @@ export default function AdminPage() {
         {/* --- TAB 1: MANAGE EVENTS --- */}
         {activeTab === 'manage' && (
           <div>
-            {events.length > 0 && (
-              <div className="mb-4 flex flex-wrap items-center gap-4">
-                <label htmlFor="event-filter" className="text-sm font-medium text-gray-700">
-                  Filter:
-                </label>
-                <select
-                  id="event-filter"
-                  value={eventFilter}
-                  onChange={(e) => setEventFilter(e.target.value as EventFilter)}
-                  className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
-                >
-                  <option value="all">All events</option>
-                  <option value="upcoming">Upcoming events</option>
-                  <option value="expired">Expired events</option>
-                </select>
-                <span className="text-sm text-gray-500">
-                  {filteredEvents.length} {eventFilter === 'all' ? 'total' : eventFilter === 'upcoming' ? 'upcoming' : 'expired'}
-                </span>
-              </div>
-            )}
+            <div className="mb-4 flex flex-wrap items-center gap-4">
+              {events.length > 0 && (
+                <>
+                  <label htmlFor="event-filter" className="text-sm font-medium text-gray-700">
+                    Filter:
+                  </label>
+                  <select
+                    id="event-filter"
+                    value={eventFilter}
+                    onChange={(e) => setEventFilter(e.target.value as EventFilter)}
+                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+                  >
+                    <option value="all">All events</option>
+                    <option value="upcoming">Upcoming events</option>
+                    <option value="expired">Expired events</option>
+                  </select>
+                  <span className="text-sm text-gray-500">
+                    {filteredEvents.length} {eventFilter === 'all' ? 'total' : eventFilter === 'upcoming' ? 'upcoming' : 'expired'}
+                  </span>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={handleBackfillCoordinates}
+                disabled={backfillLoading}
+                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2"
+              >
+                {backfillLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Backfilling…
+                  </>
+                ) : (
+                  'Backfill event coordinates'
+                )}
+              </button>
+              {backfillResult && (
+                <span className="text-sm text-gray-600">{backfillResult}</span>
+              )}
+            </div>
 
             {filteredEvents.length === 0 && events.length > 0 ? (
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
@@ -400,7 +481,16 @@ export default function AdminPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700">Location</label>
-                <input type="text" name="location" value={formData.location} onChange={handleChange} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" />
+                <input
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  onBlur={handleLocationBlur}
+                  placeholder="e.g. Toronto, ON or full address"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+                <p className="mt-1 text-xs text-gray-500">Coordinates are looked up automatically when you leave this field or save.</p>
               </div>
 
               <div>
