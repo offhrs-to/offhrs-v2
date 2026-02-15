@@ -170,7 +170,7 @@ export default function ProfilePage() {
       <div className="container mx-auto max-w-2xl px-4 py-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex flex-col items-center text-center mb-6">
-            <div className="relative w-16 h-16 rounded-full overflow-hidden bg-gray-200 mb-3">
+            <div className="relative w-24 h-24 rounded-full overflow-hidden bg-[#5D755D] mb-3 flex items-center justify-center">
               {avatarUrl ? (
                 <Image
                   src={avatarUrl}
@@ -179,7 +179,7 @@ export default function ProfilePage() {
                   className="object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-lg font-bold text-gray-400">
+                <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-white">
                   {displayName.charAt(0).toUpperCase()}
                 </div>
               )}

@@ -1,34 +1,27 @@
--- Ensure profile_category_experience table exists with correct schema (fixes mobile onboarding errors).
--- Idempotent: safe to run even if 20250217000001_profile_category_experience.sql already ran.
--- This migration creates the table if it doesn't exist and ensures all required columns are present.
+-- Fix profile_category_experience table schema to use user_id instead of profile_id
+-- This migration handles the case where the table was created with incorrect column names
 
 DO $$
 BEGIN
-  -- Create table if it doesn't exist
-  IF NOT EXISTS (
-    SELECT FROM information_schema.tables 
-    WHERE table_schema = 'public' AND table_name = 'profile_category_experience'
+  -- Check if table exists with profile_id column (wrong schema)
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' 
+      AND table_name = 'profile_category_experience' 
+      AND column_name = 'profile_id'
   ) THEN
-    CREATE TABLE public.profile_category_experience (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-      category TEXT NOT NULL,
-      expertise_level TEXT NOT NULL DEFAULT 'Novice' CHECK (expertise_level IN ('Novice', 'Intermediate', 'Advanced', 'Expert', 'Master')),
-      experience_points INTEGER NOT NULL DEFAULT 0,
-      created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-      updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-      UNIQUE(user_id, category)
-    );
-
-    CREATE INDEX idx_profile_category_experience_user_id ON public.profile_category_experience(user_id);
-    CREATE INDEX idx_profile_category_experience_category ON public.profile_category_experience(category);
-
-    ALTER TABLE public.profile_category_experience ENABLE ROW LEVEL SECURITY;
+    -- Rename profile_id to user_id
+    ALTER TABLE public.profile_category_experience 
+    RENAME COLUMN profile_id TO user_id;
     
-    COMMENT ON TABLE public.profile_category_experience IS 'Per-category expertise level and experience points; used for onboarding and leveling up each category.';
+    -- Drop old policies that reference the old column name (if they exist)
+    DROP POLICY IF EXISTS "Users can view their own category experience" ON public.profile_category_experience;
+    DROP POLICY IF EXISTS "Users can insert their own category experience" ON public.profile_category_experience;
+    DROP POLICY IF EXISTS "Users can update their own category experience" ON public.profile_category_experience;
+    DROP POLICY IF EXISTS "Users can delete their own category experience" ON public.profile_category_experience;
   END IF;
 
-  -- Ensure experience_points column exists (in case table was created without it)
+  -- Ensure experience_points column exists
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' 
@@ -39,6 +32,18 @@ BEGIN
     ADD COLUMN experience_points INTEGER NOT NULL DEFAULT 0;
   END IF;
 
+  -- Ensure experience_years column is renamed or removed if it exists
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' 
+      AND table_name = 'profile_category_experience' 
+      AND column_name = 'experience_years'
+  ) THEN
+    -- Drop experience_years if it exists (we use experience_points instead)
+    ALTER TABLE public.profile_category_experience
+    DROP COLUMN experience_years;
+  END IF;
+
   -- Ensure expertise_level column exists
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
@@ -47,11 +52,22 @@ BEGIN
       AND column_name = 'expertise_level'
   ) THEN
     ALTER TABLE public.profile_category_experience
-    ADD COLUMN expertise_level TEXT NOT NULL DEFAULT 'Novice' CHECK (expertise_level IN ('Novice', 'Intermediate', 'Advanced', 'Expert', 'Master'));
+    ADD COLUMN expertise_level TEXT NOT NULL DEFAULT 'Novice';
   END IF;
+
+  -- Add constraint on expertise_level if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'profile_category_experience_expertise_level_check'
+  ) THEN
+    ALTER TABLE public.profile_category_experience
+    ADD CONSTRAINT profile_category_experience_expertise_level_check 
+    CHECK (expertise_level IN ('Novice', 'Intermediate', 'Advanced', 'Expert', 'Master'));
+  END IF;
+
 END $$;
 
--- Create RLS policies if they don't exist
+-- Now create the correct policies with user_id
 DO $$
 BEGIN
   IF NOT EXISTS (

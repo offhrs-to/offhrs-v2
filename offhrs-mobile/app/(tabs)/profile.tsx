@@ -187,10 +187,12 @@ export default function ProfileScreen() {
           width: 96,
           height: 96,
           borderRadius: 48,
-          backgroundColor: DesignColors.placeholderGray,
+          backgroundColor: DesignColors.primary,
           alignSelf: 'center',
           marginBottom: 12,
           overflow: 'hidden',
+          justifyContent: 'center',
+          alignItems: 'center',
         }}
       >
         {avatarUrl ? (
@@ -199,7 +201,11 @@ export default function ProfileScreen() {
             style={{ width: 96, height: 96 }}
             contentFit="cover"
           />
-        ) : null}
+        ) : (
+          <Text style={{ fontSize: 36, fontWeight: '700', color: '#FFFFFF' }}>
+            {displayName.charAt(0).toUpperCase()}
+          </Text>
+        )}
       </View>
       <Text
         style={{
