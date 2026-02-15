@@ -62,16 +62,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/profile?error=confirm_failed', request.url))
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('experience_points, expertise_level')
-    .eq('id', booking.user_id)
-    .single()
-
-  const currentPoints = profile?.experience_points ?? 0
-  const newPoints = currentPoints + 1
-
-  // Each level requires 10 more points to advance (Novice→10, Intermediate→20, Advanced→30, Expert→40, Master=cap)
   const levelThresholds: Record<string, number> = {
     Novice: 10,
     Intermediate: 20,
@@ -80,6 +70,51 @@ export async function GET(request: NextRequest) {
     Master: Infinity,
   }
   const levels = ['Novice', 'Intermediate', 'Advanced', 'Expert', 'Master'] as const
+
+  const { data: event } = await supabase
+    .from('events')
+    .select('category')
+    .eq('id', booking.event_id)
+    .single()
+
+  const eventCategory = event?.category?.trim() || null
+
+  if (eventCategory) {
+    const { data: catRow } = await supabase
+      .from('profile_category_experience')
+      .select('experience_points, expertise_level')
+      .eq('user_id', booking.user_id)
+      .eq('category', eventCategory)
+      .maybeSingle()
+
+    const currentPoints = catRow?.experience_points ?? 0
+    const newPoints = currentPoints + 1
+    const currentLevel = (catRow?.expertise_level as (typeof levels)[number]) || 'Novice'
+    const currentIndex = levels.indexOf(currentLevel)
+    const nextLevel = levels[Math.min(currentIndex + 1, levels.length - 1)]!
+    const threshold = levelThresholds[currentLevel] ?? 10
+    const newLevel = newPoints >= threshold ? nextLevel : currentLevel
+
+    await supabase.from('profile_category_experience').upsert(
+      {
+        user_id: booking.user_id,
+        category: eventCategory,
+        expertise_level: newLevel,
+        experience_points: newPoints,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,category' }
+    )
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('experience_points, expertise_level')
+    .eq('id', booking.user_id)
+    .single()
+
+  const currentPoints = profile?.experience_points ?? 0
+  const newPoints = currentPoints + 1
   const currentLevel = profile?.expertise_level || 'Novice'
   const currentIndex = levels.indexOf(currentLevel)
   const nextLevel = levels[Math.min(currentIndex + 1, levels.length - 1)]!

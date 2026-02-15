@@ -43,6 +43,17 @@ export default function RootLayout() {
       });
     });
 
+    // On iOS, getInitialURL() can be null on cold start from deep link; retry once after a delay.
+    const t = setTimeout(() => {
+      Linking.getInitialURL().then((url) => {
+        if (cancelled || !url) return;
+        processAuthCallbackUrl(url).then((handled) => {
+          if (cancelled || !handled) return;
+          setTimeout(goToProfile, 400);
+        });
+      });
+    }, 500);
+
     const sub = Linking.addEventListener('url', ({ url: eventUrl }) => {
       processAuthCallbackUrl(eventUrl).then((handled) => {
         if (cancelled || !handled) return;
@@ -52,6 +63,7 @@ export default function RootLayout() {
 
     return () => {
       cancelled = true;
+      clearTimeout(t);
       sub.remove();
     };
   }, [router]);

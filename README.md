@@ -20,6 +20,24 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Email sign-up (Supabase)
+
+If users don’t receive the confirmation email or sign-up doesn’t complete:
+
+1. **Site URL** – In [Supabase Dashboard](https://supabase.com/dashboard) → **Authentication** → **URL Configuration**, set **Site URL** to your web app (e.g. `https://yourdomain.com` or `http://localhost:3000` for dev). Add **Redirect URLs** such as `https://yourdomain.com/auth/callback` and `http://localhost:3000/auth/callback`.
+2. **Email deliverability** – Supabase’s default email has strict rate limits and is for testing. For production, configure **Custom SMTP** (Dashboard → **Project Settings** → **Auth** → **SMTP**) with a provider like Resend, SendGrid, or AWS SES so confirmation emails are sent reliably and don’t land in spam.
+
+After confirming their email (by clicking the link), the session is set and the profile is created automatically by a database trigger.
+
+## One account per email (Google / OAuth)
+
+To ensure users can only have one account per email and that “Continue with Google” logs them in (instead of creating a new account) when they already signed up:
+
+1. **Run migrations** – The migration `20250217000003_normalize_auth_user_email.sql` normalizes all new and updated emails to lowercase in `auth.users`, so the same address in different casing (e.g. `Ericshminn@gmail.com` vs `ericshminn@gmail.com`) cannot create two users.
+2. **Supabase Dashboard** – In [Authentication](https://supabase.com/dashboard/project/_/auth/providers) → **Providers** → **Google**, leave defaults. Under **Auth** → **Policies** (or provider settings), ensure there is no option that allows duplicate emails. Supabase’s [automatic identity linking](https://supabase.com/docs/guides/auth/auth-identity-linking) should then sign existing users in when they use the same Google account again.
+3. **App copy** – Use a single action for both sign-up and sign-in (e.g. “Continue with Google”). The app already uses `signInWithOAuth` for both; no separate “Sign up with Google” flow.
+4. **Existing duplicates** – If you already have two users for the same email (e.g. two IDs for `Ericshminn@gmail.com`), in **Authentication** → **Users** delete or merge the duplicate and keep the one you want. Any data (e.g. profiles, bookings) tied to the deleted user ID will need to be reassigned or recreated.
+
 ## Environment variables
 
 For the landing page "Download your app" (App Store / Google Play) buttons, optionally set in `.env.local` or in your host (e.g. Vercel):

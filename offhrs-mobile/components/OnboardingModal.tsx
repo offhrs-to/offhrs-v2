@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
@@ -31,8 +32,10 @@ export default function OnboardingModal({
   const [step, setStep] = useState(1);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [instructorCategories, setInstructorCategories] = useState<string[]>([]);
-  const [experience, setExperience] = useState<string | null>(null);
+  /** Per-category experience (only for categories they're learning, not instructing). */
+  const [experienceByCategory, setExperienceByCategory] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const toggleCategory = (cat: string) => {
     setSelectedCategories((prev) =>
@@ -46,29 +49,67 @@ export default function OnboardingModal({
     );
   };
 
+  /** Categories selected for learning (not instructor-only). */
+  const learnerCategories = selectedCategories.filter((c) => !instructorCategories.includes(c));
+
+  const setExperienceForCategory = (category: string, value: string) => {
+    setExperienceByCategory((prev) => ({ ...prev, [category]: value }));
+  };
+
+  const canComplete =
+    learnerCategories.length === 0 ||
+    learnerCategories.every((cat) => experienceByCategory[cat] != null && experienceByCategory[cat] !== '');
+
   const handleComplete = async () => {
-    if (!experience) return;
+    if (!canComplete) return;
+    setError(null);
     setLoading(true);
     try {
-      const option = EXPERIENCE_OPTIONS.find((o) => o.value === experience);
-      const payload = {
+      const profilePayload = {
         id: userId,
         category_of_interest: selectedCategories.length > 0 ? selectedCategories : null,
         instructor_categories: instructorCategories.length > 0 ? instructorCategories : null,
         is_instructor: instructorCategories.length > 0,
-        years_experience: experience,
-        expertise_level: option?.level ?? 'Novice',
-        experience_points: option?.points ?? 0,
         onboarding_completed: true,
       };
-      const { error } = await supabase.from('profiles').upsert(payload, {
-        onConflict: 'id',
-      });
 
-      if (error) throw error;
+      let defaultLevel = 'Novice';
+      let defaultPoints = 0;
+      if (learnerCategories.length > 0) {
+        const firstValue = experienceByCategory[learnerCategories[0]!];
+        const option = EXPERIENCE_OPTIONS.find((o) => o.value === firstValue);
+        defaultLevel = option?.level ?? 'Novice';
+        defaultPoints = option?.points ?? 0;
+      }
+      const { error: profileError } = await supabase.from('profiles').upsert(
+        { ...profilePayload, expertise_level: defaultLevel, experience_points: defaultPoints },
+        { onConflict: 'id' }
+      );
+      if (profileError) throw profileError;
+
+      for (const category of learnerCategories) {
+        const value = experienceByCategory[category];
+        if (!value) continue;
+        const option = EXPERIENCE_OPTIONS.find((o) => o.value === value);
+        const { error: rowError } = await supabase.from('profile_category_experience').upsert(
+          {
+            user_id: userId,
+            category,
+            expertise_level: option?.level ?? 'Novice',
+            experience_points: option?.points ?? 0,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id,category' }
+        );
+        if (rowError) throw rowError;
+      }
+
       onComplete();
-    } catch (err) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      setError(message);
       console.error('Onboarding error:', err);
+      Alert.alert('Couldn’t save', message);
     } finally {
       setLoading(false);
     }
@@ -76,6 +117,7 @@ export default function OnboardingModal({
 
   return (
     <View
+      pointerEvents="box-none"
       style={{
         position: 'absolute',
         inset: 0,
@@ -87,6 +129,7 @@ export default function OnboardingModal({
       }}
     >
       <View
+        pointerEvents="auto"
         style={{
           width: '100%',
           maxWidth: 400,
@@ -208,41 +251,67 @@ export default function OnboardingModal({
           </>
         ) : (
           <>
-            {EXPERIENCE_OPTIONS.map((opt) => (
-              <Pressable
-                key={opt.value}
-                onPress={() => setExperience(opt.value)}
-                style={{
-                  marginBottom: 10,
-                  paddingVertical: 14,
-                  paddingHorizontal: 16,
-                  borderRadius: 12,
-                  backgroundColor: experience === opt.value ? DesignColors.primary : DesignColors.inputBg,
-                  borderWidth: 1,
-                  borderColor: DesignColors.lightGreenBorder,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 15,
-                    fontWeight: '500',
-                    color: experience === opt.value ? '#FFF' : DesignColors.charcoal,
-                  }}
-                >
-                  {opt.label}
-                </Text>
-              </Pressable>
-            ))}
+            {error && (
+              <View style={{ marginBottom: 16, padding: 12, backgroundColor: '#FEE2E2', borderRadius: 8 }}>
+                <Text style={{ fontSize: 14, color: '#B91C1C' }}>{error}</Text>
+              </View>
+            )}
+            {learnerCategories.length === 0 ? (
+              <Text style={{ fontSize: 15, color: DesignColors.mediumGray, marginBottom: 24 }}>
+                You didn’t select any learning interests. You can update this later in your profile.
+              </Text>
+            ) : (
+              <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+                {learnerCategories.map((category) => (
+                  <View key={category} style={{ marginBottom: 20 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.charcoal, marginBottom: 8 }}>
+                      {category}
+                    </Text>
+                    <View style={{ gap: 8 }}>
+                      {EXPERIENCE_OPTIONS.map((opt) => {
+                        const isActive = experienceByCategory[category] === opt.value;
+                        return (
+                          <Pressable
+                            key={opt.value}
+                            onPress={() => setExperienceForCategory(category, opt.value)}
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                            style={{
+                              paddingVertical: 12,
+                              paddingHorizontal: 16,
+                              borderRadius: 12,
+                              backgroundColor: isActive ? DesignColors.primary : DesignColors.inputBg,
+                              borderWidth: 1,
+                              borderColor: DesignColors.lightGreenBorder,
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 15,
+                                fontWeight: '500',
+                                color: isActive ? '#FFF' : DesignColors.charcoal,
+                              }}
+                            >
+                              {opt.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
             <Pressable
               onPress={handleComplete}
-              disabled={!experience || loading}
+              disabled={!canComplete || loading}
+              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
               style={{
                 marginTop: 24,
                 paddingVertical: 14,
                 borderRadius: 9999,
                 backgroundColor: DesignColors.primary,
                 alignItems: 'center',
-                opacity: !experience || loading ? 0.6 : 1,
+                opacity: !canComplete || loading ? 0.6 : 1,
               }}
             >
               {loading ? (

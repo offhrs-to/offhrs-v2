@@ -163,6 +163,7 @@ export default function HomeScreen() {
     instructor_categories: string[] | null;
     onboarding_completed: boolean | null;
   } | null>(null);
+  const [categoryExperience, setCategoryExperience] = useState<Record<string, { level: string; points: number }>>({});
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -176,25 +177,52 @@ export default function HomeScreen() {
       setProfileLoaded(!!user);
       return;
     }
-    supabase
-      .from('profiles')
-      .select('display_name, avatar_url, expertise_level, experience_points, instructor_categories, onboarding_completed')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
-        setProfile(data ?? null);
-        setProfileLoaded(true);
-      });
+    Promise.all([
+      supabase
+        .from('profiles')
+        .select('display_name, avatar_url, expertise_level, experience_points, instructor_categories, onboarding_completed')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => data ?? null),
+      supabase
+        .from('profile_category_experience')
+        .select('category, expertise_level, experience_points')
+        .eq('user_id', user.id)
+        .then(({ data }) => {
+          const map: Record<string, { level: string; points: number }> = {};
+          (data ?? []).forEach((row) => {
+            map[row.category] = { level: row.expertise_level ?? 'Novice', points: row.experience_points ?? 0 };
+          });
+          return map;
+        }),
+    ]).then(([profileData, catMap]) => {
+      setProfile(profileData);
+      setCategoryExperience(catMap ?? {});
+      setProfileLoaded(true);
+    });
   }, [user?.id]);
 
   const refreshProfile = () => {
     if (!user?.id) return;
-    supabase
-      .from('profiles')
-      .select('display_name, avatar_url, expertise_level, experience_points, instructor_categories, onboarding_completed')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => setProfile(data ?? null));
+    Promise.all([
+      supabase
+        .from('profiles')
+        .select('display_name, avatar_url, expertise_level, experience_points, instructor_categories, onboarding_completed')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => setProfile(data ?? null)),
+      supabase
+        .from('profile_category_experience')
+        .select('category, expertise_level, experience_points')
+        .eq('user_id', user.id)
+        .then(({ data }) => {
+          const map: Record<string, { level: string; points: number }> = {};
+          (data ?? []).forEach((row) => {
+            map[row.category] = { level: row.expertise_level ?? 'Novice', points: row.experience_points ?? 0 };
+          });
+          setCategoryExperience(map);
+        }),
+    ]);
   };
 
   const showOnboarding =
@@ -227,7 +255,6 @@ export default function HomeScreen() {
     user?.user_metadata?.avatar_url ||
     user?.user_metadata?.picture ||
     null;
-  // Default: Novice in all categories with 0/10 progression (unless set by years of experience in onboarding)
   const level = profile?.expertise_level || 'Novice';
   const points = profile?.experience_points ?? 0;
   const displayLevel = user ? level : 'Novice';
@@ -235,6 +262,11 @@ export default function HomeScreen() {
   const { progress: levelProgress, label: levelLabel } = getLevelProgress(displayLevel, displayPoints);
 
   const isInstructorForCategory = (cat: string) => instructorCategories.includes(cat);
+  const getLevelForCategory = (cat: string) => {
+    if (isInstructorForCategory(cat)) return { level: 'Instructor', points: 0 };
+    const ce = categoryExperience[cat];
+    return ce ? { level: ce.level, points: ce.points } : { level: displayLevel, points: displayPoints };
+  };
 
   const toggleCategory = (cat: string) => {
     setSelectedCategories((prev) =>
@@ -373,6 +405,7 @@ export default function HomeScreen() {
       <View style={{ marginTop: 18, marginBottom: 8, height: 56, width: '100%', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center' }}>
         {levelCategories.map((cat) => {
           const isInstructor = isInstructorForCategory(cat);
+          const catLevel = getLevelForCategory(cat).level;
           return (
             <Pressable
               key={cat}
@@ -393,7 +426,7 @@ export default function HomeScreen() {
               ) : cat === 'Floral' ? (
                 <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
                   <Image
-                    source={getFloralIconSource(displayLevel)}
+                    source={getFloralIconSource(catLevel)}
                     style={{ width: 58, height: 58, position: 'absolute', left: -7, top: -7 }}
                     contentFit="cover"
                   />
@@ -401,7 +434,7 @@ export default function HomeScreen() {
               ) : cat === 'Culinary' ? (
                 <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
                   <Image
-                    source={getCulinaryIconSource(displayLevel)}
+                    source={getCulinaryIconSource(catLevel)}
                     style={{ width: 56, height: 56, position: 'absolute', left: -6, top: -6 }}
                     contentFit="cover"
                   />
@@ -409,7 +442,7 @@ export default function HomeScreen() {
               ) : cat === 'Pottery' ? (
                 <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
                   <Image
-                    source={getPotteryIconSource(displayLevel)}
+                    source={getPotteryIconSource(catLevel)}
                     style={{ width: 66, height: 66, position: 'absolute', left: -11, top: -11 }}
                     contentFit="cover"
                   />
@@ -417,7 +450,7 @@ export default function HomeScreen() {
               ) : cat === 'Coffee' ? (
                 <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
                   <Image
-                    source={getCoffeeIconSource(displayLevel)}
+                    source={getCoffeeIconSource(catLevel)}
                     style={{ width: 56, height: 56, position: 'absolute', left: -6, top: -6 }}
                     contentFit="cover"
                   />
@@ -425,7 +458,7 @@ export default function HomeScreen() {
               ) : cat === 'Beauty & Fragrance' ? (
                 <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
                   <Image
-                    source={getBeautyFragranceIconSource(displayLevel)}
+                    source={getBeautyFragranceIconSource(catLevel)}
                     style={{ width: 62, height: 62, position: 'absolute', left: -9, top: -9 }}
                     contentFit="cover"
                   />
@@ -433,7 +466,7 @@ export default function HomeScreen() {
               ) : cat === 'Music' ? (
                 <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
                   <Image
-                    source={getMusicIconSource(displayLevel)}
+                    source={getMusicIconSource(catLevel)}
                     style={{ width: 62, height: 62, position: 'absolute', left: -9, top: -9 }}
                     contentFit="cover"
                   />
@@ -441,14 +474,14 @@ export default function HomeScreen() {
               ) : cat === 'Wellness' ? (
                 <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
                   <Image
-                    source={getWellnessIconSource(displayLevel)}
+                    source={getWellnessIconSource(catLevel)}
                     style={{ width: 58, height: 58, position: 'absolute', left: -7, top: -7 }}
                     contentFit="cover"
                   />
                 </View>
               ) : cat === 'Other' ? (
                 <Image
-                  source={getOtherIconSource(displayLevel)}
+                  source={getOtherIconSource(catLevel)}
                   style={{ width: 32, height: 32 }}
                   contentFit="contain"
                 />
@@ -634,7 +667,10 @@ export default function HomeScreen() {
             }}
             onPress={(e) => e.stopPropagation()}
           >
-            {popupCategory !== null && (
+            {popupCategory !== null && (() => {
+              const { level: popupLevel, points: popupPoints } = getLevelForCategory(popupCategory);
+              const { label: popupLabel } = popupLevel === 'Instructor' ? { label: '' } : getLevelProgress(popupLevel, popupPoints);
+              return (
               <>
                 <Text
                   style={{
@@ -645,7 +681,7 @@ export default function HomeScreen() {
                 >
                   {popupCategory}
                 </Text>
-                {isInstructorForCategory(popupCategory) ? (
+                {popupLevel === 'Instructor' ? (
                   <Text
                     style={{
                       fontSize: 20,
@@ -662,19 +698,19 @@ export default function HomeScreen() {
                         fontSize: 20,
                         fontWeight: '700',
                         color: DesignColors.charcoal,
-                        marginBottom: displayLevel === 'Master' ? 0 : 4,
+                        marginBottom: popupLevel === 'Master' ? 0 : 4,
                       }}
                     >
-                      {displayLevel}
+                      {popupLevel}
                     </Text>
-                    {displayLevel !== 'Master' && (
+                    {popupLevel !== 'Master' && (
                       <Text
                         style={{
                           fontSize: 15,
                           color: DesignColors.mediumGray,
                         }}
                       >
-                        {levelLabel}
+                        {popupLabel}
                       </Text>
                     )}
                   </>
@@ -695,7 +731,8 @@ export default function HomeScreen() {
                   </Text>
                 </Pressable>
               </>
-            )}
+            );
+            })()}
           </Pressable>
         </Pressable>
       </Modal>

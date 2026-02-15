@@ -42,8 +42,10 @@ export function SignInForm({
     try {
       if (isSignUp) {
         const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
-        const appUrl = (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '');
-        const emailRedirectTo = appUrl ? `${appUrl}/auth/callback` : undefined;
+        // Use web app URL so the confirmation email link works (Supabase cannot send to custom schemes reliably).
+        // Add this exact URL in Supabase Dashboard → Auth → URL Configuration → Redirect URLs.
+        const webAppUrl = (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.com';
+        const emailRedirectTo = `${webAppUrl}/auth/callback`;
         const { error } = await supabase.auth.signUp({
           email,
           password,

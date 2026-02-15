@@ -39,16 +39,40 @@ export async function processAuthCallbackUrl(url: string | null): Promise<boolea
   const u = typeof url === 'string' ? url : '';
   if (!u) return false;
   const { access_token, refresh_token, code } = parseAuthParams(u);
+  return processAuthCallbackFromParams({ code, access_token, refresh_token });
+}
 
+export type AuthCallbackParams = {
+  code?: string;
+  access_token?: string;
+  refresh_token?: string;
+};
+
+/**
+ * Process auth callback from already-parsed params (e.g. from route search params).
+ * Use this when the app opens from a deep link and getInitialURL() returns null on iOS
+ * but Expo Router has parsed the URL and exposed params on the callback route.
+ */
+export async function processAuthCallbackFromParams(
+  params: AuthCallbackParams
+): Promise<boolean> {
+  const { code, access_token, refresh_token } = params;
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    return !error;
+    if (error) {
+      __DEV__ && console.warn('[Auth] exchangeCodeForSession failed:', error.message);
+      return false;
+    }
+    return true;
   }
-
   if (!access_token) return false;
   const { error } = await supabase.auth.setSession({
     access_token,
     refresh_token: refresh_token ?? '',
   });
-  return !error;
+  if (error) {
+    __DEV__ && console.warn('[Auth] setSession failed:', error.message);
+    return false;
+  }
+  return true;
 }
