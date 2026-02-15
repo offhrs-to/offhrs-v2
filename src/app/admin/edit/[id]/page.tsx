@@ -13,6 +13,7 @@ import Navbar from '@/components/navbar'
 import { Badge } from '@/components/ui/badge'
 import { fetchUrlMetadata } from '@/app/actions/fetch-metadata'
 import { updateEvent } from '@/app/actions/events'
+import { geocodeAddress } from '@/lib/geocode'
 
 interface FormData {
   title: string
@@ -182,53 +183,24 @@ export default function AdminEditPage() {
 
   const handleLocationBlur = async () => {
     const location = formData.location.trim()
-    
-    // Skip geocoding if location is empty
     if (!location) {
       setCoordinatesFound(false)
       setFormData((prev) => ({ ...prev, lat: '', lng: '' }))
       return
     }
-
-    // Skip geocoding for "Online" or similar keywords
     if (location.toLowerCase().includes('online') || location.toLowerCase().includes('virtual')) {
       setCoordinatesFound(false)
       setFormData((prev) => ({ ...prev, lat: '', lng: '' }))
       return
     }
-
     setGeocoding(true)
     setCoordinatesFound(false)
-
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}`,
-        {
-          headers: {
-            'User-Agent': 'Offhrs-App',
-          },
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error('Geocoding request failed')
-      }
-
-      const data = await response.json()
-
-      if (data && data.length > 0) {
-        const firstResult = data[0]
-        const lat = firstResult.lat
-        const lon = firstResult.lon
-
-        setFormData((prev) => ({
-          ...prev,
-          lat: lat,
-          lng: lon,
-        }))
+      const coords = await geocodeAddress(location)
+      if (coords) {
+        setFormData((prev) => ({ ...prev, lat: coords.lat, lng: coords.lng }))
         setCoordinatesFound(true)
       } else {
-        setCoordinatesFound(false)
         setFormData((prev) => ({ ...prev, lat: '', lng: '' }))
       }
     } catch (err) {
@@ -246,14 +218,21 @@ export default function AdminEditPage() {
     setError(null)
 
     try {
-      // Handle lat/lng - convert to string or number safely
-      const lat = formData.lat !== null && formData.lat !== undefined && formData.lat !== ''
+      // Handle lat/lng - convert to string or number safely; geocode if location set but coords missing
+      let lat: string | null = formData.lat !== null && formData.lat !== undefined && formData.lat !== ''
         ? (typeof formData.lat === 'string' ? formData.lat.trim() : String(formData.lat))
         : null
-      
-      const lng = formData.lng !== null && formData.lng !== undefined && formData.lng !== ''
+      let lng: string | null = formData.lng !== null && formData.lng !== undefined && formData.lng !== ''
         ? (typeof formData.lng === 'string' ? formData.lng.trim() : String(formData.lng))
         : null
+      const location = formData.location.trim()
+      if (location && (!lat || !lng) && !location.toLowerCase().includes('online') && !location.toLowerCase().includes('virtual')) {
+        const coords = await geocodeAddress(location)
+        if (coords) {
+          lat = coords.lat
+          lng = coords.lng
+        }
+      }
 
       // Ensure date is stored as ISO string
       let formattedDate: string | null = null

@@ -28,6 +28,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [eventFilter, setEventFilter] = useState<EventFilter>('all')
+  const [backfillLoading, setBackfillLoading] = useState(false)
+  const [backfillResult, setBackfillResult] = useState<string | null>(null)
 
   const filteredEvents = events.filter((event) => {
     const isExpired = event.date != null && new Date(event.date) < new Date()
@@ -57,6 +59,28 @@ export default function AdminDashboard() {
       console.error('Error fetching events:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleBackfillCoordinates = async () => {
+    setBackfillLoading(true)
+    setBackfillResult(null)
+    try {
+      const res = await fetch('/api/admin/backfill-event-coordinates', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setBackfillResult(data.error || `Error ${res.status}`)
+        return
+      }
+      setBackfillResult(data.message ?? `Updated ${data.updated ?? 0} event(s).`)
+      if (data.updated > 0) await fetchEvents()
+    } catch (e: any) {
+      setBackfillResult(e?.message || 'Request failed')
+    } finally {
+      setBackfillLoading(false)
     }
   }
 
@@ -120,6 +144,26 @@ export default function AdminDashboard() {
               <option value="upcoming">Upcoming events</option>
               <option value="expired">Expired events</option>
             </select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleBackfillCoordinates}
+              disabled={backfillLoading}
+              className="border-slate-300 text-slate-700 hover:bg-slate-50"
+            >
+              {backfillLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Backfilling…
+                </>
+              ) : (
+                'Backfill event coordinates'
+              )}
+            </Button>
+            {backfillResult && (
+              <span className="text-sm text-slate-600">{backfillResult}</span>
+            )}
           </div>
         )}
 
