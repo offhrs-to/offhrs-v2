@@ -30,6 +30,7 @@ export default function OnboardingModal({
   onComplete: () => void;
 }) {
   const [step, setStep] = useState(1);
+  const [experienceCategoryIndex, setExperienceCategoryIndex] = useState(0);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [instructorCategories, setInstructorCategories] = useState<string[]>([]);
   /** Per-category experience (only for categories they're learning, not instructing). */
@@ -44,9 +45,13 @@ export default function OnboardingModal({
   };
 
   const toggleInstructorCategory = (cat: string) => {
-    setInstructorCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
-    );
+    setInstructorCategories((prev) => {
+      const next = prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat];
+      if (!prev.includes(cat)) {
+        setSelectedCategories((s) => s.filter((c) => c !== cat));
+      }
+      return next;
+    });
   };
 
   /** Categories selected for learning (not instructor-only). */
@@ -56,9 +61,16 @@ export default function OnboardingModal({
     setExperienceByCategory((prev) => ({ ...prev, [category]: value }));
   };
 
+  const currentExperienceCategory = learnerCategories[experienceCategoryIndex] ?? null;
+  const hasSelectionForCurrent = currentExperienceCategory
+    ? experienceByCategory[currentExperienceCategory] != null && experienceByCategory[currentExperienceCategory] !== ''
+    : true;
+  const isLastExperienceCategory =
+    learnerCategories.length === 0 || experienceCategoryIndex >= learnerCategories.length - 1;
   const canComplete =
     learnerCategories.length === 0 ||
     learnerCategories.every((cat) => experienceByCategory[cat] != null && experienceByCategory[cat] !== '');
+  const canGoNext = hasSelectionForCurrent && !isLastExperienceCategory;
 
   const handleComplete = async () => {
     if (!canComplete) return;
@@ -97,19 +109,21 @@ export default function OnboardingModal({
             category,
             expertise_level: option?.level ?? 'Novice',
             experience_points: option?.points ?? 0,
-            updated_at: new Date().toISOString(),
           },
-          { onConflict: 'user_id,category' }
+          { onConflict: ['user_id', 'category'] }
         );
         if (rowError) throw rowError;
       }
 
       onComplete();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      const raw = err as { message?: string; details?: string; hint?: string };
+      const message =
+        raw?.message ?? (err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      const detail = raw?.details || raw?.hint ? ` (${raw.details || ''} ${raw.hint || ''})`.trim() : '';
       setError(message);
       console.error('Onboarding error:', err);
-      Alert.alert('Couldn’t save', message);
+      Alert.alert('Couldn’t save', message + detail);
     } finally {
       setLoading(false);
     }
@@ -176,25 +190,29 @@ export default function OnboardingModal({
               </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
                 {CATEGORIES.map((cat) => {
+                  const isInstructor = instructorCategories.includes(cat);
                   const isActive = selectedCategories.includes(cat);
+                  const disabled = isInstructor;
                   return (
                     <Pressable
                       key={cat}
-                      onPress={() => toggleCategory(cat)}
+                      onPress={() => !disabled && toggleCategory(cat)}
+                      disabled={disabled}
                       style={{
                         paddingHorizontal: 16,
                         paddingVertical: 10,
                         borderRadius: 9999,
-                        backgroundColor: isActive ? DesignColors.primary : DesignColors.inputBg,
+                        backgroundColor: disabled ? '#E5E7EB' : isActive ? DesignColors.primary : DesignColors.inputBg,
                         borderWidth: 1,
-                        borderColor: DesignColors.lightGreenBorder,
+                        borderColor: disabled ? '#D1D5DB' : DesignColors.lightGreenBorder,
+                        opacity: disabled ? 0.7 : 1,
                       }}
                     >
                       <Text
                         style={{
                           fontSize: 14,
                           fontWeight: '500',
-                          color: isActive ? '#FFF' : DesignColors.sageGreen,
+                          color: disabled ? '#9CA3AF' : isActive ? '#FFF' : DesignColors.sageGreen,
                         }}
                       >
                         {cat}
@@ -237,7 +255,10 @@ export default function OnboardingModal({
               </View>
             </ScrollView>
             <Pressable
-              onPress={() => setStep(2)}
+              onPress={() => {
+                setExperienceCategoryIndex(0);
+                setStep(2);
+              }}
               style={{
                 marginTop: 24,
                 paddingVertical: 14,
@@ -260,66 +281,110 @@ export default function OnboardingModal({
               <Text style={{ fontSize: 15, color: DesignColors.mediumGray, marginBottom: 24 }}>
                 You didn’t select any learning interests. You can update this later in your profile.
               </Text>
-            ) : (
-              <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
-                {learnerCategories.map((category) => (
-                  <View key={category} style={{ marginBottom: 20 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.charcoal, marginBottom: 8 }}>
-                      {category}
-                    </Text>
-                    <View style={{ gap: 8 }}>
-                      {EXPERIENCE_OPTIONS.map((opt) => {
-                        const isActive = experienceByCategory[category] === opt.value;
-                        return (
-                          <Pressable
-                            key={opt.value}
-                            onPress={() => setExperienceForCategory(category, opt.value)}
-                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                            style={{
-                              paddingVertical: 12,
-                              paddingHorizontal: 16,
-                              borderRadius: 12,
-                              backgroundColor: isActive ? DesignColors.primary : DesignColors.inputBg,
-                              borderWidth: 1,
-                              borderColor: DesignColors.lightGreenBorder,
-                            }}
-                          >
-                            <Text
-                              style={{
-                                fontSize: 15,
-                                fontWeight: '500',
-                                color: isActive ? '#FFF' : DesignColors.charcoal,
-                              }}
-                            >
-                              {opt.label}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  </View>
-                ))}
-              </ScrollView>
+            ) : currentExperienceCategory ? (
+              <>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: DesignColors.mediumGray,
+                    marginBottom: 4,
+                  }}
+                >
+                  {experienceCategoryIndex + 1} of {learnerCategories.length}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: '600',
+                    color: DesignColors.charcoal,
+                    marginBottom: 16,
+                  }}
+                >
+                  What’s your experience level for {currentExperienceCategory}?
+                </Text>
+                <View style={{ gap: 8 }}>
+                  {EXPERIENCE_OPTIONS.map((opt) => {
+                    const isActive = experienceByCategory[currentExperienceCategory] === opt.value;
+                    return (
+                      <Pressable
+                        key={opt.value}
+                        onPress={() => setExperienceForCategory(currentExperienceCategory, opt.value)}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        style={{
+                          paddingVertical: 12,
+                          paddingHorizontal: 16,
+                          borderRadius: 12,
+                          backgroundColor: isActive ? DesignColors.primary : DesignColors.inputBg,
+                          borderWidth: 1,
+                          borderColor: DesignColors.lightGreenBorder,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 15,
+                            fontWeight: '500',
+                            color: isActive ? '#FFF' : DesignColors.charcoal,
+                          }}
+                        >
+                          {opt.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            ) : null}
+            {learnerCategories.length > 0 && (
+              <Pressable
+                onPress={() => {
+                  if (isLastExperienceCategory) handleComplete();
+                  else if (canGoNext) setExperienceCategoryIndex((i) => i + 1);
+                }}
+                disabled={
+                  isLastExperienceCategory ? !canComplete || loading : !hasSelectionForCurrent
+                }
+                hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                style={{
+                  marginTop: 24,
+                  paddingVertical: 14,
+                  borderRadius: 9999,
+                  backgroundColor: DesignColors.primary,
+                  alignItems: 'center',
+                  opacity:
+                    isLastExperienceCategory
+                      ? canComplete && !loading ? 1 : 0.6
+                      : hasSelectionForCurrent ? 1 : 0.6,
+                }}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFF' }}>
+                    {isLastExperienceCategory ? 'Complete' : 'Next'}
+                  </Text>
+                )}
+              </Pressable>
             )}
-            <Pressable
-              onPress={handleComplete}
-              disabled={!canComplete || loading}
-              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-              style={{
-                marginTop: 24,
-                paddingVertical: 14,
-                borderRadius: 9999,
-                backgroundColor: DesignColors.primary,
-                alignItems: 'center',
-                opacity: !canComplete || loading ? 0.6 : 1,
-              }}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFF' }}>Complete</Text>
-              )}
-            </Pressable>
+            {learnerCategories.length === 0 && (
+              <Pressable
+                onPress={handleComplete}
+                disabled={loading}
+                style={{
+                  marginTop: 24,
+                  paddingVertical: 14,
+                  borderRadius: 9999,
+                  backgroundColor: DesignColors.primary,
+                  alignItems: 'center',
+                }}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFF' }}>Complete</Text>
+                )}
+              </Pressable>
+            )}
           </>
         )}
       </View>
