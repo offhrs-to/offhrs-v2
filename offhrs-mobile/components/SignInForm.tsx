@@ -79,18 +79,27 @@ export function SignInForm({
     setLoading(true);
     setError(null);
     try {
+      __DEV__ && console.log(`[SignIn] Starting ${provider} OAuth with redirectUrl:`, redirectUrl);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: redirectUrl },
+        options: { 
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: false, // Ensure we open browser
+        },
       });
       if (error) throw error;
       if (data?.url) {
+        __DEV__ && console.log(`[SignIn] Opening ${provider} auth URL:`, data.url);
         await Linking.openURL(data.url);
+      } else {
+        __DEV__ && console.warn(`[SignIn] No URL returned from ${provider} OAuth`);
       }
     } catch (err: unknown) {
       const message =
         provider === 'google' ? 'Google sign-in failed' : 'Apple sign-in failed';
-      setError(err instanceof Error ? err.message : message);
+      const errorMsg = err instanceof Error ? err.message : message;
+      __DEV__ && console.error(`[SignIn] ${provider} OAuth error:`, errorMsg, err);
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }

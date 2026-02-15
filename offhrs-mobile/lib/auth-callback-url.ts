@@ -4,6 +4,8 @@ export function parseAuthParams(url: string): {
   access_token?: string;
   refresh_token?: string;
   code?: string;
+  error?: string;
+  error_description?: string;
 } {
   const params: Record<string, string> = {};
   const s = typeof url === 'string' ? url : '';
@@ -24,6 +26,8 @@ export function parseAuthParams(url: string): {
     access_token: params.access_token,
     refresh_token: params.refresh_token,
     code: params.code,
+    error: params.error,
+    error_description: params.error_description,
   };
 }
 
@@ -38,7 +42,15 @@ export function parseAuthParams(url: string): {
 export async function processAuthCallbackUrl(url: string | null): Promise<boolean> {
   const u = typeof url === 'string' ? url : '';
   if (!u) return false;
-  const { access_token, refresh_token, code } = parseAuthParams(u);
+  
+  const { access_token, refresh_token, code, error, error_description } = parseAuthParams(u);
+  
+  // Check for OAuth errors first
+  if (error) {
+    __DEV__ && console.warn('[Auth] OAuth error in URL:', error, error_description);
+    return false;
+  }
+  
   return processAuthCallbackFromParams({ code, access_token, refresh_token });
 }
 
@@ -57,22 +69,40 @@ export async function processAuthCallbackFromParams(
   params: AuthCallbackParams
 ): Promise<boolean> {
   const { code, access_token, refresh_token } = params;
+  
   if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    __DEV__ && console.log('[Auth] Processing code flow (Apple):', code.substring(0, 20) + '...');
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
-      __DEV__ && console.warn('[Auth] exchangeCodeForSession failed:', error.message);
+      __DEV__ && console.warn('[Auth] exchangeCodeForSession failed:', error.message, error);
       return false;
     }
+    if (!data?.session) {
+      __DEV__ && console.warn('[Auth] exchangeCodeForSession succeeded but no session returned');
+      return false;
+    }
+    __DEV__ && console.log('[Auth] Code exchange successful, session established for user:', data.session.user.id);
     return true;
   }
-  if (!access_token) return false;
-  const { error } = await supabase.auth.setSession({
+  
+  if (!access_token) {
+    __DEV__ && console.log('[Auth] No code or access_token in params');
+    return false;
+  }
+  
+  __DEV__ && console.log('[Auth] Processing implicit flow (Google)');
+  const { data, error } = await supabase.auth.setSession({
     access_token,
     refresh_token: refresh_token ?? '',
   });
   if (error) {
-    __DEV__ && console.warn('[Auth] setSession failed:', error.message);
+    __DEV__ && console.warn('[Auth] setSession failed:', error.message, error);
     return false;
   }
+  if (!data?.session) {
+    __DEV__ && console.warn('[Auth] setSession succeeded but no session returned');
+    return false;
+  }
+  __DEV__ && console.log('[Auth] Session set successfully for user:', data.session.user.id);
   return true;
 }

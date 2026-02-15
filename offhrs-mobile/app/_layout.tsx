@@ -32,11 +32,16 @@ export default function RootLayout() {
 
     let cancelled = false;
     const goToProfile = () => {
-      if (!cancelled) router.replace('/(tabs)/profile');
+      if (!cancelled) {
+        __DEV__ && console.log('[RootLayout] Navigating to profile after auth');
+        router.replace('/(tabs)/profile');
+      }
     };
 
+    // Initial URL check (app cold start from deep link)
     Linking.getInitialURL().then((url) => {
       if (cancelled) return;
+      __DEV__ && console.log('[RootLayout] Initial URL:', url);
       processAuthCallbackUrl(url ?? null).then((handled) => {
         if (cancelled || !handled) return;
         setTimeout(goToProfile, 400);
@@ -47,6 +52,7 @@ export default function RootLayout() {
     const t = setTimeout(() => {
       Linking.getInitialURL().then((url) => {
         if (cancelled || !url) return;
+        __DEV__ && console.log('[RootLayout] Retry initial URL:', url);
         processAuthCallbackUrl(url).then((handled) => {
           if (cancelled || !handled) return;
           setTimeout(goToProfile, 400);
@@ -54,7 +60,9 @@ export default function RootLayout() {
       });
     }, 500);
 
+    // Listen for deep links while app is running (user taps "Open" after OAuth redirect)
     const sub = Linking.addEventListener('url', ({ url: eventUrl }) => {
+      __DEV__ && console.log('[RootLayout] Link event:', eventUrl);
       processAuthCallbackUrl(eventUrl).then((handled) => {
         if (cancelled || !handled) return;
         setTimeout(goToProfile, 400);
