@@ -47,10 +47,20 @@ export default function AuthCallbackScreen() {
         error: params.error,
       });
 
-      // Check for OAuth errors in params
+      // Check for OAuth errors in params (e.g. Supabase couldn't exchange Apple code)
       if (params.error) {
         __DEV__ && console.warn('[AuthCallback] OAuth error in params:', params.error, params.error_description);
-        finish(false, `Sign-in failed: ${params.error_description || params.error}`);
+        // If we already have a session, the error may be from a duplicate attempt; go to profile
+        const { data: { session } } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (session) {
+          __DEV__ && console.log('[AuthCallback] Session exists despite error param, navigating to profile');
+          setTimeout(() => finish(true), 100);
+          return;
+        }
+        const rawDesc = params.error_description || params.error;
+        const shortMsg = rawDesc.length > 80 ? rawDesc.slice(0, 77) + '…' : rawDesc;
+        finish(false, `Sign-in failed: ${shortMsg}`);
         return;
       }
 
@@ -122,11 +132,17 @@ export default function AuthCallbackScreen() {
   }, [router, params.code, params.access_token, params.refresh_token, params.error, params.error_description]);
 
   if (errorMsg) {
+    const isExchangeError = /exchange|external code/i.test(errorMsg);
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
         <Text style={{ fontSize: 18, fontWeight: '600', color: '#DC2626', marginBottom: 12, textAlign: 'center' }}>
           {errorMsg}
         </Text>
+        {isExchangeError && (
+          <Text style={{ fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 12, paddingHorizontal: 16 }}>
+            This often means the Apple sign-in setup in Supabase needs updating: check Redirect URLs include your app URL, and that the Apple Secret Key (client secret JWT) is valid and not expired (rotate every 6 months).
+          </Text>
+        )}
         <Text style={{ color: '#6B7280', textAlign: 'center' }}>
           Redirecting to login...
         </Text>

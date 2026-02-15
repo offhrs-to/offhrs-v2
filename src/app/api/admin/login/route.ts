@@ -1,6 +1,7 @@
 import { adminLoginBodySchema } from '@/lib/api-validation'
 import { createHmac, timingSafeEqual } from 'crypto'
-import { NextRequest, NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
 
 const ADMIN_COOKIE = 'admin_session'
 const COOKIE_MAX_AGE = 60 * 60 * 8 // 8 hours
@@ -91,4 +92,43 @@ export function verifyAdminCookie(cookieHeader: string | null): boolean {
   } catch {
     return false
   }
+}
+
+/**
+ * Verify admin via Authorization: Basic base64(username:password).
+ * Use when the admin_session cookie is not sent (e.g. same-site/cookie issues).
+ */
+export function verifyAdminBasicAuth(authHeader: string | null): boolean {
+  if (!authHeader || !authHeader.startsWith('Basic ')) return false
+  const adminUser = process.env.ADMIN_USER || 'admin'
+  const adminPassword = process.env.ADMIN_PASSWORD
+  if (!adminPassword) return false
+  try {
+    const base64 = authHeader.slice(6).trim()
+    const decoded = Buffer.from(base64, 'base64').toString('utf8')
+    const colon = decoded.indexOf(':')
+    if (colon <= 0) return false
+    const username = decoded.slice(0, colon)
+    const password = decoded.slice(colon + 1)
+    const expectedUser = Buffer.from(adminUser, 'utf8')
+    const expectedPass = Buffer.from(adminPassword, 'utf8')
+    const givenUser = Buffer.from(username, 'utf8')
+    const givenPass = Buffer.from(password, 'utf8')
+    return (
+      expectedUser.length === givenUser.length &&
+      expectedPass.length === givenPass.length &&
+      timingSafeEqual(expectedUser, givenUser) &&
+      timingSafeEqual(expectedPass, givenPass)
+    )
+  } catch {
+    return false
+  }
+}
+
+/** Returns true if either cookie or Basic auth is valid. */
+export function verifyAdmin(request: NextRequest): boolean {
+  return (
+    verifyAdminCookie(request.headers.get('cookie')) ||
+    verifyAdminBasicAuth(request.headers.get('authorization'))
+  )
 }

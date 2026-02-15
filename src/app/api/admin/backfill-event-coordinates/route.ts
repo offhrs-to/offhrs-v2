@@ -1,4 +1,4 @@
-import { verifyAdminCookie } from '@/app/api/admin/login/route'
+import { verifyAdmin } from '@/app/api/admin/login/route'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { geocodeAddress } from '@/lib/geocode'
 import { NextRequest, NextResponse } from 'next/server'
@@ -6,11 +6,10 @@ import { NextRequest, NextResponse } from 'next/server'
 /**
  * POST /api/admin/backfill-event-coordinates
  * Finds events with a location but null lat/lng, geocodes each, and updates the row.
- * Requires admin session cookie. Respects Nominatim usage policy with a short delay between requests.
+ * Requires admin session cookie or Authorization: Basic. Respects Nominatim usage policy with a short delay between requests.
  */
 export async function POST(request: NextRequest) {
-  const cookieHeader = request.headers.get('cookie')
-  if (!verifyAdminCookie(cookieHeader)) {
+  if (!verifyAdmin(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

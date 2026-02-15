@@ -41,6 +41,26 @@ If Apple sign-in shows "Open this page in offhrs-mobile?" but then routes back t
    - **Code already used:** If you tap "Open" twice, the second attempt fails (code can only be exchanged once)
    - **Session not persisted:** Check that `AsyncStorage` is working (should be automatic with Expo)
 
+### "Unable to exchange external code" (Apple)
+
+If you see **Sign-in failed: Unable to exchange external code** after tapping "Open" from Apple, Supabase’s server failed to exchange Apple’s authorization code. Fix it on the **Supabase and Apple** side:
+
+1. **Redirect URLs (Supabase)**  
+   In **Supabase** → **Authentication** → **URL Configuration** → **Redirect URLs**, ensure **`offhrsmobile://auth/callback`** is listed exactly (and that **Site URL** is set if required).
+
+2. **Apple Secret Key (Supabase)**  
+   In **Supabase** → **Authentication** → **Providers** → **Apple**, the **Secret Key** must be a **valid JWT** generated from your Apple Key (.p8), and must be **rotated every 6 months**. Regenerate the JWT with [Supabase’s Apple client secret tool](https://supabase.com/docs/guides/auth/social-login/auth-apple) and paste the new value.
+
+3. **Apple Services ID (Apple Developer)**  
+   For your **Services ID**, in **Website URLs** set the **Return URL** to:
+   ```
+   https://[YOUR_SUPABASE_PROJECT_REF].supabase.co/auth/v1/callback
+   ```
+   (Replace with your project ref from Supabase dashboard URL.) The **Domain** should be `[YOUR_PROJECT_REF].supabase.co`.
+
+4. **Client ID**  
+   In Supabase Apple provider, **Client ID** must be your Apple **Services ID** (e.g. `com.offhrs.app.web`), not your App ID / bundle ID.
+
 ### Apple OAuth Provider Setup
 
 In Supabase Dashboard → **Authentication** → **Providers** → **Apple** you fill in two values:

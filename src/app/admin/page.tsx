@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Trash2, Edit, Plus, LogOut, Wand2, Loader2 } from 'lucide-react'
 import { geocodeAddress } from '@/lib/geocode'
@@ -22,6 +22,7 @@ export default function AdminPage() {
   const [backfillResult, setBackfillResult] = useState<string | null>(null)
   type EventFilter = 'all' | 'upcoming' | 'expired'
   const [eventFilter, setEventFilter] = useState<EventFilter>('all')
+  const adminAuthRef = useRef<string | null>(null)
 
   const filteredEvents = events.filter((event) => {
     const isExpired = event.date != null && new Date(event.date) < new Date()
@@ -57,6 +58,14 @@ export default function AdminPage() {
   ]
 
   // --- 1. LOGIN LOGIC ---
+  const getAdminHeaders = (): HeadersInit => {
+    const h: HeadersInit = { 'Content-Type': 'application/json' }
+    if (adminAuthRef.current) {
+      (h as Record<string, string>)['Authorization'] = `Basic ${adminAuthRef.current}`
+    }
+    return h
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     const res = await fetch('/api/admin/login', {
@@ -66,6 +75,7 @@ export default function AdminPage() {
       credentials: 'include',
     })
     if (res.ok) {
+      adminAuthRef.current = typeof btoa !== 'undefined' ? btoa(`${username}:${password}`) : Buffer.from(`${username}:${password}`).toString('base64')
       setIsAuthenticated(true)
       fetchEvents()
     } else {
@@ -79,7 +89,7 @@ export default function AdminPage() {
     setLoading(true)
     const [eventsRes, countsRes] = await Promise.all([
       supabase.from('events').select('*').order('id', { ascending: false }),
-      fetch('/api/admin/event-redirect-counts', { credentials: 'include' }).then((r) => (r.ok ? r.json() : { counts: {} })).catch(() => ({ counts: {} })),
+      fetch('/api/admin/event-redirect-counts', { credentials: 'include', headers: getAdminHeaders() }).then((r) => (r.ok ? r.json() : { counts: {} })).catch(() => ({ counts: {} })),
     ])
     if (eventsRes.error) console.error('Error loading events:', eventsRes.error)
     else setEvents(eventsRes.data || [])
@@ -191,6 +201,7 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/backfill-event-coordinates', {
         method: 'POST',
         credentials: 'include',
+        headers: getAdminHeaders(),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -293,7 +304,13 @@ export default function AdminPage() {
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Event Dashboard</h1>
-          <button onClick={() => setIsAuthenticated(false)} className="flex items-center text-sm text-red-600 hover:text-red-800">
+          <button
+            onClick={() => {
+              adminAuthRef.current = null
+              setIsAuthenticated(false)
+            }}
+            className="flex items-center text-sm text-red-600 hover:text-red-800"
+          >
             <LogOut className="w-4 h-4 mr-1" /> Logout
           </button>
         </div>
