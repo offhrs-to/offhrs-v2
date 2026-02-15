@@ -8,12 +8,16 @@ import Navbar from '@/components/navbar'
 import EventCard from '@/components/event-card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Loader2, Search, LayoutGrid, MapPin, X } from 'lucide-react'
+import { ArrowLeft, Loader2, Search, LayoutGrid, MapPin, X, Smartphone } from 'lucide-react'
 import { CATEGORIES } from '@/constants/categories'
 
 const WorkshopMap = dynamic(() => import('@/components/workshop-map'), { ssr: false })
 
 const WORKSHOP_CATEGORIES = ['All', ...CATEGORIES]
+
+const WORKSHOPS_GUEST_PROMPT_KEY = 'offhrs_workshops_guest_prompt_seen'
+const APP_STORE_URL = process.env.NEXT_PUBLIC_APP_STORE_URL || '#'
+const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL || '#'
 
 interface EventRow {
   id: number
@@ -40,6 +44,24 @@ export default function WorkshopsPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid')
   const [events, setEvents] = useState<EventRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [showGuestPrompt, setShowGuestPrompt] = useState(false)
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && !sessionStorage.getItem(WORKSHOPS_GUEST_PROMPT_KEY)) {
+        setShowGuestPrompt(true)
+      }
+    } catch {
+      setShowGuestPrompt(false)
+    }
+  }, [])
+
+  const dismissGuestPrompt = (continueAsGuest: boolean) => {
+    try {
+      if (typeof window !== 'undefined') sessionStorage.setItem(WORKSHOPS_GUEST_PROMPT_KEY, '1')
+    } catch {}
+    setShowGuestPrompt(false)
+  }
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchTerm), 300)
@@ -124,6 +146,67 @@ export default function WorkshopsPage() {
   return (
     <div className="min-h-screen bg-gray-50/50">
       <Navbar />
+      {/* First-visit prompt: app download / sign up or continue as guest */}
+      {showGuestPrompt && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="guest-prompt-title"
+        >
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="rounded-full bg-[#5D755D]/10 p-3">
+                <Smartphone className="h-8 w-8 text-[#5D755D]" />
+              </div>
+            </div>
+            <h2 id="guest-prompt-title" className="text-lg font-bold text-gray-900 mb-2">
+              Track your mastery
+            </h2>
+            <p className="text-gray-600 text-sm mb-6">
+              Download our app and sign up to track your progress and level up in your favourite skills. Or you can continue browsing as a guest.
+            </p>
+            <div className="flex flex-col gap-3">
+              <Link href="/signup" onClick={() => dismissGuestPrompt(false)}>
+                <Button className="w-full bg-[#5D755D] hover:bg-[#5D755D]/90 text-white rounded-full">
+                  Get the app & sign up
+                </Button>
+              </Link>
+              <div className="flex gap-2 justify-center flex-wrap">
+                {APP_STORE_URL !== '#' && (
+                  <a
+                    href={APP_STORE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => dismissGuestPrompt(false)}
+                    className="inline-flex items-center justify-center rounded-full border-2 border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    App Store
+                  </a>
+                )}
+                {PLAY_STORE_URL !== '#' && (
+                  <a
+                    href={PLAY_STORE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => dismissGuestPrompt(false)}
+                    className="inline-flex items-center justify-center rounded-full border-2 border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Google Play
+                  </a>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => dismissGuestPrompt(true)}
+                className="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
+              >
+                Continue browsing as a guest
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <main className="container mx-auto px-4 py-6 max-w-5xl">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
