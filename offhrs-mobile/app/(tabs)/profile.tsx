@@ -120,7 +120,7 @@ export default function ProfileScreen() {
     user.user_metadata?.name ||
     String(user.email ?? '').split('@')[0] ||
     '—';
-  const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url;
+  const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture;
   const email = user.email || '—';
   const phone = profile?.phone || '—';
   const level = profile?.expertise_level || 'Novice';

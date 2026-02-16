@@ -125,7 +125,7 @@ export function EventCard({ event, onPress }: EventCardProps) {
           justifyContent: 'space-between',
         }}
       >
-        <View>
+        <View style={{ flex: 1, justifyContent: 'flex-start' }}>
           <Text
             style={{ fontSize: 13, fontWeight: '700', color: DesignColors.charcoal }}
             numberOfLines={2}

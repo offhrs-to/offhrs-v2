@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  Dimensions,
   ScrollView,
   Text,
   View,
@@ -64,6 +65,7 @@ export default function VendorProfileScreen() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [myReview, setMyReview] = useState<Review | null>(null);
 
   const loadData = () => {
     if (!id) return;
@@ -86,11 +88,32 @@ export default function VendorProfileScreen() {
       setReviews(revs);
       setAvgRating(revs.length > 0 ? Math.round((revs.reduce((s, r) => s + r.rating, 0) / revs.length) * 10) / 10 : null);
     }).finally(() => setLoading(false));
+
+    if (user?.id) {
+      supabase
+        .from('vendor_reviews')
+        .select('id, rating, comment, author_name, created_at')
+        .eq('vendor_id', id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            const mine = data as Review;
+            setMyReview(mine);
+            setRating(mine.rating);
+            setComment(mine.comment ?? '');
+          } else {
+            setMyReview(null);
+          }
+        });
+    } else {
+      setMyReview(null);
+    }
   };
 
   useEffect(() => {
     loadData();
-  }, [id]);
+  }, [id, user?.id]);
 
   const handleSubmitReview = async () => {
     if (!user || !id || submitting) return;
@@ -145,7 +168,9 @@ export default function VendorProfileScreen() {
 
       {user && (
         <View style={{ marginBottom: 24, padding: 16, backgroundColor: '#FFF', borderRadius: 16, borderWidth: 1, borderColor: DesignColors.lightGreenBorder }}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: DesignColors.charcoal, marginBottom: 12 }}>Leave a review</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: DesignColors.charcoal, marginBottom: 12 }}>
+            {myReview ? 'Edit your review (one per vendor)' : 'Leave a review'}
+          </Text>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
             {[1, 2, 3, 4, 5].map((s) => (
               <Pressable key={s} onPress={() => setRating(s)}>
@@ -166,7 +191,7 @@ export default function VendorProfileScreen() {
             disabled={submitting}
             style={{ marginTop: 12, paddingVertical: 12, borderRadius: 9999, backgroundColor: DesignColors.primary, alignItems: 'center' }}
           >
-            <Text style={{ color: '#FFF', fontWeight: '600' }}>{submitting ? 'Submitting...' : 'Submit review'}</Text>
+            <Text style={{ color: '#FFF', fontWeight: '600' }}>{submitting ? 'Submitting...' : myReview ? 'Update review' : 'Submit review'}</Text>
           </Pressable>
         </View>
       )}
@@ -175,14 +200,38 @@ export default function VendorProfileScreen() {
       {reviews.length === 0 ? (
         <Text style={{ color: DesignColors.mediumGray, marginBottom: 24 }}>No reviews yet.</Text>
       ) : (
-        reviews.map((r) => (
-          <View key={r.id} style={{ marginBottom: 12, padding: 12, backgroundColor: '#FFF', borderRadius: 12, borderWidth: 1, borderColor: DesignColors.lightGreenBorder }}>
-            <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>
-              {r.author_name || 'Anonymous'} • {new Date(r.created_at).toLocaleDateString()} • {r.rating}★
-            </Text>
-            {r.comment ? <Text style={{ marginTop: 4, fontSize: 14, color: DesignColors.charcoal }}>{r.comment}</Text> : null}
-          </View>
-        ))
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={true}
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 12,
+            paddingLeft: DesignSpacing.horizontalPadding,
+            paddingRight: DesignSpacing.horizontalPadding,
+            paddingBottom: 8,
+          }}
+          style={{ marginHorizontal: -DesignSpacing.horizontalPadding }}
+        >
+          {reviews.map((r) => (
+            <View
+              key={r.id}
+              style={{
+                width: Math.min(280, Dimensions.get('window').width - DesignSpacing.horizontalPadding * 2 - 12),
+                minWidth: 260,
+                padding: 12,
+                backgroundColor: '#FFF',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+              }}
+            >
+              <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>
+                {r.author_name || 'Anonymous'} • {new Date(r.created_at).toLocaleDateString()} • {r.rating}★
+              </Text>
+              {r.comment ? <Text style={{ marginTop: 4, fontSize: 14, color: DesignColors.charcoal }}>{r.comment}</Text> : null}
+            </View>
+          ))}
+        </ScrollView>
       )}
 
       <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal, marginBottom: 16 }}>

@@ -370,7 +370,7 @@ export default function HomeScreen() {
         <Text
           style={{ color: CHARCOAL, textAlign: 'center', marginBottom: 12, fontSize: 27 }}
         >
-          What would you like to learn?
+          Where are you looking?
         </Text>
         <Pressable
           onPress={handleBrowse}

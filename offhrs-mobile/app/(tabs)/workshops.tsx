@@ -291,7 +291,7 @@ export default function WorkshopsScreen() {
           contentContainerStyle={{
             paddingHorizontal: DesignSpacing.horizontalPadding,
             paddingTop: 12,
-            paddingBottom: 32,
+            paddingBottom: Platform.OS === 'ios' ? 120 : 116,
             flexGrow: 1,
           }}
           refreshControl={

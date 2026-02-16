@@ -47,6 +47,7 @@ export default function VendorProfilePage() {
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [myReview, setMyReview] = useState<Review | null>(null)
 
   const loadData = () => {
     if (!vendorId) return
@@ -76,11 +77,32 @@ export default function VendorProfilePage() {
         setAvgRating(null)
       }
     }).finally(() => setLoading(false))
+
+    if (user?.id) {
+      supabase
+        .from('vendor_reviews')
+        .select('id, rating, comment, author_name, created_at')
+        .eq('vendor_id', vendorId)
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            const mine = data as Review
+            setMyReview(mine)
+            setRating(mine.rating)
+            setComment(mine.comment ?? '')
+          } else {
+            setMyReview(null)
+          }
+        })
+    } else {
+      setMyReview(null)
+    }
   }
 
   useEffect(() => {
     loadData()
-  }, [vendorId])
+  }, [vendorId, user?.id])
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -146,7 +168,9 @@ export default function VendorProfilePage() {
 
         {user && (
           <form onSubmit={handleSubmitReview} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-            <h2 className="text-base font-bold text-gray-900 mb-3">Leave a review</h2>
+            <h2 className="text-base font-bold text-gray-900 mb-3">
+              {myReview ? 'Edit your review (one per vendor)' : 'Leave a review'}
+            </h2>
             <div className="flex gap-1 mb-3">
               {[1, 2, 3, 4, 5].map((s) => (
                 <button
@@ -171,7 +195,7 @@ export default function VendorProfilePage() {
               />
             </div>
             <Button type="submit" disabled={submitting} className="bg-[#5D755D] hover:bg-[#4a5e4a]">
-              {submitting ? 'Submitting...' : 'Submit review'}
+              {submitting ? 'Submitting...' : myReview ? 'Update review' : 'Submit review'}
             </Button>
           </form>
         )}
