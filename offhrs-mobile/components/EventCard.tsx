@@ -28,6 +28,8 @@ function formatPrice(price: number | string | null | undefined): string | null {
 
 interface EventCardProps {
   event: Event;
+  /** Distance in km from user's address (e.g. from home search); shown to the right of price when set. */
+  distanceKm?: number;
   onPress?: () => void;
 }
 
@@ -43,7 +45,7 @@ const softShadow = {
   elevation: 4,
 };
 
-export function EventCard({ event, onPress }: EventCardProps) {
+export function EventCard({ event, distanceKm, onPress }: EventCardProps) {
   const { user } = useAuth();
   const router = useRouter();
   const [saved, setSaved] = useState(false);
@@ -135,11 +137,20 @@ export function EventCard({ event, onPress }: EventCardProps) {
           <Text style={{ marginTop: 4, fontSize: 11, color: DesignColors.mediumGray }} numberOfLines={1}>
             {event.date}
           </Text>
-          {displayPrice != null && (
-            <Text style={{ marginTop: 6, fontSize: 12, fontWeight: '600', color: DesignColors.charcoal }}>
-              {displayPrice}
-            </Text>
-          )}
+          <View style={{ marginTop: 6, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            {displayPrice != null ? (
+              <Text style={{ fontSize: 12, fontWeight: '600', color: DesignColors.charcoal }}>
+                {displayPrice}
+              </Text>
+            ) : (
+              <View />
+            )}
+            {distanceKm != null ? (
+              <Text style={{ fontSize: 11, color: DesignColors.mediumGray }}>
+                {distanceKm} km
+              </Text>
+            ) : null}
+          </View>
         </View>
         <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
           {event.vendor_id && (

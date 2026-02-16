@@ -1,5 +1,7 @@
 import { EventCard, CARD_TOTAL_HEIGHT, type Event } from '@/components/EventCard';
 import WorkshopMapView from '@/components/WorkshopMapView';
+import { geocodeAddress } from '@/lib/geocode';
+import { haversineKm } from '@/lib/distance';
 import {
   DesignColors,
   DesignSpacing,
@@ -61,11 +63,14 @@ const softShadow = {
 };
 
 export default function WorkshopsScreen() {
-  const params = useLocalSearchParams<{ q?: string; categories?: string }>();
+  const params = useLocalSearchParams<{ q?: string; categories?: string; address?: string }>();
   const initialQ = params.q ?? '';
   const initialCategories = String(params.categories ?? '').split(',').filter(Boolean);
+  const addressParam = typeof params.address === 'string' ? decodeURIComponent(params.address) : '';
 
   const [searchTerm, setSearchTerm] = useState(initialQ);
+  const [addressCoords, setAddressCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [addressGeocoding, setAddressGeocoding] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(
     initialCategories.length === 1 ? initialCategories[0]! : 'All'
   );
@@ -75,9 +80,49 @@ export default function WorkshopsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [quickViewEvent, setQuickViewEvent] = useState<EventWithCoords | null>(null);
+  const [quickViewSaved, setQuickViewSaved] = useState(false);
+  const [quickViewSaving, setQuickViewSaving] = useState(false);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
+  const [dateRangeStart, setDateRangeStart] = useState<string | null>(null);
+  const [dateRangeEnd, setDateRangeEnd] = useState<string | null>(null);
+  const [dateInputStart, setDateInputStart] = useState('');
+  const [dateInputEnd, setDateInputEnd] = useState('');
 
   const router = useRouter();
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user?.id || !quickViewEvent?.vendor_id) {
+      setQuickViewSaved(false);
+      return;
+    }
+    supabase
+      .from('user_vendor_saves')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('vendor_id', quickViewEvent.vendor_id)
+      .maybeSingle()
+      .then(({ data }) => setQuickViewSaved(!!data));
+  }, [user?.id, quickViewEvent?.id, quickViewEvent?.vendor_id]);
+
+  const handleQuickViewSave = useCallback(async () => {
+    if (!user?.id || !quickViewEvent?.vendor_id || quickViewSaving) return;
+    setQuickViewSaving(true);
+    if (quickViewSaved) {
+      await supabase
+        .from('user_vendor_saves')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('vendor_id', quickViewEvent.vendor_id);
+      setQuickViewSaved(false);
+    } else {
+      await supabase
+        .from('user_vendor_saves')
+        .insert({ user_id: user.id, vendor_id: quickViewEvent.vendor_id });
+      setQuickViewSaved(true);
+    }
+    setQuickViewSaving(false);
+  }, [user?.id, quickViewEvent?.vendor_id, quickViewSaved, quickViewSaving]);
 
   const effectiveCategories =
     !userChangedCategory && initialCategories.length > 0
@@ -131,7 +176,19 @@ export default function WorkshopsScreen() {
           lng: row.lng ?? null,
           vendor_id: row.vendor_id ?? null,
         }))
-        .filter((e) => !e.date_iso || new Date(e.date_iso) > now);
+        .filter((e) => !e.date_iso || new Date(e.date_iso) > now)
+        .filter((e) => {
+          if (!e.date_iso) return !dateRangeStart && !dateRangeEnd;
+          const eventDate = e.date_iso.slice(0, 10);
+          if (dateRangeStart && eventDate < dateRangeStart) return false;
+          if (dateRangeEnd && eventDate > dateRangeEnd) return false;
+          return true;
+        })
+        .sort((a, b) => {
+          const aTime = a.date_iso ? new Date(a.date_iso).getTime() : Infinity;
+          const bTime = b.date_iso ? new Date(b.date_iso).getTime() : Infinity;
+          return aTime - bTime;
+        });
       setEvents(list);
     } catch (e) {
       console.error('Error fetching events:', e);
@@ -139,11 +196,34 @@ export default function WorkshopsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, userChangedCategory, selectedCategory, categoriesParam]);
+  }, [searchTerm, userChangedCategory, selectedCategory, categoriesParam, dateRangeStart, dateRangeEnd]);
 
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
+
+  useEffect(() => {
+    if (!addressParam.trim()) {
+      setAddressCoords(null);
+      return;
+    }
+    let cancelled = false;
+    setAddressGeocoding(true);
+    geocodeAddress(addressParam)
+      .then((coords) => {
+        if (!cancelled && coords) setAddressCoords(coords);
+        else if (!cancelled) setAddressCoords(null);
+      })
+      .catch(() => {
+        if (!cancelled) setAddressCoords(null);
+      })
+      .finally(() => {
+        if (!cancelled) setAddressGeocoding(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [addressParam]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -206,9 +286,38 @@ export default function WorkshopsScreen() {
           />
           <Pressable
             onPress={() => {
+              setDateInputStart(dateRangeStart ?? '');
+              setDateInputEnd(dateRangeEnd ?? '');
+              setDatePickerVisible(true);
+            }}
+            style={{
+              height: 36,
+              paddingHorizontal: 12,
+              justifyContent: 'center',
+              alignItems: 'center',
+              borderRadius: 9999,
+              backgroundColor: (dateRangeStart ?? dateRangeEnd) ? DesignColors.primary : DesignColors.creamBg,
+              borderWidth: 1,
+              borderColor: DesignColors.lightGreenBorder,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: '600',
+                color: (dateRangeStart ?? dateRangeEnd) ? '#FFF' : DesignColors.sageGreen,
+              }}
+            >
+              Date
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
               setSearchTerm('');
               setUserChangedCategory(true);
               setSelectedCategory('All');
+              setDateRangeStart(null);
+              setDateRangeEnd(null);
             }}
             style={{
               height: 36,
@@ -299,6 +408,13 @@ export default function WorkshopsScreen() {
           }
           showsVerticalScrollIndicator={false}
         >
+          {addressParam.trim() && (
+            <View style={{ marginBottom: 8 }}>
+              <Text style={{ fontSize: 12, color: DesignColors.mediumGray }} numberOfLines={1}>
+                {addressGeocoding ? 'Resolving address…' : addressCoords ? `Distance from: ${addressParam}` : `Could not find address: ${addressParam}`}
+              </Text>
+            </View>
+          )}
           {loading && events.length === 0 ? (
             <Text
               style={{
@@ -328,20 +444,38 @@ export default function WorkshopsScreen() {
                 gap: GRID_GAP,
               }}
             >
-              {events.map((event) => (
-                <View key={event.id} style={{ width: CARD_WIDTH, height: CARD_TOTAL_HEIGHT }}>
-                  <EventCard
-                    event={event}
-                    onPress={() => setQuickViewEvent(event)}
-                  />
-                </View>
-              ))}
+              {events.map((event) => {
+                const distanceKm =
+                  addressCoords != null &&
+                  event.lat != null &&
+                  event.lng != null
+                    ? haversineKm(
+                        addressCoords.lat,
+                        addressCoords.lng,
+                        Number(event.lat),
+                        Number(event.lng)
+                      )
+                    : null;
+                return (
+                  <View key={event.id} style={{ width: CARD_WIDTH, height: CARD_TOTAL_HEIGHT }}>
+                    <EventCard
+                      event={event}
+                      distanceKm={distanceKm != null ? Math.round(distanceKm * 10) / 10 : undefined}
+                      onPress={() => setQuickViewEvent(event)}
+                    />
+                  </View>
+                );
+              })}
             </View>
           )}
         </ScrollView>
       ) : (
         <View style={{ flex: 1, minHeight: 400, marginTop: 12 }}>
-          <WorkshopMapView events={events} loading={loading} />
+          <WorkshopMapView
+            events={events}
+            loading={loading}
+            onEventPress={(e) => setQuickViewEvent(e)}
+          />
         </View>
       )}
 
@@ -395,7 +529,7 @@ export default function WorkshopsScreen() {
           >
             {quickViewEvent && (
               <>
-                <View style={{ height: 200, width: '100%', backgroundColor: DesignColors.inputBg }}>
+                <View style={{ height: 200, width: '100%', backgroundColor: DesignColors.inputBg, position: 'relative' }}>
                   {quickViewEvent.image_url ? (
                     <Image
                       source={{ uri: quickViewEvent.image_url }}
@@ -406,6 +540,25 @@ export default function WorkshopsScreen() {
                     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={{ color: DesignColors.mediumGray }}>No image</Text>
                     </View>
+                  )}
+                  {quickViewEvent.vendor_id && user?.id && (
+                    <Pressable
+                      onPress={handleQuickViewSave}
+                      disabled={quickViewSaving}
+                      style={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        paddingVertical: 8,
+                        paddingHorizontal: 12,
+                        borderRadius: 20,
+                        backgroundColor: 'rgba(255,255,255,0.9)',
+                      }}
+                    >
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: quickViewSaved ? DesignColors.primary : DesignColors.charcoal }}>
+                        {quickViewSaved ? 'Saved' : 'Save'}
+                      </Text>
+                    </Pressable>
                   )}
                 </View>
                 <View style={{ padding: 16 }}>
@@ -423,13 +576,22 @@ export default function WorkshopsScreen() {
                       {quickViewEvent.location}
                     </Text>
                   ) : null}
-                  {quickViewEvent.price != null && String(quickViewEvent.price).trim() !== '' && (
-                    <Text style={{ marginTop: 8, fontSize: 15, fontWeight: '600', color: DesignColors.charcoal }}>
-                      {typeof quickViewEvent.price === 'string' && quickViewEvent.price.startsWith('$')
-                        ? quickViewEvent.price
-                        : `$${quickViewEvent.price}`}
-                    </Text>
-                  )}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, flexWrap: 'wrap', gap: 4 }}>
+                    {quickViewEvent.price != null && String(quickViewEvent.price).trim() !== '' && (
+                      <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.charcoal }}>
+                        {typeof quickViewEvent.price === 'string' && quickViewEvent.price.startsWith('$')
+                          ? quickViewEvent.price
+                          : `$${quickViewEvent.price}`}
+                      </Text>
+                    )}
+                    {addressCoords != null &&
+                      quickViewEvent.lat != null &&
+                      quickViewEvent.lng != null && (
+                        <Text style={{ fontSize: 13, color: DesignColors.mediumGray }}>
+                          {Math.round(haversineKm(addressCoords.lat, addressCoords.lng, Number(quickViewEvent.lat), Number(quickViewEvent.lng)) * 10) / 10} km away
+                        </Text>
+                      )}
+                  </View>
                   <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
                     {quickViewEvent.vendor_id && (
                       <Pressable
@@ -503,6 +665,115 @@ export default function WorkshopsScreen() {
                 </View>
               </>
             )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Date range filter modal */}
+      <Modal
+        visible={datePickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDatePickerVisible(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+          }}
+          onPress={() => setDatePickerVisible(false)}
+        >
+          <Pressable
+            style={{
+              width: '100%',
+              maxWidth: 340,
+              backgroundColor: '#FFF',
+              borderRadius: 20,
+              padding: 24,
+            }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal, marginBottom: 16 }}>
+              Filter by date range
+            </Text>
+            <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 6 }}>From</Text>
+            <TextInput
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={DesignColors.mediumGray}
+              value={dateInputStart}
+              onChangeText={setDateInputStart}
+              style={{
+                backgroundColor: DesignColors.inputBg,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                fontSize: 14,
+                color: DesignColors.charcoal,
+                marginBottom: 16,
+              }}
+            />
+            <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 6 }}>To</Text>
+            <TextInput
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={DesignColors.mediumGray}
+              value={dateInputEnd}
+              onChangeText={setDateInputEnd}
+              style={{
+                backgroundColor: DesignColors.inputBg,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                fontSize: 14,
+                color: DesignColors.charcoal,
+                marginBottom: 20,
+              }}
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Pressable
+                onPress={() => {
+                  setDateRangeStart(null);
+                  setDateRangeEnd(null);
+                  setDatePickerVisible(false);
+                }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: DesignColors.lightGreenBorder,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.sageGreen }}>Clear dates</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  const from = dateInputStart.trim() ? dateInputStart.trim().slice(0, 10) : null;
+                  const to = dateInputEnd.trim() ? dateInputEnd.trim().slice(0, 10) : null;
+                  if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) setDateRangeStart(from);
+                  else setDateRangeStart(null);
+                  if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) setDateRangeEnd(to);
+                  else setDateRangeEnd(null);
+                  setDatePickerVisible(false);
+                }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  backgroundColor: DesignColors.primary,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFF' }}>Apply</Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>

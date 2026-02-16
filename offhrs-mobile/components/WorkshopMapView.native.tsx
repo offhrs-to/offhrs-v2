@@ -43,6 +43,8 @@ type EventWithCoords = {
 type Props = {
   events: EventWithCoords[];
   loading: boolean;
+  /** When provided, tapping a marker opens this (e.g. quick-view modal); avoids broken touches inside callout. */
+  onEventPress?: (event: EventWithCoords) => void;
 };
 
 function MapCalloutCard({ event }: { event: EventWithCoords }) {
@@ -202,7 +204,7 @@ const calloutStyles = StyleSheet.create({
   },
 });
 
-export default function WorkshopMapView({ events, loading }: Props) {
+export default function WorkshopMapView({ events, loading, onEventPress }: Props) {
   const withCoords = events.filter(
     (e) =>
       e.lat != null &&
@@ -226,10 +228,13 @@ export default function WorkshopMapView({ events, loading }: Props) {
               longitude: Number(event.lng),
             }}
             title={event.title}
+            onPress={() => onEventPress?.(event)}
           >
-            <Callout tooltip>
-              <MapCalloutCard event={event} />
-            </Callout>
+            {!onEventPress && (
+              <Callout tooltip>
+                <MapCalloutCard event={event} />
+              </Callout>
+            )}
           </Marker>
         ))}
       </MapView>

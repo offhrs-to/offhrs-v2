@@ -13,9 +13,10 @@ type EventWithCoords = {
 type Props = {
   events: EventWithCoords[];
   loading: boolean;
+  onEventPress?: (event: EventWithCoords) => void;
 };
 
-export default function WorkshopMapView({ events, loading }: Props) {
+export default function WorkshopMapView({ events, loading, onEventPress }: Props) {
   const withCoords = events.filter(
     (e) => e.lat != null && e.lng != null && !isNaN(Number(e.lat)) && !isNaN(Number(e.lng))
   );

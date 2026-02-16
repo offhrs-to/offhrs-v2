@@ -280,7 +280,7 @@ export default function HomeScreen() {
       params.set('categories', selectedCategories.join(','));
     }
     if (searchQuery.trim()) {
-      params.set('q', searchQuery.trim());
+      params.set('address', searchQuery.trim());
     }
     const query = params.toString();
     router.push(query ? `/(tabs)/workshops?${query}` : '/(tabs)/workshops');
@@ -387,7 +387,7 @@ export default function HomeScreen() {
           }}
         >
           <TextInput
-            placeholder="Search classes..."
+            placeholder="Enter your address..."
             placeholderTextColor="#888"
             value={searchQuery}
             onChangeText={setSearchQuery}

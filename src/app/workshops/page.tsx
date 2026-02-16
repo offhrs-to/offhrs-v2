@@ -8,7 +8,7 @@ import Navbar from '@/components/navbar'
 import EventCard from '@/components/event-card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Loader2, Search, LayoutGrid, MapPin, X, Smartphone } from 'lucide-react'
+import { ArrowLeft, Loader2, Search, LayoutGrid, MapPin, X, Smartphone, Calendar } from 'lucide-react'
 import { CATEGORIES } from '@/constants/categories'
 
 const WorkshopMap = dynamic(() => import('@/components/workshop-map'), { ssr: false })
@@ -45,6 +45,11 @@ export default function WorkshopsPage() {
   const [events, setEvents] = useState<EventRow[]>([])
   const [loading, setLoading] = useState(true)
   const [showGuestPrompt, setShowGuestPrompt] = useState(false)
+  const [datePickerOpen, setDatePickerOpen] = useState(false)
+  const [dateRangeStart, setDateRangeStart] = useState<string | null>(null)
+  const [dateRangeEnd, setDateRangeEnd] = useState<string | null>(null)
+  const [dateInputStart, setDateInputStart] = useState('')
+  const [dateInputEnd, setDateInputEnd] = useState('')
 
   useEffect(() => {
     try {
@@ -94,14 +99,21 @@ export default function WorkshopsPage() {
       const upcoming = list.filter(
         (e) => !e.date || new Date(e.date) > now
       )
-      setEvents(upcoming)
+      const byDateRange = upcoming.filter((e) => {
+        if (!e.date) return !dateRangeStart && !dateRangeEnd
+        const eventDate = String(e.date).slice(0, 10)
+        if (dateRangeStart && eventDate < dateRangeStart) return false
+        if (dateRangeEnd && eventDate > dateRangeEnd) return false
+        return true
+      })
+      setEvents(byDateRange)
     } catch (e) {
       console.error('Error fetching events:', e)
       setEvents([])
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, selectedCategory])
+  }, [debouncedSearch, selectedCategory, dateRangeStart, dateRangeEnd])
 
   useEffect(() => {
     fetchEvents()
@@ -110,9 +122,12 @@ export default function WorkshopsPage() {
   const handleClearFilters = () => {
     setSearchTerm('')
     setSelectedCategory('All')
+    setDateRangeStart(null)
+    setDateRangeEnd(null)
   }
 
-  const hasActiveFilters = searchTerm.trim() !== '' || selectedCategory !== 'All'
+  const hasActiveFilters =
+    searchTerm.trim() !== '' || selectedCategory !== 'All' || dateRangeStart != null || dateRangeEnd != null
 
   const mapCenter = (() => {
     const withCoords = events.find(
@@ -222,7 +237,7 @@ export default function WorkshopsPage() {
           </div>
         </div>
 
-        {/* Search + Clear row */}
+        {/* Search + Date + Clear row */}
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -234,6 +249,83 @@ export default function WorkshopsPage() {
               onKeyDown={(e) => e.key === 'Enter' && fetchEvents()}
               className="pl-9 h-9 rounded-full border-gray-200 bg-white"
             />
+          </div>
+          <div className="relative shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setDateInputStart(dateRangeStart ?? '')
+                setDateInputEnd(dateRangeEnd ?? '')
+                setDatePickerOpen((v) => !v)
+              }}
+              className={`h-9 rounded-full border-gray-200 font-medium shrink-0 ${
+                dateRangeStart ?? dateRangeEnd ? 'bg-[#5D755D] text-white border-[#5D755D]' : 'text-[#5D755D]'
+              }`}
+            >
+              <Calendar className="h-4 w-4 mr-1.5" />
+              Date
+            </Button>
+            {datePickerOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  aria-hidden
+                  onClick={() => setDatePickerOpen(false)}
+                />
+                <div className="absolute top-full right-0 z-20 mt-2 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
+                  <p className="text-sm font-semibold text-gray-900 mb-3">Filter by date range</p>
+                  <div className="space-y-2 mb-3">
+                    <label className="text-xs text-gray-500">From</label>
+                    <input
+                      type="date"
+                      value={dateInputStart}
+                      onChange={(e) => setDateInputStart(e.target.value)}
+                      className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-900"
+                    />
+                  </div>
+                  <div className="space-y-2 mb-4">
+                    <label className="text-xs text-gray-500">To</label>
+                    <input
+                      type="date"
+                      value={dateInputEnd}
+                      onChange={(e) => setDateInputEnd(e.target.value)}
+                      className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-900"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setDateRangeStart(null)
+                        setDateRangeEnd(null)
+                        setDateInputStart('')
+                        setDateInputEnd('')
+                        setDatePickerOpen(false)
+                      }}
+                      className="flex-1 h-9 rounded-lg border-gray-200 text-[#5D755D]"
+                    >
+                      Clear dates
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        setDateRangeStart(dateInputStart.trim() ? dateInputStart.trim().slice(0, 10) : null)
+                        setDateRangeEnd(dateInputEnd.trim() ? dateInputEnd.trim().slice(0, 10) : null)
+                        setDatePickerOpen(false)
+                      }}
+                      className="flex-1 h-9 rounded-lg bg-[#5D755D] text-white"
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <Button
             variant="outline"

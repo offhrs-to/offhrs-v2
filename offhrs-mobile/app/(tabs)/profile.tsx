@@ -23,9 +23,11 @@ import {
 import OnboardingModal from '@/components/OnboardingModal';
 import { SignInForm } from '@/components/SignInForm';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
   const { user, loading: authLoading, signOut } = useAuth();
+  const router = useRouter();
   const [profile, setProfile] = useState<{
     display_name: string | null;
     avatar_url: string | null;
@@ -292,6 +294,53 @@ export default function ProfileScreen() {
           <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>{phone}</Text>
         </View>
       </View>
+
+      {/* Saved vendors list */}
+      <Text
+        style={{
+          fontSize: 18,
+          fontWeight: '700',
+          color: DesignColors.charcoal,
+          marginTop: 24,
+          marginBottom: 12,
+        }}
+      >
+        Saved ({savedVendors.length})
+      </Text>
+      {savedVendors.length === 0 ? (
+        <Text style={{ fontSize: 14, color: DesignColors.mediumGray, marginBottom: 8 }}>
+          No saved vendors yet. Save vendors from workshop cards or quickview to see them here.
+        </Text>
+      ) : (
+        <View
+          style={{
+            backgroundColor: '#FFF',
+            borderRadius: DesignSpacing.heroCardBorderRadius,
+            borderWidth: 1,
+            borderColor: DesignColors.lightGreenBorder,
+            overflow: 'hidden',
+          }}
+        >
+          {savedVendors.map((v) => (
+            <Pressable
+              key={v.id}
+              onPress={() => router.push(`/vendors/${v.id}`)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 14,
+                paddingHorizontal: 20,
+                borderBottomWidth: savedVendors.indexOf(v) < savedVendors.length - 1 ? 1 : 0,
+                borderBottomColor: DesignColors.lightGreenBorder,
+              }}
+            >
+              <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>{v.name}</Text>
+              <Text style={{ fontSize: 13, color: DesignColors.primary }}>View workshops</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       <Pressable
         onPress={() => {
