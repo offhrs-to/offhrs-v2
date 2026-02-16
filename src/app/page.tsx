@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { Search, Calendar, Mail } from 'lucide-react'
 import { motion, useScroll, useTransform, useMotionValue } from 'framer-motion'
 // Master your skills section: categories with Other last
 const LANDING_CATEGORIES: string[] = [
@@ -332,11 +333,69 @@ function Section2Headline() {
   )
 }
 
+const HOW_IT_WORKS = [
+  {
+    icon: Search,
+    title: 'Find your interest',
+    description: 'Search for a workshop of your interest',
+  },
+  {
+    icon: Calendar,
+    title: 'Book your spot',
+    description: "Once you've found what you were looking for, book your spot directly from the vendor",
+  },
+  {
+    icon: Mail,
+    title: 'Confirm attendance',
+    description: "Check your inbox after your workshop. Confirm your attendance to claim your XP and level up your craft!",
+  },
+]
+
 function Section4Tagline() {
   return (
-    <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-heading-dark text-center max-w-4xl leading-tight px-2">
-      Offhrs <span className="text-primary">is your</span> companion <span className="text-primary">for productive leisure, from</span> novice to master <span className="text-primary">in the skills you&apos;ve always wanted to learn</span>
-    </p>
+    <motion.div
+      initial="initial"
+      whileInView="animate"
+      viewport={viewport}
+      variants={{
+        initial: {},
+        animate: {
+          transition: {
+            staggerChildren: 0.1,
+            delayChildren: 0.15,
+          },
+        },
+      }}
+      className="flex flex-col items-center w-full max-w-4xl px-2"
+    >
+      <motion.p
+        variants={fadeInUp}
+        transition={transition}
+        className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-heading-dark text-center max-w-4xl leading-tight mb-10 md:mb-12"
+      >
+        How does offhrs work?
+      </motion.p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6 w-full">
+        {HOW_IT_WORKS.map(({ icon: Icon, title, description }) => (
+          <motion.div
+            key={title}
+            variants={fadeInUp}
+            transition={transition}
+            className="flex flex-col items-center text-center"
+          >
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-heading-dark flex items-center justify-center shrink-0 mb-4">
+              <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-white" strokeWidth={2} />
+            </div>
+            <h3 className="text-lg sm:text-xl font-bold text-heading-dark mb-2">
+              {title}
+            </h3>
+            <p className="text-sm sm:text-base text-foreground/90 leading-snug max-w-xs mx-auto">
+              {description}
+            </p>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
   )
 }
 
@@ -546,7 +605,18 @@ function LandingFooter() {
   return (
     <footer className="w-full border-t border-neutral-200 bg-neutral-50 py-3 px-4 shrink-0">
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 text-sm text-primary">
-        <p>© {new Date().getFullYear()} Offhrs. All rights reserved.</p>
+        <div className="flex items-center gap-3 flex-wrap justify-center">
+          <p>© {new Date().getFullYear()} Offhrs. All rights reserved.</p>
+          <Link href="/privacy" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
+            Privacy Policy
+          </Link>
+          <Link href="/contact" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
+            Contact us
+          </Link>
+          <Link href="/terms" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
+            Terms of Service
+          </Link>
+        </div>
         <Link href="/admin" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
           Admin
         </Link>

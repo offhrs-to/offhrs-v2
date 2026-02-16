@@ -176,6 +176,7 @@ export default function WorkshopsScreen() {
           lng: row.lng ?? null,
           vendor_id: row.vendor_id ?? null,
         }))
+        // Exclude expired workshops (event date in the past); they remain visible in /admin for redirect review
         .filter((e) => !e.date_iso || new Date(e.date_iso) > now)
         .filter((e) => {
           if (!e.date_iso) return !dateRangeStart && !dateRangeEnd;

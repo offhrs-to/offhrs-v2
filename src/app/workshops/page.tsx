@@ -96,6 +96,7 @@ export default function WorkshopsPage() {
 
       const list = (data as EventRow[]) ?? []
       const now = new Date()
+      // Exclude expired workshops (event date in the past); they remain visible in /admin for redirect review
       const upcoming = list.filter(
         (e) => !e.date || new Date(e.date) > now
       )

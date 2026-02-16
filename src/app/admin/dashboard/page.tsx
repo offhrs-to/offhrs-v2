@@ -45,6 +45,7 @@ export default function AdminDashboard() {
   const fetchEvents = async () => {
     setLoading(true)
     try {
+      // Load all events (including expired) so admin can review redirect counts
       const [eventsRes, countsRes] = await Promise.all([
         supabase
           .from('events')

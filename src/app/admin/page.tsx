@@ -87,6 +87,7 @@ export default function AdminPage() {
   // --- 2. DATA FETCHING ---
   async function fetchEvents() {
     setLoading(true)
+    // Load all events (including expired) so admin can review redirect counts
     const [eventsRes, countsRes] = await Promise.all([
       supabase.from('events').select('*').order('id', { ascending: false }),
       fetch('/api/admin/event-redirect-counts', { credentials: 'include', headers: getAdminHeaders() }).then((r) => (r.ok ? r.json() : { counts: {} })).catch(() => ({ counts: {} })),

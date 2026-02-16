@@ -1,5 +1,6 @@
 import { confirmAttendanceTokenSchema } from '@/lib/api-validation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getRateLimitKey, rateLimit } from '@/lib/rate-limit'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -35,7 +36,11 @@ export async function GET(request: NextRequest) {
     resolvedUser = (await client.auth.getUser()).data.user
   }
 
-  const { data: booking, error: fetchError } = await supabase
+  // Use admin client so we can find the booking by token even when user has no session
+  // (e.g. clicking the link from email on a different device). The token is secret so this is safe.
+  const admin = createAdminClient()
+  const clientToFetch = admin ?? supabase
+  const { data: booking, error: fetchError } = await clientToFetch
     .from('bookings')
     .select('id, user_id, event_id, status')
     .eq('confirmation_token', token)
@@ -53,7 +58,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/profile?already_confirmed=true', request.url))
   }
 
-  const { error: updateError } = await supabase
+  // Use admin client for update so it succeeds regardless of session (e.g. email link click with no cookies)
+  const clientToUpdate = admin ?? supabase
+  const { error: updateError } = await clientToUpdate
     .from('bookings')
     .update({ status: 'attended' })
     .eq('id', booking.id)
@@ -71,7 +78,10 @@ export async function GET(request: NextRequest) {
   }
   const levels = ['Novice', 'Intermediate', 'Advanced', 'Expert', 'Master'] as const
 
-  const { data: event } = await supabase
+  // Use admin for reads/writes on behalf of booking.user_id (works when user opened link with no session)
+  const db = admin ?? supabase
+
+  const { data: event } = await db
     .from('events')
     .select('category')
     .eq('id', booking.event_id)
@@ -80,7 +90,7 @@ export async function GET(request: NextRequest) {
   const eventCategory = event?.category?.trim() || null
 
   if (eventCategory) {
-    const { data: catRow } = await supabase
+    const { data: catRow } = await db
       .from('profile_category_experience')
       .select('experience_points, expertise_level')
       .eq('user_id', booking.user_id)
@@ -95,7 +105,7 @@ export async function GET(request: NextRequest) {
     const threshold = levelThresholds[currentLevel] ?? 10
     const newLevel = newPoints >= threshold ? nextLevel : currentLevel
 
-    await supabase.from('profile_category_experience').upsert(
+    await db.from('profile_category_experience').upsert(
       {
         user_id: booking.user_id,
         category: eventCategory,
@@ -107,7 +117,7 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from('profiles')
     .select('experience_points, expertise_level')
     .eq('id', booking.user_id)
@@ -121,7 +131,7 @@ export async function GET(request: NextRequest) {
   const threshold = levelThresholds[currentLevel] ?? 10
   const newLevel = newPoints >= threshold ? nextLevel : currentLevel
 
-  await supabase
+  await db
     .from('profiles')
     .update({
       experience_points: newPoints,

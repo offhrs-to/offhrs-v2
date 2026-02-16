@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -23,6 +23,7 @@ import {
 import OnboardingModal from '@/components/OnboardingModal';
 import { SignInForm } from '@/components/SignInForm';
 import { supabase } from '@/lib/supabase';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
@@ -41,12 +42,18 @@ export default function ProfileScreen() {
   const [savedVendors, setSavedVendors] = useState<{ id: string; name: string }[]>([]);
   const [workshopsAttended, setWorkshopsAttended] = useState(0);
   const [reviewsCount, setReviewsCount] = useState(0);
+  const [reviewsModalVisible, setReviewsModalVisible] = useState(false);
+  const [myReviews, setMyReviews] = useState<{ id: string; vendor_id: string; vendor_name: string; rating: number; comment: string | null; created_at: string }[]>([]);
+  const [myReviewsLoading, setMyReviewsLoading] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [settingsName, setSettingsName] = useState('');
   const [settingsEmail, setSettingsEmail] = useState('');
   const [settingsPhone, setSettingsPhone] = useState('');
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const savedSectionY = useRef(0);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -87,6 +94,56 @@ export default function ProfileScreen() {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .then(({ count }) => setReviewsCount(count ?? 0));
+  }, [user?.id]);
+
+  // Refetch workshops count (and profile) when screen gains focus so attendance confirmed via email is reflected
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.id) return;
+      supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'attended')
+        .then(({ count }) => setWorkshopsAttended(count ?? 0));
+      supabase
+        .from('profiles')
+        .select('display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) setProfile(data);
+        });
+    }, [user?.id])
+  );
+
+  const fetchMyReviews = useCallback(async () => {
+    if (!user?.id) return;
+    setMyReviewsLoading(true);
+    const { data: reviews } = await supabase
+      .from('vendor_reviews')
+      .select('id, vendor_id, rating, comment, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    if (!reviews?.length) {
+      setMyReviews([]);
+      setMyReviewsLoading(false);
+      return;
+    }
+    const vendorIds = [...new Set(reviews.map((r) => r.vendor_id))];
+    const { data: vendors } = await supabase.from('vendors').select('id, name').in('id', vendorIds);
+    const nameById = Object.fromEntries((vendors ?? []).map((v) => [v.id, v.name ?? 'Vendor']));
+    setMyReviews(
+      (reviews ?? []).map((r) => ({
+        id: r.id,
+        vendor_id: r.vendor_id,
+        vendor_name: nameById[r.vendor_id] ?? 'Vendor',
+        rating: r.rating,
+        comment: r.comment ?? null,
+        created_at: r.created_at,
+      }))
+    );
+    setMyReviewsLoading(false);
   }, [user?.id]);
 
   const showOnboarding =
@@ -134,6 +191,7 @@ export default function ProfileScreen() {
         <OnboardingModal userId={user.id} onComplete={refreshProfile} />
       )}
       <ScrollView
+        ref={scrollViewRef}
         style={{ flex: 1, backgroundColor: DesignColors.creamBg }}
         contentContainerStyle={{
           flexGrow: 1,
@@ -250,15 +308,29 @@ export default function ProfileScreen() {
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 2 }}>Workshops</Text>
         </View>
         <View style={{ width: 1, height: 32, backgroundColor: DesignColors.lightGreenBorder }} />
-        <View style={{ alignItems: 'center', flex: 1 }}>
+        <Pressable
+          style={{ alignItems: 'center', flex: 1 }}
+          onPress={() => {
+            scrollViewRef.current?.scrollTo({
+              y: Math.max(0, savedSectionY.current - 24),
+              animated: true,
+            });
+          }}
+        >
           <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>{savedVendors.length}</Text>
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 2 }}>Saved</Text>
-        </View>
+        </Pressable>
         <View style={{ width: 1, height: 32, backgroundColor: DesignColors.lightGreenBorder }} />
-        <View style={{ alignItems: 'center', flex: 1 }}>
+        <Pressable
+          style={{ alignItems: 'center', flex: 1 }}
+          onPress={() => {
+            setReviewsModalVisible(true);
+            fetchMyReviews();
+          }}
+        >
           <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>{reviewsCount}</Text>
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 2 }}>Reviews</Text>
-        </View>
+        </Pressable>
       </View>
 
       {/* Account details – Name, Email, Phone */}
@@ -295,56 +367,62 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Saved vendors list */}
-      <Text
-        style={{
-          fontSize: 18,
-          fontWeight: '700',
-          color: DesignColors.charcoal,
-          marginTop: 24,
-          marginBottom: 12,
+      {/* Saved vendors list – scroll target when user taps Saved count */}
+      <View
+        onLayout={(e) => {
+          savedSectionY.current = e.nativeEvent.layout.y;
         }}
       >
-        Saved ({savedVendors.length})
-      </Text>
-      {savedVendors.length === 0 ? (
-        <Text style={{ fontSize: 14, color: DesignColors.mediumGray, marginBottom: 8 }}>
-          No saved vendors yet. Save vendors from workshop cards or quickview to see them here.
-        </Text>
-      ) : (
-        <View
+        <Text
           style={{
-            backgroundColor: '#FFF',
-            borderRadius: DesignSpacing.heroCardBorderRadius,
-            borderWidth: 1,
-            borderColor: DesignColors.lightGreenBorder,
-            overflow: 'hidden',
+            fontSize: 18,
+            fontWeight: '700',
+            color: DesignColors.charcoal,
+            marginTop: 24,
+            marginBottom: 12,
           }}
         >
-          {savedVendors.map((v) => (
-            <Pressable
-              key={v.id}
-              onPress={() => router.push(`/vendors/${v.id}`)}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingVertical: 14,
-                paddingHorizontal: 20,
-                borderBottomWidth: savedVendors.indexOf(v) < savedVendors.length - 1 ? 1 : 0,
-                borderBottomColor: DesignColors.lightGreenBorder,
-              }}
-            >
-              <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>{v.name}</Text>
-              <Text style={{ fontSize: 13, color: DesignColors.primary }}>View workshops</Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
+          Saved ({savedVendors.length})
+        </Text>
+        {savedVendors.length === 0 ? (
+          <Text style={{ fontSize: 14, color: DesignColors.mediumGray, marginBottom: 8 }}>
+            No saved vendors yet. Save vendors from workshop cards or quickview to see them here.
+          </Text>
+        ) : (
+          <View
+            style={{
+              backgroundColor: '#FFF',
+              borderRadius: DesignSpacing.heroCardBorderRadius,
+              borderWidth: 1,
+              borderColor: DesignColors.lightGreenBorder,
+              overflow: 'hidden',
+            }}
+          >
+            {savedVendors.map((v) => (
+              <Pressable
+                key={v.id}
+                onPress={() => router.push(`/vendors/${v.id}`)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: 14,
+                  paddingHorizontal: 20,
+                  borderBottomWidth: savedVendors.indexOf(v) < savedVendors.length - 1 ? 1 : 0,
+                  borderBottomColor: DesignColors.lightGreenBorder,
+                }}
+              >
+                <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>{v.name}</Text>
+                <Text style={{ fontSize: 13, color: DesignColors.primary }}>View workshops</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </View>
 
       <Pressable
         onPress={() => {
-          const base = (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.com';
+          const base = (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.app';
           Linking.openURL(`${base}/privacy`);
         }}
         style={{ marginTop: 20, paddingVertical: 12, alignItems: 'center' }}
@@ -367,6 +445,100 @@ export default function ProfileScreen() {
         <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFF' }}>Sign out</Text>
       </Pressable>
     </ScrollView>
+
+      {/* My reviews modal – list of reviews by vendor */}
+      <Modal
+        visible={reviewsModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReviewsModalVisible(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+          }}
+          onPress={() => setReviewsModalVisible(false)}
+        >
+          <Pressable
+            style={{
+              width: '100%',
+              maxWidth: 400,
+              maxHeight: '80%',
+              backgroundColor: '#FFF',
+              borderRadius: 20,
+              overflow: 'hidden',
+            }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: DesignColors.lightGreenBorder,
+              }}
+            >
+              <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>Your reviews</Text>
+              <Pressable onPress={() => setReviewsModalVisible(false)} style={{ padding: 8 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.primary }}>Close</Text>
+              </Pressable>
+            </View>
+            {myReviewsLoading ? (
+              <View style={{ padding: 32, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={DesignColors.primary} />
+                <Text style={{ marginTop: 12, fontSize: 14, color: DesignColors.mediumGray }}>Loading...</Text>
+              </View>
+            ) : myReviews.length === 0 ? (
+              <View style={{ padding: 32, alignItems: 'center' }}>
+                <Text style={{ fontSize: 14, color: DesignColors.mediumGray, textAlign: 'center' }}>
+                  You haven&apos;t written any reviews yet.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 400 }} contentContainerStyle={{ paddingBottom: 24 }}>
+                {myReviews.map((r) => (
+                  <Pressable
+                    key={r.id}
+                    onPress={() => {
+                      setReviewsModalVisible(false);
+                      router.push(`/vendors/${r.vendor_id}`);
+                    }}
+                    style={{
+                      paddingHorizontal: 20,
+                      paddingVertical: 14,
+                      borderBottomWidth: myReviews.indexOf(r) < myReviews.length - 1 ? 1 : 0,
+                      borderBottomColor: DesignColors.lightGreenBorder,
+                    }}
+                  >
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.charcoal }}>{r.vendor_name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                      <Text style={{ fontSize: 13, color: DesignColors.mediumGray }}>
+                        {r.rating} star{r.rating !== 1 ? 's' : ''}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginLeft: 8 }}>
+                        {r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                      </Text>
+                    </View>
+                    {r.comment ? (
+                      <Text style={{ fontSize: 13, color: DesignColors.charcoal, marginTop: 6 }} numberOfLines={3}>
+                        {r.comment}
+                      </Text>
+                    ) : null}
+                    <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 6 }}>View vendor →</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Settings modal – edit Name, Email, Phone */}
       <Modal
