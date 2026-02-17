@@ -94,25 +94,36 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!user?.id) return;
-      supabase
-        .from('bookings')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('status', 'attended')
-        .then(({ count }) => setWorkshopsAttended(count ?? 0));
-      supabase
-        .from('user_event_saves')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .then(({ count }) => setSavedEventsCount(count ?? 0));
-      supabase
-        .from('profiles')
-        .select('display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories')
-        .eq('id', user.id)
-        .single()
-        .then(({ data }) => {
-          if (data) setProfile(data);
-        });
+      
+      const refetchCounts = () => {
+        supabase
+          .from('bookings')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('status', 'attended')
+          .then(({ count }) => setWorkshopsAttended(count ?? 0));
+        supabase
+          .from('user_event_saves')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .then(({ count }) => setSavedEventsCount(count ?? 0));
+        supabase
+          .from('profiles')
+          .select('display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories')
+          .eq('id', user.id)
+          .single()
+          .then(({ data }) => {
+            if (data) setProfile(data);
+          });
+      };
+      
+      // Immediate fetch
+      refetchCounts();
+      
+      // Poll every 5 seconds while tab is focused
+      const interval = setInterval(refetchCounts, 5000);
+      
+      return () => clearInterval(interval);
     }, [user?.id])
   );
 

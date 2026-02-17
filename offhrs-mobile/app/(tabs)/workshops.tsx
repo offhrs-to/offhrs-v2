@@ -96,9 +96,11 @@ export default function WorkshopsScreen() {
 
   useEffect(() => {
     if (!user?.id || !quickViewEvent?.id) {
-      setQuickViewSaved(false);
+      // Don't reset saved state when modal closes
+      // It will be set correctly when modal opens with a new event
       return;
     }
+    // Fetch saved state for the current quickview event
     supabase
       .from('user_event_saves')
       .select('id')
@@ -751,7 +753,7 @@ export default function WorkshopsScreen() {
                   <DateTimePicker
                     value={pickerDate}
                     mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    display="default"
                     onChange={(_, selectedDate) => {
                       setActiveDateField(null);
                       if (selectedDate) {
@@ -813,7 +815,7 @@ export default function WorkshopsScreen() {
                   <DateTimePicker
                     value={pickerDate}
                     mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    display="default"
                     onChange={(_, selectedDate) => {
                       setActiveDateField(null);
                       if (selectedDate) {
