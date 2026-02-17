@@ -750,7 +750,7 @@ export default function WorkshopsScreen() {
                   <DateTimePicker
                     value={pickerDate}
                     mode="date"
-                    display={Platform.OS === 'ios' ? 'calendar' : 'default'}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     onChange={(_, selectedDate) => {
                       setActiveDateField(null);
                       if (selectedDate) {
@@ -812,7 +812,7 @@ export default function WorkshopsScreen() {
                   <DateTimePicker
                     value={pickerDate}
                     mode="date"
-                    display={Platform.OS === 'ios' ? 'calendar' : 'default'}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     onChange={(_, selectedDate) => {
                       setActiveDateField(null);
                       if (selectedDate) {
