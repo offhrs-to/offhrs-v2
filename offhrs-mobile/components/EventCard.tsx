@@ -37,6 +37,9 @@ export const CARD_IMAGE_HEIGHT = 140;
 export const CARD_BODY_HEIGHT = 132;
 export const CARD_TOTAL_HEIGHT = CARD_IMAGE_HEIGHT + CARD_BODY_HEIGHT;
 
+/** Height reserved at bottom of card body for Vendor/Book buttons so they align across all cards */
+const CARD_BUTTONS_HEIGHT = 40;
+
 const softShadow = {
   shadowColor: '#000',
   shadowOffset: { width: 0, height: 8 },
@@ -53,30 +56,30 @@ export function EventCard({ event, distanceKm, onPress }: EventCardProps) {
   const displayPrice = formatPrice(event.price);
 
   useEffect(() => {
-    if (!user?.id || !event.vendor_id) return;
+    if (!user?.id || event.id == null) return;
     supabase
-      .from('user_vendor_saves')
+      .from('user_event_saves')
       .select('id')
       .eq('user_id', user.id)
-      .eq('vendor_id', event.vendor_id)
+      .eq('event_id', event.id)
       .maybeSingle()
       .then(({ data }) => setSaved(!!data));
-  }, [user?.id, event.vendor_id]);
+  }, [user?.id, event.id]);
 
   const handleSave = async () => {
-    if (!user || !event.vendor_id || saving) return;
+    if (!user || event.id == null || saving) return;
     setSaving(true);
     if (saved) {
       await supabase
-        .from('user_vendor_saves')
+        .from('user_event_saves')
         .delete()
         .eq('user_id', user.id)
-        .eq('vendor_id', event.vendor_id);
+        .eq('event_id', event.id);
       setSaved(false);
     } else {
       await supabase
-        .from('user_vendor_saves')
-        .insert({ user_id: user.id, vendor_id: event.vendor_id });
+        .from('user_event_saves')
+        .insert({ user_id: user.id, event_id: event.id });
       setSaved(true);
     }
     setSaving(false);
@@ -124,10 +127,12 @@ export function EventCard({ event, distanceKm, onPress }: EventCardProps) {
           height: CARD_BODY_HEIGHT,
           backgroundColor: '#FFF',
           padding: 12,
+          paddingBottom: 12 + CARD_BUTTONS_HEIGHT,
+          position: 'relative',
           justifyContent: 'space-between',
         }}
       >
-        <View style={{ flex: 1, justifyContent: 'flex-start' }}>
+        <View style={{ flexShrink: 0 }}>
           <Text
             style={{ fontSize: 13, fontWeight: '700', color: DesignColors.charcoal }}
             numberOfLines={2}
@@ -137,7 +142,9 @@ export function EventCard({ event, distanceKm, onPress }: EventCardProps) {
           <Text style={{ marginTop: 4, fontSize: 11, color: DesignColors.mediumGray }} numberOfLines={1}>
             {event.date}
           </Text>
-          <View style={{ marginTop: 6, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', minHeight: 0 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             {displayPrice != null ? (
               <Text style={{ fontSize: 12, fontWeight: '600', color: DesignColors.charcoal }}>
                 {displayPrice}
@@ -152,7 +159,16 @@ export function EventCard({ event, distanceKm, onPress }: EventCardProps) {
             ) : null}
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 12,
+            left: 12,
+            right: 12,
+            flexDirection: 'row',
+            gap: 6,
+          }}
+        >
           {event.vendor_id && (
             <Pressable
               onPress={() => router.push(`/vendors/${event.vendor_id}`)}

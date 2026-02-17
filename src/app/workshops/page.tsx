@@ -278,21 +278,25 @@ export default function WorkshopsPage() {
                 <div className="absolute top-full right-0 z-20 mt-2 w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
                   <p className="text-sm font-semibold text-gray-900 mb-3">Filter by date range</p>
                   <div className="space-y-2 mb-3">
-                    <label className="text-xs text-gray-500">From</label>
+                    <label htmlFor="workshop-date-from" className="text-xs text-gray-500 block">From</label>
                     <input
+                      id="workshop-date-from"
                       type="date"
                       value={dateInputStart}
                       onChange={(e) => setDateInputStart(e.target.value)}
-                      className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-900"
+                      className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-900 cursor-pointer"
+                      aria-label="From date"
                     />
                   </div>
                   <div className="space-y-2 mb-4">
-                    <label className="text-xs text-gray-500">To</label>
+                    <label htmlFor="workshop-date-to" className="text-xs text-gray-500 block">To</label>
                     <input
+                      id="workshop-date-to"
                       type="date"
                       value={dateInputEnd}
                       onChange={(e) => setDateInputEnd(e.target.value)}
-                      className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-900"
+                      className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-900 cursor-pointer"
+                      aria-label="To date"
                     />
                   </div>
                   <div className="flex gap-2">

@@ -363,12 +363,12 @@ export default function HomeScreen() {
       >
         <Text
           className="text-lg font-bold"
-          style={{ color: CHARCOAL, textAlign: 'center', marginTop: 16, marginBottom: 8 }}
+          style={{ color: CHARCOAL, textAlign: 'center', marginTop: 16, marginBottom: 16 }}
         >
           Discover your new passion
         </Text>
         <Text
-          style={{ color: CHARCOAL, textAlign: 'center', marginBottom: 12, fontSize: 27 }}
+          style={{ color: CHARCOAL, textAlign: 'center', marginBottom: 20, fontSize: 27 }}
         >
           Where are you looking?
         </Text>
@@ -384,6 +384,8 @@ export default function HomeScreen() {
             paddingHorizontal: 12,
             paddingVertical: 9,
             marginHorizontal: 20,
+            marginTop: 8,
+            marginBottom: 12,
           }}
         >
           <TextInput

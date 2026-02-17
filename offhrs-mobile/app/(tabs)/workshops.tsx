@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { createElement, useCallback, useEffect, useState } from 'react';
 import {
   Dimensions,
   Modal,
@@ -22,9 +22,9 @@ import {
   RefreshControl,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 type EventWithCoords = Event & {
   lat?: number | null;
@@ -87,42 +87,44 @@ export default function WorkshopsScreen() {
   const [dateRangeEnd, setDateRangeEnd] = useState<string | null>(null);
   const [dateInputStart, setDateInputStart] = useState('');
   const [dateInputEnd, setDateInputEnd] = useState('');
+  const [activeDateField, setActiveDateField] = useState<'from' | 'to' | null>(null);
+  const [pickerDate, setPickerDate] = useState(() => new Date());
 
   const router = useRouter();
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!user?.id || !quickViewEvent?.vendor_id) {
+    if (!user?.id || !quickViewEvent?.id) {
       setQuickViewSaved(false);
       return;
     }
     supabase
-      .from('user_vendor_saves')
+      .from('user_event_saves')
       .select('id')
       .eq('user_id', user.id)
-      .eq('vendor_id', quickViewEvent.vendor_id)
+      .eq('event_id', quickViewEvent.id)
       .maybeSingle()
       .then(({ data }) => setQuickViewSaved(!!data));
-  }, [user?.id, quickViewEvent?.id, quickViewEvent?.vendor_id]);
+  }, [user?.id, quickViewEvent?.id]);
 
   const handleQuickViewSave = useCallback(async () => {
-    if (!user?.id || !quickViewEvent?.vendor_id || quickViewSaving) return;
+    if (!user?.id || !quickViewEvent?.id || quickViewSaving) return;
     setQuickViewSaving(true);
     if (quickViewSaved) {
       await supabase
-        .from('user_vendor_saves')
+        .from('user_event_saves')
         .delete()
         .eq('user_id', user.id)
-        .eq('vendor_id', quickViewEvent.vendor_id);
+        .eq('event_id', quickViewEvent.id);
       setQuickViewSaved(false);
     } else {
       await supabase
-        .from('user_vendor_saves')
-        .insert({ user_id: user.id, vendor_id: quickViewEvent.vendor_id });
+        .from('user_event_saves')
+        .insert({ user_id: user.id, event_id: quickViewEvent.id });
       setQuickViewSaved(true);
     }
     setQuickViewSaving(false);
-  }, [user?.id, quickViewEvent?.vendor_id, quickViewSaved, quickViewSaving]);
+  }, [user?.id, quickViewEvent?.id, quickViewSaved, quickViewSaving]);
 
   const effectiveCategories =
     !userChangedCategory && initialCategories.length > 0
@@ -542,7 +544,7 @@ export default function WorkshopsScreen() {
                       <Text style={{ color: DesignColors.mediumGray }}>No image</Text>
                     </View>
                   )}
-                  {quickViewEvent.vendor_id && user?.id && (
+                  {quickViewEvent.id != null && user?.id && (
                     <Pressable
                       onPress={handleQuickViewSave}
                       disabled={quickViewSaving}
@@ -701,41 +703,129 @@ export default function WorkshopsScreen() {
               Filter by date range
             </Text>
             <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 6 }}>From</Text>
-            <TextInput
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={DesignColors.mediumGray}
-              value={dateInputStart}
-              onChangeText={setDateInputStart}
-              style={{
-                backgroundColor: DesignColors.inputBg,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: DesignColors.lightGreenBorder,
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                fontSize: 14,
-                color: DesignColors.charcoal,
-                marginBottom: 16,
-              }}
-            />
+            {Platform.OS === 'web' ? (
+              <View style={{ marginBottom: 16 }}>
+                {createElement('input', {
+                  type: 'date',
+                  value: dateInputStart,
+                  onChange: (e: { target: { value: string } }) => setDateInputStart(e.target.value || ''),
+                  style: {
+                    width: '100%',
+                    height: 40,
+                    padding: 10,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: DesignColors.lightGreenBorder,
+                    backgroundColor: DesignColors.inputBg,
+                    fontSize: 14,
+                    color: DesignColors.charcoal,
+                  },
+                })}
+              </View>
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => {
+                    const d = dateInputStart.trim().slice(0, 10);
+                    setPickerDate(d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d + 'T12:00:00') : new Date());
+                    setActiveDateField('from');
+                  }}
+                  style={{
+                    backgroundColor: DesignColors.inputBg,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: DesignColors.lightGreenBorder,
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    marginBottom: 16,
+                    justifyContent: 'center',
+                    minHeight: 40,
+                  }}
+                >
+                  <Text style={{ fontSize: 14, color: dateInputStart ? DesignColors.charcoal : DesignColors.mediumGray }}>
+                    {dateInputStart || 'YYYY-MM-DD'}
+                  </Text>
+                </Pressable>
+                {activeDateField === 'from' && (
+                  <DateTimePicker
+                    value={pickerDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'calendar' : 'default'}
+                    onChange={(_, selectedDate) => {
+                      setActiveDateField(null);
+                      if (selectedDate) {
+                        const y = selectedDate.getFullYear();
+                        const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                        const d = String(selectedDate.getDate()).padStart(2, '0');
+                        setDateInputStart(`${y}-${m}-${d}`);
+                      }
+                    }}
+                  />
+                )}
+              </>
+            )}
             <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 6 }}>To</Text>
-            <TextInput
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={DesignColors.mediumGray}
-              value={dateInputEnd}
-              onChangeText={setDateInputEnd}
-              style={{
-                backgroundColor: DesignColors.inputBg,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: DesignColors.lightGreenBorder,
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                fontSize: 14,
-                color: DesignColors.charcoal,
-                marginBottom: 20,
-              }}
-            />
+            {Platform.OS === 'web' ? (
+              <View style={{ marginBottom: 20 }}>
+                {createElement('input', {
+                  type: 'date',
+                  value: dateInputEnd,
+                  onChange: (e: { target: { value: string } }) => setDateInputEnd(e.target.value || ''),
+                  style: {
+                    width: '100%',
+                    height: 40,
+                    padding: 10,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: DesignColors.lightGreenBorder,
+                    backgroundColor: DesignColors.inputBg,
+                    fontSize: 14,
+                    color: DesignColors.charcoal,
+                  },
+                })}
+              </View>
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => {
+                    const d = dateInputEnd.trim().slice(0, 10);
+                    setPickerDate(d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d + 'T12:00:00') : new Date());
+                    setActiveDateField('to');
+                  }}
+                  style={{
+                    backgroundColor: DesignColors.inputBg,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: DesignColors.lightGreenBorder,
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    marginBottom: activeDateField === 'to' ? 8 : 20,
+                    justifyContent: 'center',
+                    minHeight: 40,
+                  }}
+                >
+                  <Text style={{ fontSize: 14, color: dateInputEnd ? DesignColors.charcoal : DesignColors.mediumGray }}>
+                    {dateInputEnd || 'YYYY-MM-DD'}
+                  </Text>
+                </Pressable>
+                {activeDateField === 'to' && (
+                  <DateTimePicker
+                    value={pickerDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'calendar' : 'default'}
+                    onChange={(_, selectedDate) => {
+                      setActiveDateField(null);
+                      if (selectedDate) {
+                        const y = selectedDate.getFullYear();
+                        const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                        const d = String(selectedDate.getDate()).padStart(2, '0');
+                        setDateInputEnd(`${y}-${m}-${d}`);
+                      }
+                    }}
+                  />
+                )}
+              </>
+            )}
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Pressable
                 onPress={() => {
