@@ -553,12 +553,13 @@ export default function WorkshopsScreen() {
           >
             {quickViewEvent && (
               <>
-                <View style={{ height: 200, width: '100%', backgroundColor: DesignColors.inputBg, position: 'relative' }}>
+                <View style={{ height: 200, width: '100%', backgroundColor: DesignColors.inputBg, position: 'relative' }} pointerEvents="box-none">
                   {quickViewEvent.image_url ? (
                     <Image
                       source={{ uri: quickViewEvent.image_url }}
                       style={{ width: '100%', height: '100%' }}
                       contentFit="cover"
+                      pointerEvents="none"
                     />
                   ) : (
                     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -577,6 +578,8 @@ export default function WorkshopsScreen() {
                         paddingHorizontal: 12,
                         borderRadius: 20,
                         backgroundColor: 'rgba(255,255,255,0.9)',
+                        zIndex: 10,
+                        elevation: 10,
                       }}
                     >
                       <Text style={{ fontSize: 14, fontWeight: '600', color: quickViewSaved ? DesignColors.primary : DesignColors.charcoal }}>
@@ -830,24 +833,26 @@ export default function WorkshopsScreen() {
                   </Text>
                 </Pressable>
                 {activeDateField === 'to' && (
-                  <DateTimePicker
-                    value={pickerDate}
-                    mode="date"
-                    display="default"
-                    onChange={(_, selectedDate) => {
-                      setActiveDateField(null);
-                      if (selectedDate) {
-                        const y = selectedDate.getFullYear();
-                        const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                        const d = String(selectedDate.getDate()).padStart(2, '0');
-                        setDateInputEnd(`${y}-${m}-${d}`);
-                      }
-                    }}
-                  />
+                  <View style={{ marginBottom: 24 }}>
+                    <DateTimePicker
+                      value={pickerDate}
+                      mode="date"
+                      display="default"
+                      onChange={(_, selectedDate) => {
+                        setActiveDateField(null);
+                        if (selectedDate) {
+                          const y = selectedDate.getFullYear();
+                          const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                          const d = String(selectedDate.getDate()).padStart(2, '0');
+                          setDateInputEnd(`${y}-${m}-${d}`);
+                        }
+                      }}
+                    />
+                  </View>
                 )}
               </>
             )}
-            <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
               <Pressable
                 onPress={() => {
                   setDateRangeStart(null);
