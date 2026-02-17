@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
+import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createElement, useCallback, useEffect, useState } from 'react';
 import {
@@ -81,7 +82,7 @@ export default function WorkshopsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [quickViewEvent, setQuickViewEvent] = useState<EventWithCoords | null>(null);
-  const [quickViewSaved, setQuickViewSaved] = useState(false);
+  const [savedEventIds, setSavedEventIds] = useState<Set<number>>(new Set());
   const [quickViewSaving, setQuickViewSaving] = useState(false);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [dateRangeStart, setDateRangeStart] = useState<string | null>(null);
@@ -94,40 +95,48 @@ export default function WorkshopsScreen() {
   const router = useRouter();
   const { user } = useAuth();
 
-  useEffect(() => {
-    if (!user?.id || !quickViewEvent?.id) {
-      // Don't reset saved state when modal closes
-      // It will be set correctly when modal opens with a new event
-      return;
-    }
-    // Fetch saved state for the current quickview event
-    supabase
-      .from('user_event_saves')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('event_id', quickViewEvent.id)
-      .maybeSingle()
-      .then(({ data }) => setQuickViewSaved(!!data));
-  }, [user?.id, quickViewEvent?.id]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.id) return;
+      supabase
+        .from('user_event_saves')
+        .select('event_id')
+        .eq('user_id', user.id)
+        .then(({ data }) => {
+          setSavedEventIds(new Set((data ?? []).map((r) => Number(r.event_id))));
+        });
+    }, [user?.id])
+  );
+
+  const quickViewSaved = quickViewEvent != null && savedEventIds.has(quickViewEvent.id);
 
   const handleQuickViewSave = useCallback(async () => {
     if (!user?.id || !quickViewEvent?.id || quickViewSaving) return;
     setQuickViewSaving(true);
-    if (quickViewSaved) {
-      await supabase
+    const isCurrentlySaved = savedEventIds.has(quickViewEvent.id);
+    if (isCurrentlySaved) {
+      const { error } = await supabase
         .from('user_event_saves')
         .delete()
         .eq('user_id', user.id)
         .eq('event_id', quickViewEvent.id);
-      setQuickViewSaved(false);
+      if (!error) {
+        setSavedEventIds((prev) => {
+          const next = new Set(prev);
+          next.delete(quickViewEvent.id);
+          return next;
+        });
+      }
     } else {
-      await supabase
+      const { error } = await supabase
         .from('user_event_saves')
         .insert({ user_id: user.id, event_id: quickViewEvent.id });
-      setQuickViewSaved(true);
+      if (!error) {
+        setSavedEventIds((prev) => new Set(prev).add(quickViewEvent.id));
+      }
     }
     setQuickViewSaving(false);
-  }, [user?.id, quickViewEvent?.id, quickViewSaved, quickViewSaving]);
+  }, [user?.id, quickViewEvent?.id, quickViewSaving, savedEventIds]);
 
   const effectiveCategories =
     !userChangedCategory && initialCategories.length > 0
@@ -468,6 +477,15 @@ export default function WorkshopsScreen() {
                       event={event}
                       distanceKm={distanceKm != null ? Math.round(distanceKm * 10) / 10 : undefined}
                       onPress={() => setQuickViewEvent(event)}
+                      saved={savedEventIds.has(event.id)}
+                      onSaveChange={(eventId, saved) => {
+                        setSavedEventIds((prev) => {
+                          const next = new Set(prev);
+                          if (saved) next.add(eventId);
+                          else next.delete(eventId);
+                          return next;
+                        });
+                      }}
                     />
                   </View>
                 );

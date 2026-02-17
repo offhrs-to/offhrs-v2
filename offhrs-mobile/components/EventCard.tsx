@@ -31,6 +31,10 @@ interface EventCardProps {
   /** Distance in km from user's address (e.g. from home search); shown to the right of price when set. */
   distanceKm?: number;
   onPress?: () => void;
+  /** When provided (e.g. from workshops list), card is controlled and this reflects saved state. */
+  saved?: boolean;
+  /** Called after a successful save/unsave when card is controlled. */
+  onSaveChange?: (eventId: number, saved: boolean) => void;
 }
 
 export const CARD_IMAGE_HEIGHT = 140;
@@ -48,39 +52,47 @@ const softShadow = {
   elevation: 4,
 };
 
-export function EventCard({ event, distanceKm, onPress }: EventCardProps) {
+export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSaveChange }: EventCardProps) {
   const { user } = useAuth();
   const router = useRouter();
-  const [saved, setSaved] = useState(false);
+  const [internalSaved, setInternalSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const displayPrice = formatPrice(event.price);
+  const isControlled = savedProp !== undefined;
+  const displaySaved = isControlled ? savedProp : internalSaved;
 
   useEffect(() => {
-    if (!user?.id || event.id == null) return;
+    if (isControlled || !user?.id || event.id == null) return;
     supabase
       .from('user_event_saves')
       .select('id')
       .eq('user_id', user.id)
       .eq('event_id', event.id)
       .maybeSingle()
-      .then(({ data }) => setSaved(!!data));
-  }, [user?.id, event.id]);
+      .then(({ data }) => setInternalSaved(!!data));
+  }, [user?.id, event.id, isControlled]);
 
   const handleSave = async () => {
     if (!user || event.id == null || saving) return;
     setSaving(true);
-    if (saved) {
-      await supabase
+    if (displaySaved) {
+      const { error } = await supabase
         .from('user_event_saves')
         .delete()
         .eq('user_id', user.id)
         .eq('event_id', event.id);
-      setSaved(false);
+      if (!error) {
+        if (onSaveChange) onSaveChange(event.id, false);
+        else setInternalSaved(false);
+      }
     } else {
-      await supabase
+      const { error } = await supabase
         .from('user_event_saves')
         .insert({ user_id: user.id, event_id: event.id });
-      setSaved(true);
+      if (!error) {
+        if (onSaveChange) onSaveChange(event.id, true);
+        else setInternalSaved(true);
+      }
     }
     setSaving(false);
   };
