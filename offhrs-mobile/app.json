@@ -2,7 +2,7 @@
   "expo": {
     "name": "offhrs-mobile",
     "slug": "offhrs-mobile",
-    "version": "1.2.11",
+    "version": "1.2.12",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "offhrsmobile",
@@ -12,7 +12,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.offhrs.app.offhrs",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "backgroundColor": "#ECEFE5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
