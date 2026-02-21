@@ -24,6 +24,7 @@ type EventFilter = 'all' | 'upcoming' | 'expired'
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [sessionChecking, setSessionChecking] = useState(true)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const adminAuthRef = useRef<string | null>(null)
@@ -101,6 +102,14 @@ export default function AdminPage() {
   useEffect(() => {
     if (isAuthenticated) fetchEvents()
   }, [isAuthenticated])
+
+  useEffect(() => {
+    fetch('/api/admin/session', { credentials: 'include' })
+      .then((res) => {
+        if (res.ok) setIsAuthenticated(true)
+      })
+      .finally(() => setSessionChecking(false))
+  }, [])
 
   const handleBackfillCoordinates = async () => {
     setBackfillLoading(true)
@@ -191,6 +200,14 @@ export default function AdminPage() {
     }
   }
 
+  if (sessionChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    )
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -239,8 +256,9 @@ export default function AdminPage() {
           </div>
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               adminAuthRef.current = null
+              await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
               setIsAuthenticated(false)
             }}
             className="flex items-center gap-2 text-sm text-red-600 hover:text-red-800"
