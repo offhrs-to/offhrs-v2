@@ -2,6 +2,7 @@ import { EventCard, CARD_TOTAL_HEIGHT, type Event } from '@/components/EventCard
 import WorkshopMapView from '@/components/WorkshopMapView';
 import { geocodeAddress } from '@/lib/geocode';
 import { haversineKm } from '@/lib/distance';
+import { BOOK_API_BASE } from '@/constants/api';
 import {
   DesignColors,
   DesignSpacing,
@@ -24,6 +25,7 @@ import {
   ScrollView,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -108,34 +110,43 @@ export default function WorkshopsScreen() {
     }, [user?.id])
   );
 
-  const quickViewSaved = quickViewEvent != null && savedEventIds.has(quickViewEvent.id);
+  const eventIdNum = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
+  const quickViewSaved = eventIdNum != null && savedEventIds.has(eventIdNum);
 
   const handleQuickViewSave = useCallback(async () => {
-    if (!user?.id || !quickViewEvent?.id || quickViewSaving) return;
-    setQuickViewSaving(true);
-    const isCurrentlySaved = savedEventIds.has(quickViewEvent.id);
-    if (isCurrentlySaved) {
-      const { error } = await supabase
-        .from('user_event_saves')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('event_id', quickViewEvent.id);
-      if (!error) {
-        setSavedEventIds((prev) => {
-          const next = new Set(prev);
-          next.delete(quickViewEvent.id);
-          return next;
-        });
-      }
-    } else {
-      const { error } = await supabase
-        .from('user_event_saves')
-        .insert({ user_id: user.id, event_id: quickViewEvent.id });
-      if (!error) {
-        setSavedEventIds((prev) => new Set(prev).add(quickViewEvent.id));
-      }
+    const eid = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
+    if (eid == null || quickViewSaving) return;
+    if (!user?.id) {
+      router.push('/login');
+      return;
     }
-    setQuickViewSaving(false);
+    setQuickViewSaving(true);
+    try {
+      const isCurrentlySaved = savedEventIds.has(eid);
+      if (isCurrentlySaved) {
+        const { error } = await supabase
+          .from('user_event_saves')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('event_id', eid);
+        if (!error) {
+          setSavedEventIds((prev) => {
+            const next = new Set(prev);
+            next.delete(eid);
+            return next;
+          });
+        }
+      } else {
+        const { error } = await supabase
+          .from('user_event_saves')
+          .insert({ user_id: user.id, event_id: eid });
+        if (!error) {
+          setSavedEventIds((prev) => new Set(prev).add(eid));
+        }
+      }
+    } finally {
+      setQuickViewSaving(false);
+    }
   }, [user?.id, quickViewEvent?.id, quickViewSaving, savedEventIds]);
 
   const effectiveCategories =
@@ -477,7 +488,7 @@ export default function WorkshopsScreen() {
                       event={event}
                       distanceKm={distanceKm != null ? Math.round(distanceKm * 10) / 10 : undefined}
                       onPress={() => setQuickViewEvent(event)}
-                      saved={savedEventIds.has(event.id)}
+                      saved={savedEventIds.has(Number(event.id))}
                       onSaveChange={(eventId, saved) => {
                         setSavedEventIds((prev) => {
                           const next = new Set(prev);
@@ -530,17 +541,14 @@ export default function WorkshopsScreen() {
         animationType="fade"
         onRequestClose={() => setQuickViewEvent(null)}
       >
-        <Pressable
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 24,
-          }}
-          onPress={() => setQuickViewEvent(null)}
-        >
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          {/* Overlay – tap outside to dismiss */}
           <Pressable
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' }}
+            onPress={() => setQuickViewEvent(null)}
+          />
+          {/* Card – View only; no responder so Save/Vendor/Book get touches. Overlay is behind so only backdrop taps close. */}
+          <View
             style={{
               width: '100%',
               maxWidth: 360,
@@ -549,10 +557,10 @@ export default function WorkshopsScreen() {
               overflow: 'hidden',
               paddingBottom: 20,
             }}
-            onPress={(e) => e.stopPropagation()}
           >
             {quickViewEvent && (
               <>
+                {/* Image area – no Save here so overlay can receive touches */}
                 <View style={{ height: 200, width: '100%', backgroundColor: DesignColors.inputBg }}>
                   {quickViewEvent.image_url ? (
                     <Image
@@ -566,27 +574,39 @@ export default function WorkshopsScreen() {
                     </View>
                   )}
                 </View>
+                {/* Dedicated overlay for Save – sibling to image/content, not clipped by card overflow */}
+                {quickViewEvent.id != null && (
+                  <View
+                    pointerEvents="box-none"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: 200,
+                    }}
+                  >
+                    <TouchableOpacity
+                      onPress={handleQuickViewSave}
+                      disabled={quickViewSaving}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      style={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        paddingVertical: 8,
+                        paddingHorizontal: 16,
+                        borderRadius: 20,
+                        backgroundColor: 'rgba(255,255,255,0.95)',
+                      }}
+                    >
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: quickViewSaved ? DesignColors.primary : DesignColors.charcoal }}>
+                        {quickViewSaved ? 'Saved ✓' : 'Save'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
                 <View style={{ padding: 16, paddingTop: 12 }}>
-                  {quickViewEvent.id != null && user?.id && (
-                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 }}>
-                      <Pressable
-                        onPress={handleQuickViewSave}
-                        disabled={quickViewSaving}
-                        style={{
-                          paddingVertical: 8,
-                          paddingHorizontal: 14,
-                          borderRadius: 20,
-                          borderWidth: 1,
-                          borderColor: DesignColors.lightGreenBorder,
-                          backgroundColor: '#FFF',
-                        }}
-                      >
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: quickViewSaved ? DesignColors.primary : DesignColors.charcoal }}>
-                          {quickViewSaved ? 'Saved' : 'Save'}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  )}
                   <Text
                     style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}
                     numberOfLines={2}
@@ -641,7 +661,6 @@ export default function WorkshopsScreen() {
                     )}
                     <Pressable
                       onPress={async () => {
-                        const base = (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.app';
                         try {
                           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
                           if (user?.id) {
@@ -650,7 +669,7 @@ export default function WorkshopsScreen() {
                               headers.Authorization = `Bearer ${session.access_token}`;
                             }
                           }
-                          await fetch(`${base}/api/book`, {
+                          await fetch(`${BOOK_API_BASE}/api/book`, {
                             method: 'POST',
                             headers,
                             body: JSON.stringify({
@@ -688,8 +707,8 @@ export default function WorkshopsScreen() {
                 </View>
               </>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       {/* Date range filter modal */}

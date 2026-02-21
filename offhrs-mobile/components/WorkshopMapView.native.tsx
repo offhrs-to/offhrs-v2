@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import MapView, { Callout, Marker } from 'react-native-maps';
 
+import { BOOK_API_BASE } from '@/constants/api';
 import { DesignColors } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -53,7 +54,6 @@ function MapCalloutCard({ event }: { event: EventWithCoords }) {
   const displayPrice = formatPrice(event.price);
 
   const handleBook = async () => {
-    const base = (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.app';
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (user?.id) {
@@ -62,7 +62,7 @@ function MapCalloutCard({ event }: { event: EventWithCoords }) {
           headers.Authorization = `Bearer ${session.access_token}`;
         }
       }
-      await fetch(`${base}/api/book`, {
+      await fetch(`${BOOK_API_BASE}/api/book`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ event_id: event.id, event_title: event.title }),

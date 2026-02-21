@@ -137,6 +137,7 @@ export default function ProfileScreen() {
       .order('created_at', { ascending: false });
     if (!saves?.length) {
       setSavedEvents([]);
+      setSavedEventsCount(0);
       setSavedEventsLoading(false);
       return;
     }
@@ -147,6 +148,7 @@ export default function ProfileScreen() {
       .in('id', eventIds);
     if (!events?.length) {
       setSavedEvents([]);
+      setSavedEventsCount(0);
       setSavedEventsLoading(false);
       return;
     }
@@ -157,16 +159,16 @@ export default function ProfileScreen() {
       ? await supabase.from('vendors').select('id, name').in('id', vendorIds)
       : { data: [] };
     const nameById = Object.fromEntries((vendors ?? []).map((v) => [v.id, v.name ?? 'Vendor']));
-    setSavedEvents(
-      sortedEvents.map((e) => ({
-        id: e.id,
-        title: e.title ?? 'Workshop',
-        date: e.date ?? '',
-        location: e.location ?? '',
-        vendor_id: e.vendor_id ?? null,
-        vendor_name: e.vendor_id ? (nameById[e.vendor_id] ?? null) : null,
-      }))
-    );
+    const list = sortedEvents.map((e) => ({
+      id: e.id,
+      title: e.title ?? 'Workshop',
+      date: e.date ?? '',
+      location: e.location ?? '',
+      vendor_id: e.vendor_id ?? null,
+      vendor_name: e.vendor_id ? (nameById[e.vendor_id] ?? null) : null,
+    }));
+    setSavedEvents(list);
+    setSavedEventsCount(list.length);
     setSavedEventsLoading(false);
   }, [user?.id]);
 

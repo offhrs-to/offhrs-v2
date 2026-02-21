@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, View, Text } from 'react-native';
 
+import { BOOK_API_BASE } from '@/constants/api';
 import { DesignColors } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -98,7 +99,6 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
   };
 
   const handleBook = async () => {
-    const base = (process.env.EXPO_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.app';
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (user?.id) {
@@ -107,7 +107,7 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
           headers.Authorization = `Bearer ${session.access_token}`;
         }
       }
-      await fetch(`${base}/api/book`, {
+      await fetch(`${BOOK_API_BASE}/api/book`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ event_id: event.id, event_title: event.title }),
