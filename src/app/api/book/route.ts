@@ -21,6 +21,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
 
+    const raw = await request.json()
+    if (typeof raw !== 'object' || raw === null) {
+      return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
+    }
+    const parsed = bookBodySchema.safeParse(raw)
+    if (!parsed.success) {
+      const msg = parsed.error.flatten().formErrors[0] ?? 'Invalid request'
+      return NextResponse.json({ error: msg }, { status: 400 })
+    }
+    const { event_id, event_title } = parsed.data
+
     let supabase = await createClient()
     let user = (await supabase.auth.getUser()).data.user
 
@@ -37,20 +48,19 @@ export async function POST(request: NextRequest) {
       supabase = client
     }
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Record redirect for admin count (logged-in and guest)
+    const { error: redirectError } = await supabase.from('event_redirects').insert({
+      event_id,
+      user_id: user?.id ?? null,
+    })
+    if (redirectError) {
+      console.error('Event redirect insert error:', redirectError)
     }
 
-    const raw = await request.json()
-    if (typeof raw !== 'object' || raw === null) {
-      return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
+    // Guest: only count redirect, then success
+    if (!user) {
+      return NextResponse.json({ success: true })
     }
-    const parsed = bookBodySchema.safeParse(raw)
-    if (!parsed.success) {
-      const msg = parsed.error.flatten().formErrors[0] ?? 'Invalid request'
-      return NextResponse.json({ error: msg }, { status: 400 })
-    }
-    const { event_id, event_title } = parsed.data
 
     const confirmationToken = randomUUID()
 

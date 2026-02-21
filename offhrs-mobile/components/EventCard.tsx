@@ -98,23 +98,21 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
   };
 
   const handleBook = async () => {
-    if (user?.id) {
-      const apiUrl = process.env.EXPO_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-      try {
+    const base = (process.env.EXPO_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.app';
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (user?.id) {
         const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        if (token) {
-          await fetch(`${apiUrl}/api/book`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ event_id: event.id, event_title: event.title }),
-          });
+        if (session?.access_token) {
+          headers.Authorization = `Bearer ${session.access_token}`;
         }
-      } catch {}
-    }
+      }
+      await fetch(`${base}/api/book`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ event_id: event.id, event_title: event.title }),
+      });
+    } catch {}
     const url = event.external_link?.trim();
     if (url) Linking.openURL(url);
   };

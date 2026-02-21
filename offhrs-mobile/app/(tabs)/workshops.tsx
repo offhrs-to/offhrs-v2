@@ -553,42 +553,40 @@ export default function WorkshopsScreen() {
           >
             {quickViewEvent && (
               <>
-                <View style={{ height: 200, width: '100%', backgroundColor: DesignColors.inputBg, position: 'relative' }} pointerEvents="box-none">
+                <View style={{ height: 200, width: '100%', backgroundColor: DesignColors.inputBg }}>
                   {quickViewEvent.image_url ? (
                     <Image
                       source={{ uri: quickViewEvent.image_url }}
                       style={{ width: '100%', height: '100%' }}
                       contentFit="cover"
-                      pointerEvents="none"
                     />
                   ) : (
                     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={{ color: DesignColors.mediumGray }}>No image</Text>
                     </View>
                   )}
-                  {quickViewEvent.id != null && user?.id && (
-                    <Pressable
-                      onPress={handleQuickViewSave}
-                      disabled={quickViewSaving}
-                      style={{
-                        position: 'absolute',
-                        top: 12,
-                        right: 12,
-                        paddingVertical: 8,
-                        paddingHorizontal: 12,
-                        borderRadius: 20,
-                        backgroundColor: 'rgba(255,255,255,0.9)',
-                        zIndex: 10,
-                        elevation: 10,
-                      }}
-                    >
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: quickViewSaved ? DesignColors.primary : DesignColors.charcoal }}>
-                        {quickViewSaved ? 'Saved' : 'Save'}
-                      </Text>
-                    </Pressable>
-                  )}
                 </View>
-                <View style={{ padding: 16 }}>
+                <View style={{ padding: 16, paddingTop: 12 }}>
+                  {quickViewEvent.id != null && user?.id && (
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 }}>
+                      <Pressable
+                        onPress={handleQuickViewSave}
+                        disabled={quickViewSaving}
+                        style={{
+                          paddingVertical: 8,
+                          paddingHorizontal: 14,
+                          borderRadius: 20,
+                          borderWidth: 1,
+                          borderColor: DesignColors.lightGreenBorder,
+                          backgroundColor: '#FFF',
+                        }}
+                      >
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: quickViewSaved ? DesignColors.primary : DesignColors.charcoal }}>
+                          {quickViewSaved ? 'Saved' : 'Save'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  )}
                   <Text
                     style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}
                     numberOfLines={2}
@@ -643,26 +641,24 @@ export default function WorkshopsScreen() {
                     )}
                     <Pressable
                       onPress={async () => {
-                        if (user?.id) {
-                          const apiUrl = process.env.EXPO_PUBLIC_APP_URL || 'http://localhost:3000';
-                          try {
+                        const base = (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.app';
+                        try {
+                          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                          if (user?.id) {
                             const { data: { session } } = await supabase.auth.getSession();
-                            const token = session?.access_token;
-                            if (token) {
-                              await fetch(`${apiUrl}/api/book`, {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                  Authorization: `Bearer ${token}`,
-                                },
-                                body: JSON.stringify({
-                                  event_id: quickViewEvent.id,
-                                  event_title: quickViewEvent.title,
-                                }),
-                              });
+                            if (session?.access_token) {
+                              headers.Authorization = `Bearer ${session.access_token}`;
                             }
-                          } catch {}
-                        }
+                          }
+                          await fetch(`${base}/api/book`, {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify({
+                              event_id: quickViewEvent.id,
+                              event_title: quickViewEvent.title,
+                            }),
+                          });
+                        } catch {}
                         const url = quickViewEvent.external_link?.trim();
                         if (url) Linking.openURL(url);
                         setQuickViewEvent(null);

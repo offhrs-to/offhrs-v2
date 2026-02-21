@@ -86,17 +86,15 @@ export default function EventCard({ event }: { event: Event }) {
       })
     }
 
-    // Create booking & send confirmation email if logged in
-    if (user?.id) {
-      fetch('/api/book', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event_id: event.id,
-          event_title: event.title,
-        }),
-      }).catch(() => {})
-    }
+    // Record redirect (logged-in and guest) for admin count, and create booking + email if logged in
+    fetch('/api/book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event_id: event.id,
+        event_title: event.title,
+      }),
+    }).catch(() => {})
 
     // Open external link
     if (event.external_link) {

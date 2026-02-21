@@ -4,8 +4,8 @@ import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * GET /api/admin/event-redirect-counts
- * Returns how many users were redirected (booked) from the app to each event.
- * Uses service role to count rows in bookings per event_id.
+ * Returns how many users were redirected (clicked Book) per event, including guests.
+ * Uses service role to count rows in event_redirects per event_id.
  * Requires admin session cookie or Authorization: Basic (set via POST /api/admin/login or in-page login).
  */
 export async function GET(request: NextRequest) {
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { data, error } = await supabase
-    .from('bookings')
+    .from('event_redirects')
     .select('event_id')
 
   if (error) {
