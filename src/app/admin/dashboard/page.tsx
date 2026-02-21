@@ -30,6 +30,12 @@ export default function AdminDashboard() {
   const [eventFilter, setEventFilter] = useState<EventFilter>('all')
   const [backfillLoading, setBackfillLoading] = useState(false)
   const [backfillResult, setBackfillResult] = useState<string | null>(null)
+  const [checkLinksLoading, setCheckLinksLoading] = useState(false)
+  const [checkLinksResult, setCheckLinksResult] = useState<{
+    summary: { total: number; ok: number; broken: number }
+    results: { eventId: string; title: string; url: string; ok: boolean; status?: number; error?: string }[]
+    error?: string
+  } | null>(null)
 
   const filteredEvents = events.filter((event) => {
     const isExpired = event.date != null && new Date(event.date) < new Date()
@@ -82,6 +88,38 @@ export default function AdminDashboard() {
       setBackfillResult(e?.message || 'Request failed')
     } finally {
       setBackfillLoading(false)
+    }
+  }
+
+  const handleCheckLinks = async () => {
+    setCheckLinksLoading(true)
+    setCheckLinksResult(null)
+    try {
+      const res = await fetch('/api/admin/check-booking-links', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setCheckLinksResult({
+          summary: { total: 0, ok: 0, broken: 0 },
+          results: [],
+          error: data.error || `Error ${res.status}`,
+        })
+        return
+      }
+      setCheckLinksResult({
+        summary: data.summary ?? { total: 0, ok: 0, broken: 0 },
+        results: data.results ?? [],
+      })
+    } catch (e: unknown) {
+      setCheckLinksResult({
+        summary: { total: 0, ok: 0, broken: 0 },
+        results: [],
+        error: e instanceof Error ? e.message : 'Request failed',
+      })
+    } finally {
+      setCheckLinksLoading(false)
     }
   }
 
@@ -162,8 +200,55 @@ export default function AdminDashboard() {
                 'Backfill event coordinates'
               )}
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleCheckLinks}
+              disabled={checkLinksLoading}
+              className="border-slate-300 text-slate-700 hover:bg-slate-50"
+            >
+              {checkLinksLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Checking…
+                </>
+              ) : (
+                'Check links'
+              )}
+            </Button>
             {backfillResult && (
               <span className="text-sm text-slate-600">{backfillResult}</span>
+            )}
+            {checkLinksResult && (
+              <div className="flex flex-col gap-1 text-sm text-slate-600">
+                {checkLinksResult.error ? (
+                  <span className="text-red-600">{checkLinksResult.error}</span>
+                ) : (
+                  <>
+                    <span>
+                      {checkLinksResult.summary.total === 0
+                        ? 'No upcoming events with booking links.'
+                        : `${checkLinksResult.summary.ok} of ${checkLinksResult.summary.total} link(s) OK.`}
+                      {checkLinksResult.summary.broken > 0 &&
+                        ` ${checkLinksResult.summary.broken} broken.`}
+                    </span>
+                    {checkLinksResult.summary.broken > 0 && (
+                      <ul className="list-disc list-inside text-red-600">
+                        {checkLinksResult.results
+                          .filter((r) => !r.ok)
+                          .map((r) => (
+                            <li key={r.eventId}>
+                              <span className="font-medium">{r.title}</span>
+                              {r.status != null && ` — ${r.status}`}
+                              {r.error && ` — ${r.error}`}
+                            </li>
+                          ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </div>
             )}
           </div>
         )}

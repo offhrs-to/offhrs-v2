@@ -115,7 +115,7 @@ export default function WorkshopsScreen() {
 
   const handleQuickViewSave = useCallback(async () => {
     const eid = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
-    if (eid == null || quickViewSaving) return;
+    if (eid == null || !Number.isInteger(eid) || quickViewSaving) return;
     if (!user?.id) {
       router.push('/login');
       return;
@@ -129,19 +129,35 @@ export default function WorkshopsScreen() {
           .delete()
           .eq('user_id', user.id)
           .eq('event_id', eid);
-        if (!error) {
+        if (error) {
+          console.warn('user_event_saves delete error', error);
+        } else {
           setSavedEventIds((prev) => {
             const next = new Set(prev);
             next.delete(eid);
             return next;
           });
+          // Refetch from DB to keep workshops and Profile in sync
+          const { data } = await supabase
+            .from('user_event_saves')
+            .select('event_id')
+            .eq('user_id', user.id);
+          if (data) setSavedEventIds(new Set(data.map((r) => Number(r.event_id))));
         }
       } else {
         const { error } = await supabase
           .from('user_event_saves')
           .insert({ user_id: user.id, event_id: eid });
-        if (!error) {
+        if (error) {
+          console.warn('user_event_saves insert error', error);
+        } else {
           setSavedEventIds((prev) => new Set(prev).add(eid));
+          // Refetch from DB to keep workshops and Profile in sync
+          const { data } = await supabase
+            .from('user_event_saves')
+            .select('event_id')
+            .eq('user_id', user.id);
+          if (data) setSavedEventIds(new Set(data.map((r) => Number(r.event_id))));
         }
       }
     } finally {
