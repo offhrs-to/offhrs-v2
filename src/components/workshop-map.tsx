@@ -74,17 +74,18 @@ export default function WorkshopMap({ events, center, zoom = 13 }: WorkshopMapPr
 
           if (!isValid) return null
 
-          // Date Formatting Logic
-          const displayDate = event.is_multiple_dates 
-            ? 'Multiple Dates' 
-            : event.date 
-              ? new Date(event.date).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit'
-                })
-              : 'Date TBD'
+          // Date Formatting Logic: show earliest date + "Multiple dates" when applicable
+          const formattedDate = event.date
+            ? new Date(event.date).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+              })
+            : null
+          const displayDate = event.is_multiple_dates
+            ? (formattedDate ? `${formattedDate} • Multiple dates` : 'Multiple dates')
+            : (formattedDate ?? 'Date TBD')
 
           return (
             <Marker key={event.id} position={[latNum, lngNum]}>

@@ -104,17 +104,18 @@ export default function EventCard({ event }: { event: Event }) {
     }
   }
 
-  // Format Date Logic
-  const displayDate = event.is_multiple_dates 
-    ? 'Multiple Dates' 
-    : event.date
-      ? new Date(event.date).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit'
-        })
-      : 'Date TBD'
+  // Format Date Logic: show earliest date + "Multiple dates" when applicable
+  const formattedDate = event.date
+    ? new Date(event.date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      })
+    : null
+  const displayDate = event.is_multiple_dates
+    ? (formattedDate ? `${formattedDate} • Multiple dates` : 'Multiple dates')
+    : (formattedDate ?? 'Date TBD')
 
   return (
     <div className="group bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col h-full">

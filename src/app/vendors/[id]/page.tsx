@@ -145,6 +145,14 @@ export default function VendorProfilePage() {
     )
   }
 
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+  const upcomingEvents = events.filter((e) => {
+    if (!e.date) return false
+    const eventDate = new Date(e.date)
+    return eventDate >= startOfToday
+  })
+
   return (
     <div className="min-h-screen bg-gray-50/50">
       <div className="container mx-auto max-w-4xl px-4 py-8">
@@ -229,11 +237,11 @@ export default function VendorProfilePage() {
         </div>
 
         <h2 className="text-lg font-bold text-gray-900 mb-3">Upcoming Workshops</h2>
-        {events.length === 0 ? (
+        {upcomingEvents.length === 0 ? (
           <p className="text-gray-600 text-sm">No upcoming workshops from this vendor.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {events.map((event) => (
+            {upcomingEvents.map((event) => (
               <div
                 key={event.id}
                 className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden"
