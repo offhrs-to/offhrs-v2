@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, View, Text } from 'react-native';
+import { Platform, Pressable, View, Text } from 'react-native';
 
 import { BOOK_API_BASE } from '@/constants/api';
 import { DesignColors } from '@/constants/design-template';
@@ -40,10 +40,16 @@ interface EventCardProps {
 
 export const CARD_IMAGE_HEIGHT = 140;
 export const CARD_BODY_HEIGHT = 132;
+/** Slightly taller body on Android so Vendor/Book buttons are not clipped (e.g. by density/font scaling). */
+const CARD_BODY_HEIGHT_ANDROID = 142;
 export const CARD_TOTAL_HEIGHT = CARD_IMAGE_HEIGHT + CARD_BODY_HEIGHT;
+export const CARD_TOTAL_HEIGHT_ANDROID = CARD_IMAGE_HEIGHT + CARD_BODY_HEIGHT_ANDROID;
 
 /** Height reserved at bottom of card body for Vendor/Book buttons so they align across all cards */
 const CARD_BUTTONS_HEIGHT = 40;
+
+const cardBodyHeight = Platform.OS === 'android' ? CARD_BODY_HEIGHT_ANDROID : CARD_BODY_HEIGHT;
+const cardTotalHeight = CARD_IMAGE_HEIGHT + cardBodyHeight;
 
 const softShadow = {
   shadowColor: '#000',
@@ -134,7 +140,7 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
       </View>
       <View
         style={{
-          height: CARD_BODY_HEIGHT,
+          height: cardBodyHeight,
           backgroundColor: '#FFF',
           padding: 12,
           paddingBottom: 12 + CARD_BUTTONS_HEIGHT,
@@ -217,7 +223,7 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
 
   const wrapperStyle = [
     softShadow,
-    { overflow: 'hidden', borderRadius: 20, backgroundColor: '#FFF', height: CARD_TOTAL_HEIGHT },
+    { overflow: 'hidden', borderRadius: 20, backgroundColor: '#FFF', height: cardTotalHeight },
   ];
 
   if (onPress) {

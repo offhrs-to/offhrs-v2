@@ -75,7 +75,7 @@ export default function ContactScreen() {
           style={{ flex: 1 }}
           contentContainerStyle={{
             flexGrow: 1,
-            paddingBottom: DesignSpacing.contentPaddingBottom,
+            paddingBottom: Platform.OS === 'android' ? 128 : DesignSpacing.contentPaddingBottom,
             paddingHorizontal: DesignSpacing.horizontalPadding,
           }}
           showsVerticalScrollIndicator={false}

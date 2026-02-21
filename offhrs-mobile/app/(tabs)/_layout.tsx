@@ -11,6 +11,7 @@ import {
 } from 'react-native-heroicons/solid';
 
 import { DesignColors } from '@/constants/design-template';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TAB_ICON_SIZE = 24;
 
@@ -56,11 +57,15 @@ function TabIcon({
   );
 }
 
+const ANDROID_SCENE_PADDING_BOTTOM = 120;
+
 function CustomTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
   const { width: screenWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const barWidth = screenWidth - HORIZONTAL_PADDING * 2;
   const barLeft = (screenWidth - barWidth) / 2;
-  const bottomInset = Platform.OS === 'ios' ? 28 : 24;
+  const bottomInset =
+    Platform.OS === 'ios' ? 28 : Math.max(insets.bottom, 48) + 16;
 
   const routes = state.routes.filter((r) => r.name !== 'explore');
 
@@ -126,7 +131,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarShowLabel: false,
         sceneContainerStyle: {
-          paddingBottom: Platform.OS === 'ios' ? 84 : 80,
+          paddingBottom: Platform.OS === 'ios' ? 84 : ANDROID_SCENE_PADDING_BOTTOM,
         },
       }}
     >

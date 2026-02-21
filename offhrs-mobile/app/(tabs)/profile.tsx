@@ -303,7 +303,7 @@ export default function ProfileScreen() {
         contentContainerStyle={{
           flexGrow: 1,
           paddingTop: DesignSpacing.contentPaddingTop,
-          paddingBottom: DesignSpacing.contentPaddingBottom,
+          paddingBottom: Platform.OS === 'android' ? 128 : DesignSpacing.contentPaddingBottom,
           paddingHorizontal: DesignSpacing.horizontalPadding,
         }}
       >

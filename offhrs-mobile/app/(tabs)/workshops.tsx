@@ -1,4 +1,4 @@
-import { EventCard, CARD_TOTAL_HEIGHT, type Event } from '@/components/EventCard';
+import { EventCard, CARD_TOTAL_HEIGHT, CARD_TOTAL_HEIGHT_ANDROID, type Event } from '@/components/EventCard';
 import WorkshopMapView from '@/components/WorkshopMapView';
 import { geocodeAddress } from '@/lib/geocode';
 import { haversineKm } from '@/lib/distance';
@@ -442,7 +442,7 @@ export default function WorkshopsScreen() {
           contentContainerStyle={{
             paddingHorizontal: DesignSpacing.horizontalPadding,
             paddingTop: 12,
-            paddingBottom: Platform.OS === 'ios' ? 120 : 116,
+            paddingBottom: Platform.OS === 'ios' ? 120 : 128,
             flexGrow: 1,
           }}
           refreshControl={
@@ -499,7 +499,7 @@ export default function WorkshopsScreen() {
                       )
                     : null;
                 return (
-                  <View key={event.id} style={{ width: CARD_WIDTH, height: CARD_TOTAL_HEIGHT }}>
+                  <View key={event.id} style={{ width: CARD_WIDTH, height: Platform.OS === 'android' ? CARD_TOTAL_HEIGHT_ANDROID : CARD_TOTAL_HEIGHT }}>
                     <EventCard
                       event={event}
                       distanceKm={distanceKm != null ? Math.round(distanceKm * 10) / 10 : undefined}
@@ -535,7 +535,7 @@ export default function WorkshopsScreen() {
           onPress={() => setViewMode((m) => (m === 'list' ? 'map' : 'list'))}
           style={{
             position: 'absolute',
-            bottom: 84,
+            bottom: Platform.OS === 'ios' ? 84 : 120,
             right: DesignSpacing.horizontalPadding,
             width: 56,
             height: 56,
