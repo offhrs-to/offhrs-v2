@@ -1,7 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Dimensions,
+  Modal,
   ScrollView,
   Text,
   View,
@@ -9,8 +11,11 @@ import {
   Image,
   Linking,
   TextInput,
+  TouchableOpacity,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 
+import { BOOK_API_BASE } from '@/constants/api';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
@@ -28,6 +33,8 @@ interface Event {
   image_url: string | null;
   external_link: string | null;
   category: string | null;
+  price?: number | string | null;
+  vendor_id?: string | null;
 }
 
 interface Review {
@@ -54,7 +61,7 @@ function formatDate(iso: string | null): string {
 }
 
 export default function VendorProfileScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, eventId: eventIdParam } = useLocalSearchParams<{ id: string; eventId?: string }>();
   const router = useRouter();
   const { user } = useAuth();
   const [vendor, setVendor] = useState<Vendor | null>(null);
@@ -66,6 +73,9 @@ export default function VendorProfileScreen() {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [myReview, setMyReview] = useState<Review | null>(null);
+  const [quickViewEvent, setQuickViewEvent] = useState<Event | null>(null);
+  const [savedEventIds, setSavedEventIds] = useState<Set<number>>(new Set());
+  const [quickViewSaving, setQuickViewSaving] = useState(false);
 
   const loadData = () => {
     if (!id) return;
@@ -73,7 +83,7 @@ export default function VendorProfileScreen() {
       supabase.from('vendors').select('id, name').eq('id', id).single(),
       supabase
         .from('events')
-        .select('id, title, date, location, image_url, external_link, category')
+        .select('id, title, date, location, image_url, external_link, category, price')
         .eq('vendor_id', id)
         .order('date', { ascending: true }),
       supabase
@@ -82,8 +92,9 @@ export default function VendorProfileScreen() {
         .eq('vendor_id', id)
         .order('created_at', { ascending: false }),
     ]).then(([vendorRes, eventsRes, reviewsRes]) => {
+      const eventList = (eventsRes.data ?? []).map((e) => ({ ...e, vendor_id: id })) as Event[];
       setVendor(vendorRes.data ?? null);
-      setEvents(eventsRes.data ?? []);
+      setEvents(eventList);
       const revs = (reviewsRes.data ?? []) as Review[];
       setReviews(revs);
       setAvgRating(revs.length > 0 ? Math.round((revs.reduce((s, r) => s + r.rating, 0) / revs.length) * 10) / 10 : null);
@@ -114,6 +125,68 @@ export default function VendorProfileScreen() {
   useEffect(() => {
     loadData();
   }, [id, user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.id) return;
+      supabase
+        .from('user_event_saves')
+        .select('event_id')
+        .eq('user_id', user.id)
+        .then(({ data }) => {
+          setSavedEventIds(new Set((data ?? []).map((r) => Number(r.event_id))));
+        });
+    }, [user?.id])
+  );
+
+  const eventIdNum = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
+  const quickViewSaved = eventIdNum != null && savedEventIds.has(eventIdNum);
+
+  const handleQuickViewSave = useCallback(async () => {
+    const eid = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
+    if (eid == null || !Number.isInteger(eid) || quickViewSaving) return;
+    if (!user?.id) {
+      router.push('/login');
+      return;
+    }
+    setQuickViewSaving(true);
+    try {
+      const isCurrentlySaved = savedEventIds.has(eid);
+      if (isCurrentlySaved) {
+        const { error } = await supabase
+          .from('user_event_saves')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('event_id', eid);
+        if (!error) {
+          setSavedEventIds((prev) => {
+            const next = new Set(prev);
+            next.delete(eid);
+            return next;
+          });
+          const { data } = await supabase.from('user_event_saves').select('event_id').eq('user_id', user.id);
+          if (data) setSavedEventIds(new Set(data.map((r) => Number(r.event_id))));
+        }
+      } else {
+        const { error } = await supabase.from('user_event_saves').insert({ user_id: user.id, event_id: eid });
+        if (!error) {
+          setSavedEventIds((prev) => new Set(prev).add(eid));
+          const { data } = await supabase.from('user_event_saves').select('event_id').eq('user_id', user.id);
+          if (data) setSavedEventIds(new Set(data.map((r) => Number(r.event_id))));
+        }
+      }
+    } finally {
+      setQuickViewSaving(false);
+    }
+  }, [user?.id, quickViewEvent?.id, quickViewSaving, savedEventIds]);
+
+  useEffect(() => {
+    if (loading || !eventIdParam || events.length === 0) return;
+    const wantId = Number(eventIdParam);
+    if (!Number.isInteger(wantId)) return;
+    const found = events.find((e) => e.id === wantId);
+    if (found) setQuickViewEvent(found);
+  }, [loading, eventIdParam, events]);
 
   const handleSubmitReview = async () => {
     if (!user || !id || submitting) return;
@@ -148,6 +221,7 @@ export default function VendorProfileScreen() {
   }
 
   return (
+    <>
     <ScrollView
       style={{ flex: 1, backgroundColor: DesignColors.creamBg }}
       contentContainerStyle={{ padding: DesignSpacing.horizontalPadding, paddingBottom: 32 }}
@@ -244,7 +318,7 @@ export default function VendorProfileScreen() {
         events.map((event) => (
           <Pressable
             key={event.id}
-            onPress={() => event.external_link && Linking.openURL(event.external_link)}
+            onPress={() => setQuickViewEvent(event)}
             style={{
               backgroundColor: '#FFF',
               borderRadius: 16,
@@ -296,5 +370,129 @@ export default function VendorProfileScreen() {
         <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.primary }}>Back to Workshops</Text>
       </Pressable>
     </ScrollView>
+
+      {/* Quick view modal – same as workshops; opens when eventId param is set (e.g. from Profile saved list) or when tapping an event card */}
+      <Modal
+        visible={!!quickViewEvent}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setQuickViewEvent(null)}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Pressable
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' }}
+            onPress={() => setQuickViewEvent(null)}
+          />
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 360,
+              backgroundColor: '#FFF',
+              borderRadius: 20,
+              overflow: 'hidden',
+              paddingBottom: 20,
+            }}
+          >
+            {quickViewEvent && (
+              <>
+                <View style={{ height: 200, width: '100%', backgroundColor: DesignColors.inputBg }}>
+                  {quickViewEvent.image_url ? (
+                    <ExpoImage
+                      source={{ uri: quickViewEvent.image_url }}
+                      style={{ width: '100%', height: '100%' }}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: DesignColors.mediumGray }}>No image</Text>
+                    </View>
+                  )}
+                </View>
+                {quickViewEvent.id != null && (
+                  <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}>
+                    <TouchableOpacity
+                      onPress={handleQuickViewSave}
+                      disabled={quickViewSaving}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      style={{ position: 'absolute', top: 12, right: 12, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.95)' }}
+                    >
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: quickViewSaved ? DesignColors.primary : DesignColors.charcoal }}>
+                        {quickViewSaved ? 'Saved ✓' : 'Save'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                <View style={{ padding: 16, paddingTop: 12 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }} numberOfLines={2}>
+                    {quickViewEvent.title}
+                  </Text>
+                  <Text style={{ marginTop: 8, fontSize: 14, color: DesignColors.mediumGray }}>
+                    {quickViewEvent.date ? formatDate(quickViewEvent.date) : 'Date TBD'}
+                  </Text>
+                  {quickViewEvent.location ? (
+                    <Text style={{ marginTop: 6, fontSize: 13, color: DesignColors.mediumGray }}>{quickViewEvent.location}</Text>
+                  ) : null}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 4 }}>
+                    {quickViewEvent.price != null && String(quickViewEvent.price).trim() !== '' && (
+                      <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.charcoal }}>
+                        {typeof quickViewEvent.price === 'string' && quickViewEvent.price.startsWith('$') ? quickViewEvent.price : `$${quickViewEvent.price}`}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                    <Pressable
+                      onPress={() => setQuickViewEvent(null)}
+                      style={{
+                        paddingVertical: 10,
+                        paddingHorizontal: 14,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: DesignColors.primary,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>Close</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={async () => {
+                        try {
+                          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                          if (user?.id) {
+                            const { data: { session } } = await supabase.auth.getSession();
+                            if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+                          }
+                          await fetch(`${BOOK_API_BASE}/api/book`, {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify({ event_id: quickViewEvent.id, event_title: quickViewEvent.title }),
+                          });
+                        } catch {}
+                        const url = quickViewEvent.external_link?.trim();
+                        if (url) Linking.openURL(url);
+                        setQuickViewEvent(null);
+                      }}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 10,
+                        borderRadius: 12,
+                        backgroundColor: DesignColors.primary,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFF' }}>Book</Text>
+                    </Pressable>
+                  </View>
+                  <Pressable onPress={() => setQuickViewEvent(null)} style={{ marginTop: 12, paddingVertical: 8, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>Close</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }

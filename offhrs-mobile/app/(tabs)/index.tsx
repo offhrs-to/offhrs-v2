@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Dimensions,
   Modal,
@@ -19,7 +19,6 @@ import OnboardingModal from '@/components/OnboardingModal';
 import { CATEGORIES } from '@/constants/categories';
 import { DesignColors } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchAddressSuggestions, type AddressSuggestion } from '@/lib/geocode';
 import { supabase } from '@/lib/supabase';
 
 const CATEGORY_GAP = 12;
@@ -169,10 +168,6 @@ export default function HomeScreen() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [popupCategory, setPopupCategory] = useState<string | null>(null);
-  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
-  const [addressSuggestionsLoading, setAddressSuggestionsLoading] = useState(false);
-  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
-  const addressSuggestionsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const levelCategories = CATEGORIES;
   const instructorCategories = profile?.instructor_categories ?? [];
@@ -279,29 +274,7 @@ export default function HomeScreen() {
     );
   };
 
-  // Debounced address suggestions (Toronto-biased)
-  useEffect(() => {
-    const q = searchQuery.trim();
-    if (q.length < 2) {
-      setAddressSuggestions([]);
-      return;
-    }
-    if (addressSuggestionsDebounceRef.current) clearTimeout(addressSuggestionsDebounceRef.current);
-    addressSuggestionsDebounceRef.current = setTimeout(() => {
-      addressSuggestionsDebounceRef.current = null;
-      setAddressSuggestionsLoading(true);
-      fetchAddressSuggestions(q)
-        .then((list) => setAddressSuggestions(list))
-        .catch(() => setAddressSuggestions([]))
-        .finally(() => setAddressSuggestionsLoading(false));
-    }, 300);
-    return () => {
-      if (addressSuggestionsDebounceRef.current) clearTimeout(addressSuggestionsDebounceRef.current);
-    };
-  }, [searchQuery]);
-
   const handleBrowse = () => {
-    setShowAddressSuggestions(false);
     const params = new URLSearchParams();
     if (selectedCategories.length > 0) {
       params.set('categories', selectedCategories.join(','));
@@ -312,12 +285,6 @@ export default function HomeScreen() {
     const query = params.toString();
     router.push(query ? `/(tabs)/workshops?${query}` : '/(tabs)/workshops');
   };
-
-  const pickAddressSuggestion = useCallback((suggestion: AddressSuggestion) => {
-    setSearchQuery(suggestion.display);
-    setShowAddressSuggestions(false);
-    setAddressSuggestions([]);
-  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: CREAM_BG }}>
@@ -405,7 +372,7 @@ export default function HomeScreen() {
         >
           Where are you looking?
         </Text>
-        <View style={{ marginHorizontal: 20, marginTop: 8, marginBottom: 12, position: 'relative' }}>
+        <View style={{ marginHorizontal: 20, marginTop: 8, marginBottom: 12 }}>
           <Pressable
             onPress={handleBrowse}
             style={{
@@ -420,74 +387,17 @@ export default function HomeScreen() {
             }}
           >
             <TextInput
-              placeholder="Enter your address..."
+              placeholder="Enter your address (street, city, state, zip)..."
               placeholderTextColor="#888"
               value={searchQuery}
               onChangeText={setSearchQuery}
-              onFocus={() => setShowAddressSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowAddressSuggestions(false), 200)}
               onSubmitEditing={handleBrowse}
               returnKeyType="search"
               className="flex-1"
-              style={{ color: CHARCOAL, paddingVertical: 0, fontSize: 12 }}
+              style={{ color: CHARCOAL, paddingVertical: 0, fontSize: 10 }}
             />
             <Text style={{ color: SAGE_GREEN, fontSize: 14 }}>→</Text>
           </Pressable>
-          {showAddressSuggestions && (addressSuggestions.length > 0 || addressSuggestionsLoading) && (
-            <View
-              style={{
-                position: 'absolute',
-                top: 40,
-                left: 0,
-                right: 0,
-                backgroundColor: CREAM_BG,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: LIGHT_GREEN_BORDER,
-                maxHeight: 220,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-                elevation: 4,
-                zIndex: 10,
-              }}
-            >
-              {addressSuggestionsLoading ? (
-                <View style={{ padding: 16, alignItems: 'center' }}>
-                  <Text style={{ color: MEDIUM_GRAY, fontSize: 13 }}>Loading suggestions…</Text>
-                </View>
-              ) : (
-                <ScrollView
-                  keyboardShouldPersistTaps="handled"
-                  nestedScrollEnabled
-                  style={{ maxHeight: 216 }}
-                  showsVerticalScrollIndicator={true}
-                >
-                  {addressSuggestions.map((s) => (
-                    <Pressable
-                      key={`${s.display}-${s.lat}-${s.lng}`}
-                      onPress={() => pickAddressSuggestion(s)}
-                      style={({ pressed }) => ({
-                        paddingVertical: 12,
-                        paddingHorizontal: 14,
-                        borderBottomWidth: 1,
-                        borderBottomColor: '#EEE',
-                        backgroundColor: pressed ? HERO_BG : 'transparent',
-                      })}
-                    >
-                      <Text
-                        numberOfLines={2}
-                        style={{ color: CHARCOAL, fontSize: 13 }}
-                      >
-                        {s.display}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
-          )}
         </View>
       </View>
 

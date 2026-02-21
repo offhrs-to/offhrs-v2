@@ -48,6 +48,9 @@ export default function ProfileScreen() {
   const [reviewsModalVisible, setReviewsModalVisible] = useState(false);
   const [myReviews, setMyReviews] = useState<{ id: string; vendor_id: string; vendor_name: string; rating: number; comment: string | null; created_at: string }[]>([]);
   const [myReviewsLoading, setMyReviewsLoading] = useState(false);
+  const [workshopsModalVisible, setWorkshopsModalVisible] = useState(false);
+  const [attendedWorkshops, setAttendedWorkshops] = useState<{ id: string; event_id: number; title: string; date: string | null; vendor_id: string | null; vendor_name: string | null; attended_at: string }[]>([]);
+  const [attendedWorkshopsLoading, setAttendedWorkshopsLoading] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [settingsName, setSettingsName] = useState('');
   const [settingsEmail, setSettingsEmail] = useState('');
@@ -170,6 +173,55 @@ export default function ProfileScreen() {
     setSavedEvents(list);
     setSavedEventsCount(list.length);
     setSavedEventsLoading(false);
+  }, [user?.id]);
+
+  const fetchAttendedWorkshops = useCallback(async () => {
+    if (!user?.id) return;
+    setAttendedWorkshopsLoading(true);
+    const { data: bookings } = await supabase
+      .from('bookings')
+      .select('id, event_id, created_at')
+      .eq('user_id', user.id)
+      .eq('status', 'attended')
+      .order('created_at', { ascending: false });
+    if (!bookings?.length) {
+      setAttendedWorkshops([]);
+      setAttendedWorkshopsLoading(false);
+      return;
+    }
+    const eventIds = bookings.map((b) => b.event_id).filter((id): id is number => id != null);
+    const { data: events } = await supabase
+      .from('events')
+      .select('id, title, date, vendor_id')
+      .in('id', eventIds);
+    if (!events?.length) {
+      setAttendedWorkshops([]);
+      setAttendedWorkshopsLoading(false);
+      return;
+    }
+    const eventById = Object.fromEntries(events.map((e) => [e.id, e]));
+    const vendorIds = [...new Set(events.map((e) => e.vendor_id).filter(Boolean))] as string[];
+    const { data: vendors } = vendorIds.length
+      ? await supabase.from('vendors').select('id, name').in('id', vendorIds)
+      : { data: [] };
+    const nameById = Object.fromEntries((vendors ?? []).map((v) => [v.id, v.name ?? 'Vendor']));
+    const list = bookings
+      .map((b) => {
+        const ev = eventById[b.event_id];
+        if (!ev) return null;
+        return {
+          id: b.id,
+          event_id: ev.id,
+          title: ev.title ?? 'Workshop',
+          date: ev.date ?? null,
+          vendor_id: ev.vendor_id ?? null,
+          vendor_name: ev.vendor_id ? (nameById[ev.vendor_id] ?? null) : null,
+          attended_at: b.created_at,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x != null);
+    setAttendedWorkshops(list);
+    setAttendedWorkshopsLoading(false);
   }, [user?.id]);
 
   const fetchMyReviews = useCallback(async () => {
@@ -358,10 +410,16 @@ export default function ProfileScreen() {
           borderColor: DesignColors.lightGreenBorder,
         }}
       >
-        <View style={{ alignItems: 'center', flex: 1 }}>
+        <Pressable
+          style={{ alignItems: 'center', flex: 1 }}
+          onPress={() => {
+            setWorkshopsModalVisible(true);
+            fetchAttendedWorkshops();
+          }}
+        >
           <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>{workshopsAttended}</Text>
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 2 }}>Workshops</Text>
-        </View>
+        </Pressable>
         <View style={{ width: 1, height: 32, backgroundColor: DesignColors.lightGreenBorder }} />
         <Pressable
           style={{ alignItems: 'center', flex: 1 }}
@@ -540,6 +598,101 @@ export default function ProfileScreen() {
         </Pressable>
       </Modal>
 
+      {/* Workshops attended modal – list of workshops user attended (email confirmed), opened from Workshops stat */}
+      <Modal
+        visible={workshopsModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setWorkshopsModalVisible(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+          }}
+          onPress={() => setWorkshopsModalVisible(false)}
+        >
+          <Pressable
+            style={{
+              width: '100%',
+              maxWidth: 400,
+              maxHeight: '80%',
+              backgroundColor: '#FFF',
+              borderRadius: 20,
+              overflow: 'hidden',
+            }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 20,
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: DesignColors.lightGreenBorder,
+              }}
+            >
+              <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>Workshops attended</Text>
+              <Pressable onPress={() => setWorkshopsModalVisible(false)} style={{ padding: 8 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.primary }}>Close</Text>
+              </Pressable>
+            </View>
+            {attendedWorkshopsLoading ? (
+              <View style={{ padding: 32, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={DesignColors.primary} />
+                <Text style={{ marginTop: 12, fontSize: 14, color: DesignColors.mediumGray }}>Loading...</Text>
+              </View>
+            ) : attendedWorkshops.length === 0 ? (
+              <View style={{ padding: 32, alignItems: 'center' }}>
+                <Text style={{ fontSize: 14, color: DesignColors.mediumGray, textAlign: 'center' }}>
+                  No workshops attended yet.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 400 }} contentContainerStyle={{ paddingBottom: 24 }}>
+                {attendedWorkshops.map((w) => (
+                  <Pressable
+                    key={w.id}
+                    onPress={() => {
+                      if (w.vendor_id) {
+                        setWorkshopsModalVisible(false);
+                        router.push(`/vendors/${w.vendor_id}?eventId=${w.event_id}`);
+                      }
+                    }}
+                    style={{
+                      paddingHorizontal: 20,
+                      paddingVertical: 14,
+                      borderBottomWidth: attendedWorkshops.indexOf(w) < attendedWorkshops.length - 1 ? 1 : 0,
+                      borderBottomColor: DesignColors.lightGreenBorder,
+                    }}
+                  >
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.charcoal }}>{w.title}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap', gap: 8 }}>
+                      {w.date ? (
+                        <Text style={{ fontSize: 13, color: DesignColors.mediumGray }}>
+                          {new Date(w.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </Text>
+                      ) : null}
+                      {w.vendor_name ? (
+                        <Text style={{ fontSize: 13, color: DesignColors.mediumGray }}>{w.vendor_name}</Text>
+                      ) : null}
+                    </View>
+                    {w.vendor_id ? (
+                      <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 6 }}>View workshop →</Text>
+                    ) : null}
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Saved events modal – list of saved events, opened from Saved stat card */}
       <Modal
         visible={savedModalVisible}
@@ -602,7 +755,9 @@ export default function ProfileScreen() {
                     key={e.id}
                     onPress={() => {
                       setSavedModalVisible(false);
-                      if (e.vendor_id) router.push(`/vendors/${e.vendor_id}`);
+                      if (e.vendor_id) {
+                        router.push(`/vendors/${e.vendor_id}?eventId=${e.id}`);
+                      }
                     }}
                     style={{
                       paddingHorizontal: 20,
