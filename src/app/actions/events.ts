@@ -16,7 +16,7 @@ export async function deleteEvent(id: string) {
 
     // Revalidate paths to refresh cached data
     revalidatePath('/')
-    revalidatePath('/admin/dashboard')
+    revalidatePath('/admin')
 
     return { success: true }
   } catch (error: any) {
@@ -112,7 +112,7 @@ export async function updateEvent(id: string, data: {
 
     // Revalidate paths to refresh cached data
     revalidatePath('/')
-    revalidatePath('/admin/dashboard')
+    revalidatePath('/admin')
 
     return { success: true }
   } catch (error: any) {

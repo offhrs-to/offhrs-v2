@@ -252,7 +252,7 @@ export default function AdminAddPage() {
         {/* Header */}
         <div className="mb-8">
           <Link
-            href="/admin/dashboard"
+            href="/admin"
             className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-4 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />

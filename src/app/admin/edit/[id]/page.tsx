@@ -277,7 +277,7 @@ export default function AdminEditPage() {
       await updateEvent(eventId, submitData)
 
       // Redirect to dashboard on success
-      router.push('/admin/dashboard')
+      router.push('/admin')
     } catch (err: any) {
       // Enhanced error logging for debugging
       console.error('Error updating event:', err)
@@ -326,7 +326,7 @@ export default function AdminEditPage() {
         {/* Header */}
         <div className="mb-8">
           <Link
-            href="/admin/dashboard"
+            href="/admin"
             className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-4 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
