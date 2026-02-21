@@ -16,8 +16,6 @@ const WorkshopMap = dynamic(() => import('@/components/workshop-map'), { ssr: fa
 const WORKSHOP_CATEGORIES = ['All', ...CATEGORIES]
 
 const WORKSHOPS_GUEST_PROMPT_KEY = 'offhrs_workshops_guest_prompt_seen'
-const APP_STORE_URL = process.env.NEXT_PUBLIC_APP_STORE_URL || '#'
-const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL || '#'
 
 interface EventRow {
   id: number
@@ -180,46 +178,15 @@ export default function WorkshopsPage() {
               Track your mastery
             </h2>
             <p className="text-gray-600 text-sm mb-6">
-              Download our app and sign up to track your progress and level up in your favourite skills. Or you can continue browsing as a guest.
+              Download our app to track your progress and level up in your favourite skills.
             </p>
-            <div className="flex flex-col gap-3">
-              <Link href="/signup" onClick={() => dismissGuestPrompt(false)}>
-                <Button className="w-full bg-[#5D755D] hover:bg-[#5D755D]/90 text-white rounded-full">
-                  Get the app & sign up
-                </Button>
-              </Link>
-              <div className="flex gap-2 justify-center flex-wrap">
-                {APP_STORE_URL !== '#' && (
-                  <a
-                    href={APP_STORE_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => dismissGuestPrompt(false)}
-                    className="inline-flex items-center justify-center rounded-full border-2 border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    App Store
-                  </a>
-                )}
-                {PLAY_STORE_URL !== '#' && (
-                  <a
-                    href={PLAY_STORE_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => dismissGuestPrompt(false)}
-                    className="inline-flex items-center justify-center rounded-full border-2 border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Google Play
-                  </a>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => dismissGuestPrompt(true)}
-                className="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
-              >
-                Continue browsing as a guest
-              </button>
-            </div>
+            <Button
+              type="button"
+              onClick={() => dismissGuestPrompt(true)}
+              className="w-full bg-[#5D755D] hover:bg-[#5D755D]/90 text-white rounded-full"
+            >
+              Continue browsing as a guest
+            </Button>
           </div>
         </div>
       )}
