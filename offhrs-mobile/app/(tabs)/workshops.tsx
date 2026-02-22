@@ -16,6 +16,7 @@ import * as Linking from 'expo-linking';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createElement, useCallback, useEffect, useState } from 'react';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
   Dimensions,
   Modal,
@@ -25,7 +26,6 @@ import {
   ScrollView,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -442,7 +442,7 @@ export default function WorkshopsScreen() {
           contentContainerStyle={{
             paddingHorizontal: DesignSpacing.horizontalPadding,
             paddingTop: 12,
-            paddingBottom: Platform.OS === 'ios' ? 120 : 128,
+            paddingBottom: Platform.OS === 'ios' ? 120 : 140,
             flexGrow: 1,
           }}
           refreshControl={
@@ -535,7 +535,7 @@ export default function WorkshopsScreen() {
           onPress={() => setViewMode((m) => (m === 'list' ? 'map' : 'list'))}
           style={{
             position: 'absolute',
-            bottom: Platform.OS === 'ios' ? 84 : 120,
+            bottom: Platform.OS === 'ios' ? 84 : 88,
             right: DesignSpacing.horizontalPadding,
             width: 56,
             height: 56,
@@ -590,7 +590,7 @@ export default function WorkshopsScreen() {
                     </View>
                   )}
                 </View>
-                {/* Dedicated overlay for Save – sibling to image/content, not clipped by card overflow */}
+                {/* Dedicated overlay for Save – sibling to image/content, not clipped by card overflow. Gesture-handler TouchableOpacity for reliable taps in Modal on Android. */}
                 {quickViewEvent.id != null && (
                   <View
                     pointerEvents="box-none"
@@ -600,11 +600,13 @@ export default function WorkshopsScreen() {
                       left: 0,
                       right: 0,
                       height: 200,
+                      zIndex: 10,
                     }}
                   >
                     <TouchableOpacity
                       onPress={handleQuickViewSave}
                       disabled={quickViewSaving}
+                      activeOpacity={0.7}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                       style={{
                         position: 'absolute',

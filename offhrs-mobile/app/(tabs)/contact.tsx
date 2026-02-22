@@ -22,6 +22,37 @@ const CONTACT_EMAIL = 'offhrs.to@gmail.com';
 const INPUT_BORDER = '#E5E7EB';
 const INPUT_PLACEHOLDER = '#9CA3AF';
 
+const isAndroid = Platform.OS === 'android';
+const TITLE_FONT_SIZE = isAndroid ? 24 : 28;
+const TITLE_MARGIN_BOTTOM = isAndroid ? 6 : 8;
+const SUBTITLE_FONT_SIZE = isAndroid ? 13 : 15;
+const SUBTITLE_MARGIN_BOTTOM = isAndroid ? 16 : 24;
+const SUBTITLE_LINE_HEIGHT = isAndroid ? 18 : 22;
+const EMAIL_BTN_PADDING_V = isAndroid ? 12 : 16;
+const EMAIL_BTN_PADDING_H = isAndroid ? 16 : 20;
+const EMAIL_BTN_MARGIN_BOTTOM = isAndroid ? 16 : 24;
+const EMAIL_ICON_SIZE = isAndroid ? 36 : 40;
+const EMAIL_FONT_SIZE = isAndroid ? 14 : 16;
+const FORM_MARGIN_BOTTOM = isAndroid ? 16 : 24;
+const INPUT_ROW_GAP = isAndroid ? 12 : 16;
+const INPUT_ROW_MARGIN_BOTTOM = isAndroid ? 14 : 20;
+const INPUT_PADDING_V = isAndroid ? 10 : 12;
+const INPUT_FONT_SIZE = isAndroid ? 14 : 16;
+const CHAT_MIN_HEIGHT = isAndroid ? 64 : 80;
+const ROLE_LABEL_FONT_SIZE = isAndroid ? 13 : 14;
+const ROLE_LABEL_MARGIN_BOTTOM = isAndroid ? 6 : 8;
+const ROLE_GAP = isAndroid ? 6 : 8;
+const ROLE_SECTION_MARGIN_BOTTOM = isAndroid ? 12 : 18;
+const ROLE_CARD_PADDING_V = isAndroid ? 8 : 10;
+const ROLE_CARD_PADDING_H = isAndroid ? 10 : 12;
+const ROLE_ICON_SIZE = isAndroid ? 20 : 22;
+const ROLE_TITLE_FONT_SIZE = isAndroid ? 13 : 14;
+const ROLE_SUB_FONT_SIZE = isAndroid ? 11 : 12;
+const CTA_PADDING_V = isAndroid ? 8 : 10;
+const CTA_FONT_SIZE = isAndroid ? 13 : 14;
+const FOOTER_MARGIN_TOP = isAndroid ? 12 : 20;
+const FOOTER_FONT_SIZE = isAndroid ? 12 : 13;
+
 type Role = 'learner' | 'instructor' | null;
 
 export default function ContactScreen() {
@@ -52,7 +83,7 @@ export default function ContactScreen() {
       <View
         style={{
           paddingTop: DesignSpacing.contentPaddingTop,
-          paddingBottom: 12,
+          paddingBottom: 6,
           paddingHorizontal: DesignSpacing.horizontalPadding,
           backgroundColor: '#FFF',
         }}
@@ -84,28 +115,28 @@ export default function ContactScreen() {
           {/* Title */}
           <Text
             style={{
-              fontSize: 28,
+              fontSize: TITLE_FONT_SIZE,
               fontWeight: '700',
               color: DesignColors.charcoal,
               textAlign: 'center',
-              marginBottom: 8,
+              marginBottom: TITLE_MARGIN_BOTTOM,
             }}
           >
             Let's grow together
           </Text>
           <Text
             style={{
-              fontSize: 15,
+              fontSize: SUBTITLE_FONT_SIZE,
               color: DesignColors.mediumGray,
               textAlign: 'center',
-              marginBottom: 24,
-              lineHeight: 22,
+              marginBottom: SUBTITLE_MARGIN_BOTTOM,
+              lineHeight: SUBTITLE_LINE_HEIGHT,
             }}
           >
             Have a workshop to list? We'd love to hear from you.
           </Text>
 
-          {/* Email button – unchanged */}
+          {/* Email button */}
           <Pressable
             onPress={() => Linking.openURL(`mailto:${CONTACT_EMAIL}`)}
             style={{
@@ -115,27 +146,27 @@ export default function ContactScreen() {
               borderRadius: 9999,
               borderWidth: 1,
               borderColor: DesignColors.lightGreenBorder,
-              paddingVertical: 16,
-              paddingHorizontal: 20,
-              marginBottom: 24,
+              paddingVertical: EMAIL_BTN_PADDING_V,
+              paddingHorizontal: EMAIL_BTN_PADDING_H,
+              marginBottom: EMAIL_BTN_MARGIN_BOTTOM,
             }}
           >
             <View
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
+                width: EMAIL_ICON_SIZE,
+                height: EMAIL_ICON_SIZE,
+                borderRadius: EMAIL_ICON_SIZE / 2,
                 backgroundColor: DesignColors.primary,
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginRight: 16,
+                marginRight: isAndroid ? 12 : 16,
               }}
             >
-              <Text style={{ fontSize: 18 }}>✉</Text>
+              <Text style={{ fontSize: isAndroid ? 16 : 18 }}>✉</Text>
             </View>
             <Text
               style={{
-                fontSize: 16,
+                fontSize: EMAIL_FONT_SIZE,
                 color: DesignColors.primary,
                 fontWeight: '500',
               }}
@@ -144,9 +175,9 @@ export default function ContactScreen() {
             </Text>
           </Pressable>
 
-          {/* Form: minimalist underline-only inputs (template style) */}
-          <View style={{ marginBottom: 24 }}>
-            <View style={{ flexDirection: 'row', gap: 16, marginBottom: 20 }}>
+          {/* Form: minimalist underline-only inputs */}
+          <View style={{ marginBottom: FORM_MARGIN_BOTTOM }}>
+            <View style={{ flexDirection: 'row', gap: INPUT_ROW_GAP, marginBottom: INPUT_ROW_MARGIN_BOTTOM }}>
               <TextInput
                 placeholder="First name"
                 placeholderTextColor={INPUT_PLACEHOLDER}
@@ -154,10 +185,10 @@ export default function ContactScreen() {
                 onChangeText={setFirstName}
                 style={{
                   flex: 1,
-                  paddingVertical: 12,
+                  paddingVertical: INPUT_PADDING_V,
                   borderBottomWidth: 1,
                   borderBottomColor: INPUT_BORDER,
-                  fontSize: 16,
+                  fontSize: INPUT_FONT_SIZE,
                   color: DesignColors.charcoal,
                 }}
               />
@@ -168,10 +199,10 @@ export default function ContactScreen() {
                 onChangeText={setLastName}
                 style={{
                   flex: 1,
-                  paddingVertical: 12,
+                  paddingVertical: INPUT_PADDING_V,
                   borderBottomWidth: 1,
                   borderBottomColor: INPUT_BORDER,
-                  fontSize: 16,
+                  fontSize: INPUT_FONT_SIZE,
                   color: DesignColors.charcoal,
                 }}
               />
@@ -185,12 +216,12 @@ export default function ContactScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               style={{
-                paddingVertical: 12,
+                paddingVertical: INPUT_PADDING_V,
                 borderBottomWidth: 1,
                 borderBottomColor: INPUT_BORDER,
-                fontSize: 16,
+                fontSize: INPUT_FONT_SIZE,
                 color: DesignColors.charcoal,
-                marginBottom: 20,
+                marginBottom: INPUT_ROW_MARGIN_BOTTOM,
               }}
             />
 
@@ -203,28 +234,28 @@ export default function ContactScreen() {
               numberOfLines={3}
               textAlignVertical="top"
               style={{
-                paddingVertical: 12,
+                paddingVertical: INPUT_PADDING_V,
                 borderBottomWidth: 1,
                 borderBottomColor: INPUT_BORDER,
-                fontSize: 16,
+                fontSize: INPUT_FONT_SIZE,
                 color: DesignColors.charcoal,
-                minHeight: 80,
+                minHeight: CHAT_MIN_HEIGHT,
               }}
             />
           </View>
 
-          {/* Role selection – card style with icon (template) */}
+          {/* Role selection */}
           <Text
             style={{
-              fontSize: 14,
+              fontSize: ROLE_LABEL_FONT_SIZE,
               fontWeight: '700',
               color: DesignColors.charcoal,
-              marginBottom: 8,
+              marginBottom: ROLE_LABEL_MARGIN_BOTTOM,
             }}
           >
             I am
           </Text>
-          <View style={{ gap: 8, marginBottom: 18 }}>
+          <View style={{ gap: ROLE_GAP, marginBottom: ROLE_SECTION_MARGIN_BOTTOM }}>
             <Pressable
               onPress={() => setRole('learner')}
               style={{
@@ -234,21 +265,21 @@ export default function ContactScreen() {
                 borderRadius: 10,
                 borderWidth: 2,
                 borderColor: role === 'learner' ? DesignColors.primary : DesignColors.lightGreenBorder,
-                paddingVertical: 10,
-                paddingHorizontal: 12,
+                paddingVertical: ROLE_CARD_PADDING_V,
+                paddingHorizontal: ROLE_CARD_PADDING_H,
               }}
             >
-              <View style={{ marginRight: 10 }}>
+              <View style={{ marginRight: isAndroid ? 8 : 10 }}>
                 <MaterialIcons
                   name="person-outline"
-                  size={22}
+                  size={ROLE_ICON_SIZE}
                   color={role === 'learner' ? DesignColors.primary : DesignColors.charcoal}
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: ROLE_TITLE_FONT_SIZE,
                     fontWeight: '600',
                     color: DesignColors.charcoal,
                   }}
@@ -257,7 +288,7 @@ export default function ContactScreen() {
                 </Text>
                 <Text
                   style={{
-                    fontSize: 12,
+                    fontSize: ROLE_SUB_FONT_SIZE,
                     color: DesignColors.mediumGray,
                     marginTop: 1,
                   }}
@@ -276,21 +307,21 @@ export default function ContactScreen() {
                 borderRadius: 10,
                 borderWidth: 2,
                 borderColor: role === 'instructor' ? DesignColors.primary : DesignColors.lightGreenBorder,
-                paddingVertical: 10,
-                paddingHorizontal: 12,
+                paddingVertical: ROLE_CARD_PADDING_V,
+                paddingHorizontal: ROLE_CARD_PADDING_H,
               }}
             >
-              <View style={{ marginRight: 10 }}>
+              <View style={{ marginRight: isAndroid ? 8 : 10 }}>
                 <MaterialIcons
                   name="school"
-                  size={22}
+                  size={ROLE_ICON_SIZE}
                   color={role === 'instructor' ? DesignColors.primary : DesignColors.charcoal}
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: ROLE_TITLE_FONT_SIZE,
                     fontWeight: '600',
                     color: DesignColors.charcoal,
                   }}
@@ -299,7 +330,7 @@ export default function ContactScreen() {
                 </Text>
                 <Text
                   style={{
-                    fontSize: 12,
+                    fontSize: ROLE_SUB_FONT_SIZE,
                     color: DesignColors.mediumGray,
                     marginTop: 1,
                   }}
@@ -310,13 +341,13 @@ export default function ContactScreen() {
             </Pressable>
           </View>
 
-          {/* Get in touch – primary CTA (app theme) */}
+          {/* Get in touch – primary CTA */}
           <Pressable
             onPress={handleGetInTouch}
             style={{
               backgroundColor: DesignColors.primary,
               borderRadius: 10,
-              paddingVertical: 10,
+              paddingVertical: CTA_PADDING_V,
               paddingHorizontal: 16,
               alignItems: 'center',
               justifyContent: 'center',
@@ -324,7 +355,7 @@ export default function ContactScreen() {
           >
             <Text
               style={{
-                fontSize: 14,
+                fontSize: CTA_FONT_SIZE,
                 fontWeight: '700',
                 color: '#FFF',
               }}
@@ -335,10 +366,10 @@ export default function ContactScreen() {
 
           <Text
             style={{
-              fontSize: 13,
+              fontSize: FOOTER_FONT_SIZE,
               color: DesignColors.mediumGray,
               textAlign: 'center',
-              marginTop: 20,
+              marginTop: FOOTER_MARGIN_TOP,
             }}
           >
             We typically respond within 24–48 hours.

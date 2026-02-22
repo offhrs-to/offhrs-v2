@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Dimensions,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -17,11 +18,12 @@ import { UserCircleIcon } from 'react-native-heroicons/outline';
 import InstructorIcon from '@/components/InstructorIcon';
 import OnboardingModal from '@/components/OnboardingModal';
 import { CATEGORIES } from '@/constants/categories';
-import { DesignColors } from '@/constants/design-template';
+import { DesignColors, DesignSizes, DesignSpacing } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
 const CATEGORY_GAP = 12;
+const CATEGORY_GAP_ANDROID = 8;
 
 const SAGE_GREEN = '#5D755D';
 const LIGHT_GREEN_BORDER = '#A8C4A0';
@@ -32,6 +34,22 @@ const MEDIUM_GRAY = '#6B6B6B';
 
 const HORIZONTAL_PADDING = 24;
 const FIRST_TIME_SIGNUP_KEY = '@offhrs/hasSeenFirstTimeSignUpPrompt';
+
+const isAndroid = Platform.OS === 'android';
+const AVATAR_SIZE = isAndroid ? 46 : 52;
+const SCROLL_PADDING_TOP = isAndroid ? 10 : 16;
+const SCROLL_PADDING_BOTTOM = isAndroid ? 100 : 32;
+const HERO_TITLE_FONT_SIZE = isAndroid ? 24 : 27;
+const HERO_MARGIN_BOTTOM = isAndroid ? 16 : 20;
+const HERO_PADDING_BOTTOM = isAndroid ? 10 : 14;
+const ICON_BAR_HEIGHT = isAndroid ? 48 : 56;
+const ICON_CIRCLE_SIZE = isAndroid ? 40 : 44;
+const CURIOSITY_FONT_SIZE = isAndroid ? 14 : 15;
+const CURIOSITY_MARGIN_TOP = isAndroid ? 10 : 14;
+const CURIOSITY_MARGIN_BOTTOM = isAndroid ? 8 : 12;
+const CATEGORY_BUTTON_HEIGHT = 56;
+const BROWSE_MARGIN_TOP = 12;
+const BROWSE_PADDING_VERTICAL = isAndroid ? 10 : 12;
 
 // Each level is 10 points; progression shown as X/10 for all levels (Novice → Master)
 const LEVEL_THRESHOLDS: Record<string, { start: number; step: number }> = {
@@ -147,9 +165,11 @@ const OTHER_ICONS: Record<string, any> = {
 const getOtherIconSource = (level: string) =>
   OTHER_ICONS[level] ?? OTHER_ICONS.Novice;
 
-// Button width so 2 fit per row (after HORIZONTAL_PADDING and CATEGORY_GAP)
-const getCategoryButtonWidth = () =>
-  (Dimensions.get('window').width - HORIZONTAL_PADDING * 2 - CATEGORY_GAP) / 2;
+// Button width so 2 fit per row (after HORIZONTAL_PADDING and gap)
+const getCategoryButtonWidth = () => {
+  const gap = isAndroid ? CATEGORY_GAP_ANDROID : CATEGORY_GAP;
+  return (Dimensions.get('window').width - HORIZONTAL_PADDING * 2 - gap) / 2;
+};
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -294,25 +314,25 @@ export default function HomeScreen() {
       {/* Fixed header: logo + welcome row (stays in place when scrolling) */}
       <View
         style={{
-          paddingTop: 48,
-          paddingBottom: 12,
-          paddingHorizontal: HORIZONTAL_PADDING,
+          paddingTop: DesignSpacing.contentPaddingTop,
+          paddingBottom: 6,
+          paddingHorizontal: DesignSpacing.horizontalPadding,
           backgroundColor: CREAM_BG,
         }}
       >
-        <View style={{ marginLeft: -40, paddingLeft: 0, marginBottom: 16 }}>
+        <View style={{ marginLeft: DesignSpacing.logoMarginLeft, paddingLeft: 0, marginBottom: isAndroid ? 12 : 16 }}>
           <Image
             source={require('@/assets/images/logo.png')}
-            style={{ height: 48, width: 160 }}
+            style={{ height: DesignSizes.logoHeight, width: DesignSizes.logoWidth }}
             contentFit="contain"
           />
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View
             style={{
-              width: 52,
-              height: 52,
-              borderRadius: 26,
+              width: AVATAR_SIZE,
+              height: AVATAR_SIZE,
+              borderRadius: AVATAR_SIZE / 2,
               backgroundColor: avatarUrl ? 'transparent' : '#E0E0E0',
               overflow: 'hidden',
               alignItems: 'center',
@@ -322,11 +342,11 @@ export default function HomeScreen() {
             {avatarUrl ? (
               <Image
                 source={{ uri: avatarUrl }}
-                style={{ width: 52, height: 52 }}
+                style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
                 contentFit="cover"
               />
             ) : (
-              <UserCircleIcon size={36} color={MEDIUM_GRAY} />
+              <UserCircleIcon size={isAndroid ? 32 : 36} color={MEDIUM_GRAY} />
             )}
           </View>
           <View style={{ marginLeft: 12 }}>
@@ -350,8 +370,8 @@ export default function HomeScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           flexGrow: 1,
-          paddingTop: 16,
-          paddingBottom: 32,
+          paddingTop: SCROLL_PADDING_TOP,
+          paddingBottom: SCROLL_PADDING_BOTTOM,
           paddingHorizontal: HORIZONTAL_PADDING,
         }}
         showsVerticalScrollIndicator={false}
@@ -359,20 +379,20 @@ export default function HomeScreen() {
       {/* Hero / Reflection-style card */}
       <View
         className="mb-4 rounded-2xl px-6 pt-5"
-        style={{ backgroundColor: HERO_BG, borderRadius: 18, marginTop: 0, paddingBottom: 14 }}
+        style={{ backgroundColor: HERO_BG, borderRadius: 18, marginTop: 0, paddingBottom: HERO_PADDING_BOTTOM }}
       >
         <Text
           className="text-lg font-bold"
-          style={{ color: CHARCOAL, textAlign: 'center', marginTop: 16, marginBottom: 16 }}
+          style={{ color: CHARCOAL, textAlign: 'center', marginTop: isAndroid ? 12 : 16, marginBottom: isAndroid ? 12 : 16 }}
         >
           Discover your new passion
         </Text>
         <Text
-          style={{ color: CHARCOAL, textAlign: 'center', marginBottom: 20, fontSize: 27 }}
+          style={{ color: CHARCOAL, textAlign: 'center', marginBottom: HERO_MARGIN_BOTTOM, fontSize: HERO_TITLE_FONT_SIZE }}
         >
           Where are you looking?
         </Text>
-        <View style={{ marginHorizontal: 20, marginTop: 8, marginBottom: 12 }}>
+        <View style={{ marginHorizontal: 20, marginTop: 8, marginBottom: isAndroid ? 8 : 12 }}>
           <Pressable
             onPress={handleBrowse}
             style={{
@@ -403,18 +423,19 @@ export default function HomeScreen() {
 
       {/* Level icons bar: all categories (Beauty & Fragrance, Culinary, Coffee, Floral, Pottery, Music, Wellness, Other) use level-specific icons (Novice → Master).
           - Instructor categories show graduation cap icon and "Instructor" (no progression) in popup. */}
-      <View style={{ marginTop: 18, marginBottom: 8, height: 56, width: '100%', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center' }}>
+      <View style={{ marginTop: isAndroid ? 14 : 18, marginBottom: 8, height: ICON_BAR_HEIGHT, width: '100%', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center' }}>
         {levelCategories.map((cat) => {
           const isInstructor = isInstructorForCategory(cat);
           const catLevel = getLevelForCategory(cat).level;
+          const circleSize = ICON_CIRCLE_SIZE;
           return (
             <Pressable
               key={cat}
               onPress={() => setPopupCategory(cat)}
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
+                width: circleSize,
+                height: circleSize,
+                borderRadius: circleSize / 2,
                 borderWidth: 2,
                 borderColor: DesignColors.primary,
                 alignItems: 'center',
@@ -423,71 +444,71 @@ export default function HomeScreen() {
               }}
             >
               {isInstructor ? (
-                <InstructorIcon size={20} color={DesignColors.primary} />
+                <InstructorIcon size={isAndroid ? 18 : 20} color={DesignColors.primary} />
               ) : cat === 'Floral' ? (
-                <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
+                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
                   <Image
                     source={getFloralIconSource(catLevel)}
-                    style={{ width: 58, height: 58, position: 'absolute', left: -7, top: -7 }}
+                    style={{ width: circleSize + 14, height: circleSize + 14, position: 'absolute', left: -7, top: -7 }}
                     contentFit="cover"
                   />
                 </View>
               ) : cat === 'Culinary' ? (
-                <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
+                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
                   <Image
                     source={getCulinaryIconSource(catLevel)}
-                    style={{ width: 56, height: 56, position: 'absolute', left: -6, top: -6 }}
+                    style={{ width: circleSize + 12, height: circleSize + 12, position: 'absolute', left: -6, top: -6 }}
                     contentFit="cover"
                   />
                 </View>
               ) : cat === 'Pottery' ? (
-                <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
+                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
                   <Image
                     source={getPotteryIconSource(catLevel)}
-                    style={{ width: 66, height: 66, position: 'absolute', left: -11, top: -11 }}
+                    style={{ width: circleSize + 22, height: circleSize + 22, position: 'absolute', left: -11, top: -11 }}
                     contentFit="cover"
                   />
                 </View>
               ) : cat === 'Coffee' ? (
-                <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
+                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
                   <Image
                     source={getCoffeeIconSource(catLevel)}
-                    style={{ width: 56, height: 56, position: 'absolute', left: -6, top: -6 }}
+                    style={{ width: circleSize + 12, height: circleSize + 12, position: 'absolute', left: -6, top: -6 }}
                     contentFit="cover"
                   />
                 </View>
               ) : cat === 'Beauty & Fragrance' ? (
-                <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
+                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
                   <Image
                     source={getBeautyFragranceIconSource(catLevel)}
-                    style={{ width: 62, height: 62, position: 'absolute', left: -9, top: -9 }}
+                    style={{ width: circleSize + 18, height: circleSize + 18, position: 'absolute', left: -9, top: -9 }}
                     contentFit="cover"
                   />
                 </View>
               ) : cat === 'Music' ? (
-                <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
+                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
                   <Image
                     source={getMusicIconSource(catLevel)}
-                    style={{ width: 62, height: 62, position: 'absolute', left: -9, top: -9 }}
+                    style={{ width: circleSize + 18, height: circleSize + 18, position: 'absolute', left: -9, top: -9 }}
                     contentFit="cover"
                   />
                 </View>
               ) : cat === 'Wellness' ? (
-                <View style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
+                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
                   <Image
                     source={getWellnessIconSource(catLevel)}
-                    style={{ width: 58, height: 58, position: 'absolute', left: -7, top: -7 }}
+                    style={{ width: circleSize + 14, height: circleSize + 14, position: 'absolute', left: -7, top: -7 }}
                     contentFit="cover"
                   />
                 </View>
               ) : cat === 'Other' ? (
                 <Image
                   source={getOtherIconSource(catLevel)}
-                  style={{ width: 32, height: 32 }}
+                  style={{ width: isAndroid ? 28 : 32, height: isAndroid ? 28 : 32 }}
                   contentFit="contain"
                 />
               ) : (
-                <MaterialIcons name="star" size={20} color={DesignColors.primary} />
+                <MaterialIcons name="star" size={isAndroid ? 18 : 20} color={DesignColors.primary} />
               )}
             </Pressable>
           );
@@ -499,14 +520,14 @@ export default function HomeScreen() {
         className="font-bold"
         style={{
           color: CHARCOAL,
-          fontSize: 15,
-          marginTop: 14,
-          marginBottom: 12,
+          fontSize: CURIOSITY_FONT_SIZE,
+          marginTop: CURIOSITY_MARGIN_TOP,
+          marginBottom: CURIOSITY_MARGIN_BOTTOM,
         }}
       >
         What sparks your curiosity? Curate your discovery
       </Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: CATEGORY_GAP }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: isAndroid ? CATEGORY_GAP_ANDROID : CATEGORY_GAP }}>
         {CATEGORIES.map((cat) => {
           const isActive = selectedCategories.includes(cat);
           return (
@@ -515,7 +536,7 @@ export default function HomeScreen() {
               onPress={() => toggleCategory(cat)}
               style={{
                 width: getCategoryButtonWidth(),
-                height: 56,
+                height: CATEGORY_BUTTON_HEIGHT,
                 paddingHorizontal: 20,
                 paddingVertical: 12,
                 borderRadius: 9999,
@@ -541,11 +562,11 @@ export default function HomeScreen() {
           );
         })}
       </View>
-      <View style={{ marginTop: 12 }}>
+      <View style={{ marginTop: BROWSE_MARGIN_TOP }}>
         <Pressable
           onPress={handleBrowse}
           style={{
-            paddingVertical: 12,
+            paddingVertical: BROWSE_PADDING_VERTICAL,
             paddingHorizontal: 24,
             borderRadius: 9999,
             backgroundColor: '#38511B',
@@ -558,7 +579,7 @@ export default function HomeScreen() {
         >
           <Text
             className="text-sm font-medium"
-            style={{ color: '#FFF', textAlign: 'center' }}
+            style={{ color: '#FFF', textAlign: 'center', fontSize: isAndroid ? 13 : undefined }}
           >
             Browse Workshops
           </Text>

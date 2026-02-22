@@ -8,6 +8,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -410,16 +411,17 @@ export default function ProfileScreen() {
           borderColor: DesignColors.lightGreenBorder,
         }}
       >
-        <Pressable
+        <TouchableOpacity
           style={{ alignItems: 'center', flex: 1 }}
           onPress={() => {
             setWorkshopsModalVisible(true);
             fetchAttendedWorkshops();
           }}
+          activeOpacity={0.7}
         >
           <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>{workshopsAttended}</Text>
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 2 }}>Workshops</Text>
-        </Pressable>
+        </TouchableOpacity>
         <View style={{ width: 1, height: 32, backgroundColor: DesignColors.lightGreenBorder }} />
         <Pressable
           style={{ alignItems: 'center', flex: 1 }}
@@ -432,16 +434,17 @@ export default function ProfileScreen() {
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 2 }}>Saved</Text>
         </Pressable>
         <View style={{ width: 1, height: 32, backgroundColor: DesignColors.lightGreenBorder }} />
-        <Pressable
+        <TouchableOpacity
           style={{ alignItems: 'center', flex: 1 }}
           onPress={() => {
             setReviewsModalVisible(true);
             fetchMyReviews();
           }}
+          activeOpacity={0.7}
         >
           <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>{reviewsCount}</Text>
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 2 }}>Reviews</Text>
-        </Pressable>
+        </TouchableOpacity>
       </View>
 
       {/* Account details – Name, Email, Phone */}
@@ -544,9 +547,9 @@ export default function ProfileScreen() {
               }}
             >
               <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>Your reviews</Text>
-              <Pressable onPress={() => setReviewsModalVisible(false)} style={{ padding: 8 }}>
+              <TouchableOpacity onPress={() => setReviewsModalVisible(false)} style={{ padding: 8 }} activeOpacity={0.7}>
                 <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.primary }}>Close</Text>
-              </Pressable>
+              </TouchableOpacity>
             </View>
             {myReviewsLoading ? (
               <View style={{ padding: 32, alignItems: 'center' }}>
@@ -562,12 +565,13 @@ export default function ProfileScreen() {
             ) : (
               <ScrollView style={{ maxHeight: 400 }} contentContainerStyle={{ paddingBottom: 24 }}>
                 {myReviews.map((r) => (
-                  <Pressable
+                  <TouchableOpacity
                     key={r.id}
                     onPress={() => {
                       setReviewsModalVisible(false);
                       router.push(`/vendors/${r.vendor_id}`);
                     }}
+                    activeOpacity={0.7}
                     style={{
                       paddingHorizontal: 20,
                       paddingVertical: 14,
@@ -590,7 +594,7 @@ export default function ProfileScreen() {
                       </Text>
                     ) : null}
                     <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 6 }}>View vendor →</Text>
-                  </Pressable>
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
             )}
@@ -638,9 +642,9 @@ export default function ProfileScreen() {
               }}
             >
               <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>Workshops attended</Text>
-              <Pressable onPress={() => setWorkshopsModalVisible(false)} style={{ padding: 8 }}>
+              <TouchableOpacity onPress={() => setWorkshopsModalVisible(false)} style={{ padding: 8 }} activeOpacity={0.7}>
                 <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.primary }}>Close</Text>
-              </Pressable>
+              </TouchableOpacity>
             </View>
             {attendedWorkshopsLoading ? (
               <View style={{ padding: 32, alignItems: 'center' }}>
@@ -656,7 +660,7 @@ export default function ProfileScreen() {
             ) : (
               <ScrollView style={{ maxHeight: 400 }} contentContainerStyle={{ paddingBottom: 24 }}>
                 {attendedWorkshops.map((w) => (
-                  <Pressable
+                  <TouchableOpacity
                     key={w.id}
                     onPress={() => {
                       if (w.vendor_id) {
@@ -664,6 +668,7 @@ export default function ProfileScreen() {
                         router.push(`/vendors/${w.vendor_id}?eventId=${w.event_id}`);
                       }
                     }}
+                    activeOpacity={0.7}
                     style={{
                       paddingHorizontal: 20,
                       paddingVertical: 14,
@@ -685,7 +690,7 @@ export default function ProfileScreen() {
                     {w.vendor_id ? (
                       <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 6 }}>View workshop →</Text>
                     ) : null}
-                  </Pressable>
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
             )}

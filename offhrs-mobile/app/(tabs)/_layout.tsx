@@ -57,7 +57,7 @@ function TabIcon({
   );
 }
 
-const ANDROID_SCENE_PADDING_BOTTOM = 120;
+const ANDROID_SCENE_PADDING_BOTTOM = 132;
 
 function CustomTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
   const { width: screenWidth } = useWindowDimensions();
@@ -65,7 +65,7 @@ function CustomTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
   const barWidth = screenWidth - HORIZONTAL_PADDING * 2;
   const barLeft = (screenWidth - barWidth) / 2;
   const bottomInset =
-    Platform.OS === 'ios' ? 28 : Math.max(insets.bottom, 48) + 16;
+    Platform.OS === 'ios' ? 28 : Math.max(insets.bottom, 24) + 8;
 
   const routes = state.routes.filter((r) => r.name !== 'explore');
 

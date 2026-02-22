@@ -11,6 +11,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/contexts/AuthContext';
 import { processAuthCallbackUrl } from '@/lib/auth-callback-url';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const ROOT_BG = '#ECEFE5';
 
@@ -77,23 +78,25 @@ export default function RootLayout() {
   }, [router]);
 
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <ThemeProvider value={DefaultTheme}>
-          <Stack
-            screenOptions={{
-              contentStyle: { backgroundColor: ROOT_BG },
-            }}
-          >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="login" options={{ headerShown: false }} />
-            <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
-            <Stack.Screen name="vendors/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-          </Stack>
-          <StatusBar style="dark" />
-        </ThemeProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <ThemeProvider value={DefaultTheme}>
+            <Stack
+              screenOptions={{
+                contentStyle: { backgroundColor: ROOT_BG },
+              }}
+            >
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="login" options={{ headerShown: false }} />
+              <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+              <Stack.Screen name="vendors/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+            </Stack>
+            <StatusBar style="dark" />
+          </ThemeProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

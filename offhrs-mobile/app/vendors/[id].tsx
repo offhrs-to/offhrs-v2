@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
   Dimensions,
   Modal,
@@ -11,7 +12,6 @@ import {
   Image,
   Linking,
   TextInput,
-  TouchableOpacity,
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 
@@ -409,10 +409,11 @@ export default function VendorProfileScreen() {
                   )}
                 </View>
                 {quickViewEvent.id != null && (
-                  <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}>
+                  <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 10 }}>
                     <TouchableOpacity
                       onPress={handleQuickViewSave}
                       disabled={quickViewSaving}
+                      activeOpacity={0.7}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                       style={{ position: 'absolute', top: 12, right: 12, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.95)' }}
                     >

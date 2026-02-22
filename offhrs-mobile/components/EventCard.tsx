@@ -41,7 +41,7 @@ interface EventCardProps {
 export const CARD_IMAGE_HEIGHT = 140;
 export const CARD_BODY_HEIGHT = 132;
 /** Slightly taller body on Android so Vendor/Book buttons are not clipped (e.g. by density/font scaling). */
-const CARD_BODY_HEIGHT_ANDROID = 142;
+const CARD_BODY_HEIGHT_ANDROID = 148;
 export const CARD_TOTAL_HEIGHT = CARD_IMAGE_HEIGHT + CARD_BODY_HEIGHT;
 export const CARD_TOTAL_HEIGHT_ANDROID = CARD_IMAGE_HEIGHT + CARD_BODY_HEIGHT_ANDROID;
 
