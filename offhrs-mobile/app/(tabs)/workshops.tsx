@@ -16,7 +16,7 @@ import * as Linking from 'expo-linking';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { createElement, useCallback, useEffect, useState } from 'react';
-import { TouchableOpacity } from 'react-native-gesture-handler';
+import { TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import {
   Dimensions,
   Modal,
@@ -26,8 +26,12 @@ import {
   ScrollView,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
+
+/** On Android, Modal renders in a separate window; gesture-handler touchables often don't receive touches. Use RN TouchableOpacity there. */
+const SaveButtonTouchable = Platform.OS === 'android' ? TouchableOpacity : GHTouchableOpacity;
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 type EventWithCoords = Event & {
@@ -535,7 +539,7 @@ export default function WorkshopsScreen() {
           onPress={() => setViewMode((m) => (m === 'list' ? 'map' : 'list'))}
           style={{
             position: 'absolute',
-            bottom: Platform.OS === 'ios' ? 84 : 88,
+            bottom: Platform.OS === 'ios' ? 84 : 92,
             right: DesignSpacing.horizontalPadding,
             width: 56,
             height: 56,
@@ -590,10 +594,11 @@ export default function WorkshopsScreen() {
                     </View>
                   )}
                 </View>
-                {/* Dedicated overlay for Save – sibling to image/content, not clipped by card overflow. Gesture-handler TouchableOpacity for reliable taps in Modal on Android. */}
+                {/* Dedicated overlay for Save. On Android use RN TouchableOpacity (reliable inside Modal); on iOS use gesture-handler. */}
                 {quickViewEvent.id != null && (
                   <View
                     pointerEvents="box-none"
+                    collapsable={Platform.OS !== 'android'}
                     style={{
                       position: 'absolute',
                       top: 0,
@@ -601,9 +606,10 @@ export default function WorkshopsScreen() {
                       right: 0,
                       height: 200,
                       zIndex: 10,
+                      elevation: Platform.OS === 'android' ? 10 : undefined,
                     }}
                   >
-                    <TouchableOpacity
+                    <SaveButtonTouchable
                       onPress={handleQuickViewSave}
                       disabled={quickViewSaving}
                       activeOpacity={0.7}
@@ -616,12 +622,13 @@ export default function WorkshopsScreen() {
                         paddingHorizontal: 16,
                         borderRadius: 20,
                         backgroundColor: 'rgba(255,255,255,0.95)',
+                        elevation: Platform.OS === 'android' ? 4 : undefined,
                       }}
                     >
                       <Text style={{ fontSize: 14, fontWeight: '700', color: quickViewSaved ? DesignColors.primary : DesignColors.charcoal }}>
                         {quickViewSaved ? 'Saved ✓' : 'Save'}
                       </Text>
-                    </TouchableOpacity>
+                    </SaveButtonTouchable>
                   </View>
                 )}
                 <View style={{ padding: 16, paddingTop: 12 }}>

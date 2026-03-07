@@ -327,7 +327,21 @@ export default function HomeScreen() {
             contentFit="contain"
           />
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
+          <View style={{ marginRight: 12 }}>
+            <Text
+              className="text-xs"
+              style={{ color: MEDIUM_GRAY }}
+            >
+              Welcome
+            </Text>
+            <Text
+              className="text-xl font-bold"
+              style={{ color: CHARCOAL }}
+            >
+              {displayName}
+            </Text>
+          </View>
           <View
             style={{
               width: AVATAR_SIZE,
@@ -348,20 +362,6 @@ export default function HomeScreen() {
             ) : (
               <UserCircleIcon size={isAndroid ? 32 : 36} color={MEDIUM_GRAY} />
             )}
-          </View>
-          <View style={{ marginLeft: 12 }}>
-            <Text
-              className="text-xs"
-              style={{ color: MEDIUM_GRAY }}
-            >
-              Welcome
-            </Text>
-            <Text
-              className="text-xl font-bold"
-              style={{ color: CHARCOAL }}
-            >
-              {displayName}
-            </Text>
           </View>
         </View>
       </View>

@@ -310,7 +310,7 @@ export default function ProfileScreen() {
         contentContainerStyle={{
           flexGrow: 1,
           paddingTop: DesignSpacing.contentPaddingTop,
-          paddingBottom: Platform.OS === 'android' ? 128 : DesignSpacing.contentPaddingBottom,
+          paddingBottom: Platform.OS === 'android' ? 168 : DesignSpacing.contentPaddingBottom,
           paddingHorizontal: DesignSpacing.horizontalPadding,
         }}
       >
@@ -320,7 +320,7 @@ export default function ProfileScreen() {
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: 24,
+          marginBottom: Platform.OS === 'android' ? 16 : 24,
         }}
       >
         <View style={{ marginLeft: DesignSpacing.logoMarginLeft, paddingLeft: 0 }}>
@@ -363,7 +363,7 @@ export default function ProfileScreen() {
           borderRadius: 48,
           backgroundColor: DesignColors.primary,
           alignSelf: 'center',
-          marginBottom: 12,
+          marginBottom: Platform.OS === 'android' ? 8 : 12,
           overflow: 'hidden',
           justifyContent: 'center',
           alignItems: 'center',
@@ -397,28 +397,37 @@ export default function ProfileScreen() {
           fontSize: 15,
           color: DesignColors.primary,
           textAlign: 'center',
-          marginBottom: 20,
+          marginBottom: Platform.OS === 'android' ? 12 : 20,
         }}
       >
         {level}
         {typeof points === 'number' ? ` • ${progressLabel}` : ''}
       </Text>
 
-      {/* Stats row – horizontal, with dividers */}
+      {/* Stats row – horizontal, with dividers (Android: even columns like iOS) */}
       <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-around',
-          paddingVertical: 16,
-          marginBottom: 20,
-          borderTopWidth: 1,
-          borderBottomWidth: 1,
-          borderColor: DesignColors.lightGreenBorder,
-        }}
+        style={[
+          {
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingVertical: 16,
+            marginBottom: Platform.OS === 'android' ? 14 : 20,
+            borderTopWidth: 1,
+            borderBottomWidth: 1,
+            borderColor: DesignColors.lightGreenBorder,
+          },
+          Platform.OS === 'android' && {
+            justifyContent: 'space-between',
+            paddingHorizontal: 0,
+          },
+          Platform.OS !== 'android' && { justifyContent: 'space-around' },
+        ]}
       >
         <TouchableOpacity
-          style={{ alignItems: 'center', flex: 1 }}
+          style={[
+            { alignItems: 'center', flex: 1 },
+            Platform.OS === 'android' && { minWidth: 0, justifyContent: 'center' },
+          ]}
           onPress={() => {
             setWorkshopsModalVisible(true);
             fetchAttendedWorkshops();
@@ -430,7 +439,10 @@ export default function ProfileScreen() {
         </TouchableOpacity>
         <View style={{ width: 1, height: 32, backgroundColor: DesignColors.lightGreenBorder }} />
         <Pressable
-          style={{ alignItems: 'center', flex: 1 }}
+          style={[
+            { alignItems: 'center', flex: 1 },
+            Platform.OS === 'android' && { minWidth: 0, justifyContent: 'center' },
+          ]}
           onPress={() => {
             setSavedModalVisible(true);
             fetchSavedEvents();
@@ -441,7 +453,10 @@ export default function ProfileScreen() {
         </Pressable>
         <View style={{ width: 1, height: 32, backgroundColor: DesignColors.lightGreenBorder }} />
         <TouchableOpacity
-          style={{ alignItems: 'center', flex: 1 }}
+          style={[
+            { alignItems: 'center', flex: 1 },
+            Platform.OS === 'android' && { minWidth: 0, justifyContent: 'center' },
+          ]}
           onPress={() => {
             setReviewsModalVisible(true);
             fetchMyReviews();
@@ -459,7 +474,7 @@ export default function ProfileScreen() {
           fontSize: 18,
           fontWeight: '700',
           color: DesignColors.charcoal,
-          marginBottom: 12,
+          marginBottom: Platform.OS === 'android' ? 8 : 12,
         }}
       >
         Account details
@@ -470,14 +485,14 @@ export default function ProfileScreen() {
           borderRadius: DesignSpacing.heroCardBorderRadius,
           borderWidth: 1,
           borderColor: DesignColors.lightGreenBorder,
-          padding: 20,
+          padding: Platform.OS === 'android' ? 14 : 20,
         }}
       >
-        <View style={{ marginBottom: 16 }}>
+        <View style={{ marginBottom: Platform.OS === 'android' ? 12 : 16 }}>
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 4 }}>Name</Text>
           <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>{displayName}</Text>
         </View>
-        <View style={{ marginBottom: 16 }}>
+        <View style={{ marginBottom: Platform.OS === 'android' ? 12 : 16 }}>
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 4 }}>Email</Text>
           <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>{email}</Text>
         </View>
@@ -487,21 +502,22 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <Pressable
+      <TouchableOpacity
         onPress={() => {
           const base = (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.app';
           Linking.openURL(`${base}/privacy`);
         }}
-        style={{ marginTop: 20, paddingVertical: 12, alignItems: 'center' }}
+        style={{ marginTop: Platform.OS === 'android' ? 14 : 20, paddingVertical: 12, alignItems: 'center' }}
+        activeOpacity={0.7}
       >
         <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>Privacy Policy</Text>
-      </Pressable>
+      </TouchableOpacity>
 
       <Pressable
         onPress={() => signOut()}
         style={{
-          marginTop: 32,
-          marginBottom: 24,
+          marginTop: Platform.OS === 'android' ? 20 : 32,
+          marginBottom: Platform.OS === 'android' ? 16 : 24,
           paddingVertical: DesignSpacing.ctaPaddingVertical,
           borderRadius: 9999,
           backgroundColor: '#B91C1C',

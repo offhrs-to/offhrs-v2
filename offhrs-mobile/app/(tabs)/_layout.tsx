@@ -65,7 +65,7 @@ function CustomTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
   const barWidth = screenWidth - HORIZONTAL_PADDING * 2;
   const barLeft = (screenWidth - barWidth) / 2;
   const bottomInset =
-    Platform.OS === 'ios' ? 28 : Math.max(insets.bottom, 24) + 8;
+    Platform.OS === 'ios' ? 28 : Math.max(insets.bottom, 12) + 4;
 
   const routes = state.routes.filter((r) => r.name !== 'explore');
 
