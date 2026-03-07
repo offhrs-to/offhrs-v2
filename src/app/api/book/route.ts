@@ -4,11 +4,27 @@ import { getRateLimitKey, rateLimit } from '@/lib/rate-limit'
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 
-const BOOK_RATE_LIMIT = 15 // per minute per IP
+const BOOK_RATE_LIMIT = 15 // per minute per IP (and per user when authenticated)
 
 export async function POST(request: NextRequest) {
   try {
-    const key = getRateLimitKey(request)
+    // Resolve user first for IP + user-based rate limiting (OWASP API4)
+    let supabase = await createClient()
+    let user = (await supabase.auth.getUser()).data.user
+    const authHeader = request.headers.get('authorization')
+    if (!user && authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7)
+      const { createClient: createSupabase } = await import('@supabase/supabase-js')
+      const client = createSupabase(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { global: { headers: { Authorization: `Bearer ${token}` } } }
+      )
+      user = (await client.auth.getUser()).data.user
+      supabase = client
+    }
+
+    const key = getRateLimitKey(request, user?.id)
     if (!rateLimit(`book:${key}`, BOOK_RATE_LIMIT)) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
@@ -23,22 +39,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 400 })
     }
     const { event_id } = parsed.data
-
-    let supabase = await createClient()
-    let user = (await supabase.auth.getUser()).data.user
-
-    const authHeader = request.headers.get('authorization')
-    if (!user && authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.slice(7)
-      const { createClient: createSupabase } = await import('@supabase/supabase-js')
-      const client = createSupabase(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { global: { headers: { Authorization: `Bearer ${token}` } } }
-      )
-      user = (await client.auth.getUser()).data.user
-      supabase = client
-    }
 
     // Record redirect for admin count (logged-in and guest)
     const { error: redirectError } = await supabase.from('event_redirects').insert({

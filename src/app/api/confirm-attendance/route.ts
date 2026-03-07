@@ -9,6 +9,9 @@ const CONFIRM_RATE_LIMIT = 30 // per minute per IP (token guessing)
 export async function GET(request: NextRequest) {
   const key = getRateLimitKey(request)
   if (!rateLimit(`confirm:${key}`, CONFIRM_RATE_LIMIT)) {
+    if (request.headers.get('accept')?.includes('application/json')) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
     return NextResponse.redirect(new URL('/profile?error=too_many_requests', request.url))
   }
 

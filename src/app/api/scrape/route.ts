@@ -1,9 +1,17 @@
 import { scrapeBodySchema } from '@/lib/api-validation'
+import { getRateLimitKey, rateLimit } from '@/lib/rate-limit'
 import { NextResponse } from 'next/server'
 import * as cheerio from 'cheerio'
 
+const SCRAPE_RATE_LIMIT = 15 // per minute per IP (expensive endpoint)
+
 export async function POST(request: Request) {
   try {
+    const key = getRateLimitKey(request)
+    if (!rateLimit(`scrape:${key}`, SCRAPE_RATE_LIMIT)) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     const raw = await request.json()
     if (typeof raw !== 'object' || raw === null) {
       return NextResponse.json({ error: 'Invalid body' }, { status: 400 })

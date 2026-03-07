@@ -36,9 +36,14 @@ export function rateLimit(key: string, limit: number): boolean {
   return entry.count <= limit
 }
 
-/** Get client identifier from request (IP or x-forwarded-for). */
-export function getRateLimitKey(request: Request): string {
+/**
+ * Get client identifier for rate limiting (IP from x-forwarded-for / x-real-ip).
+ * Optionally append userId for per-user limits when authenticated (IP + user-based).
+ */
+export function getRateLimitKey(request: Request, userId?: string | null): string {
   const forwarded = request.headers.get('x-forwarded-for')
   const ip = forwarded ? forwarded.split(',')[0]?.trim() : null
-  return ip ?? request.headers.get('x-real-ip') ?? 'unknown'
+  const base = ip ?? request.headers.get('x-real-ip') ?? 'unknown'
+  if (userId != null && userId !== '') return `${base}:${userId}`
+  return base
 }

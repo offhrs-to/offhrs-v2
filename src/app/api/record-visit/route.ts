@@ -1,9 +1,11 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getRateLimitKey, rateLimit } from '@/lib/rate-limit'
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 
 const VISITOR_COOKIE = 'vid'
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60 // 1 year
+const RECORD_VISIT_RATE_LIMIT = 120 // per minute per IP
 
 /**
  * POST /api/record-visit
@@ -11,6 +13,11 @@ const COOKIE_MAX_AGE = 365 * 24 * 60 * 60 // 1 year
  * Call from the webapp (e.g. layout) with credentials: 'include'.
  */
 export async function POST(request: NextRequest) {
+  const key = getRateLimitKey(request)
+  if (!rateLimit(`record-visit:${key}`, RECORD_VISIT_RATE_LIMIT)) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   let visitorId = request.cookies.get(VISITOR_COOKIE)?.value
   if (!visitorId || visitorId.length > 64) {
     visitorId = randomUUID()
