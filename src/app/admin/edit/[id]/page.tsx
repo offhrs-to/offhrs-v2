@@ -27,6 +27,7 @@ interface FormData {
   lat: string
   lng: string
   is_multiple_dates: boolean
+  duration_weeks: number
 }
 
 export default function AdminEditPage() {
@@ -46,6 +47,7 @@ export default function AdminEditPage() {
     lat: '',
     lng: '',
     is_multiple_dates: false,
+    duration_weeks: 1,
   })
   const [loading, setLoading] = useState(false)
   const [fetchingEvent, setFetchingEvent] = useState(true)
@@ -95,6 +97,7 @@ export default function AdminEditPage() {
           lat: lat,
           lng: lng,
           is_multiple_dates: data.is_multiple_dates || false,
+          duration_weeks: data.duration_weeks != null ? Math.max(1, Number(data.duration_weeks)) : 1,
         })
 
         // Set coordinates found if lat/lng exist
@@ -135,9 +138,9 @@ export default function AdminEditPage() {
   ) => {
     const { name, value, type } = e.target
     const checked = (e.target as HTMLInputElement).checked
-    setFormData((prev) => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === 'duration_weeks' ? (parseInt(value, 10) || 1) : type === 'checkbox' ? checked : value,
     }))
     // Clear error when user starts typing
     if (error) setError(null)
@@ -266,6 +269,7 @@ export default function AdminEditPage() {
         lat: lat || null,
         lng: lng || null,
         is_multiple_dates: formData.is_multiple_dates,
+        duration_weeks: Math.max(1, formData.duration_weeks),
       }
 
       // Validate required fields
@@ -441,6 +445,21 @@ export default function AdminEditPage() {
                   placeholder="e.g., Free, $25, $50-100"
                   disabled={loading}
                 />
+              </div>
+
+              {/* Duration (weeks) */}
+              <div className="space-y-2">
+                <Label htmlFor="duration_weeks">Duration (weeks)</Label>
+                <Input
+                  id="duration_weeks"
+                  name="duration_weeks"
+                  type="number"
+                  min={1}
+                  value={formData.duration_weeks}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+                <p className="text-xs text-slate-500">Used for XP when attendees confirm (e.g. 8-week workshop = 8 points).</p>
               </div>
 
               {/* Date */}

@@ -12,14 +12,14 @@ import { supabase } from '@/lib/supabase';
 import { CATEGORIES } from '@/constants/categories';
 import { DesignColors } from '@/constants/design-template';
 
-// Points align with level progression: each level = 10 pts (Novice 0, Intermediate 10, Advanced 20, Expert 30, Master 40)
+// Points align with level progression: each level = 8 pts (Novice 0, Intermediate 8, Advanced 16, Expert 24, Master 32)
 const EXPERIENCE_OPTIONS = [
   { value: 'no_experience', label: 'No experience', level: 'Novice', points: 0 },
   { value: '0-1', label: '0-1 year', level: 'Novice', points: 0 },
-  { value: '2-3', label: '2-3 years', level: 'Intermediate', points: 10 },
-  { value: '3-5', label: '3-5 years', level: 'Advanced', points: 20 },
-  { value: '5-10', label: '5-10 years', level: 'Expert', points: 30 },
-  { value: '10+', label: '10+ years', level: 'Master', points: 40 },
+  { value: '2-3', label: '2-3 years', level: 'Intermediate', points: 8 },
+  { value: '3-5', label: '3-5 years', level: 'Advanced', points: 16 },
+  { value: '5-10', label: '5-10 years', level: 'Expert', points: 24 },
+  { value: '10+', label: '10+ years', level: 'Master', points: 32 },
 ] as const;
 
 export default function OnboardingModal({

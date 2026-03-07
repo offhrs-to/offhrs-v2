@@ -292,6 +292,12 @@ export default function ProfileScreen() {
   const phone = profile?.phone || '—';
   const level = profile?.expertise_level || 'Novice';
   const points = profile?.experience_points ?? 0;
+  // Progression within current level: 0/8 … 8/8 (step 8 per level)
+  const LEVEL_STEP = 8;
+  const levelStarts: Record<string, number> = { Novice: 0, Intermediate: 8, Advanced: 16, Expert: 24, Master: 32 };
+  const start = levelStarts[level] ?? 0;
+  const pointsInSegment = Math.max(0, points - start);
+  const progressLabel = level === 'Master' ? 'Max' : `${Math.min(pointsInSegment, LEVEL_STEP)}/${LEVEL_STEP}`;
 
   return (
     <>
@@ -395,7 +401,7 @@ export default function ProfileScreen() {
         }}
       >
         {level}
-        {level !== 'Master' && typeof points === 'number' ? ` • ${points} pts` : ''}
+        {typeof points === 'number' ? ` • ${progressLabel}` : ''}
       </Text>
 
       {/* Stats row – horizontal, with dividers */}

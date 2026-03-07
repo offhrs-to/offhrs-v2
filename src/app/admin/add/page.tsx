@@ -26,6 +26,7 @@ interface FormData {
   lat: string
   lng: string
   is_multiple_dates: boolean
+  duration_weeks: number
 }
 
 export default function AdminAddPage() {
@@ -41,6 +42,7 @@ export default function AdminAddPage() {
     lat: '',
     lng: '',
     is_multiple_dates: false,
+    duration_weeks: 1,
   })
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -56,9 +58,9 @@ export default function AdminAddPage() {
   ) => {
     const { name, value, type } = e.target
     const checked = (e.target as HTMLInputElement).checked
-    setFormData((prev) => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === 'duration_weeks' ? (parseInt(value, 10) || 1) : type === 'checkbox' ? checked : value,
     }))
     // Clear error when user starts typing
     if (error) setError(null)
@@ -185,6 +187,7 @@ export default function AdminAddPage() {
         lat: lat || null,
         lng: lng || null,
         is_multiple_dates: formData.is_multiple_dates,
+        duration_weeks: Math.max(1, formData.duration_weeks),
       }
 
       // Validate required fields
@@ -213,6 +216,7 @@ export default function AdminAddPage() {
         lat: '',
         lng: '',
         is_multiple_dates: false,
+        duration_weeks: 1,
       })
       setUrlInput('')
       setCoordinatesFound(false)
@@ -382,6 +386,21 @@ export default function AdminAddPage() {
                   placeholder="e.g., Free, $25, $50-100"
                   disabled={loading}
                 />
+              </div>
+
+              {/* Duration (weeks) */}
+              <div className="space-y-2">
+                <Label htmlFor="duration_weeks">Duration (weeks)</Label>
+                <Input
+                  id="duration_weeks"
+                  name="duration_weeks"
+                  type="number"
+                  min={1}
+                  value={formData.duration_weeks}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+                <p className="text-xs text-slate-500">Used for XP when attendees confirm (e.g. 8-week workshop = 8 points).</p>
               </div>
 
               {/* Date */}

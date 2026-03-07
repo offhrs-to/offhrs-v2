@@ -37,6 +37,7 @@ export async function updateEvent(id: string, data: {
   lat: string | number | null
   lng: string | number | null
   is_multiple_dates: boolean
+  duration_weeks: number | null
 }) {
   try {
     // Handle lat/lng - convert to number or null
@@ -103,6 +104,7 @@ export async function updateEvent(id: string, data: {
         lat: lat,
         lng: lng,
         is_multiple_dates: data.is_multiple_dates,
+        duration_weeks: data.duration_weeks != null ? Math.max(1, data.duration_weeks) : null,
       })
       .eq('id', id)
 

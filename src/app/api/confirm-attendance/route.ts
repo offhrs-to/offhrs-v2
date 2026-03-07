@@ -70,10 +70,10 @@ export async function GET(request: NextRequest) {
   }
 
   const levelThresholds: Record<string, number> = {
-    Novice: 10,
-    Intermediate: 20,
-    Advanced: 30,
-    Expert: 40,
+    Novice: 8,
+    Intermediate: 16,
+    Advanced: 24,
+    Expert: 32,
     Master: Infinity,
   }
   const levels = ['Novice', 'Intermediate', 'Advanced', 'Expert', 'Master'] as const
@@ -83,11 +83,12 @@ export async function GET(request: NextRequest) {
 
   const { data: event } = await db
     .from('events')
-    .select('category')
+    .select('category, duration_weeks')
     .eq('id', booking.event_id)
     .single()
 
   const eventCategory = event?.category?.trim() || null
+  const pointsToAdd = Math.max(1, event?.duration_weeks ?? 1)
 
   if (eventCategory) {
     const { data: catRow } = await db
@@ -98,11 +99,11 @@ export async function GET(request: NextRequest) {
       .maybeSingle()
 
     const currentPoints = catRow?.experience_points ?? 0
-    const newPoints = currentPoints + 1
+    const newPoints = currentPoints + pointsToAdd
     const currentLevel = (catRow?.expertise_level as (typeof levels)[number]) || 'Novice'
     const currentIndex = levels.indexOf(currentLevel)
     const nextLevel = levels[Math.min(currentIndex + 1, levels.length - 1)]!
-    const threshold = levelThresholds[currentLevel] ?? 10
+    const threshold = levelThresholds[currentLevel] ?? 8
     const newLevel = newPoints >= threshold ? nextLevel : currentLevel
 
     await db.from('profile_category_experience').upsert(
@@ -124,11 +125,11 @@ export async function GET(request: NextRequest) {
     .single()
 
   const currentPoints = profile?.experience_points ?? 0
-  const newPoints = currentPoints + 1
+  const newPoints = currentPoints + pointsToAdd
   const currentLevel = profile?.expertise_level || 'Novice'
   const currentIndex = levels.indexOf(currentLevel)
   const nextLevel = levels[Math.min(currentIndex + 1, levels.length - 1)]!
-  const threshold = levelThresholds[currentLevel] ?? 10
+  const threshold = levelThresholds[currentLevel] ?? 8
   const newLevel = newPoints >= threshold ? nextLevel : currentLevel
 
   await db

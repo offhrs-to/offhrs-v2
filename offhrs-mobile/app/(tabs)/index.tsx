@@ -51,13 +51,13 @@ const CATEGORY_BUTTON_HEIGHT = 56;
 const BROWSE_MARGIN_TOP = 12;
 const BROWSE_PADDING_VERTICAL = isAndroid ? 10 : 12;
 
-// Each level is 10 points; progression shown as X/10 for all levels (Novice → Master)
+// Each level is 8 points; progression shown as X/8 for all levels (Novice → Master)
 const LEVEL_THRESHOLDS: Record<string, { start: number; step: number }> = {
-  Novice: { start: 0, step: 10 },
-  Intermediate: { start: 10, step: 10 },
-  Advanced: { start: 20, step: 10 },
-  Expert: { start: 30, step: 10 },
-  Master: { start: 40, step: 0 },
+  Novice: { start: 0, step: 8 },
+  Intermediate: { start: 8, step: 8 },
+  Advanced: { start: 16, step: 8 },
+  Expert: { start: 24, step: 8 },
+  Master: { start: 32, step: 0 },
 };
 
 function getLevelProgress(level: string, points: number): { progress: number; label: string } {
@@ -725,16 +725,14 @@ export default function HomeScreen() {
                     >
                       {popupLevel}
                     </Text>
-                    {popupLevel !== 'Master' && (
-                      <Text
-                        style={{
-                          fontSize: 15,
-                          color: DesignColors.mediumGray,
-                        }}
-                      >
-                        {popupLabel}
-                      </Text>
-                    )}
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        color: DesignColors.mediumGray,
+                      }}
+                    >
+                      {popupLabel}
+                    </Text>
                   </>
                 )}
                 <Pressable

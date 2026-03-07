@@ -187,7 +187,7 @@ export default function ProfilePage() {
             <h1 className="text-xl font-bold text-gray-900">{displayName}</h1>
             {level && (
               <p className="text-xs text-[#5D755D] mt-0.5">
-                {level} {typeof points === 'number' ? `• ${points}/10 points` : ''}
+                {level} {typeof points === 'number' ? `• ${points}/8 points` : ''}
               </p>
             )}
             <Button
