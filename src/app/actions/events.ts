@@ -38,6 +38,7 @@ export async function updateEvent(id: string, data: {
   lng: string | number | null
   is_multiple_dates: boolean
   duration_weeks: number | null
+  recurrence?: 'none' | 'daily' | 'weekly'
 }) {
   try {
     // Handle lat/lng - convert to number or null
@@ -105,6 +106,7 @@ export async function updateEvent(id: string, data: {
         lng: lng,
         is_multiple_dates: data.is_multiple_dates,
         duration_weeks: data.duration_weeks != null ? Math.max(1, data.duration_weeks) : null,
+        recurrence: data.recurrence ?? 'none',
       })
       .eq('id', id)
 

@@ -191,7 +191,7 @@ export default function WorkshopsScreen() {
       setLoading(true);
       let query = supabase
         .from('events')
-        .select('id, title, date, location, image_url, price, external_link, category, lat, lng, vendor_id')
+        .select('id, title, date, location, image_url, price, external_link, category, lat, lng, vendor_id, recurrence')
         .order('date', { ascending: true });
 
       if (searchTerm.trim()) {
@@ -207,6 +207,8 @@ export default function WorkshopsScreen() {
       if (error) throw error;
 
       const now = new Date();
+      const isRecurring = (row: { recurrence?: string | null }) =>
+        row.recurrence === 'daily' || row.recurrence === 'weekly';
       const list = (data ?? [])
         .map((row) => ({
           id: row.id,
@@ -220,9 +222,10 @@ export default function WorkshopsScreen() {
           lat: row.lat ?? null,
           lng: row.lng ?? null,
           vendor_id: row.vendor_id ?? null,
+          recurrence: row.recurrence ?? null,
         }))
-        // Exclude expired workshops (event date in the past); they remain visible in /admin for redirect review
-        .filter((e) => !e.date_iso || new Date(e.date_iso) > now)
+        // Exclude expired workshops (event date in the past); recurring events (daily/weekly) never expire
+        .filter((e) => isRecurring(e) || !e.date_iso || new Date(e.date_iso) > now)
         .filter((e) => {
           if (!e.date_iso) return !dateRangeStart && !dateRangeEnd;
           const eventDate = e.date_iso.slice(0, 10);

@@ -1,17 +1,21 @@
 import '../global.css';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Modal, Platform } from 'react-native';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import AppIntroScreen from '@/components/AppIntroScreen';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { processAuthCallbackUrl } from '@/lib/auth-callback-url';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+const HAS_SEEN_APP_INTRO_KEY = '@offhrs/hasSeenAppIntro';
 
 const ROOT_BG = '#ECEFE5';
 
@@ -21,9 +25,18 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const router = useRouter();
+  const [showAppIntro, setShowAppIntro] = useState(false);
 
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(ROOT_BG);
+  }, []);
+
+  // First-launch app intro: show once per install on native only
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    AsyncStorage.getItem(HAS_SEEN_APP_INTRO_KEY).then((seen) => {
+      if (seen !== 'true') setShowAppIntro(true);
+    });
   }, []);
 
   // Process OAuth callback when app opens from browser (e.g. "Open in offhrs-mobile")
@@ -77,6 +90,11 @@ export default function RootLayout() {
     };
   }, [router]);
 
+  const handleAppIntroDone = () => {
+    AsyncStorage.setItem(HAS_SEEN_APP_INTRO_KEY, 'true');
+    setShowAppIntro(false);
+  };
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -93,6 +111,11 @@ export default function RootLayout() {
               <Stack.Screen name="vendors/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             </Stack>
+            {showAppIntro && (
+              <Modal visible transparent={false} animationType="fade">
+                <AppIntroScreen onDone={handleAppIntroDone} />
+              </Modal>
+            )}
             <StatusBar style="dark" />
           </ThemeProvider>
         </AuthProvider>

@@ -25,6 +25,7 @@ interface Event {
   image_url: string | null
   external_link: string | null
   category: string | null
+  recurrence?: string | null
 }
 
 interface Review {
@@ -57,7 +58,7 @@ export default function VendorProfilePage() {
       supabase.from('vendors').select('id, name').eq('id', vendorId).single(),
       supabase
         .from('events')
-        .select('id, title, date, location, image_url, external_link, category')
+        .select('id, title, date, location, image_url, external_link, category, recurrence')
         .eq('vendor_id', vendorId)
         .order('date', { ascending: true }),
       supabase
@@ -147,7 +148,9 @@ export default function VendorProfilePage() {
 
   const startOfToday = new Date()
   startOfToday.setHours(0, 0, 0, 0)
+  const isRecurring = (e: Event) => e.recurrence === 'daily' || e.recurrence === 'weekly'
   const upcomingEvents = events.filter((e) => {
+    if (isRecurring(e)) return true
     if (!e.date) return false
     const eventDate = new Date(e.date)
     return eventDate >= startOfToday

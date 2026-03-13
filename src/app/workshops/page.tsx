@@ -31,6 +31,7 @@ interface EventRow {
   vendor_id: string | null
   lat?: number | null
   lng?: number | null
+  recurrence?: string | null
 }
 
 const DEFAULT_MAP_CENTER: [number, number] = [43.6532, -79.3832]
@@ -77,7 +78,7 @@ export default function WorkshopsPage() {
     try {
       let query = supabase
         .from('events')
-        .select('id, title, description, date, location, image_url, external_link, category, is_multiple_dates, price, vendor_id, lat, lng')
+        .select('id, title, description, date, location, image_url, external_link, category, is_multiple_dates, price, vendor_id, lat, lng, recurrence')
         .order('date', { ascending: true, nullsFirst: false })
 
       if (debouncedSearch.trim()) {
@@ -94,9 +95,10 @@ export default function WorkshopsPage() {
 
       const list = (data as EventRow[]) ?? []
       const now = new Date()
-      // Exclude expired workshops (event date in the past); they remain visible in /admin for redirect review
+      const isRecurring = (e: EventRow) => e.recurrence === 'daily' || e.recurrence === 'weekly'
+      // Exclude expired workshops (event date in the past); recurring events (daily/weekly) never expire
       const upcoming = list.filter(
-        (e) => !e.date || new Date(e.date) > now
+        (e) => isRecurring(e) || !e.date || new Date(e.date) > now
       )
       const byDateRange = upcoming.filter((e) => {
         if (!e.date) return !dateRangeStart && !dateRangeEnd

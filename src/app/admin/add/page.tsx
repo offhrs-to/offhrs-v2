@@ -14,6 +14,8 @@ import { Badge } from '@/components/ui/badge'
 import { fetchUrlMetadata } from '@/app/actions/fetch-metadata'
 import { geocodeAddress } from '@/lib/geocode'
 
+type Recurrence = 'none' | 'daily' | 'weekly'
+
 interface FormData {
   title: string
   category: string
@@ -27,6 +29,7 @@ interface FormData {
   lng: string
   is_multiple_dates: boolean
   duration_weeks: number
+  recurrence: Recurrence
 }
 
 export default function AdminAddPage() {
@@ -43,6 +46,7 @@ export default function AdminAddPage() {
     lng: '',
     is_multiple_dates: false,
     duration_weeks: 1,
+    recurrence: 'none',
   })
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -188,6 +192,7 @@ export default function AdminAddPage() {
         lng: lng || null,
         is_multiple_dates: formData.is_multiple_dates,
         duration_weeks: Math.max(1, formData.duration_weeks),
+        recurrence: formData.recurrence,
       }
 
       // Validate required fields
@@ -217,6 +222,7 @@ export default function AdminAddPage() {
         lng: '',
         is_multiple_dates: false,
         duration_weeks: 1,
+        recurrence: 'none',
       })
       setUrlInput('')
       setCoordinatesFound(false)
@@ -405,11 +411,11 @@ export default function AdminAddPage() {
 
               {/* Date */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <Label htmlFor="date">
                     {formData.is_multiple_dates ? 'Next Upcoming Date (For Sorting)' : 'Date & Time'}
                   </Label>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <input
                       type="checkbox"
                       id="is_multiple_dates"
@@ -422,6 +428,25 @@ export default function AdminAddPage() {
                     <Label htmlFor="is_multiple_dates" className="text-sm font-normal cursor-pointer">
                       This event has multiple dates
                     </Label>
+                    <Button
+                      type="button"
+                      variant={formData.recurrence === 'weekly' ? 'default' : 'outline'}
+                      size="sm"
+                      className="ml-2"
+                      disabled={loading}
+                      onClick={() => setFormData((prev) => ({ ...prev, recurrence: prev.recurrence === 'weekly' ? 'none' : 'weekly' }))}
+                    >
+                      Renew event every week
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={formData.recurrence === 'daily' ? 'default' : 'outline'}
+                      size="sm"
+                      disabled={loading}
+                      onClick={() => setFormData((prev) => ({ ...prev, recurrence: prev.recurrence === 'daily' ? 'none' : 'daily' }))}
+                    >
+                      Renew event every day
+                    </Button>
                   </div>
                 </div>
                 <Input
