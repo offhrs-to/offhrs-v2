@@ -76,15 +76,40 @@ export default function WorkshopsPage() {
     const supabase = createClient()
     setLoading(true)
     try {
+      let searchRawWords: string[] = []
+      let searchVendorIds: string[] = []
+
       let query = supabase
         .from('events')
         .select('id, title, description, date, location, image_url, external_link, category, is_multiple_dates, price, vendor_id, lat, lng, recurrence')
         .order('date', { ascending: true, nullsFirst: false })
 
       if (debouncedSearch.trim()) {
-        query = query.or(
-          `title.ilike.%${debouncedSearch.trim()}%,category.ilike.%${debouncedSearch.trim()}%`
+        const term = debouncedSearch.trim()
+        searchRawWords = term.split(/\s+/).filter(Boolean)
+        const escapedWords = searchRawWords.map((w) => w.replace(/%/g, '\\%'))
+        // Vendors whose name contains ALL words (any order)
+        if (escapedWords.length > 0) {
+          const idSets: Set<string>[] = []
+          for (const word of escapedWords) {
+            const { data: rows } = await supabase
+              .from('vendors')
+              .select('id')
+              .ilike('name', `%${word}%`)
+            idSets.push(new Set((rows ?? []).map((v) => v.id).filter(Boolean)))
+          }
+          let intersect = new Set(idSets[0])
+          for (let i = 1; i < idSets.length; i++) {
+            intersect = new Set([...intersect].filter((id) => idSets[i].has(id)))
+          }
+          searchVendorIds = [...intersect]
+        }
+        const orParts = escapedWords.flatMap(
+          (w) => [`title.ilike.%${w}%`, `category.ilike.%${w}%`]
         )
+        if (searchVendorIds.length > 0) orParts.push(`vendor_id.in.(${searchVendorIds.join(',')})`)
+        const orClause = orParts.length > 0 ? orParts.join(',') : 'id.eq.-1'
+        query = query.or(orClause)
       }
       if (selectedCategory !== 'All') {
         query = query.eq('category', selectedCategory)
@@ -107,7 +132,21 @@ export default function WorkshopsPage() {
         if (dateRangeEnd && eventDate > dateRangeEnd) return false
         return true
       })
-      setEvents(byDateRange)
+      // When searching: keep only events where vendor matches OR title/category contains every word
+      const filtered =
+        searchRawWords.length > 0 || searchVendorIds.length > 0
+          ? byDateRange.filter((e) => {
+              if (searchVendorIds.length > 0 && e.vendor_id && searchVendorIds.includes(e.vendor_id))
+                return true
+              if (searchRawWords.length === 0) return true
+              return searchRawWords.every(
+                (w) =>
+                  (e.title?.toLowerCase().includes(w.toLowerCase()) ?? false) ||
+                  (e.category?.toLowerCase().includes(w.toLowerCase()) ?? false)
+              )
+            })
+          : byDateRange
+      setEvents(filtered)
     } catch (e) {
       console.error('Error fetching events:', e)
       setEvents([])

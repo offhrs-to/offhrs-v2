@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/send-confirmation-emails",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/renew-recurring-events",
+      "schedule": "0 1 * * *"
     }
   ]
 }
