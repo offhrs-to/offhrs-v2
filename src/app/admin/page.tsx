@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ExternalLink, Edit, Trash2, Loader2, LogOut } from 'lucide-react'
+import { ExternalLink, Edit, Trash2, Loader2, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import Navbar from '@/components/navbar'
 import { deleteEvent } from '@/app/actions/events'
@@ -22,6 +22,32 @@ interface Event {
 }
 
 type EventFilter = 'all' | 'upcoming' | 'expired'
+
+const PAGE_SIZES = [20, 50, 100] as const
+type PageSize = (typeof PAGE_SIZES)[number]
+
+/** Sorted unique page indices to show (1-based), with gaps filled by ellipsis in UI */
+function getVisiblePageNumbers(current: number, total: number): (number | 'ellipsis')[] {
+  if (total <= 9) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+  const set = new Set<number>()
+  set.add(1)
+  set.add(total)
+  for (let d = -2; d <= 2; d++) {
+    const p = current + d
+    if (p >= 1 && p <= total) set.add(p)
+  }
+  const sorted = [...set].sort((a, b) => a - b)
+  const out: (number | 'ellipsis')[] = []
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i] - sorted[i - 1] > 1) {
+      out.push('ellipsis')
+    }
+    out.push(sorted[i])
+  }
+  return out
+}
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -46,6 +72,8 @@ export default function AdminPage() {
     error?: string
   } | null>(null)
   const [dailyVisits, setDailyVisits] = useState<{ today: number; byDay: { date: string; count: number }[] } | null>(null)
+  const [pageSize, setPageSize] = useState<PageSize>(20)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const filteredEvents = events.filter((event) => {
     const isExpired = event.date != null && new Date(event.date) < new Date()
@@ -53,6 +81,22 @@ export default function AdminPage() {
     if (eventFilter === 'expired') return isExpired
     return true
   })
+
+  const totalFiltered = filteredEvents.length
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize) || 1)
+  const safePage = Math.min(currentPage, totalPages)
+  const pageStart = (safePage - 1) * pageSize
+  const paginatedEvents = filteredEvents.slice(pageStart, pageStart + pageSize)
+  const showingFrom = totalFiltered === 0 ? 0 : pageStart + 1
+  const showingTo = Math.min(pageStart + pageSize, totalFiltered)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [eventFilter])
+
+  useEffect(() => {
+    setCurrentPage((p) => Math.min(p, totalPages))
+  }, [totalPages])
 
   const getAdminHeaders = (): HeadersInit => {
     const h: HeadersInit = { 'Content-Type': 'application/json' }
@@ -267,7 +311,7 @@ export default function AdminPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
       <main className="container mx-auto px-4 py-12 max-w-7xl">
-        <div className="mb-8 flex justify-between items-start">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
           <div>
             <h1 className="text-4xl font-bold text-slate-900 mb-2">Admin Dashboard</h1>
             <p className="text-slate-600">Manage your workshop events</p>
@@ -282,17 +326,41 @@ export default function AdminPage() {
               </p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={async () => {
-              adminAuthRef.current = null
-              await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
-              setIsAuthenticated(false)
-            }}
-            className="flex items-center gap-2 text-sm text-red-600 hover:text-red-800"
-          >
-            <LogOut className="h-4 w-4" /> Logout
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-3 sm:shrink-0">
+            {events.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="admin-page-size" className="text-sm text-slate-600 whitespace-nowrap">
+                  Events per page
+                </label>
+                <select
+                  id="admin-page-size"
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value) as PageSize)
+                    setCurrentPage(1)
+                  }}
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-moss focus:outline-none focus:ring-1 focus:ring-moss min-w-[5.5rem]"
+                >
+                  {PAGE_SIZES.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={async () => {
+                adminAuthRef.current = null
+                await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
+                setIsAuthenticated(false)
+              }}
+              className="flex items-center gap-2 text-sm text-red-600 hover:text-red-800"
+            >
+              <LogOut className="h-4 w-4" /> Logout
+            </button>
+          </div>
         </div>
 
         {!loading && events.length > 0 && (
@@ -441,6 +509,11 @@ export default function AdminPage() {
               <CardTitle>
                 {eventFilter === 'all' ? 'All' : eventFilter === 'upcoming' ? 'Upcoming' : 'Expired'} Events ({filteredEvents.length})
               </CardTitle>
+              {totalFiltered > 0 && (
+                <p className="text-sm font-normal text-slate-500 mt-1">
+                  Showing {showingFrom}–{showingTo} of {totalFiltered}
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -456,7 +529,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredEvents.map((event) => {
+                    {paginatedEvents.map((event) => {
                       const redirects = redirectCounts[String(event.id)] ?? 0
                       return (
                         <tr key={event.id} className="border-b border-gray-100 hover:bg-slate-50/50">
@@ -554,6 +627,64 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
+              {totalFiltered > 0 && (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-6 pt-4 border-t border-slate-100">
+                  <p className="text-sm text-slate-600">
+                    Page {safePage} of {totalPages}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-300"
+                      disabled={safePage <= 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <div className="flex items-center gap-1 flex-wrap justify-center">
+                      {getVisiblePageNumbers(safePage, totalPages).map((item, idx) =>
+                        item === 'ellipsis' ? (
+                          <span
+                            key={`e-${idx}`}
+                            className="text-slate-400 px-1 text-sm select-none"
+                            aria-hidden
+                          >
+                            …
+                          </span>
+                        ) : (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => setCurrentPage(item)}
+                            className={`min-w-[2.25rem] rounded-md px-2 py-1.5 text-sm font-medium transition-colors ${
+                              item === safePage
+                                ? 'bg-moss text-white'
+                                : 'text-slate-700 hover:bg-slate-100'
+                            }`}
+                            aria-current={item === safePage ? 'page' : undefined}
+                          >
+                            {item}
+                          </button>
+                        )
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-300"
+                      disabled={safePage >= totalPages}
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
