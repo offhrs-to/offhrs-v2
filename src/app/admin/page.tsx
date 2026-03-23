@@ -4,17 +4,18 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ExternalLink, Edit, Trash2, Loader2, Image as ImageIcon, LogOut } from 'lucide-react'
-import Image from 'next/image'
+import { ExternalLink, Edit, Trash2, Loader2, LogOut } from 'lucide-react'
 import Link from 'next/link'
 import Navbar from '@/components/navbar'
 import { deleteEvent } from '@/app/actions/events'
+import { EventImageFallback } from '@/components/event-image-fallback'
 
 interface Event {
   id: string
   title: string
   date: string | null
   image_url: string | null
+  category: string | null
   created_at: string
   external_link: string | null
   is_multiple_dates: boolean | null
@@ -36,6 +37,8 @@ export default function AdminPage() {
   const [eventFilter, setEventFilter] = useState<EventFilter>('all')
   const [backfillLoading, setBackfillLoading] = useState(false)
   const [backfillResult, setBackfillResult] = useState<string | null>(null)
+  const [recurringBackfillLoading, setRecurringBackfillLoading] = useState(false)
+  const [recurringBackfillResult, setRecurringBackfillResult] = useState<string | null>(null)
   const [checkLinksLoading, setCheckLinksLoading] = useState(false)
   const [checkLinksResult, setCheckLinksResult] = useState<{
     summary: { total: number; ok: number; broken: number }
@@ -83,7 +86,7 @@ export default function AdminPage() {
       const [eventsRes, countsRes, visitsRes] = await Promise.all([
         supabase
           .from('events')
-          .select('id, title, date, image_url, created_at, external_link, is_multiple_dates')
+          .select('id, title, date, image_url, category, created_at, external_link, is_multiple_dates')
           .order('created_at', { ascending: false }),
         fetch('/api/admin/event-redirect-counts', { credentials: 'include', headers: getAdminHeaders() }).then((r) => (r.ok ? r.json() : { counts: {} })).catch(() => ({ counts: {} })),
         fetch('/api/admin/daily-visits', { credentials: 'include', headers: getAdminHeaders() }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
@@ -131,6 +134,31 @@ export default function AdminPage() {
       setBackfillResult(e instanceof Error ? e.message : 'Request failed')
     } finally {
       setBackfillLoading(false)
+    }
+  }
+
+  const handleBackfillRecurringInstances = async () => {
+    setRecurringBackfillLoading(true)
+    setRecurringBackfillResult(null)
+    try {
+      const res = await fetch('/api/admin/backfill-recurring-instances', {
+        method: 'POST',
+        credentials: 'include',
+        headers: getAdminHeaders(),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRecurringBackfillResult(data.error || `Error ${res.status}`)
+        return
+      }
+      setRecurringBackfillResult(
+        data.message ?? `Processed ${data.processed ?? 0}, inserted ${data.inserted ?? 0}.`
+      )
+      if ((data.inserted ?? 0) > 0 || (data.processed ?? 0) > 0) await fetchEvents()
+    } catch (e: unknown) {
+      setRecurringBackfillResult(e instanceof Error ? e.message : 'Request failed')
+    } finally {
+      setRecurringBackfillLoading(false)
     }
   }
 
@@ -303,6 +331,23 @@ export default function AdminPage() {
               type="button"
               variant="outline"
               size="sm"
+              onClick={handleBackfillRecurringInstances}
+              disabled={recurringBackfillLoading}
+              className="border-slate-300 text-slate-700 hover:bg-slate-50"
+            >
+              {recurringBackfillLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Expanding…
+                </>
+              ) : (
+                'Backfill recurring instances'
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               onClick={handleCheckLinks}
               disabled={checkLinksLoading}
               className="border-slate-300 text-slate-700 hover:bg-slate-50"
@@ -318,6 +363,9 @@ export default function AdminPage() {
             </Button>
             {backfillResult && (
               <span className="text-sm text-slate-600">{backfillResult}</span>
+            )}
+            {recurringBackfillResult && (
+              <span className="text-sm text-slate-600">{recurringBackfillResult}</span>
             )}
             {checkLinksResult && (
               <div className="flex flex-col gap-1 text-sm text-slate-600">
@@ -413,18 +461,17 @@ export default function AdminPage() {
                       return (
                         <tr key={event.id} className="border-b border-gray-100 hover:bg-slate-50/50">
                           <td className="py-4 px-4">
-                            <div className="w-16 h-16 rounded-md overflow-hidden bg-slate-100 flex items-center justify-center">
-                              {event.image_url ? (
-                                <Image
-                                  src={event.image_url}
-                                  alt={event.title}
-                                  width={64}
-                                  height={64}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <ImageIcon className="h-6 w-6 text-slate-400" />
-                              )}
+                            <div className="w-16 h-16 rounded-md overflow-hidden bg-slate-100 flex items-center justify-center relative">
+                              <EventImageFallback
+                                mode="fixed"
+                                imageUrl={event.image_url}
+                                category={event.category}
+                                alt={event.title}
+                                width={64}
+                                height={64}
+                                sizes="64px"
+                                imageClassName="h-full w-full object-cover"
+                              />
                             </div>
                           </td>
                           <td className="py-4 px-4">

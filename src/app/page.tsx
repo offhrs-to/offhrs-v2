@@ -6,6 +6,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { Search, Calendar, Mail } from 'lucide-react'
 import { motion, useScroll, useTransform, useMotionValue } from 'framer-motion'
+import { CATEGORY_NOVICE_ICONS } from '@/constants/categories'
 // Master your skills section: categories with Other last
 const LANDING_CATEGORIES: string[] = [
   'Beauty & Fragrance',
@@ -17,17 +18,6 @@ const LANDING_CATEGORIES: string[] = [
   'Wellness',
   'Other',
 ]
-// Novice icon path per category (same assets as mobile app)
-const CATEGORY_NOVICE_ICONS: Record<string, string> = {
-  'Beauty & Fragrance': '/categories/beauty-fragrance-novice.png',
-  Culinary: '/categories/culinary-novice.png',
-  Coffee: '/categories/coffee-novice.png',
-  Floral: '/categories/floral-novice.png',
-  Pottery: '/categories/pottery-novice.png',
-  Music: '/categories/music-novice.png',
-  Wellness: '/categories/wellness-novice.png',
-  Other: '/categories/other-novice.png',
-}
 const CATEGORY_ICONS_CACHE = '4'
 // Other category icons for Track Your Mastery (Novice → Master)
 const MASTERY_OTHER_ICONS: { src: string; label: string }[] = [

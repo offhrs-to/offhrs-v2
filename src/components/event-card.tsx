@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, MapPin, ExternalLink, DollarSign, Heart } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { createClient } from '@/lib/supabase/browser'
+import { EventImageFallback } from '@/components/event-image-fallback'
 
 interface Event {
   id: number | string
@@ -121,19 +121,14 @@ export default function EventCard({ event }: { event: Event }) {
     <div className="group bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col h-full">
       {/* Image Section */}
       <div className="relative h-36 w-full overflow-hidden bg-gray-100">
-        {event.image_url ? (
-          <Image
-            src={event.image_url}
-            alt={event.title}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          />
-        ) : (
-          <div className="h-full w-full flex items-center justify-center text-gray-400 text-sm">
-            No Image
-          </div>
-        )}
+        <EventImageFallback
+          mode="fill"
+          imageUrl={event.image_url}
+          category={event.category}
+          alt={event.title}
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          imageClassName="object-cover group-hover:scale-105 transition-transform duration-500"
+        />
         <div className="absolute top-2 left-2 flex items-center gap-1.5">
           <span className="bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-full text-[10px] font-semibold text-gray-700 shadow-sm">
             {event.category}

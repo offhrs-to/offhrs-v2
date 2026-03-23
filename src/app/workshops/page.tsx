@@ -191,6 +191,7 @@ export default function WorkshopsPage() {
     date: e.date,
     location: e.location,
     image_url: e.image_url,
+    category: e.category,
     external_link: e.external_link ?? undefined,
     is_multiple_dates: e.is_multiple_dates ?? false,
     price: e.price,

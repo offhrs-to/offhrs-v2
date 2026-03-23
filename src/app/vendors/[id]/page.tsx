@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useParams } from 'next/navigation'
+import { EventImageFallback } from '@/components/event-image-fallback'
 import { useAuth } from '@/contexts/auth-context'
 import { createClient } from '@/lib/supabase/browser'
 import { Button } from '@/components/ui/button'
@@ -249,17 +249,15 @@ export default function VendorProfilePage() {
                 key={event.id}
                 className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden"
               >
-                <div className="relative h-32 bg-gray-100">
-                  {event.image_url ? (
-                    <Image
-                      src={event.image_url}
-                      alt={event.title}
-                      fill
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-gray-400">No image</div>
-                  )}
+                <div className="relative h-32 w-full overflow-hidden bg-gray-100">
+                  <EventImageFallback
+                    mode="fill"
+                    imageUrl={event.image_url}
+                    category={event.category}
+                    alt={event.title}
+                    sizes="(max-width: 768px) 100vw, 400px"
+                    imageClassName="object-cover"
+                  />
                   {event.category && (
                     <div className="absolute top-2 left-2 bg-white/90 px-2 py-1 rounded text-xs font-medium">
                       {event.category}

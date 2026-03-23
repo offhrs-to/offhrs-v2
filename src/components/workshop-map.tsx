@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { ExternalLink, Calendar, DollarSign } from 'lucide-react' // Import icons if you have them installed, or SVG below
+import { EventImageFallback } from '@/components/event-image-fallback'
 
 // --- Fix for missing Leaflet Marker Icons ---
 const DefaultIcon = L.icon({
@@ -32,6 +33,7 @@ interface Event {
   lat: number | string | null
   lng: number | string | null
   image_url: string | null
+  category?: string | null
   date: string | null | undefined
   location: string | null | undefined
   external_link?: string
@@ -94,12 +96,16 @@ export default function WorkshopMap({ events, center, zoom = 13 }: WorkshopMapPr
                 <div className="w-56 p-0 overflow-hidden">
                   
                   {/* 1. Image Header */}
-                  {event.image_url && (
-                    <div 
-                      className="h-32 w-full bg-cover bg-center rounded-t-md"
-                      style={{ backgroundImage: `url(${event.image_url})` }}
+                  <div className="relative h-32 w-full overflow-hidden rounded-t-md bg-gray-100">
+                    <EventImageFallback
+                      mode="fill"
+                      imageUrl={event.image_url}
+                      category={event.category}
+                      alt={event.title}
+                      sizes="224px"
+                      imageClassName="object-cover"
                     />
-                  )}
+                  </div>
 
                   {/* 2. Content */}
                   <div className="p-3">

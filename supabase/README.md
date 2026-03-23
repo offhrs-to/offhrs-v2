@@ -45,3 +45,14 @@ Run these migrations in your Supabase project:
 
 - Enable **Email** and **Google** auth providers in Authentication → Providers
 - For Google OAuth: Add your Google Client ID and Secret from Google Cloud Console
+
+## Recurring workshop instances (materialized rows)
+
+Events saved as **daily** or **weekly** renewal in the admin UI are stored as multiple dated rows (4 weeks of weekly or 28 days of daily), each with `recurrence = 'none'`.
+
+**Older data** may still have a single row with `recurrence` set to `daily` or `weekly`. To expand those into the same concrete instances without re-entering them:
+
+1. Set `SUPABASE_SERVICE_ROLE_KEY` in the web app environment (required for the admin API).
+2. In **Admin Dashboard** → **Backfill recurring instances** (after logging in).
+
+The operation is **idempotent**: it only selects rows where `recurrence` is `daily` or `weekly`, inserts the extra dated copies, then sets the original row’s `recurrence` to `none`.

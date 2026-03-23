@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, FormEvent } from 'react'
+import { useState, useEffect, useMemo, FormEvent } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -14,8 +14,25 @@ import { Badge } from '@/components/ui/badge'
 import { fetchUrlMetadata } from '@/app/actions/fetch-metadata'
 import { updateEvent } from '@/app/actions/events'
 import { geocodeAddress } from '@/lib/geocode'
+import {
+  ALL_JS_WEEKDAYS,
+  buildMaterializedEventRows,
+  countDailyInstancesInWindow,
+  RENEW_INSTANCES_WEEKS,
+} from '@/lib/recurring-event-instances'
+import { cn } from '@/lib/utils'
 
 type Recurrence = 'none' | 'daily' | 'weekly'
+
+const WEEKDAY_TOGGLE_ORDER: { jsDay: number; label: string }[] = [
+  { jsDay: 1, label: 'Mon' },
+  { jsDay: 2, label: 'Tue' },
+  { jsDay: 3, label: 'Wed' },
+  { jsDay: 4, label: 'Thu' },
+  { jsDay: 5, label: 'Fri' },
+  { jsDay: 6, label: 'Sat' },
+  { jsDay: 0, label: 'Sun' },
+]
 
 interface FormData {
   title: string
@@ -61,6 +78,16 @@ export default function AdminEditPage() {
   const [urlInput, setUrlInput] = useState('')
   const [fetchingMetadata, setFetchingMetadata] = useState(false)
   const [metadataSuccess, setMetadataSuccess] = useState(false)
+  /** Recurrence as loaded from DB — used to expand legacy daily/weekly rows once without duplicating */
+  const [initialRecurrence, setInitialRecurrence] = useState<Recurrence>('none')
+  const [dailyWeekdays, setDailyWeekdays] = useState<Set<number>>(() => new Set(ALL_JS_WEEKDAYS))
+
+  const dailyPreviewCount = useMemo(() => {
+    if (formData.recurrence !== 'daily' || !formData.date.trim()) return null
+    const d = new Date(formData.date)
+    if (Number.isNaN(d.getTime())) return null
+    return countDailyInstancesInWindow(d, dailyWeekdays)
+  }, [formData.recurrence, formData.date, dailyWeekdays])
 
   useEffect(() => {
     if (eventId) {
@@ -104,6 +131,11 @@ export default function AdminEditPage() {
           duration_weeks: data.duration_weeks != null ? Math.max(1, Number(data.duration_weeks)) : 1,
           recurrence: (data.recurrence === 'daily' || data.recurrence === 'weekly' ? data.recurrence : 'none') as Recurrence,
         })
+        setInitialRecurrence(
+          (data.recurrence === 'daily' || data.recurrence === 'weekly'
+            ? data.recurrence
+            : 'none') as Recurrence
+        )
 
         // Set coordinates found if lat/lng exist
         if (data.lat && data.lng) {
@@ -283,8 +315,43 @@ export default function AdminEditPage() {
         throw new Error('Title is required')
       }
 
-      // Update event using server action
-      await updateEvent(eventId, submitData)
+      const legacyRecurringInDb =
+        initialRecurrence === 'daily' || initialRecurrence === 'weekly'
+      const shouldMaterializeOnEdit =
+        legacyRecurringInDb &&
+        (formData.recurrence === 'weekly' || formData.recurrence === 'daily') &&
+        formattedDate != null
+
+      if (shouldMaterializeOnEdit && formattedDate) {
+        if (formData.recurrence === 'daily' && dailyWeekdays.size === 0) {
+          throw new Error('Select at least one day of the week for daily renewal')
+        }
+        const pattern = formData.recurrence === 'daily' ? 'daily' : 'weekly'
+        const rows = buildMaterializedEventRows(
+          {
+            ...submitData,
+            mode: 'craft',
+            recurrence: formData.recurrence,
+          } as Record<string, unknown>,
+          pattern,
+          formData.recurrence === 'daily' ? { dailyWeekdays } : undefined
+        )
+        if (rows.length === 0) {
+          throw new Error('Could not build recurring event dates')
+        }
+        await updateEvent(eventId, {
+          ...submitData,
+          date: rows[0].date,
+          recurrence: 'none',
+        })
+        const rest = rows.slice(1) as Record<string, unknown>[]
+        if (rest.length > 0) {
+          const { error: insertError } = await supabase.from('events').insert(rest)
+          if (insertError) throw insertError
+        }
+      } else {
+        await updateEvent(eventId, submitData)
+      }
 
       // Redirect to dashboard on success
       router.push('/admin')
@@ -508,6 +575,55 @@ export default function AdminEditPage() {
                     </Button>
                   </div>
                 </div>
+                {formData.recurrence === 'daily' && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-3 space-y-2">
+                    <p className="text-xs font-medium text-slate-800">Repeat on these days</p>
+                    <div className="flex flex-wrap gap-2">
+                      {WEEKDAY_TOGGLE_ORDER.map(({ jsDay, label }) => {
+                        const on = dailyWeekdays.has(jsDay)
+                        return (
+                          <button
+                            key={jsDay}
+                            type="button"
+                            disabled={loading}
+                            aria-pressed={on}
+                            onClick={() =>
+                              setDailyWeekdays((prev) => {
+                                const next = new Set(prev)
+                                if (next.has(jsDay)) next.delete(jsDay)
+                                else next.add(jsDay)
+                                return next
+                              })
+                            }
+                            className={cn(
+                              'rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-w-[2.75rem]',
+                              on
+                                ? 'bg-moss text-white shadow-sm'
+                                : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100'
+                            )}
+                          >
+                            {label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      All days selected by default. Tap to exclude weekdays from the {RENEW_INSTANCES_WEEKS}-week window.
+                    </p>
+                  </div>
+                )}
+                {(formData.recurrence === 'weekly' || formData.recurrence === 'daily') &&
+                  (initialRecurrence === 'weekly' || initialRecurrence === 'daily') && (
+                    <p className="text-xs text-slate-500">
+                      This event is still stored as recurring. Saving will create{' '}
+                      {formData.recurrence === 'weekly'
+                        ? `${RENEW_INSTANCES_WEEKS} weekly listings`
+                        : dailyPreviewCount != null
+                          ? `${dailyPreviewCount} daily listing${dailyPreviewCount === 1 ? '' : 's'} (selected weekdays)`
+                          : `daily listings`}{' '}
+                      (same time of day) and turn this row into a single dated listing.
+                    </p>
+                  )}
                 <Input
                   id="date"
                   name="date"
