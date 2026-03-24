@@ -7,6 +7,10 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/browser'
 import Navbar from '@/components/navbar'
 import EventCard from '@/components/event-card'
+import WorkshopQuickViewModal, {
+  type WorkshopQuickViewEvent,
+} from '@/components/workshop-quick-view-modal'
+import { ListingDisclaimerBanner } from '@/components/listing-disclaimer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -22,6 +26,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { CATEGORIES } from '@/constants/categories'
+import { WORKSHOP_DEFAULT_PAGE_SIZE, WORKSHOP_MAX_UPCOMING_FETCH } from '@/constants/workshops-list'
 
 const WorkshopMap = dynamic(() => import('@/components/workshop-map'), { ssr: false })
 
@@ -48,6 +53,22 @@ interface EventRow {
 
 const DEFAULT_MAP_CENTER: [number, number] = [43.6532, -79.3832]
 
+function eventRowToQuickView(e: EventRow): WorkshopQuickViewEvent {
+  return {
+    id: e.id,
+    title: e.title,
+    description: e.description,
+    date: e.date,
+    location: e.location,
+    image_url: e.image_url,
+    category: e.category ?? 'Other',
+    is_multiple_dates: e.is_multiple_dates,
+    price: e.price,
+    vendor_id: e.vendor_id,
+    external_link: e.external_link,
+  }
+}
+
 const WORKSHOP_PAGE_SIZES = [20, 50, 100] as const
 type WorkshopPageSize = (typeof WORKSHOP_PAGE_SIZES)[number]
 
@@ -64,8 +85,9 @@ export default function WorkshopsPage() {
   const [dateRangeEnd, setDateRangeEnd] = useState<string | null>(null)
   const [dateInputStart, setDateInputStart] = useState('')
   const [dateInputEnd, setDateInputEnd] = useState('')
-  const [pageSize, setPageSize] = useState<WorkshopPageSize>(50)
+  const [pageSize, setPageSize] = useState<WorkshopPageSize>(WORKSHOP_DEFAULT_PAGE_SIZE)
   const [currentPage, setCurrentPage] = useState(1)
+  const [quickViewEvent, setQuickViewEvent] = useState<WorkshopQuickViewEvent | null>(null)
 
   useEffect(() => {
     try {
@@ -99,7 +121,11 @@ export default function WorkshopsPage() {
       let query = supabase
         .from('events')
         .select('id, title, description, date, location, image_url, external_link, category, is_multiple_dates, price, vendor_id, lat, lng, recurrence')
-        .order('date', { ascending: true, nullsFirst: false })
+
+      const nowIso = new Date().toISOString()
+      query = query.or(
+        `recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso}`
+      )
 
       if (debouncedSearch.trim()) {
         const term = debouncedSearch.trim()
@@ -132,17 +158,16 @@ export default function WorkshopsPage() {
         query = query.eq('category', selectedCategory)
       }
 
+      query = query
+        .order('date', { ascending: true, nullsFirst: false })
+        .limit(WORKSHOP_MAX_UPCOMING_FETCH)
+
       const { data, error } = await query
       if (error) throw error
 
       const list = (data as EventRow[]) ?? []
-      const now = new Date()
-      const isRecurring = (e: EventRow) => e.recurrence === 'daily' || e.recurrence === 'weekly'
-      // Exclude expired workshops (event date in the past); recurring events (daily/weekly) never expire
-      const upcoming = list.filter(
-        (e) => isRecurring(e) || !e.date || new Date(e.date) > now
-      )
-      const byDateRange = upcoming.filter((e) => {
+      // Upcoming filter is applied in the query (recurring / null date / date >= now); cap at WORKSHOP_MAX_UPCOMING_FETCH
+      const byDateRange = list.filter((e) => {
         if (!e.date) return !dateRangeStart && !dateRangeEnd
         const eventDate = String(e.date).slice(0, 10)
         if (dateRangeStart && eventDate < dateRangeStart) return false
@@ -236,8 +261,17 @@ export default function WorkshopsPage() {
     lng: e.lng ?? null,
   }))
 
+  const openQuickViewById = useCallback(
+    (id: number) => {
+      const row = events.find((ev) => ev.id === id)
+      if (row) setQuickViewEvent(eventRowToQuickView(row))
+    },
+    [events]
+  )
+
   return (
     <div className="min-h-screen bg-gray-50/50">
+      <WorkshopQuickViewModal event={quickViewEvent} onClose={() => setQuickViewEvent(null)} />
       <Navbar />
       {/* First-visit prompt: app download / sign up or continue as guest */}
       {showGuestPrompt && (
@@ -453,6 +487,8 @@ export default function WorkshopsPage() {
           </button>
         </div>
 
+        <ListingDisclaimerBanner className="mb-4" />
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-[#5D755D] mb-3" />
@@ -491,6 +527,7 @@ export default function WorkshopsPage() {
                     price: event.price,
                     vendor_id: event.vendor_id,
                   }}
+                  onOpenQuickView={() => setQuickViewEvent(eventRowToQuickView(event))}
                 />
               ))}
             </div>
@@ -555,7 +592,12 @@ export default function WorkshopsPage() {
           </div>
         ) : (
           <div className="rounded-lg overflow-hidden border border-gray-200 bg-white shadow-sm h-[500px] min-h-[400px]">
-            <WorkshopMap events={mapEvents} center={mapCenter} zoom={11} />
+            <WorkshopMap
+              events={mapEvents}
+              center={mapCenter}
+              zoom={11}
+              onOpenDetails={openQuickViewById}
+            />
           </div>
         )}
       </main>

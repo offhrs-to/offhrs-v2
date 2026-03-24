@@ -290,6 +290,8 @@ export default function ProfileScreen() {
   const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture;
   const email = user.email || '—';
   const phone = profile?.phone || '—';
+  const webAppOrigin =
+    (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.app';
   const level = profile?.expertise_level || 'Novice';
   const points = profile?.experience_points ?? 0;
   // Progression within current level: 0/8 … 8/8 (step 8 per level)
@@ -503,14 +505,27 @@ export default function ProfileScreen() {
       </View>
 
       <TouchableOpacity
-        onPress={() => {
-          const base = (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.app';
-          Linking.openURL(`${base}/privacy`);
-        }}
+        onPress={() => Linking.openURL(`${webAppOrigin}/privacy`)}
         style={{ marginTop: Platform.OS === 'android' ? 14 : 20, paddingVertical: 12, alignItems: 'center' }}
         activeOpacity={0.7}
       >
         <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>Privacy Policy</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => Linking.openURL(`${webAppOrigin}/terms`)}
+        style={{ paddingVertical: 12, alignItems: 'center' }}
+        activeOpacity={0.7}
+      >
+        <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>Terms of Service</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => Linking.openURL(`${webAppOrigin}/disclaimer`)}
+        style={{ paddingVertical: 12, alignItems: 'center' }}
+        activeOpacity={0.7}
+      >
+        <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>Listing disclaimer</Text>
       </TouchableOpacity>
 
       <Pressable

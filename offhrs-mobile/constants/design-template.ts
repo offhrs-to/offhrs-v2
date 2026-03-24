@@ -33,6 +33,8 @@ export const DesignSpacing = {
   contentPaddingTop: 48,
   contentPaddingBottom: 32,
   headerMarginBottom: 12,
+  /** Bottom padding under logo strip on fixed tab headers (Home, Workshops, Contact). */
+  logoHeaderPaddingBottom: 6,
   logoMarginLeft: -40,
   heroCardMarginTop: 6,
   heroCardPaddingBottom: 20,

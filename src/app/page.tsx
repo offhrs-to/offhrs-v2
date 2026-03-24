@@ -598,6 +598,9 @@ function LandingFooter() {
           <Link href="/privacy" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
             Privacy Policy
           </Link>
+          <Link href="/disclaimer" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
+            Disclaimer
+          </Link>
           <Link href="/contact" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
             Contact us
           </Link>

@@ -6,6 +6,8 @@ import { Calendar, MapPin, ExternalLink, DollarSign, Heart } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { createClient } from '@/lib/supabase/browser'
 import { EventImageFallback } from '@/components/event-image-fallback'
+import { BookOutboundHint } from '@/components/listing-disclaimer'
+import { openWorkshopBooking } from '@/lib/workshop-outbound'
 
 interface Event {
   id: number | string
@@ -21,7 +23,14 @@ interface Event {
   vendor_id?: string | null
 }
 
-export default function EventCard({ event }: { event: Event }) {
+export default function EventCard({
+  event,
+  onOpenQuickView,
+}: {
+  event: Event
+  /** When set, clicking the card (not Book / vendor / save) opens the workshop quick view. */
+  onOpenQuickView?: () => void
+}) {
   const { user } = useAuth()
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -65,43 +74,18 @@ export default function EventCard({ event }: { event: Event }) {
   
   const handleBookClick = (e: React.MouseEvent) => {
     e.preventDefault()
-    
-    // 1. Google Analytics
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', 'generate_lead', {
-        currency: 'CAD',
-        value: event.price ? Number(event.price) : 0, // Track actual price value if available
-        event_label: event.title,
-        event_category: 'outbound_click'
-      })
-    }
+    e.stopPropagation()
+    openWorkshopBooking({
+      id: event.id,
+      title: event.title,
+      category: event.category,
+      price: event.price,
+      external_link: event.external_link,
+    })
+  }
 
-    // 2. Meta Pixel
-    if (typeof window !== 'undefined' && (window as any).fbq) {
-      (window as any).fbq('track', 'Lead', {
-        content_name: event.title,
-        content_category: event.category,
-        value: event.price ? Number(event.price) : 0,
-        currency: 'CAD'
-      })
-    }
-
-    // Record redirect (logged-in and guest) for admin count, and create booking + email if logged in
-    fetch('/api/book', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event_id: event.id,
-        event_title: event.title,
-      }),
-    }).catch(() => {})
-
-    // Open external link
-    if (event.external_link) {
-      setTimeout(() => {
-        window.open(event.external_link, '_blank')
-      }, 150)
-    }
+  const handleCardActivate = () => {
+    onOpenQuickView?.()
   }
 
   // Format Date Logic: show earliest date + "Multiple dates" when applicable
@@ -118,7 +102,12 @@ export default function EventCard({ event }: { event: Event }) {
     : (formattedDate ?? 'Date TBD')
 
   return (
-    <div className="group bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col h-full">
+    <div
+      className={`group bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col h-full ${
+        onOpenQuickView ? 'cursor-pointer' : ''
+      }`}
+      onClick={onOpenQuickView ? handleCardActivate : undefined}
+    >
       {/* Image Section */}
       <div className="relative h-36 w-full overflow-hidden bg-gray-100">
         <EventImageFallback
@@ -184,10 +173,12 @@ export default function EventCard({ event }: { event: Event }) {
             <Link
               href={`/vendors/${event.vendor_id}`}
               className="text-[10px] text-[#5D755D] hover:underline mb-1.5 block"
+              onClick={(e) => e.stopPropagation()}
             >
               View vendor
             </Link>
           )}
+          <BookOutboundHint className="mb-1.5" />
           <button
             onClick={handleBookClick}
             className="w-full bg-black hover:bg-gray-800 text-white font-medium py-2 px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5"

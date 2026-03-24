@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { ExternalLink, Calendar, DollarSign } from 'lucide-react' // Import icons if you have them installed, or SVG below
+import { Info } from 'lucide-react'
 import { EventImageFallback } from '@/components/event-image-fallback'
 
 // --- Fix for missing Leaflet Marker Icons ---
@@ -45,9 +45,11 @@ interface WorkshopMapProps {
   events: Event[]
   center: [number, number] | null
   zoom?: number
+  /** Opens the same workshop quick view as the grid (by event id). */
+  onOpenDetails?: (eventId: number) => void
 }
 
-export default function WorkshopMap({ events, center, zoom = 13 }: WorkshopMapProps) {
+export default function WorkshopMap({ events, center, zoom = 13, onOpenDetails }: WorkshopMapProps) {
   useEffect(() => {
     window.dispatchEvent(new Event('resize'))
   }, [])
@@ -125,16 +127,30 @@ export default function WorkshopMap({ events, center, zoom = 13 }: WorkshopMapPr
                       </div>
                     )}
 
-                    {/* 3. Link Button */}
-                    {event.external_link && (
-                      <a 
-                        href={event.external_link}
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="mt-2 block w-full bg-black text-white text-xs font-bold text-center py-2 rounded hover:bg-gray-800 transition-colors"
-                      >
-                        View Workshop
-                      </a>
+                    {/* 3. Details + external link */}
+                    {(onOpenDetails || event.external_link) && (
+                      <div className="mt-2 flex flex-col gap-2">
+                        {onOpenDetails && typeof event.id === 'number' && (
+                          <button
+                            type="button"
+                            onClick={() => onOpenDetails(event.id as number)}
+                            className="flex w-full items-center justify-center gap-1.5 rounded border border-gray-200 bg-white py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50 transition-colors"
+                          >
+                            <Info className="h-3.5 w-3.5 shrink-0" />
+                            Details
+                          </button>
+                        )}
+                        {event.external_link && (
+                          <a
+                            href={event.external_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block w-full bg-black text-white text-xs font-bold text-center py-2 rounded hover:bg-gray-800 transition-colors"
+                          >
+                            View Workshop
+                          </a>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

@@ -83,7 +83,7 @@ export default function ContactScreen() {
       <View
         style={{
           paddingTop: DesignSpacing.contentPaddingTop,
-          paddingBottom: 6,
+          paddingBottom: DesignSpacing.logoHeaderPaddingBottom,
           paddingHorizontal: DesignSpacing.horizontalPadding,
           backgroundColor: '#FFF',
         }}

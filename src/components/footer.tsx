@@ -16,6 +16,10 @@ export default function Footer() {
             Privacy Policy
           </Link>
           <span className="text-gray-300">|</span>
+          <Link href="/disclaimer" prefetch={false} className="hover:text-gray-600 transition-colors">
+            Disclaimer
+          </Link>
+          <span className="text-gray-300">|</span>
           <Link href="/contact" prefetch={false} className="hover:text-gray-600 transition-colors">
             Contact us
           </Link>

@@ -9,13 +9,14 @@ import {
   DesignSizes,
 } from '@/constants/design-template';
 import { CATEGORIES as CATEGORY_LIST } from '@/constants/categories';
+import { WORKSHOP_LIST_PAGE_SIZE, WORKSHOP_MAX_UPCOMING_FETCH } from '@/constants/workshops-list';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { createElement, useCallback, useEffect, useState } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import {
   Dimensions,
@@ -46,6 +47,9 @@ const GRID_GAP = 12;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - DesignSpacing.horizontalPadding * 2 - GRID_GAP) / 2;
 
+const WEB_APP_ORIGIN =
+  (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || BOOK_API_BASE;
+
 function formatDate(isoString: string): string {
   try {
     const d = new Date(isoString);
@@ -71,7 +75,13 @@ const softShadow = {
 };
 
 export default function WorkshopsScreen() {
-  const params = useLocalSearchParams<{ q?: string; categories?: string; address?: string }>();
+  const params = useLocalSearchParams<{
+    q?: string;
+    categories?: string;
+    address?: string;
+    openEvent?: string;
+    openTs?: string;
+  }>();
   const initialQ = params.q ?? '';
   const initialCategories = String(params.categories ?? '').split(',').filter(Boolean);
   const addressParam = typeof params.address === 'string' ? decodeURIComponent(params.address) : '';
@@ -97,9 +107,28 @@ export default function WorkshopsScreen() {
   const [dateInputEnd, setDateInputEnd] = useState('');
   const [activeDateField, setActiveDateField] = useState<'from' | 'to' | null>(null);
   const [pickerDate, setPickerDate] = useState(() => new Date());
+  const [listPage, setListPage] = useState(1);
+  const listScrollRef = useRef<ScrollView>(null);
 
   const router = useRouter();
   const { user } = useAuth();
+
+  /** Home carousel (and deep links): open quick view when `openTs` changes so repeat taps work. */
+  useEffect(() => {
+    if (loading) return;
+    const rawId = params.openEvent;
+    const rawTs = params.openTs;
+    const oe = typeof rawId === 'string' ? rawId : Array.isArray(rawId) ? rawId[0] : undefined;
+    const ts =
+      rawTs !== undefined && rawTs !== null
+        ? String(Array.isArray(rawTs) ? rawTs[0] : rawTs)
+        : undefined;
+    if (!oe || ts === undefined || ts === '') return;
+    const id = Number(oe);
+    if (!Number.isInteger(id)) return;
+    const ev = events.find((e) => Number(e.id) === id);
+    if (ev) setQuickViewEvent(ev);
+  }, [params.openEvent, params.openTs, loading, events]);
 
   useFocusEffect(
     useCallback(() => {
@@ -194,8 +223,12 @@ export default function WorkshopsScreen() {
 
       let query = supabase
         .from('events')
-        .select('id, title, date, location, image_url, price, external_link, category, lat, lng, vendor_id, recurrence')
-        .order('date', { ascending: true });
+        .select('id, title, date, location, image_url, price, external_link, category, lat, lng, vendor_id, recurrence');
+
+      const nowIso = new Date().toISOString();
+      query = query.or(
+        `recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso}`
+      );
 
       if (searchTerm.trim()) {
         const term = searchTerm.trim();
@@ -228,12 +261,13 @@ export default function WorkshopsScreen() {
         query = query.in('category', effective);
       }
 
+      query = query
+        .order('date', { ascending: true })
+        .limit(WORKSHOP_MAX_UPCOMING_FETCH);
+
       const { data, error } = await query;
       if (error) throw error;
 
-      const now = new Date();
-      const isRecurring = (row: { recurrence?: string | null }) =>
-        row.recurrence === 'daily' || row.recurrence === 'weekly';
       const list = (data ?? [])
         .map((row) => ({
           id: row.id,
@@ -249,8 +283,6 @@ export default function WorkshopsScreen() {
           vendor_id: row.vendor_id ?? null,
           recurrence: row.recurrence ?? null,
         }))
-        // Exclude expired workshops (event date in the past); recurring events (daily/weekly) never expire
-        .filter((e) => isRecurring(e) || !e.date_iso || new Date(e.date_iso) > now)
         .filter((e) => {
           if (!e.date_iso) return !dateRangeStart && !dateRangeEnd;
           const eventDate = e.date_iso.slice(0, 10);
@@ -291,6 +323,23 @@ export default function WorkshopsScreen() {
   }, [fetchEvents]);
 
   useEffect(() => {
+    setListPage(1);
+  }, [searchTerm, userChangedCategory, selectedCategory, categoriesParam, dateRangeStart, dateRangeEnd]);
+
+  const listTotalPages = Math.max(1, Math.ceil(events.length / WORKSHOP_LIST_PAGE_SIZE));
+  const safeListPage = Math.min(listPage, listTotalPages);
+  const listPageStart = (safeListPage - 1) * WORKSHOP_LIST_PAGE_SIZE;
+  const paginatedEvents = useMemo(
+    () => events.slice(listPageStart, listPageStart + WORKSHOP_LIST_PAGE_SIZE),
+    [events, listPageStart]
+  );
+
+  useEffect(() => {
+    const tp = Math.max(1, Math.ceil(events.length / WORKSHOP_LIST_PAGE_SIZE));
+    setListPage((p) => Math.min(p, tp));
+  }, [events.length]);
+
+  useEffect(() => {
     if (!addressParam.trim()) {
       setAddressCoords(null);
       return;
@@ -328,7 +377,7 @@ export default function WorkshopsScreen() {
       <View
         style={{
           paddingTop: DesignSpacing.contentPaddingTop,
-          paddingBottom: 6,
+          paddingBottom: DesignSpacing.logoHeaderPaddingBottom,
           paddingHorizontal: DesignSpacing.horizontalPadding,
           backgroundColor: DesignColors.creamBg,
         }}
@@ -484,6 +533,7 @@ export default function WorkshopsScreen() {
 
       {viewMode === 'list' ? (
         <ScrollView
+          ref={listScrollRef}
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingHorizontal: DesignSpacing.horizontalPadding,
@@ -532,7 +582,7 @@ export default function WorkshopsScreen() {
                 gap: GRID_GAP,
               }}
             >
-              {events.map((event) => {
+              {paginatedEvents.map((event) => {
                 const distanceKm =
                   addressCoords != null &&
                   event.lat != null &&
@@ -565,6 +615,106 @@ export default function WorkshopsScreen() {
               })}
             </View>
           )}
+          {events.length > 0 && viewMode === 'list' ? (
+            <View style={{ marginTop: 12, marginBottom: 8 }}>
+              <Text style={{ fontSize: 12, color: DesignColors.mediumGray, textAlign: 'center', marginBottom: 8 }}>
+                Showing {events.length === 0 ? 0 : listPageStart + 1}–
+                {Math.min(listPageStart + WORKSHOP_LIST_PAGE_SIZE, events.length)} of {events.length}
+              </Text>
+              {listTotalPages > 1 ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <Pressable
+                    onPress={() => {
+                      setListPage((p) => Math.max(1, p - 1));
+                      listScrollRef.current?.scrollTo({ y: 0, animated: true });
+                    }}
+                    disabled={safeListPage <= 1}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 14,
+                      borderRadius: 9999,
+                      borderWidth: 1,
+                      borderColor: DesignColors.lightGreenBorder,
+                      opacity: safeListPage <= 1 ? 0.45 : 1,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: DesignColors.primary }}>Previous</Text>
+                  </Pressable>
+                  <Text style={{ fontSize: 13, color: DesignColors.charcoal }}>
+                    Page {safeListPage} of {listTotalPages}
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setListPage((p) => Math.min(listTotalPages, p + 1));
+                      listScrollRef.current?.scrollTo({ y: 0, animated: true });
+                    }}
+                    disabled={safeListPage >= listTotalPages}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 14,
+                      borderRadius: 9999,
+                      borderWidth: 1,
+                      borderColor: DesignColors.lightGreenBorder,
+                      opacity: safeListPage >= listTotalPages ? 0.45 : 1,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: DesignColors.primary }}>Next</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+          <View
+            style={{
+              marginTop: 20,
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: 'rgba(251, 191, 36, 0.12)',
+              borderWidth: 1,
+              borderColor: 'rgba(251, 191, 36, 0.35)',
+            }}
+          >
+            <Text style={{ fontSize: 11, color: DesignColors.charcoal, lineHeight: 16 }}>
+              Listings may be incomplete or outdated. Confirm date, time, price, location, and requirements with the
+              vendor before you rely on them. Offhrs does not process bookings or payments.
+            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                marginTop: 10,
+              }}
+            >
+              <Pressable onPress={() => Linking.openURL(`${WEB_APP_ORIGIN}/disclaimer`)}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: DesignColors.primary,
+                    textDecorationLine: 'underline',
+                  }}
+                >
+                  Listing disclaimer
+                </Text>
+              </Pressable>
+              <Text style={{ fontSize: 12, color: DesignColors.mediumGray }}>·</Text>
+              <Pressable onPress={() => Linking.openURL(`${WEB_APP_ORIGIN}/terms`)}>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: DesignColors.primary,
+                    textDecorationLine: 'underline',
+                  }}
+                >
+                  Terms of Service
+                </Text>
+              </Pressable>
+            </View>
+          </View>
         </ScrollView>
       ) : (
         <View style={{ flex: 1, minHeight: 400, marginTop: 12 }}>
@@ -704,7 +854,18 @@ export default function WorkshopsScreen() {
                         </Text>
                       )}
                   </View>
-                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                  <Text
+                    style={{
+                      marginTop: 12,
+                      fontSize: 10,
+                      color: DesignColors.mediumGray,
+                      textAlign: 'center',
+                      lineHeight: 14,
+                    }}
+                  >
+                    You&apos;ll open the vendor&apos;s site. Their price, availability, and terms apply.
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
                     {quickViewEvent.vendor_id && (
                       <Pressable
                         onPress={() => {

@@ -9,7 +9,11 @@ export default function TermsPage() {
           ← Back
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Terms of Service</h1>
-        <p className="text-sm text-gray-500 mb-8">Last updated: February 5, 2026</p>
+        <p className="text-sm text-gray-500 mb-8">Last updated: March 23, 2026</p>
+        <p className="text-xs text-gray-500 mb-6 -mt-4">
+          These Terms are intended to reflect how the Service works. You may wish to have them reviewed by a lawyer in your
+          jurisdiction; consumer protection laws may limit certain exclusions or caps where you live.
+        </p>
 
         <div className="prose prose-gray max-w-none space-y-6 text-gray-700">
           <section>
@@ -30,6 +34,11 @@ export default function TermsPage() {
               <strong>We do not process payments or complete bookings on our platform.</strong> All bookings, payments,
               cancellations, and fulfillment are between you and the respective vendor. We are not a party to any
               transaction between you and a vendor.
+            </p>
+            <p>
+              We are <strong>not the vendor&apos;s agent</strong> and cannot accept bookings, set prices, or bind vendors on
+              your behalf. Inclusion of any listing or vendor <strong>does not constitute an endorsement</strong>,
+              recommendation, or guarantee of quality, safety, suitability, or legality.
             </p>
           </section>
 
@@ -63,13 +72,39 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900">6. Third-Party Vendors and Links</h2>
+            <h2 className="text-lg font-semibold text-gray-900">6. Third-Party Vendors, Listings, and Links</h2>
             <p>
               The Service contains listings and links to third-party vendor websites. We do not operate, control, or
               endorse those sites. Your use of vendor sites and any bookings, payments, or disputes with vendors are
               solely between you and the vendor. We are not responsible for vendor conduct, pricing, availability,
               quality of workshops, or any terms or policies of third-party sites. You use external links at your own
               risk.
+            </p>
+            <p>
+              <strong>Listing information may be wrong or stale.</strong> Details shown on the Service (including dates,
+              times, prices, locations, maps and pins, images, descriptions, capacity, age or skill requirements,
+              cancellation policies, and promotions) may be incomplete, inaccurate, or outdated. Such information may
+              come from vendors, public sources, or automated means.{' '}
+              <strong>
+                You should verify all material details with the vendor through their official booking channel or contact
+              </strong>{' '}
+              before you rely on a listing, travel, or pay.
+            </p>
+            <p>
+              <strong>Pricing and availability.</strong> Displayed prices or availability are not offers from Offhrs and
+              may differ from what the vendor charges at checkout. Final price, taxes, fees, and whether a spot is
+              available are determined only by the vendor. Promotions or discounts shown on the Service may not apply on
+              the vendor&apos;s site.
+            </p>
+            <p>
+              <strong>Maps and media.</strong> Map locations and pins are approximate unless we state otherwise. Images and
+              descriptions may not reflect the current offering or may be supplied by third parties; we do not warrant
+              that they are current, complete, or correctly licensed for your reuse.
+            </p>
+            <p>
+              <strong>Participation and safety.</strong> Workshops may involve physical activity, tools, materials, or
+              other risks. You participate in any real-world activity at your own risk. Offhrs does not supervise,
+              instruct, or control how vendors run their events.
             </p>
           </section>
 
@@ -91,10 +126,27 @@ export default function TermsPage() {
               FREE OF HARMFUL COMPONENTS. WE DO NOT GUARANTEE THE ACCURACY, COMPLETENESS, OR RELIABILITY OF ANY LISTINGS
               OR VENDOR INFORMATION. ANY RELIANCE ON SUCH INFORMATION IS AT YOUR OWN RISK.
             </p>
+            <p>
+              <strong>Gamification.</strong> Features such as experience points, levels, labels (for example &quot;Novice&quot; or
+              &quot;Master&quot;), or similar in-app progress indicators are provided for engagement and orientation only
+              unless we expressly state otherwise in writing. They do not constitute a professional certification,
+              license, or credential unless we specifically offer an accredited program and say so.
+            </p>
+            <p>
+              <strong>Communications.</strong> Emails, push notifications, or in-app messages we send about workshops,
+              links, or redirects are informational. They do not by themselves create a contract between you and Offhrs
+              for attendance, performance, or delivery of any workshop; the vendor&apos;s terms govern your booking.
+            </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900">9. Limitation of Liability</h2>
+            <p>
+              <strong>Consumer rights.</strong> Nothing in these Terms is intended to exclude or limit rights that
+              applicable law (including consumer protection law in Ontario, elsewhere in Canada, or your country of
+              residence) does not allow to be excluded or limited. Where such laws apply to you, our liability will be
+              limited to the <strong>maximum extent permitted by those laws</strong>.
+            </p>
             <p>
               TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, OFFHRS AND ITS OFFICERS, DIRECTORS, EMPLOYEES, AND
               AGENTS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES
@@ -124,7 +176,8 @@ export default function TermsPage() {
             <p>
               We may suspend or terminate your access to the Service, with or without notice, for any reason, including
               breach of these Terms. You may stop using the Service at any time. Provisions that by their nature should
-              survive (including Sections 7–10 and this Section 11) will survive termination.
+              survive (including intellectual property, disclaimers, limitation of liability, indemnification, and this
+              Section 11) will survive termination.
             </p>
           </section>
 
@@ -141,8 +194,10 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold text-gray-900">13. General</h2>
             <p>
-              <strong>Entire agreement.</strong> These Terms, together with our Privacy Policy and any other policies
-              we reference, constitute the entire agreement between you and Offhrs regarding the Service.
+              <strong>Entire agreement.</strong> These Terms, together with our Privacy Policy, our Listing &amp;
+              third-party disclaimer page (if any), and any other policies we reference, constitute the entire agreement
+              between you and Offhrs regarding the Service. If there is a conflict between a summary page and these
+              Terms, these Terms control unless we expressly state otherwise in writing.
             </p>
             <p>
               <strong>Severability.</strong> If any provision is held invalid or unenforceable, the remaining provisions

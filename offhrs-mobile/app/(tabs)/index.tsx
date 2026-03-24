@@ -16,6 +16,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { UserCircleIcon } from 'react-native-heroicons/outline';
 
 import InstructorIcon from '@/components/InstructorIcon';
+import UpcomingTorontoCarousel from '@/components/UpcomingTorontoCarousel';
 import OnboardingModal from '@/components/OnboardingModal';
 import { CATEGORIES } from '@/constants/categories';
 import { DesignColors, DesignSizes, DesignSpacing } from '@/constants/design-template';
@@ -27,8 +28,9 @@ const CATEGORY_GAP_ANDROID = 8;
 
 const SAGE_GREEN = '#5D755D';
 const LIGHT_GREEN_BORDER = '#A8C4A0';
-const HERO_BG = '#E8F0E5';
 const CREAM_BG = '#FDFCF8';
+/** Display serif for hero headline (elegant, close to reference). */
+const HERO_SERIF_FONT = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
 const CHARCOAL = '#2C2C2C';
 const MEDIUM_GRAY = '#6B6B6B';
 
@@ -37,18 +39,22 @@ const FIRST_TIME_SIGNUP_KEY = '@offhrs/hasSeenFirstTimeSignUpPrompt';
 
 const isAndroid = Platform.OS === 'android';
 const AVATAR_SIZE = isAndroid ? 46 : 52;
-const SCROLL_PADDING_TOP = isAndroid ? 10 : 16;
-const SCROLL_PADDING_BOTTOM = isAndroid ? 100 : 32;
-const HERO_TITLE_FONT_SIZE = isAndroid ? 24 : 27;
-const HERO_MARGIN_BOTTOM = isAndroid ? 16 : 20;
-const HERO_PADDING_BOTTOM = isAndroid ? 10 : 14;
+/** Space below header divider before hero — keep small so headline sits close to grey line. */
+const SCROLL_PADDING_TOP = isAndroid ? 4 : 6;
+/** Scroll padding below Browse — keep modest; tab scene already reserves space for floating bar. */
+const SCROLL_PADDING_BOTTOM = isAndroid ? 52 : 28;
+const HERO_HEADLINE_FONT_SIZE = isAndroid ? 30 : 34;
+const HERO_HEADLINE_LINE_HEIGHT = isAndroid ? 38 : 42;
 const ICON_BAR_HEIGHT = isAndroid ? 48 : 56;
 const ICON_CIRCLE_SIZE = isAndroid ? 40 : 44;
 const CURIOSITY_FONT_SIZE = isAndroid ? 14 : 15;
-const CURIOSITY_MARGIN_TOP = isAndroid ? 10 : 14;
+/** Space above curiosity heading — paired with level-row marginBottom so gap matches search→icons. */
+const CURIOSITY_MARGIN_TOP = isAndroid ? 5 : 6;
 const CURIOSITY_MARGIN_BOTTOM = isAndroid ? 8 : 12;
-const CATEGORY_BUTTON_HEIGHT = 56;
-const BROWSE_MARGIN_TOP = 12;
+/** Half of the vertical rhythm between search / level icons / curiosity (margin pairs sum to this). */
+const LEVEL_SECTION_GAP = isAndroid ? 5 : 6;
+const CATEGORY_BUTTON_HEIGHT = isAndroid ? 42 : 44;
+const BROWSE_MARGIN_TOP = isAndroid ? 14 : 16;
 const BROWSE_PADDING_VERTICAL = isAndroid ? 10 : 12;
 
 // Each level is 8 points; progression shown as X/8 for all levels (Novice → Master)
@@ -291,53 +297,73 @@ export default function HomeScreen() {
       <View
         style={{
           paddingTop: DesignSpacing.contentPaddingTop,
-          paddingBottom: 6,
+          paddingBottom: DesignSpacing.logoHeaderPaddingBottom,
           paddingHorizontal: DesignSpacing.horizontalPadding,
           backgroundColor: CREAM_BG,
+          borderBottomWidth: 1,
+          borderBottomColor: '#E5E5E5',
         }}
       >
-        <View style={{ marginLeft: DesignSpacing.logoMarginLeft, paddingLeft: 0, marginBottom: isAndroid ? 12 : 16 }}>
-          <Image
-            source={require('@/assets/images/logo.png')}
-            style={{ height: DesignSizes.logoHeight, width: DesignSizes.logoWidth }}
-            contentFit="contain"
-          />
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
-          <View style={{ marginRight: 12 }}>
-            <Text
-              className="text-xs"
-              style={{ color: MEDIUM_GRAY }}
-            >
-              Welcome
-            </Text>
-            <Text
-              className="text-xl font-bold"
-              style={{ color: CHARCOAL }}
-            >
-              {displayName}
-            </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            marginBottom: isAndroid ? 10 : 12,
+          }}
+        >
+          <View style={{ marginLeft: DesignSpacing.logoMarginLeft, paddingLeft: 0, flexShrink: 0 }}>
+            <Image
+              source={require('@/assets/images/logo.png')}
+              style={{ height: DesignSizes.logoHeight, width: DesignSizes.logoWidth }}
+              contentFit="contain"
+            />
           </View>
           <View
             style={{
-              width: AVATAR_SIZE,
-              height: AVATAR_SIZE,
-              borderRadius: AVATAR_SIZE / 2,
-              backgroundColor: avatarUrl ? 'transparent' : '#E0E0E0',
-              overflow: 'hidden',
+              flexDirection: 'row',
               alignItems: 'center',
-              justifyContent: 'center',
+              flex: 1,
+              justifyContent: 'flex-end',
+              minWidth: 0,
+              marginLeft: 8,
             }}
           >
-            {avatarUrl ? (
-              <Image
-                source={{ uri: avatarUrl }}
-                style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
-                contentFit="cover"
-              />
-            ) : (
-              <UserCircleIcon size={isAndroid ? 32 : 36} color={MEDIUM_GRAY} />
-            )}
+            <View style={{ marginRight: 10, alignItems: 'flex-end', flexShrink: 1, minWidth: 0 }}>
+              <Text className="text-xs" style={{ color: MEDIUM_GRAY }}>
+                Welcome
+              </Text>
+              <Text
+                className="text-xl font-bold"
+                style={{ color: CHARCOAL }}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {displayName}
+              </Text>
+            </View>
+            <View
+              style={{
+                width: AVATAR_SIZE,
+                height: AVATAR_SIZE,
+                borderRadius: AVATAR_SIZE / 2,
+                backgroundColor: avatarUrl ? 'transparent' : '#E0E0E0',
+                overflow: 'hidden',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              {avatarUrl ? (
+                <Image
+                  source={{ uri: avatarUrl }}
+                  style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
+                  contentFit="cover"
+                />
+              ) : (
+                <UserCircleIcon size={isAndroid ? 32 : 36} color={MEDIUM_GRAY} />
+              )}
+            </View>
           </View>
         </View>
       </View>
@@ -352,54 +378,68 @@ export default function HomeScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-      {/* Hero / Reflection-style card */}
-      <View
-        className="mb-4 rounded-2xl px-6 pt-5"
-        style={{ backgroundColor: HERO_BG, borderRadius: 18, marginTop: 0, paddingBottom: HERO_PADDING_BOTTOM }}
-      >
+      {/* Hero headline + search (open layout on cream, no tinted card) */}
+      <View style={{ marginTop: isAndroid ? 2 : 4, marginBottom: LEVEL_SECTION_GAP }}>
         <Text
-          className="text-lg font-bold"
-          style={{ color: CHARCOAL, textAlign: 'center', marginTop: isAndroid ? 12 : 16, marginBottom: isAndroid ? 12 : 16 }}
+          style={{
+            color: CHARCOAL,
+            textAlign: 'left',
+            fontFamily: HERO_SERIF_FONT,
+            fontSize: HERO_HEADLINE_FONT_SIZE,
+            lineHeight: HERO_HEADLINE_LINE_HEIGHT,
+            fontWeight: '400',
+            letterSpacing: isAndroid ? 0 : -0.2,
+          }}
         >
-          Discover your new passion
+          Discover your new passion.
         </Text>
-        <Text
-          style={{ color: CHARCOAL, textAlign: 'center', marginBottom: HERO_MARGIN_BOTTOM, fontSize: HERO_TITLE_FONT_SIZE }}
+        <Pressable
+          onPress={handleBrowse}
+          style={{
+            marginTop: isAndroid ? 12 : 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#FFFFFF',
+            borderRadius: 9999,
+            borderWidth: 1,
+            borderColor: '#E5E5E5',
+            paddingHorizontal: isAndroid ? 10 : 12,
+            paddingVertical: isAndroid ? 6 : 8,
+            minHeight: isAndroid ? 36 : 38,
+          }}
         >
-          Where are you looking?
-        </Text>
-        <View style={{ marginHorizontal: 20, marginTop: 8, marginBottom: isAndroid ? 8 : 12 }}>
-          <Pressable
-            onPress={handleBrowse}
+          <TextInput
+            placeholder="Enter your address (street, city, state, zip)"
+            placeholderTextColor="#888"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleBrowse}
+            returnKeyType="search"
+            className="flex-1"
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: '#F5F5F5',
-              borderRadius: 9999,
-              borderWidth: 1,
-              borderColor: LIGHT_GREEN_BORDER,
-              paddingHorizontal: 12,
-              paddingVertical: 9,
+              color: CHARCOAL,
+              paddingVertical: 0,
+              fontSize: isAndroid ? 12 : 13,
+              minHeight: isAndroid ? 22 : 24,
             }}
-          >
-            <TextInput
-              placeholder="Enter your address (street, city, state, zip)..."
-              placeholderTextColor="#888"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onSubmitEditing={handleBrowse}
-              returnKeyType="search"
-              className="flex-1"
-              style={{ color: CHARCOAL, paddingVertical: 0, fontSize: 10 }}
-            />
-            <Text style={{ color: SAGE_GREEN, fontSize: 14 }}>→</Text>
-          </Pressable>
-        </View>
+          />
+          <Text style={{ color: SAGE_GREEN, fontSize: 14, fontWeight: '600' }}>→</Text>
+        </Pressable>
       </View>
 
       {/* Level icons bar: categories use level-specific icons (Novice → Master).
           - Instructor categories show graduation cap icon and "Instructor" (no progression) in popup. */}
-      <View style={{ marginTop: isAndroid ? 14 : 18, marginBottom: 8, height: ICON_BAR_HEIGHT, width: '100%', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center' }}>
+      <View
+        style={{
+          marginTop: LEVEL_SECTION_GAP,
+          marginBottom: LEVEL_SECTION_GAP,
+          height: ICON_BAR_HEIGHT,
+          width: '100%',
+          flexDirection: 'row',
+          justifyContent: 'space-evenly',
+          alignItems: 'center',
+        }}
+      >
         {levelCategories.map((cat) => {
           const isInstructor = isInstructorForCategory(cat);
           const catLevel = getLevelForCategory(cat).level;
@@ -475,7 +515,7 @@ export default function HomeScreen() {
         })}
       </View>
 
-      {/* Categories (styled like “What’s your current mood?”) */}
+      {/* Category pills — above upcoming carousel */}
       <Text
         className="font-bold"
         style={{
@@ -497,8 +537,8 @@ export default function HomeScreen() {
               style={{
                 width: getCategoryButtonWidth(),
                 height: CATEGORY_BUTTON_HEIGHT,
-                paddingHorizontal: 20,
-                paddingVertical: 12,
+                paddingHorizontal: isAndroid ? 14 : 16,
+                paddingVertical: isAndroid ? 6 : 7,
                 borderRadius: 9999,
                 backgroundColor: isActive ? SAGE_GREEN : CREAM_BG,
                 borderWidth: 1,
@@ -522,6 +562,21 @@ export default function HomeScreen() {
           );
         })}
       </View>
+
+      {/* Upcoming Toronto-area picks (one per key category); tap → Workshops quick view */}
+      <Text
+        className="font-bold"
+        style={{
+          color: CHARCOAL,
+          fontSize: CURIOSITY_FONT_SIZE,
+          marginTop: isAndroid ? 10 : 12,
+          marginBottom: 6,
+        }}
+      >
+        Upcoming workshops in Toronto…
+      </Text>
+      {/* Carousel sits inside ScrollView padding — no extra ListHeader inset (avoids double left gap). */}
+      <UpcomingTorontoCarousel />
       <View style={{ marginTop: BROWSE_MARGIN_TOP }}>
         <Pressable
           onPress={handleBrowse}
