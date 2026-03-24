@@ -129,30 +129,6 @@ const BEAUTY_FRAGRANCE_ICONS: Record<string, any> = {
 const getBeautyFragranceIconSource = (level: string) =>
   BEAUTY_FRAGRANCE_ICONS[level] ?? BEAUTY_FRAGRANCE_ICONS.Novice;
 
-// Music category uses bespoke icons per level (Novice → Master)
-const MUSIC_ICONS: Record<string, any> = {
-  Novice: require('@/assets/images/music-novice.png'),
-  Intermediate: require('@/assets/images/music-intermediate.png'),
-  Advanced: require('@/assets/images/music-advanced.png'),
-  Expert: require('@/assets/images/music-expert.png'),
-  Master: require('@/assets/images/music-master.png'),
-};
-
-const getMusicIconSource = (level: string) =>
-  MUSIC_ICONS[level] ?? MUSIC_ICONS.Novice;
-
-// Wellness category uses bespoke icons per level (Novice → Master)
-const WELLNESS_ICONS: Record<string, any> = {
-  Novice: require('@/assets/images/wellness-novice.png'),
-  Intermediate: require('@/assets/images/wellness-intermediate.png'),
-  Advanced: require('@/assets/images/wellness-advanced.png'),
-  Expert: require('@/assets/images/wellness-expert.png'),
-  Master: require('@/assets/images/wellness-master.png'),
-};
-
-const getWellnessIconSource = (level: string) =>
-  WELLNESS_ICONS[level] ?? WELLNESS_ICONS.Novice;
-
 // Other category uses bespoke icons per level (Novice → Master)
 const OTHER_ICONS: Record<string, any> = {
   Novice: require('@/assets/images/other-novice.png'),
@@ -421,7 +397,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Level icons bar: all categories (Beauty & Fragrance, Culinary, Coffee, Floral, Pottery, Music, Wellness, Other) use level-specific icons (Novice → Master).
+      {/* Level icons bar: categories use level-specific icons (Novice → Master).
           - Instructor categories show graduation cap icon and "Instructor" (no progression) in popup. */}
       <View style={{ marginTop: isAndroid ? 14 : 18, marginBottom: 8, height: ICON_BAR_HEIGHT, width: '100%', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center' }}>
         {levelCategories.map((cat) => {
@@ -482,22 +458,6 @@ export default function HomeScreen() {
                   <Image
                     source={getBeautyFragranceIconSource(catLevel)}
                     style={{ width: circleSize + 18, height: circleSize + 18, position: 'absolute', left: -9, top: -9 }}
-                    contentFit="cover"
-                  />
-                </View>
-              ) : cat === 'Music' ? (
-                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
-                  <Image
-                    source={getMusicIconSource(catLevel)}
-                    style={{ width: circleSize + 18, height: circleSize + 18, position: 'absolute', left: -9, top: -9 }}
-                    contentFit="cover"
-                  />
-                </View>
-              ) : cat === 'Wellness' ? (
-                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
-                  <Image
-                    source={getWellnessIconSource(catLevel)}
-                    style={{ width: circleSize + 14, height: circleSize + 14, position: 'absolute', left: -7, top: -7 }}
                     contentFit="cover"
                   />
                 </View>

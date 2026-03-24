@@ -8,8 +8,6 @@ export const CATEGORIES = [
   'Coffee',
   'Floral',
   'Pottery',
-  'Music',
-  'Wellness',
   'Other',
 ] as const
 

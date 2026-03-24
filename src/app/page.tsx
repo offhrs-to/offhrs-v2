@@ -14,8 +14,6 @@ const LANDING_CATEGORIES: string[] = [
   'Coffee',
   'Floral',
   'Pottery',
-  'Music',
-  'Wellness',
   'Other',
 ]
 const CATEGORY_ICONS_CACHE = '4'

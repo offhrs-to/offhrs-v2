@@ -12,17 +12,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Search, X, MapPin, Loader2 } from 'lucide-react'
+import { CATEGORIES } from '@/constants/categories'
 
-const categories = [
-  'All',
-  'Pottery',
-  'Coffee',
-  'Florals',
-  'Jewelry',
-  'Wellness',
-  'Culinary',
-  'Other',
-]
+const categories = ['All', ...CATEGORIES] as const
 
 interface SearchToolbarProps {
   onLocationChange?: (center: [number, number] | null) => void

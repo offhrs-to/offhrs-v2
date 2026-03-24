@@ -8,8 +8,6 @@ export const CATEGORIES = [
   'Coffee',
   'Floral',
   'Pottery',
-  'Music',
-  'Wellness',
   'Other',
 ] as const
 
@@ -22,8 +20,6 @@ export const CATEGORY_NOVICE_ICONS: Record<string, string> = {
   Coffee: '/categories/coffee-novice.png',
   Floral: '/categories/floral-novice.png',
   Pottery: '/categories/pottery-novice.png',
-  Music: '/categories/music-novice.png',
-  Wellness: '/categories/wellness-novice.png',
   Other: '/categories/other-novice.png',
 }
 
