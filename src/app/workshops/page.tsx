@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { getVisiblePageNumbers } from '@/lib/pagination'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/browser'
@@ -8,7 +9,18 @@ import Navbar from '@/components/navbar'
 import EventCard from '@/components/event-card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Loader2, Search, LayoutGrid, MapPin, X, Smartphone, Calendar } from 'lucide-react'
+import {
+  ArrowLeft,
+  Loader2,
+  Search,
+  LayoutGrid,
+  MapPin,
+  X,
+  Smartphone,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
 import { CATEGORIES } from '@/constants/categories'
 
 const WorkshopMap = dynamic(() => import('@/components/workshop-map'), { ssr: false })
@@ -36,6 +48,9 @@ interface EventRow {
 
 const DEFAULT_MAP_CENTER: [number, number] = [43.6532, -79.3832]
 
+const WORKSHOP_PAGE_SIZES = [20, 50, 100] as const
+type WorkshopPageSize = (typeof WORKSHOP_PAGE_SIZES)[number]
+
 export default function WorkshopsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -49,6 +64,8 @@ export default function WorkshopsPage() {
   const [dateRangeEnd, setDateRangeEnd] = useState<string | null>(null)
   const [dateInputStart, setDateInputStart] = useState('')
   const [dateInputEnd, setDateInputEnd] = useState('')
+  const [pageSize, setPageSize] = useState<WorkshopPageSize>(50)
+  const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
     try {
@@ -159,6 +176,26 @@ export default function WorkshopsPage() {
     fetchEvents()
   }, [fetchEvents])
 
+  const totalEvents = events.length
+  const totalPages = Math.max(1, Math.ceil(totalEvents / pageSize) || 1)
+  const safePage = Math.min(currentPage, totalPages)
+  const pageStart = (safePage - 1) * pageSize
+  const paginatedEvents = events.slice(pageStart, pageStart + pageSize)
+  const showingFrom = totalEvents === 0 ? 0 : pageStart + 1
+  const showingTo = Math.min(pageStart + pageSize, totalEvents)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch, selectedCategory, dateRangeStart, dateRangeEnd])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [pageSize])
+
+  useEffect(() => {
+    setCurrentPage((p) => Math.min(p, totalPages))
+  }, [totalPages])
+
   const handleClearFilters = () => {
     setSearchTerm('')
     setSelectedCategory('All')
@@ -233,8 +270,8 @@ export default function WorkshopsPage() {
         </div>
       )}
       <main className="container mx-auto px-4 py-6 max-w-5xl">
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-3 min-w-0">
             <Link href="/">
               <Button variant="outline" size="icon" className="shrink-0 h-8 w-8">
                 <ArrowLeft className="h-3.5 w-3.5" />
@@ -245,6 +282,25 @@ export default function WorkshopsPage() {
               <p className="text-gray-600 mt-0.5 text-sm">Discover and book creative workshops</p>
             </div>
           </div>
+          {!loading && events.length > 0 && (
+            <div className="flex items-center gap-2 sm:shrink-0 sm:pt-0.5">
+              <label htmlFor="workshops-page-size" className="text-sm text-gray-600 whitespace-nowrap">
+                Per page
+              </label>
+              <select
+                id="workshops-page-size"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value) as WorkshopPageSize)}
+                className="rounded-full border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[#5D755D] focus:outline-none focus:ring-1 focus:ring-[#5D755D] min-w-[5.5rem]"
+              >
+                {WORKSHOP_PAGE_SIZES.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Search + Date + Clear row */}
@@ -412,25 +468,90 @@ export default function WorkshopsPage() {
             </Button>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {events.map((event) => (
-              <EventCard
-                key={event.id}
-                event={{
-                  id: event.id,
-                  title: event.title,
-                  description: event.description ?? '',
-                  date: event.date,
-                  location: event.location,
-                  image_url: event.image_url,
-                  category: event.category ?? 'Other',
-                  is_multiple_dates: event.is_multiple_dates ?? false,
-                  external_link: event.external_link ?? undefined,
-                  price: event.price,
-                  vendor_id: event.vendor_id,
-                }}
-              />
-            ))}
+          <div className="space-y-4">
+            {totalEvents > 0 && (
+              <p className="text-sm text-gray-500">
+                Showing {showingFrom}–{showingTo} of {totalEvents}
+              </p>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {paginatedEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={{
+                    id: event.id,
+                    title: event.title,
+                    description: event.description ?? '',
+                    date: event.date,
+                    location: event.location,
+                    image_url: event.image_url,
+                    category: event.category ?? 'Other',
+                    is_multiple_dates: event.is_multiple_dates ?? false,
+                    external_link: event.external_link ?? undefined,
+                    price: event.price,
+                    vendor_id: event.vendor_id,
+                  }}
+                />
+              ))}
+            </div>
+            {totalEvents > 0 && totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-gray-100">
+                <p className="text-sm text-gray-600">
+                  Page {safePage} of {totalPages}
+                </p>
+                <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full border-gray-200"
+                    disabled={safePage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <div className="flex items-center gap-1 flex-wrap justify-center">
+                    {getVisiblePageNumbers(safePage, totalPages).map((item, idx) =>
+                      item === 'ellipsis' ? (
+                        <span
+                          key={`e-${idx}`}
+                          className="text-gray-400 px-1 text-sm select-none"
+                          aria-hidden
+                        >
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => setCurrentPage(item)}
+                          className={`min-w-[2.25rem] rounded-full px-2 py-1.5 text-sm font-medium transition-colors ${
+                            item === safePage
+                              ? 'bg-[#5D755D] text-white'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                          aria-current={item === safePage ? 'page' : undefined}
+                        >
+                          {item}
+                        </button>
+                      )
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full border-gray-200"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="rounded-lg overflow-hidden border border-gray-200 bg-white shadow-sm h-[500px] min-h-[400px]">
