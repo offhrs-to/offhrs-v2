@@ -3,6 +3,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -29,6 +30,13 @@ export default function RootLayout() {
 
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(ROOT_BG);
+  }, []);
+
+  // Android Custom Tabs OAuth: completes the auth session when returning to the app (no iOS change).
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      WebBrowser.maybeCompleteAuthSession();
+    }
   }, []);
 
   // First-launch app intro: show once per install on native only

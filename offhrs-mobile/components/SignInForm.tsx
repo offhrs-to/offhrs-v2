@@ -1,7 +1,9 @@
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
+import { processAuthCallbackUrl } from '@/lib/auth-callback-url';
 import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
 import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
   ActivityIndicator,
@@ -82,18 +84,29 @@ export function SignInForm({
       __DEV__ && console.log(`[SignIn] Starting ${provider} OAuth with redirectUrl:`, redirectUrl);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { 
+        options: {
           redirectTo: redirectUrl,
-          skipBrowserRedirect: false, // Ensure we open browser
+          // Android: external Chrome often shows a blank page on offhrsmobile:// redirects; Custom Tabs returns the URL in-app.
+          skipBrowserRedirect: Platform.OS === 'android',
         },
       });
       if (error) throw error;
-      if (data?.url) {
-        __DEV__ && console.log(`[SignIn] Opening ${provider} auth URL:`, data.url);
-        await Linking.openURL(data.url);
-      } else {
+      if (!data?.url) {
         __DEV__ && console.warn(`[SignIn] No URL returned from ${provider} OAuth`);
+        return;
       }
+      __DEV__ && console.log(`[SignIn] Opening ${provider} auth URL`);
+
+      if (Platform.OS === 'android') {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+        if (result.type === 'success' && result.url) {
+          const handled = await processAuthCallbackUrl(result.url);
+          if (handled) onSignInSuccess?.();
+        }
+        return;
+      }
+
+      await Linking.openURL(data.url);
     } catch (err: unknown) {
       const message =
         provider === 'google' ? 'Google sign-in failed' : 'Apple sign-in failed';
