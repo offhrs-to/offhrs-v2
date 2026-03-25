@@ -12,7 +12,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.offhrs.app.offhrs",
-      "buildNumber": "11",
+      "buildNumber": "12",
       "backgroundColor": "#ECEFE5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false

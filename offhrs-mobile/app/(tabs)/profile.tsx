@@ -1,3 +1,4 @@
+import { BOOK_API_BASE } from '@/constants/api';
 import {
   DesignColors,
   DesignSpacing,
@@ -26,6 +27,7 @@ import { SignInForm } from '@/components/SignInForm';
 import { supabase } from '@/lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -60,6 +62,7 @@ export default function ProfileScreen() {
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
   const scrollViewRef = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!user?.id) return;
@@ -291,7 +294,7 @@ export default function ProfileScreen() {
   const email = user.email || '—';
   const phone = profile?.phone || '—';
   const webAppOrigin =
-    (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.app';
+    (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || BOOK_API_BASE;
   const level = profile?.expertise_level || 'Novice';
   const points = profile?.experience_points ?? 0;
   // Progression within current level: 0/8 … 8/8 (step 8 per level)
@@ -312,7 +315,13 @@ export default function ProfileScreen() {
         contentContainerStyle={{
           flexGrow: 1,
           paddingTop: DesignSpacing.contentPaddingTop,
-          paddingBottom: Platform.OS === 'android' ? 168 : DesignSpacing.contentPaddingBottom,
+          // Native: safe area + room above floating tab bar / Sign out (Android keeps prior 168px floor)
+          paddingBottom:
+            Platform.OS === 'web'
+              ? DesignSpacing.contentPaddingBottom
+              : Platform.OS === 'android'
+                ? Math.max(168, Math.max(insets.bottom, 12) + 96)
+                : Math.max(insets.bottom, 12) + 96,
           paddingHorizontal: DesignSpacing.horizontalPadding,
         }}
       >
@@ -406,30 +415,20 @@ export default function ProfileScreen() {
         {typeof points === 'number' ? ` • ${progressLabel}` : ''}
       </Text>
 
-      {/* Stats row – horizontal, with dividers (Android: even columns like iOS) */}
+      {/* Stats row – three equal columns; dividers between (iOS + Android) */}
       <View
-        style={[
-          {
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingVertical: 16,
-            marginBottom: Platform.OS === 'android' ? 14 : 20,
-            borderTopWidth: 1,
-            borderBottomWidth: 1,
-            borderColor: DesignColors.lightGreenBorder,
-          },
-          Platform.OS === 'android' && {
-            justifyContent: 'space-between',
-            paddingHorizontal: 0,
-          },
-          Platform.OS !== 'android' && { justifyContent: 'space-around' },
-        ]}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'stretch',
+          paddingVertical: 16,
+          marginBottom: Platform.OS === 'android' ? 14 : 20,
+          borderTopWidth: 1,
+          borderBottomWidth: 1,
+          borderColor: DesignColors.lightGreenBorder,
+        }}
       >
         <TouchableOpacity
-          style={[
-            { alignItems: 'center', flex: 1 },
-            Platform.OS === 'android' && { minWidth: 0, justifyContent: 'center' },
-          ]}
+          style={{ flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' }}
           onPress={() => {
             setWorkshopsModalVisible(true);
             fetchAttendedWorkshops();
@@ -439,12 +438,9 @@ export default function ProfileScreen() {
           <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>{workshopsAttended}</Text>
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 2 }}>Workshops</Text>
         </TouchableOpacity>
-        <View style={{ width: 1, height: 32, backgroundColor: DesignColors.lightGreenBorder }} />
+        <View style={{ width: 1, alignSelf: 'center', height: 32, backgroundColor: DesignColors.lightGreenBorder }} />
         <Pressable
-          style={[
-            { alignItems: 'center', flex: 1 },
-            Platform.OS === 'android' && { minWidth: 0, justifyContent: 'center' },
-          ]}
+          style={{ flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' }}
           onPress={() => {
             setSavedModalVisible(true);
             fetchSavedEvents();
@@ -453,12 +449,9 @@ export default function ProfileScreen() {
           <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>{savedEventsCount}</Text>
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 2 }}>Saved</Text>
         </Pressable>
-        <View style={{ width: 1, height: 32, backgroundColor: DesignColors.lightGreenBorder }} />
+        <View style={{ width: 1, alignSelf: 'center', height: 32, backgroundColor: DesignColors.lightGreenBorder }} />
         <TouchableOpacity
-          style={[
-            { alignItems: 'center', flex: 1 },
-            Platform.OS === 'android' && { minWidth: 0, justifyContent: 'center' },
-          ]}
+          style={{ flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' }}
           onPress={() => {
             setReviewsModalVisible(true);
             fetchMyReviews();
@@ -504,35 +497,40 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <TouchableOpacity
-        onPress={() => Linking.openURL(`${webAppOrigin}/privacy`)}
-        style={{ marginTop: Platform.OS === 'android' ? 14 : 20, paddingVertical: 12, alignItems: 'center' }}
-        activeOpacity={0.7}
+      {/* Policy links: RN Pressable + single row (iOS + Android; avoids GH touch issues in ScrollView) */}
+      <View
+        style={{
+          marginTop: 16,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: 6,
+          paddingVertical: 8,
+          paddingHorizontal: 4,
+        }}
       >
-        <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>Privacy Policy</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={() => Linking.openURL(`${webAppOrigin}/terms`)}
-        style={{ paddingVertical: 12, alignItems: 'center' }}
-        activeOpacity={0.7}
-      >
-        <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>Terms of Service</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={() => Linking.openURL(`${webAppOrigin}/disclaimer`)}
-        style={{ paddingVertical: 12, alignItems: 'center' }}
-        activeOpacity={0.7}
-      >
-        <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>Listing disclaimer</Text>
-      </TouchableOpacity>
+        <Pressable
+          onPress={() => Linking.openURL(`${webAppOrigin}/privacy`)}
+          hitSlop={8}
+        >
+          <Text style={{ fontSize: 11, color: DesignColors.primary, fontWeight: '600' }}>Privacy Policy</Text>
+        </Pressable>
+        <Text style={{ fontSize: 11, color: DesignColors.mediumGray }}>·</Text>
+        <Pressable onPress={() => Linking.openURL(`${webAppOrigin}/terms`)} hitSlop={8}>
+          <Text style={{ fontSize: 11, color: DesignColors.primary, fontWeight: '600' }}>Terms of Service</Text>
+        </Pressable>
+        <Text style={{ fontSize: 11, color: DesignColors.mediumGray }}>·</Text>
+        <Pressable onPress={() => Linking.openURL(`${webAppOrigin}/disclaimer`)} hitSlop={8}>
+          <Text style={{ fontSize: 11, color: DesignColors.primary, fontWeight: '600' }}>Listing disclaimer</Text>
+        </Pressable>
+      </View>
 
       <Pressable
         onPress={() => signOut()}
         style={{
-          marginTop: Platform.OS === 'android' ? 20 : 32,
-          marginBottom: Platform.OS === 'android' ? 16 : 24,
+          marginTop: 16,
+          marginBottom: 8,
           paddingVertical: DesignSpacing.ctaPaddingVertical,
           borderRadius: 9999,
           backgroundColor: '#B91C1C',
