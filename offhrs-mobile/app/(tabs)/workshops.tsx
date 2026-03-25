@@ -34,6 +34,12 @@ import {
 /** On Android, Modal renders in a separate window; gesture-handler touchables often don't receive touches. Use RN TouchableOpacity there. */
 const SaveButtonTouchable = Platform.OS === 'android' ? TouchableOpacity : GHTouchableOpacity;
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+/** Matches `CustomTabBar` in app/(tabs)/_layout.tsx */
+const TAB_BAR_HEIGHT_ANDROID = 48;
+/** Gap between map/grid FAB and floating tab bar (Android only; iOS keeps fixed offset). */
+const MAP_GRID_FAB_GAP_ABOVE_TAB_ANDROID = 16;
 
 type EventWithCoords = Event & {
   lat?: number | null;
@@ -112,6 +118,12 @@ export default function WorkshopsScreen() {
 
   const router = useRouter();
   const { user } = useAuth();
+  const safeInsets = useSafeAreaInsets();
+
+  const mapGridFabBottom =
+    Platform.OS === 'ios'
+      ? 84
+      : Math.max(safeInsets.bottom, 12) + 4 + TAB_BAR_HEIGHT_ANDROID + MAP_GRID_FAB_GAP_ABOVE_TAB_ANDROID;
 
   /** Home carousel (and deep links): open quick view when `openTs` changes so repeat taps work. */
   useEffect(() => {
@@ -731,7 +743,7 @@ export default function WorkshopsScreen() {
           onPress={() => setViewMode((m) => (m === 'list' ? 'map' : 'list'))}
           style={{
             position: 'absolute',
-            bottom: Platform.OS === 'ios' ? 84 : 92,
+            bottom: mapGridFabBottom,
             right: DesignSpacing.horizontalPadding,
             width: 56,
             height: 56,

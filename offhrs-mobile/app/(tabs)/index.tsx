@@ -41,8 +41,8 @@ const isAndroid = Platform.OS === 'android';
 const AVATAR_SIZE = isAndroid ? 46 : 52;
 /** Space below header divider before hero — keep small so headline sits close to grey line. */
 const SCROLL_PADDING_TOP = isAndroid ? 4 : 6;
-/** Scroll padding below Browse — keep modest; tab scene already reserves space for floating bar. */
-const SCROLL_PADDING_BOTTOM = isAndroid ? 52 : 28;
+/** Scroll padding below Browse — Android needs extra so CTA clears floating tab bar. */
+const SCROLL_PADDING_BOTTOM = isAndroid ? 76 : 28;
 const HERO_HEADLINE_FONT_SIZE = isAndroid ? 30 : 34;
 const HERO_HEADLINE_LINE_HEIGHT = isAndroid ? 38 : 42;
 const ICON_BAR_HEIGHT = isAndroid ? 48 : 56;

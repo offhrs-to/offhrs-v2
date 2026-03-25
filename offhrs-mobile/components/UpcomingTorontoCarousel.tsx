@@ -5,6 +5,7 @@ import {
   Pressable,
   FlatList,
   Dimensions,
+  Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -132,12 +133,14 @@ export default function UpcomingTorontoCarousel({ horizontalPadding = 0 }: Props
   const [loading, setLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const CARD_WIDTH = Math.round(SCREEN_WIDTH * 0.48);
+  const isAndroid = Platform.OS === 'android';
+  const CARD_WIDTH = Math.round(SCREEN_WIDTH * (isAndroid ? 0.45 : 0.48));
   const CARD_GAP = 6;
   const PAGE = CARD_WIDTH + CARD_GAP;
   /** Fixed image + footer heights so every carousel card is the same size. */
-  const CARD_IMAGE_HEIGHT = 76;
-  const CARD_FOOTER_HEIGHT = 82;
+  const CARD_IMAGE_HEIGHT = isAndroid ? 66 : 76;
+  const CARD_FOOTER_HEIGHT = isAndroid ? 74 : 82;
+  const loadingPlaceholderHeight = CARD_IMAGE_HEIGHT + CARD_FOOTER_HEIGHT + 14;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -182,7 +185,7 @@ export default function UpcomingTorontoCarousel({ horizontalPadding = 0 }: Props
 
   if (loading && items.length === 0) {
     return (
-      <View style={{ marginTop: 6, height: 118, justifyContent: 'center' }}>
+      <View style={{ marginTop: 6, height: loadingPlaceholderHeight, justifyContent: 'center' }}>
         <Text style={{ fontSize: 12, color: DesignColors.mediumGray, textAlign: 'center' }}>
           Loading workshops…
         </Text>
