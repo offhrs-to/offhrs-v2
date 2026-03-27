@@ -1,4 +1,3 @@
-import { BOOK_API_BASE } from '@/constants/api';
 import {
   DesignColors,
   DesignSpacing,
@@ -7,7 +6,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image } from 'expo-image';
-import * as Linking from 'expo-linking';
+import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
@@ -19,19 +18,27 @@ import {
   ScrollView,
   Text,
   TextInput,
+  TouchableOpacity as RNTouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
 import OnboardingModal from '@/components/OnboardingModal';
 import { SignInForm } from '@/components/SignInForm';
+import { openWebAppPath } from '@/lib/web-app-links';
+import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
+import { geocodeAddress, reverseGeocodeCanadianPostal } from '@/lib/geocode';
 import { supabase } from '@/lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const STATS_DIVIDER_WIDTH = 1;
+
 export default function ProfileScreen() {
   const { user, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
+  const { width: windowWidth } = useWindowDimensions();
   const [profile, setProfile] = useState<{
     display_name: string | null;
     avatar_url: string | null;
@@ -40,6 +47,9 @@ export default function ProfileScreen() {
     experience_points: number | null;
     onboarding_completed: boolean | null;
     instructor_categories: string[] | null;
+    postal_code: string | null;
+    location_lat: number | null;
+    location_lng: number | null;
   } | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [savedEventsCount, setSavedEventsCount] = useState(0);
@@ -60,6 +70,8 @@ export default function ProfileScreen() {
   const [settingsPhone, setSettingsPhone] = useState('');
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsLocationPostal, setSettingsLocationPostal] = useState('');
+  const [settingsLocationAction, setSettingsLocationAction] = useState<null | 'postal' | 'gps' | 'clear'>(null);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
@@ -69,7 +81,9 @@ export default function ProfileScreen() {
 
     supabase
       .from('profiles')
-      .select('display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories')
+      .select(
+        'display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng'
+      )
       .eq('id', user.id)
       .single()
       .then(({ data }) => {
@@ -116,7 +130,9 @@ export default function ProfileScreen() {
           .then(({ count }) => setSavedEventsCount(count ?? 0));
         supabase
           .from('profiles')
-          .select('display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories')
+          .select(
+            'display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng'
+          )
           .eq('id', user.id)
           .single()
           .then(({ data }) => {
@@ -266,7 +282,9 @@ export default function ProfileScreen() {
     if (!user?.id) return;
     supabase
       .from('profiles')
-      .select('display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories')
+      .select(
+        'display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng'
+      )
       .eq('id', user.id)
       .single()
       .then(({ data }) => setProfile(data ?? null));
@@ -281,7 +299,7 @@ export default function ProfileScreen() {
   }
 
   if (!user) {
-    return <SignInForm />;
+    return <SignInForm showHeaderLogo />;
   }
 
   const displayName =
@@ -293,16 +311,11 @@ export default function ProfileScreen() {
   const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture;
   const email = user.email || '—';
   const phone = profile?.phone || '—';
-  const webAppOrigin =
-    (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || BOOK_API_BASE;
-  const level = profile?.expertise_level || 'Novice';
-  const points = profile?.experience_points ?? 0;
-  // Progression within current level: 0/8 … 8/8 (step 8 per level)
-  const LEVEL_STEP = 8;
-  const levelStarts: Record<string, number> = { Novice: 0, Intermediate: 8, Advanced: 16, Expert: 24, Master: 32 };
-  const start = levelStarts[level] ?? 0;
-  const pointsInSegment = Math.max(0, points - start);
-  const progressLabel = level === 'Master' ? 'Max' : `${Math.min(pointsInSegment, LEVEL_STEP)}/${LEVEL_STEP}`;
+
+  /** Equal thirds so dividers sit at true ⅓ / ⅔ (GH TouchableOpacity + flex:1 was skewing layout). */
+  const statsRowInnerWidth = windowWidth - DesignSpacing.horizontalPadding * 2;
+  const statsCellWidth =
+    (statsRowInnerWidth - STATS_DIVIDER_WIDTH * 2) / 3;
 
   return (
     <>
@@ -311,6 +324,7 @@ export default function ProfileScreen() {
       )}
       <ScrollView
         ref={scrollViewRef}
+        keyboardShouldPersistTaps="handled"
         style={{ flex: 1, backgroundColor: DesignColors.creamBg }}
         contentContainerStyle={{
           flexGrow: 1,
@@ -346,6 +360,7 @@ export default function ProfileScreen() {
             setSettingsName(displayName === '—' ? '' : displayName);
             setSettingsEmail(email === '—' ? '' : email);
             setSettingsPhone(phone === '—' ? '' : phone);
+            setSettingsLocationPostal(profile?.postal_code ?? '');
             setSettingsError(null);
             setSettingsVisible(true);
           }}
@@ -398,28 +413,19 @@ export default function ProfileScreen() {
           fontWeight: '700',
           color: DesignColors.charcoal,
           textAlign: 'center',
-          marginBottom: 4,
+          marginBottom: Platform.OS === 'android' ? 12 : 20,
         }}
       >
         {displayName}
       </Text>
-      <Text
-        style={{
-          fontSize: 15,
-          color: DesignColors.primary,
-          textAlign: 'center',
-          marginBottom: Platform.OS === 'android' ? 12 : 20,
-        }}
-      >
-        {level}
-        {typeof points === 'number' ? ` • ${progressLabel}` : ''}
-      </Text>
 
-      {/* Stats row – three equal columns; dividers between (iOS + Android) */}
+      {/* Stats row – fixed equal widths so dividers are centered between columns (iOS + Android) */}
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'stretch',
+          justifyContent: 'center',
+          width: '100%',
           paddingVertical: 16,
           marginBottom: Platform.OS === 'android' ? 14 : 20,
           borderTopWidth: 1,
@@ -427,8 +433,12 @@ export default function ProfileScreen() {
           borderColor: DesignColors.lightGreenBorder,
         }}
       >
-        <TouchableOpacity
-          style={{ flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' }}
+        <RNTouchableOpacity
+          style={{
+            width: statsCellWidth,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
           onPress={() => {
             setWorkshopsModalVisible(true);
             fetchAttendedWorkshops();
@@ -437,21 +447,44 @@ export default function ProfileScreen() {
         >
           <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>{workshopsAttended}</Text>
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 2 }}>Workshops</Text>
-        </TouchableOpacity>
-        <View style={{ width: 1, alignSelf: 'center', height: 32, backgroundColor: DesignColors.lightGreenBorder }} />
-        <Pressable
-          style={{ flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' }}
+        </RNTouchableOpacity>
+        <View
+          style={{
+            width: STATS_DIVIDER_WIDTH,
+            alignSelf: 'center',
+            height: 32,
+            backgroundColor: DesignColors.lightGreenBorder,
+          }}
+        />
+        <RNTouchableOpacity
+          style={{
+            width: statsCellWidth,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
           onPress={() => {
             setSavedModalVisible(true);
             fetchSavedEvents();
           }}
+          activeOpacity={0.7}
         >
           <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>{savedEventsCount}</Text>
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 2 }}>Saved</Text>
-        </Pressable>
-        <View style={{ width: 1, alignSelf: 'center', height: 32, backgroundColor: DesignColors.lightGreenBorder }} />
-        <TouchableOpacity
-          style={{ flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' }}
+        </RNTouchableOpacity>
+        <View
+          style={{
+            width: STATS_DIVIDER_WIDTH,
+            alignSelf: 'center',
+            height: 32,
+            backgroundColor: DesignColors.lightGreenBorder,
+          }}
+        />
+        <RNTouchableOpacity
+          style={{
+            width: statsCellWidth,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
           onPress={() => {
             setReviewsModalVisible(true);
             fetchMyReviews();
@@ -460,7 +493,7 @@ export default function ProfileScreen() {
         >
           <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>{reviewsCount}</Text>
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 2 }}>Reviews</Text>
-        </TouchableOpacity>
+        </RNTouchableOpacity>
       </View>
 
       {/* Account details – Name, Email, Phone */}
@@ -497,7 +530,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Policy links: RN Pressable + single row (iOS + Android; avoids GH touch issues in ScrollView) */}
+      {/* Policy links: RN TouchableOpacity (not gesture-handler) so taps work inside ScrollView */}
       <View
         style={{
           marginTop: 16,
@@ -505,25 +538,42 @@ export default function ProfileScreen() {
           flexWrap: 'wrap',
           justifyContent: 'center',
           alignItems: 'center',
-          gap: 6,
           paddingVertical: 8,
           paddingHorizontal: 4,
         }}
       >
-        <Pressable
-          onPress={() => Linking.openURL(`${webAppOrigin}/privacy`)}
-          hitSlop={8}
+        <RNTouchableOpacity
+          activeOpacity={0.7}
+          accessibilityRole="link"
+          accessibilityLabel="Privacy Policy"
+          onPress={() => void openWebAppPath('/privacy')}
+          style={{ paddingVertical: 10, paddingHorizontal: 8 }}
+          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
         >
           <Text style={{ fontSize: 11, color: DesignColors.primary, fontWeight: '600' }}>Privacy Policy</Text>
-        </Pressable>
-        <Text style={{ fontSize: 11, color: DesignColors.mediumGray }}>·</Text>
-        <Pressable onPress={() => Linking.openURL(`${webAppOrigin}/terms`)} hitSlop={8}>
+        </RNTouchableOpacity>
+        <Text style={{ fontSize: 11, color: DesignColors.mediumGray, marginHorizontal: 2 }}>·</Text>
+        <RNTouchableOpacity
+          activeOpacity={0.7}
+          accessibilityRole="link"
+          accessibilityLabel="Terms of Service"
+          onPress={() => void openWebAppPath('/terms')}
+          style={{ paddingVertical: 10, paddingHorizontal: 8 }}
+          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+        >
           <Text style={{ fontSize: 11, color: DesignColors.primary, fontWeight: '600' }}>Terms of Service</Text>
-        </Pressable>
-        <Text style={{ fontSize: 11, color: DesignColors.mediumGray }}>·</Text>
-        <Pressable onPress={() => Linking.openURL(`${webAppOrigin}/disclaimer`)} hitSlop={8}>
+        </RNTouchableOpacity>
+        <Text style={{ fontSize: 11, color: DesignColors.mediumGray, marginHorizontal: 2 }}>·</Text>
+        <RNTouchableOpacity
+          activeOpacity={0.7}
+          accessibilityRole="link"
+          accessibilityLabel="Listing disclaimer"
+          onPress={() => void openWebAppPath('/disclaimer')}
+          style={{ paddingVertical: 10, paddingHorizontal: 8 }}
+          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+        >
           <Text style={{ fontSize: 11, color: DesignColors.primary, fontWeight: '600' }}>Listing disclaimer</Text>
-        </Pressable>
+        </RNTouchableOpacity>
       </View>
 
       <Pressable
@@ -785,7 +835,7 @@ export default function ProfileScreen() {
             ) : savedEvents.length === 0 ? (
               <View style={{ padding: 32, alignItems: 'center' }}>
                 <Text style={{ fontSize: 14, color: DesignColors.mediumGray, textAlign: 'center' }}>
-                  No saved events yet. Save events from the Workshops tab to see them here.
+                  No saved events yet. Tap the heart on a workshop to save it — you’ll find them here and under Workshops.
                 </Text>
               </View>
             ) : (
@@ -921,9 +971,174 @@ export default function ProfileScreen() {
                 paddingVertical: 12,
                 fontSize: 16,
                 color: DesignColors.charcoal,
-                marginBottom: 24,
+                marginBottom: 20,
               }}
             />
+            <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.charcoal, marginBottom: 8 }}>
+              Workshop distance
+            </Text>
+            <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginBottom: 10 }}>
+              We use this to sort workshops by proximity. You can update or clear it anytime.
+            </Text>
+            <TextInput
+              value={settingsLocationPostal}
+              onChangeText={setSettingsLocationPostal}
+              placeholder="Postal code (A1A 1A1)"
+              placeholderTextColor={DesignColors.mediumGray}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={7}
+              style={{
+                backgroundColor: DesignColors.inputBg,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontSize: 16,
+                color: DesignColors.charcoal,
+                marginBottom: 10,
+              }}
+            />
+            <Pressable
+              onPress={async () => {
+                if (!user?.id) return;
+                const trimmed = settingsLocationPostal.trim();
+                if (!trimmed) {
+                  setSettingsError('Enter a postal code or use your location.');
+                  return;
+                }
+                const norm = parseCanadianPostalCode(trimmed);
+                if (!norm) {
+                  setSettingsError('Use Canadian format, e.g. A1A 1A1.');
+                  return;
+                }
+                setSettingsLocationAction('postal');
+                setSettingsError(null);
+                try {
+                  const coords = await geocodeAddress(`${norm}, Canada`);
+                  if (!coords) {
+                    setSettingsError('Could not find that postal code.');
+                    return;
+                  }
+                  const { error } = await supabase
+                    .from('profiles')
+                    .update({
+                      postal_code: norm,
+                      location_lat: coords.lat,
+                      location_lng: coords.lng,
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', user.id);
+                  if (error) throw error;
+                  setSettingsLocationPostal(norm);
+                  refreshProfile();
+                } catch (e) {
+                  setSettingsError(e instanceof Error ? e.message : 'Could not save location');
+                } finally {
+                  setSettingsLocationAction(null);
+                }
+              }}
+              disabled={settingsLocationAction !== null}
+              style={{
+                paddingVertical: 12,
+                borderRadius: 9999,
+                backgroundColor: DesignColors.primary,
+                alignItems: 'center',
+                marginBottom: 10,
+                opacity: settingsLocationAction !== null ? 0.7 : 1,
+              }}
+            >
+              {settingsLocationAction === 'postal' ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFF' }}>Save postal code</Text>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={async () => {
+                if (!user?.id) return;
+                setSettingsLocationAction('gps');
+                setSettingsError(null);
+                try {
+                  const { status } = await Location.requestForegroundPermissionsAsync();
+                  if (status !== 'granted') {
+                    setSettingsError('Location permission was not granted.');
+                    return;
+                  }
+                  const pos = await Location.getCurrentPositionAsync({
+                    accuracy: Location.Accuracy.Balanced,
+                  });
+                  const lat = pos.coords.latitude;
+                  const lng = pos.coords.longitude;
+                  const postal = await reverseGeocodeCanadianPostal(lat, lng);
+                  const { error } = await supabase
+                    .from('profiles')
+                    .update({
+                      postal_code: postal,
+                      location_lat: lat,
+                      location_lng: lng,
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', user.id);
+                  if (error) throw error;
+                  if (postal) setSettingsLocationPostal(postal);
+                  refreshProfile();
+                } catch (e) {
+                  setSettingsError(e instanceof Error ? e.message : 'Could not save location');
+                } finally {
+                  setSettingsLocationAction(null);
+                }
+              }}
+              disabled={settingsLocationAction !== null}
+              style={{
+                paddingVertical: 12,
+                borderRadius: 9999,
+                backgroundColor: DesignColors.inputBg,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+                alignItems: 'center',
+                marginBottom: 10,
+                opacity: settingsLocationAction !== null ? 0.7 : 1,
+              }}
+            >
+              {settingsLocationAction === 'gps' ? (
+                <ActivityIndicator size="small" color={DesignColors.sageGreen} />
+              ) : (
+                <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.sageGreen }}>Use my location</Text>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={async () => {
+                if (!user?.id) return;
+                setSettingsLocationAction('clear');
+                setSettingsError(null);
+                try {
+                  const { error } = await supabase
+                    .from('profiles')
+                    .update({
+                      postal_code: null,
+                      location_lat: null,
+                      location_lng: null,
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', user.id);
+                  if (error) throw error;
+                  setSettingsLocationPostal('');
+                  refreshProfile();
+                } catch (e) {
+                  setSettingsError(e instanceof Error ? e.message : 'Could not clear location');
+                } finally {
+                  setSettingsLocationAction(null);
+                }
+              }}
+              disabled={settingsLocationAction !== null}
+              style={{ alignItems: 'center', paddingVertical: 10, marginBottom: 20 }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.mediumGray }}>
+                Clear saved location
+              </Text>
+            </Pressable>
             {settingsError ? (
               <Text style={{ color: '#B91C1C', fontSize: 14, marginBottom: 16 }}>{settingsError}</Text>
             ) : null}

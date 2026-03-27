@@ -30,7 +30,8 @@ export const DesignColors = {
 // ─── Spacing ────────────────────────────────────────────────────────────
 export const DesignSpacing = {
   horizontalPadding: 24,
-  contentPaddingTop: 48,
+  /** Top inset for logo strip / primary headers (tabs + workshop chrome). */
+  contentPaddingTop: 56,
   contentPaddingBottom: 32,
   headerMarginBottom: 12,
   /** Bottom padding under logo strip on fixed tab headers (Home, Workshops, Contact). */

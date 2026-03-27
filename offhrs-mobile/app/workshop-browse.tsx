@@ -1,30 +1,25 @@
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import type { Event } from '@/components/EventCard';
+import { EventCard } from '@/components/EventCard';
 import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
 import WorkshopsChrome from '@/components/WorkshopsChrome';
-import WorkshopsMapPreview from '@/components/WorkshopsMapPreview';
 import { BOOK_API_BASE } from '@/constants/api';
-import { CATEGORIES as CATEGORY_LIST } from '@/constants/categories';
-import {
-  DesignColors,
-  DesignSpacing,
-} from '@/constants/design-template';
-import { WORKSHOP_FETCH_LIMIT_HUB_PREVIEW } from '@/constants/workshops-list';
+import { CATEGORIES } from '@/constants/categories';
+import { DesignColors, DesignSpacing } from '@/constants/design-template';
+import { WORKSHOP_LIST_PAGE_SIZE } from '@/constants/workshops-list';
 import { useAuth } from '@/contexts/AuthContext';
-import { openWebAppPath } from '@/lib/web-app-links';
-import { supabase } from '@/lib/supabase';
-import { fetchWorkshopEvents } from '@/lib/workshops-events-query';
-import { getCategoryMasterImageSource } from '@/lib/category-master-images';
 import { haversineKm } from '@/lib/distance';
-import { Image } from 'expo-image';
+import { supabase } from '@/lib/supabase';
+import { buildDateStrip, eventMatchesCalendarDay, getTorontoYmd } from '@/lib/workshop-calendar';
+import type { WorkshopEventRow } from '@/lib/workshops-events-query';
+import { fetchWorkshopEvents } from '@/lib/workshops-events-query';
 import * as Linking from 'expo-linking';
 import { useFocusEffect } from '@react-navigation/native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Modal,
   Platform,
@@ -34,81 +29,92 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SaveButtonTouchable = Platform.OS === 'android' ? TouchableOpacity : GHTouchableOpacity;
 
-type EventWithCoords = Event & {
-  lat?: number | null;
-  lng?: number | null;
-  date_iso?: string | null;
-  recurrence?: string | null;
-  category?: string | null;
-};
-
 const GRID_GAP = 12;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const TILE_WIDTH = (SCREEN_WIDTH - DesignSpacing.horizontalPadding * 2 - GRID_GAP) / 2;
-const TILE_HEIGHT = Math.round(TILE_WIDTH * 0.72);
+const CARD_W = (SCREEN_WIDTH - DesignSpacing.horizontalPadding * 2 - GRID_GAP) / 2;
 
-function formatDate(isoString: string): string {
-  try {
-    const d = new Date(isoString);
-    return d.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZone: 'America/Toronto',
-    });
-  } catch {
-    return isoString;
-  }
+function parseParamString(v: string | string[] | undefined): string {
+  if (v == null) return '';
+  return typeof v === 'string' ? v : v[0] ?? '';
 }
 
-function rowToEventWithCoords(row: {
+type QvEvent = {
   id: number;
-  title: string | null;
-  date: string | null;
-  location: string | null;
+  title: string;
+  date: string;
+  date_iso: string | null;
+  location: string;
   image_url: string | null;
   price: number | string | null;
-  external_link: string | null;
+  external_link: string;
   lat: number | null;
   lng: number | null;
   vendor_id: string | null;
   recurrence: string | null;
   category: string | null;
-}): EventWithCoords {
+};
+
+function rowToQv(r: WorkshopEventRow): QvEvent {
   return {
-    id: row.id,
-    title: row.title ?? '',
-    date: row.date ? formatDate(row.date) : '',
-    date_iso: row.date ?? null,
-    location: row.location ?? '',
-    image_url: row.image_url ?? null,
-    price: row.price ?? null,
-    external_link: row.external_link ?? '',
-    lat: row.lat ?? null,
-    lng: row.lng ?? null,
-    vendor_id: row.vendor_id ?? null,
-    recurrence: row.recurrence ?? null,
-    category: row.category ?? null,
+    id: r.id,
+    title: r.title,
+    date: r.date,
+    date_iso: r.date_iso,
+    location: r.location,
+    image_url: r.image_url,
+    price: r.price,
+    external_link: r.external_link,
+    lat: r.lat,
+    lng: r.lng,
+    vendor_id: r.vendor_id,
+    recurrence: r.recurrence,
+    category: r.category,
   };
 }
 
-export default function WorkshopsScreen() {
+function toCardEvent(r: WorkshopEventRow): Event {
+  return {
+    id: r.id,
+    title: r.title,
+    date: r.date,
+    location: r.location,
+    image_url: r.image_url,
+    price: r.price,
+    external_link: r.external_link,
+    vendor_id: r.vendor_id,
+    category: r.category,
+  };
+}
+
+export default function WorkshopBrowseScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const params = useLocalSearchParams<{
     q?: string;
-    openEvent?: string;
-    openTs?: string;
+    categories?: string;
   }>();
-  const qParam = typeof params.q === 'string' ? params.q : Array.isArray(params.q) ? params.q[0] : '';
 
-  const [previewEvents, setPreviewEvents] = useState<EventWithCoords[]>([]);
-  const [previewLoading, setPreviewLoading] = useState(true);
+  const paramQ = parseParamString(params.q);
+  const paramCat = parseParamString(params.categories);
+  const initialCategory =
+    paramCat && (CATEGORIES as readonly string[]).includes(paramCat) ? paramCat : null;
 
-  const [quickViewEvent, setQuickViewEvent] = useState<EventWithCoords | null>(null);
+  const [searchTerm, setSearchTerm] = useState(paramQ);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategory);
+
+  const strip = useMemo(() => buildDateStrip(90), []);
+  const [selectedYmd, setSelectedYmd] = useState(() => strip[0]?.ymd ?? getTorontoYmd());
+
+  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<WorkshopEventRow[]>([]);
+  const [listPage, setListPage] = useState(1);
+
+  const [quickViewEvent, setQuickViewEvent] = useState<QvEvent | null>(null);
   const [savedEventIds, setSavedEventIds] = useState<Set<number>>(new Set());
   const [quickViewSaving, setQuickViewSaving] = useState(false);
 
@@ -118,15 +124,20 @@ export default function WorkshopsScreen() {
     postal_code: string | null;
   } | null>(null);
 
-  const router = useRouter();
-  const { user } = useAuth();
+  useEffect(() => {
+    setSearchTerm(paramQ);
+  }, [paramQ]);
 
-  const distanceAnchorCoords = profileLocation;
+  useEffect(() => {
+    const next =
+      paramCat && (CATEGORIES as readonly string[]).includes(paramCat) ? paramCat : null;
+    setSelectedCategory(next);
+  }, [paramCat]);
 
   useFocusEffect(
     useCallback(() => {
       if (!user?.id) {
-        setProfileLocation(null);
+        setSavedEventIds(new Set());
         return;
       }
       supabase
@@ -155,84 +166,68 @@ export default function WorkshopsScreen() {
     }, [user?.id])
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    setPreviewLoading(true);
-    fetchWorkshopEvents({
-      searchTerm: '',
-      categories: [],
-      dateRangeStart: null,
-      dateRangeEnd: null,
-      limit: WORKSHOP_FETCH_LIMIT_HUB_PREVIEW,
-    })
-      .then((rows) => {
-        if (cancelled) return;
-        setPreviewEvents(
-          rows.map((r) => ({
-            id: r.id,
-            title: r.title,
-            date: r.date,
-            date_iso: r.date_iso,
-            location: r.location,
-            image_url: r.image_url,
-            price: r.price,
-            external_link: r.external_link,
-            lat: r.lat,
-            lng: r.lng,
-            vendor_id: r.vendor_id,
-            recurrence: r.recurrence,
-            category: r.category,
-          }))
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setPreviewEvents([]);
-      })
-      .finally(() => {
-        if (!cancelled) setPreviewLoading(false);
+  const categoriesForQuery = useMemo(
+    () => (selectedCategory ? [selectedCategory] : [] as string[]),
+    [selectedCategory]
+  );
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const rows = await fetchWorkshopEvents({
+        searchTerm,
+        categories: categoriesForQuery,
+        dateRangeStart: null,
+        dateRangeEnd: null,
       });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const openEventId = useMemo(() => {
-    const raw = params.openEvent;
-    const oe = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
-    if (!oe) return null;
-    const id = Number(oe);
-    return Number.isInteger(id) ? id : null;
-  }, [params.openEvent]);
-
-  const openTs = useMemo(() => {
-    const rawTs = params.openTs;
-    if (rawTs === undefined || rawTs === null) return '';
-    return String(Array.isArray(rawTs) ? rawTs[0] : rawTs);
-  }, [params.openTs]);
-
-  useEffect(() => {
-    if (openEventId == null || openTs === '') return;
-    const fromList = previewEvents.find((e) => Number(e.id) === openEventId);
-    if (fromList) {
-      setQuickViewEvent(fromList);
-      return;
+      setEvents(rows);
+    } catch {
+      setEvents([]);
+    } finally {
+      setLoading(false);
     }
-    let cancelled = false;
-    supabase
-      .from('events')
-      .select(
-        'id, title, date, location, image_url, price, external_link, category, lat, lng, vendor_id, recurrence'
-      )
-      .eq('id', openEventId)
-      .single()
-      .then(({ data, error }) => {
-        if (cancelled || error || !data) return;
-        setQuickViewEvent(rowToEventWithCoords(data));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [openEventId, openTs, previewEvents]);
+  }, [searchTerm, categoriesForQuery]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [selectedYmd, selectedCategory, searchTerm]);
+
+  const dayEvents = useMemo(
+    () => events.filter((e) => eventMatchesCalendarDay(e, selectedYmd)),
+    [events, selectedYmd]
+  );
+
+  const pagedEvents = useMemo(
+    () => dayEvents.slice(0, listPage * WORKSHOP_LIST_PAGE_SIZE),
+    [dayEvents, listPage]
+  );
+
+  const syncParams = (next: { q?: string; categories?: string | null }) => {
+    router.setParams({
+      q: next.q || undefined,
+      categories: next.categories || undefined,
+    });
+  };
+
+  const selectCategory = (cat: string | null) => {
+    setSelectedCategory(cat);
+    syncParams({
+      q: searchTerm,
+      categories: cat,
+    });
+  };
+
+  const pushSearch = () => {
+    const p = new URLSearchParams();
+    if (searchTerm) p.set('q', searchTerm);
+    if (selectedCategory) p.set('categories', selectedCategory);
+    const qs = p.toString();
+    router.push(qs ? `/workshop-search?${qs}` : '/workshop-search');
+  };
 
   const eventIdNum = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
   const quickViewSaved = eventIdNum != null && savedEventIds.has(eventIdNum);
@@ -261,11 +256,6 @@ export default function WorkshopsScreen() {
             next.delete(eid);
             return next;
           });
-          const { data } = await supabase
-            .from('user_event_saves')
-            .select('event_id')
-            .eq('user_id', user.id);
-          if (data) setSavedEventIds(new Set(data.map((r) => Number(r.event_id))));
         }
       } else {
         const { error } = await supabase.from('user_event_saves').insert({ user_id: user.id, event_id: eid });
@@ -273,11 +263,6 @@ export default function WorkshopsScreen() {
           Alert.alert("Couldn't save", error.message ?? 'Please try again.');
         } else {
           setSavedEventIds((prev) => new Set(prev).add(eid));
-          const { data } = await supabase
-            .from('user_event_saves')
-            .select('event_id')
-            .eq('user_id', user.id);
-          if (data) setSavedEventIds(new Set(data.map((r) => Number(r.event_id))));
         }
       }
     } finally {
@@ -285,34 +270,17 @@ export default function WorkshopsScreen() {
     }
   }, [user?.id, quickViewEvent?.id, quickViewSaving, savedEventIds, router]);
 
-  const pushSearch = () => {
-    const p = new URLSearchParams();
-    if (qParam) p.set('q', qParam);
-    const qs = p.toString();
-    router.push(qs ? `/workshop-search?${qs}` : '/workshop-search');
-  };
-
-  const pushMap = () => {
-    const p = new URLSearchParams();
-    if (qParam) p.set('q', qParam);
-    const qs = p.toString();
-    router.push(qs ? `/workshop-map?${qs}` : '/workshop-map');
-  };
-
-  const pushBrowse = (category?: string) => {
-    const p = new URLSearchParams();
-    if (category) p.set('categories', category);
-    if (qParam) p.set('q', qParam);
-    router.push(`/workshop-browse?${p.toString()}`);
-  };
+  const pillCategories = useMemo(() => ['All', ...CATEGORIES] as const, []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: DesignColors.creamBg }}>
+    <View style={{ flex: 1, backgroundColor: DesignColors.creamBg, paddingBottom: insets.bottom }}>
       <WorkshopsChrome
-        searchAsButton
+        showBack
         hideDateAndClear
+        onBackPress={() => router.back()}
+        searchAsButton
         searchPlaceholder="Search workshops…"
-        searchValue={qParam}
+        searchValue={searchTerm}
         onSearchPress={pushSearch}
       />
 
@@ -321,168 +289,142 @@ export default function WorkshopsScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingHorizontal: DesignSpacing.horizontalPadding,
-          paddingBottom: Platform.OS === 'ios' ? 120 : 140,
+          paddingBottom: 32,
         }}
         showsVerticalScrollIndicator={false}
       >
-        <Text
-          style={{
-            fontSize: 15,
-            fontWeight: '700',
-            color: DesignColors.charcoal,
-            marginTop: 8,
-            marginBottom: 8,
-          }}
-        >
-          Browse nearby
-        </Text>
-        <WorkshopsMapPreview
-          events={previewEvents}
-          loading={previewLoading}
-          onPress={pushMap}
-        />
-
-        <Text
-          style={{
-            fontSize: 15,
-            fontWeight: '700',
-            color: DesignColors.charcoal,
-            marginTop: 20,
-            marginBottom: 10,
-          }}
-        >
-          What sparks your curiosity?
-        </Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP, marginBottom: 16 }}>
-          {CATEGORY_LIST.map((cat) => (
-            <Pressable
-              key={cat}
-              onPress={() => pushBrowse(cat)}
-              style={{
-                width: TILE_WIDTH,
-                height: TILE_HEIGHT,
-                borderRadius: 14,
-                overflow: 'hidden',
-                borderWidth: 1,
-                borderColor: DesignColors.lightGreenBorder,
-              }}
-            >
-              <Image
-                source={getCategoryMasterImageSource(cat)}
-                style={{ width: '100%', height: '100%' }}
-                contentFit="cover"
-              />
-              <View
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
-                  backgroundColor: 'rgba(0,0,0,0.35)',
-                }}
-              >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFF' }} numberOfLines={2}>
-                  {cat}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-
-        <View
-          style={{
-            borderRadius: 16,
-            overflow: 'hidden',
-            backgroundColor: DesignColors.heroBg,
-            borderWidth: 1,
-            borderColor: DesignColors.lightGreenBorder,
-            paddingVertical: 14,
-            paddingHorizontal: 16,
-            marginBottom: 20,
-          }}
-        >
-          <Text style={{ fontSize: 14, fontWeight: '700', color: DesignColors.charcoal, lineHeight: 20 }}>
-            Found a workshop you like? Tap the heart on a listing to save it to your profile.
-          </Text>
-        </View>
-
-        <View
-          style={{
-            marginTop: 8,
-            padding: 12,
-            borderRadius: 12,
-            backgroundColor: 'rgba(251, 191, 36, 0.12)',
-            borderWidth: 1,
-            borderColor: 'rgba(251, 191, 36, 0.35)',
-          }}
-        >
-          <Text style={{ fontSize: 11, color: DesignColors.charcoal, lineHeight: 16 }}>
-            Listings may be incomplete or outdated. Confirm date, time, price, location, and requirements with the
-            vendor before you rely on them. Offhrs does not process bookings or payments.
-          </Text>
-          <View
-            style={{
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginTop: 10,
-            }}
-          >
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => void openWebAppPath('/privacy')}
-              style={{ paddingVertical: 8, paddingHorizontal: 6 }}
-            >
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: '600',
-                  color: DesignColors.primary,
-                  textDecorationLine: 'underline',
-                }}
-              >
-                Privacy Policy
-              </Text>
-            </TouchableOpacity>
-            <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginHorizontal: 4 }}>·</Text>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => void openWebAppPath('/terms')}
-              style={{ paddingVertical: 8, paddingHorizontal: 6 }}
-            >
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: '600',
-                  color: DesignColors.primary,
-                  textDecorationLine: 'underline',
-                }}
-              >
-                Terms of Service
-              </Text>
-            </TouchableOpacity>
-            <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginHorizontal: 4 }}>·</Text>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => void openWebAppPath('/disclaimer')}
-              style={{ paddingVertical: 8, paddingHorizontal: 6 }}
-            >
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: '600',
-                  color: DesignColors.primary,
-                  textDecorationLine: 'underline',
-                }}
-              >
-                Listing disclaimer
-              </Text>
-            </TouchableOpacity>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8, marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', gap: 8, paddingRight: 8 }}>
+            {pillCategories.map((label) => {
+              const isAll = label === 'All';
+              const active = isAll ? selectedCategory == null : selectedCategory === label;
+              return (
+                <Pressable
+                  key={label}
+                  onPress={() => selectCategory(isAll ? null : label)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 9999,
+                    backgroundColor: active ? DesignColors.primary : DesignColors.inputBg,
+                    borderWidth: 1,
+                    borderColor: DesignColors.lightGreenBorder,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontWeight: '600',
+                      color: active ? '#FFF' : DesignColors.charcoal,
+                    }}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
-        </View>
+        </ScrollView>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', gap: 8, paddingRight: 8 }}>
+            {strip.map((d) => {
+              const active = d.ymd === selectedYmd;
+              return (
+                <Pressable
+                  key={d.ymd}
+                  onPress={() => setSelectedYmd(d.ymd)}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    borderRadius: 12,
+                    backgroundColor: active ? DesignColors.heroBg : DesignColors.inputBg,
+                    borderWidth: 1,
+                    borderColor: active ? DesignColors.primary : DesignColors.lightGreenBorder,
+                    minWidth: 72,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: '700',
+                      color: active ? DesignColors.primary : DesignColors.charcoal,
+                      textAlign: 'center',
+                    }}
+                    numberOfLines={2}
+                  >
+                    {d.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </ScrollView>
+
+        {loading ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <ActivityIndicator color={DesignColors.primary} />
+          </View>
+        ) : (
+          <>
+            <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 12 }}>
+              {dayEvents.length} workshop{dayEvents.length === 1 ? '' : 's'} on this day
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP }}>
+              {pagedEvents.map((row) => {
+                const ev = toCardEvent(row);
+                const dist =
+                  profileLocation != null && row.lat != null && row.lng != null
+                    ? Math.round(
+                        haversineKm(
+                          profileLocation.lat,
+                          profileLocation.lng,
+                          Number(row.lat),
+                          Number(row.lng)
+                        ) * 10
+                      ) / 10
+                    : undefined;
+                return (
+                  <View key={row.id} style={{ width: CARD_W }}>
+                    <EventCard
+                      event={ev}
+                      distanceKm={dist}
+                      saved={savedEventIds.has(row.id)}
+                      onSaveChange={(id, saved) => {
+                        setSavedEventIds((prev) => {
+                          const next = new Set(prev);
+                          if (saved) next.add(id);
+                          else next.delete(id);
+                          return next;
+                        });
+                      }}
+                      onPress={() => setQuickViewEvent(rowToQv(row))}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+            {dayEvents.length === 0 ? (
+              <Text style={{ color: DesignColors.mediumGray, marginTop: 8 }}>Nothing scheduled for this day.</Text>
+            ) : null}
+            {pagedEvents.length < dayEvents.length ? (
+              <Pressable
+                onPress={() => setListPage((p) => p + 1)}
+                style={{
+                  marginTop: 20,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: DesignColors.lightGreenBorder,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>Load more</Text>
+              </Pressable>
+            ) : null}
+          </>
+        )}
       </ScrollView>
 
       <Modal visible={!!quickViewEvent} transparent animationType="fade" onRequestClose={() => setQuickViewEvent(null)}>
@@ -509,7 +451,7 @@ export default function WorkshopsScreen() {
                     category={quickViewEvent.category}
                     style={{ width: '100%', height: '100%' }}
                     contentFit="cover"
-                    recyclingKey={`qv-hub-${quickViewEvent.id}`}
+                    recyclingKey={`qv-browse-${quickViewEvent.id}`}
                   />
                 </View>
                 {quickViewEvent.id != null && (
@@ -580,14 +522,14 @@ export default function WorkshopsScreen() {
                           : `$${quickViewEvent.price}`}
                       </Text>
                     )}
-                    {distanceAnchorCoords != null &&
+                    {profileLocation != null &&
                       quickViewEvent.lat != null &&
                       quickViewEvent.lng != null && (
                         <Text style={{ fontSize: 13, color: DesignColors.mediumGray }}>
                           {Math.round(
                             haversineKm(
-                              distanceAnchorCoords.lat,
-                              distanceAnchorCoords.lng,
+                              profileLocation.lat,
+                              profileLocation.lng,
                               Number(quickViewEvent.lat),
                               Number(quickViewEvent.lng)
                             ) * 10

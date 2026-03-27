@@ -3,18 +3,20 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
+  ActivityIndicator,
+  Alert,
   Dimensions,
   Modal,
   ScrollView,
   Text,
   View,
   Pressable,
-  Image,
   Linking,
   TextInput,
 } from 'react-native';
-import { Image as ExpoImage } from 'expo-image';
 
+import CategoryFallbackImage from '@/components/CategoryFallbackImage';
+import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
 import { BOOK_API_BASE } from '@/constants/api';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -158,7 +160,9 @@ export default function VendorProfileScreen() {
           .delete()
           .eq('user_id', user.id)
           .eq('event_id', eid);
-        if (!error) {
+        if (error) {
+          Alert.alert("Couldn't update", error.message ?? 'Please try again.');
+        } else {
           setSavedEventIds((prev) => {
             const next = new Set(prev);
             next.delete(eid);
@@ -169,7 +173,9 @@ export default function VendorProfileScreen() {
         }
       } else {
         const { error } = await supabase.from('user_event_saves').insert({ user_id: user.id, event_id: eid });
-        if (!error) {
+        if (error) {
+          Alert.alert("Couldn't save", error.message ?? 'Please try again.');
+        } else {
           setSavedEventIds((prev) => new Set(prev).add(eid));
           const { data } = await supabase.from('user_event_saves').select('event_id').eq('user_id', user.id);
           if (data) setSavedEventIds(new Set(data.map((r) => Number(r.event_id))));
@@ -226,7 +232,7 @@ export default function VendorProfileScreen() {
       style={{ flex: 1, backgroundColor: DesignColors.creamBg }}
       contentContainerStyle={{ padding: DesignSpacing.horizontalPadding, paddingBottom: 32 }}
     >
-      <View style={{ marginTop: 48, marginBottom: 24 }}>
+      <View style={{ marginTop: DesignSpacing.contentPaddingTop, marginBottom: 24 }}>
         <Text style={{ fontSize: 28, fontWeight: '700', color: DesignColors.charcoal }}>
           {vendor.name}
         </Text>
@@ -329,17 +335,13 @@ export default function VendorProfileScreen() {
             }}
           >
             <View style={{ height: 160, backgroundColor: DesignColors.inputBg }}>
-              {event.image_url ? (
-                <Image
-                  source={{ uri: event.image_url }}
-                  style={{ width: '100%', height: 160 }}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                  <Text style={{ color: DesignColors.mediumGray }}>No image</Text>
-                </View>
-              )}
+              <CategoryFallbackImage
+                imageUrl={event.image_url}
+                category={event.category}
+                style={{ width: '100%', height: 160 }}
+                contentFit="cover"
+                recyclingKey={`vendor-event-${event.id}`}
+              />
               {event.category && (
                 <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9999 }}>
                   <Text style={{ fontSize: 12, fontWeight: '600', color: DesignColors.charcoal }}>{event.category}</Text>
@@ -396,17 +398,13 @@ export default function VendorProfileScreen() {
             {quickViewEvent && (
               <>
                 <View style={{ height: 200, width: '100%', backgroundColor: DesignColors.inputBg }}>
-                  {quickViewEvent.image_url ? (
-                    <ExpoImage
-                      source={{ uri: quickViewEvent.image_url }}
-                      style={{ width: '100%', height: '100%' }}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: DesignColors.mediumGray }}>No image</Text>
-                    </View>
-                  )}
+                  <CategoryFallbackImage
+                    imageUrl={quickViewEvent.image_url}
+                    category={quickViewEvent.category}
+                    style={{ width: '100%', height: '100%' }}
+                    contentFit="cover"
+                    recyclingKey={`vendor-qv-${quickViewEvent.id}`}
+                  />
                 </View>
                 {quickViewEvent.id != null && (
                   <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 10 }}>
@@ -414,12 +412,26 @@ export default function VendorProfileScreen() {
                       onPress={handleQuickViewSave}
                       disabled={quickViewSaving}
                       activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={quickViewSaved ? 'Remove from saved workshops' : 'Save workshop'}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                      style={{ position: 'absolute', top: 12, right: 12, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.95)' }}
+                      style={{
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        backgroundColor: 'rgba(255,255,255,0.95)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
                     >
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: quickViewSaved ? DesignColors.primary : DesignColors.charcoal }}>
-                        {quickViewSaved ? 'Saved ✓' : 'Save'}
-                      </Text>
+                      {quickViewSaving ? (
+                        <ActivityIndicator size="small" color={DesignColors.primary} />
+                      ) : (
+                        <EventSaveHeartIcon saved={quickViewSaved} size={26} />
+                      )}
                     </TouchableOpacity>
                   </View>
                 )}

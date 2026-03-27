@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Text, View, ScrollView, Pressable } from 'react-native';
 
 import { DesignColors } from '@/constants/design-template';
@@ -14,12 +15,25 @@ type Props = {
   events: EventWithCoords[];
   loading: boolean;
   onEventPress?: (event: EventWithCoords) => void;
+  onMapPress?: () => void;
+  maxMarkers?: number;
 };
 
-export default function WorkshopMapView({ events, loading, onEventPress }: Props) {
-  const withCoords = events.filter(
-    (e) => e.lat != null && e.lng != null && !isNaN(Number(e.lat)) && !isNaN(Number(e.lng))
-  );
+const DEFAULT_MAX_MARKERS = 280;
+
+export default function WorkshopMapView({
+  events,
+  loading,
+  onEventPress,
+  maxMarkers = DEFAULT_MAX_MARKERS,
+}: Props) {
+  const withCoords = useMemo(() => {
+    const filtered = events.filter(
+      (e) => e.lat != null && e.lng != null && !isNaN(Number(e.lat)) && !isNaN(Number(e.lng))
+    );
+    if (filtered.length <= maxMarkers) return filtered;
+    return filtered.slice(0, maxMarkers);
+  }, [events, maxMarkers]);
 
   if (loading) {
     return (
@@ -55,6 +69,10 @@ export default function WorkshopMapView({ events, loading, onEventPress }: Props
         <Pressable
           key={e.id}
           onPress={() => {
+            if (onEventPress) {
+              onEventPress(e);
+              return;
+            }
             const url = `https://www.google.com/maps/search/?api=1&query=${Number(e.lat)},${Number(e.lng)}`;
             if (typeof window !== 'undefined') window.open(url, '_blank');
           }}

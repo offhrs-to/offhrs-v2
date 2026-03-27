@@ -1,3 +1,4 @@
+import { DesignSpacing } from '@/constants/design-template';
 import { supabase } from '@/lib/supabase';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -205,7 +206,10 @@ export default function AdminScreen() {
 
   if (!authenticated) {
     return (
-      <ScrollView className="flex-1 bg-gray-50 p-4" contentContainerStyle={{ paddingTop: 60 }}>
+      <ScrollView
+        className="flex-1 bg-gray-50 p-4"
+        contentContainerStyle={{ paddingTop: DesignSpacing.contentPaddingTop + 4 }}
+      >
         <Text className="mb-4 text-xl font-bold text-gray-900">Admin Login</Text>
         <TextInput
           className="mb-3 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-gray-900"
@@ -237,7 +241,11 @@ export default function AdminScreen() {
   return (
     <ScrollView
       className="flex-1 bg-gray-50"
-      contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+      contentContainerStyle={{
+        paddingHorizontal: 16,
+        paddingTop: DesignSpacing.contentPaddingTop + 4,
+        paddingBottom: 40,
+      }}
     >
       <Text className="mb-4 text-xl font-bold text-gray-900">Admin</Text>
 

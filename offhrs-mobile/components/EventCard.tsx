@@ -1,11 +1,12 @@
-import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, View, Text } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, View, Text } from 'react-native';
 
+import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import { BOOK_API_BASE } from '@/constants/api';
 import { DesignColors } from '@/constants/design-template';
+import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
@@ -18,6 +19,8 @@ export interface Event {
   price?: number | string | null;
   external_link: string;
   vendor_id?: string | null;
+  /** Used for Master-tier placeholder when image is missing or fails to load. */
+  category?: string | null;
 }
 
 function formatPrice(price: number | string | null | undefined): string | null {
@@ -82,26 +85,41 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
   const handleSave = async () => {
     if (!user || event.id == null || saving) return;
     setSaving(true);
-    if (displaySaved) {
-      const { error } = await supabase
-        .from('user_event_saves')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('event_id', event.id);
-      if (!error) {
+    try {
+      if (displaySaved) {
+        const { error } = await supabase
+          .from('user_event_saves')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('event_id', event.id);
+        if (error) {
+          Alert.alert("Couldn't update", error.message ?? 'Please try again.');
+          return;
+        }
         if (onSaveChange) onSaveChange(event.id, false);
         else setInternalSaved(false);
-      }
-    } else {
-      const { error } = await supabase
-        .from('user_event_saves')
-        .insert({ user_id: user.id, event_id: event.id });
-      if (!error) {
+      } else {
+        const { error } = await supabase
+          .from('user_event_saves')
+          .insert({ user_id: user.id, event_id: event.id });
+        if (error) {
+          Alert.alert("Couldn't save", error.message ?? 'Please try again.');
+          return;
+        }
         if (onSaveChange) onSaveChange(event.id, true);
         else setInternalSaved(true);
       }
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
+  };
+
+  const onHeartPress = () => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    void handleSave();
   };
 
   const handleBook = async () => {
@@ -126,17 +144,13 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
   const cardContent = (
     <>
       <View style={{ height: CARD_IMAGE_HEIGHT, width: '100%', overflow: 'hidden', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: '#F5F5F5' }}>
-        {event.image_url ? (
-          <Image
-            source={{ uri: event.image_url }}
-            style={{ width: '100%', height: '100%' }}
-            contentFit="cover"
-          />
-        ) : (
-          <View style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: DesignColors.mediumGray, fontSize: 11 }}>No image</Text>
-          </View>
-        )}
+        <CategoryFallbackImage
+          imageUrl={event.image_url}
+          category={event.category}
+          style={{ width: '100%', height: '100%' }}
+          contentFit="cover"
+          recyclingKey={`card-${event.id}`}
+        />
       </View>
       <View
         style={{
@@ -183,8 +197,31 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
             right: 12,
             flexDirection: 'row',
             gap: 6,
+            alignItems: 'center',
           }}
         >
+          <Pressable
+            onPress={onHeartPress}
+            disabled={saving}
+            accessibilityRole="button"
+            accessibilityLabel={displaySaved ? 'Remove from saved workshops' : 'Save workshop'}
+            style={{
+              width: 40,
+              height: 36,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: DesignColors.lightGreenBorder,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#FFF',
+            }}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color={DesignColors.primary} />
+            ) : (
+              <EventSaveHeartIcon saved={displaySaved} size={22} />
+            )}
+          </Pressable>
           {event.vendor_id && (
             <Pressable
               onPress={() => router.push(`/vendors/${event.vendor_id}`)}

@@ -62,3 +62,30 @@ export async function geocodeAddress(
   if (lat == null || lon == null) return null;
   return { lat: Number(lat), lng: Number(lon) };
 }
+
+type NominatimReverse = {
+  address?: { postcode?: string; country_code?: string };
+};
+
+/**
+ * Reverse geocode coordinates; returns Canadian postal code in A1A 1A1 form when available.
+ */
+export async function reverseGeocodeCanadianPostal(
+  lat: number,
+  lng: number
+): Promise<string | null> {
+  const url =
+    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${encodeURIComponent(String(lat))}` +
+    `&lon=${encodeURIComponent(String(lng))}&addressdetails=1`;
+  const response = await fetch(url, { headers: NOMINATIM_HEADERS });
+  if (!response.ok) return null;
+  const data = (await response.json()) as NominatimReverse;
+  const raw = data.address?.postcode?.trim();
+  if (!raw || data.address?.country_code?.toLowerCase() !== 'ca') return null;
+  const compact = raw.replace(/\s|-/g, '').toUpperCase();
+  if (compact.length < 6) return null;
+  const head = compact.slice(0, 6);
+  if (!/^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z]\d[ABCEGHJ-NPRSTV-Z]\d$/.test(head))
+    return null;
+  return `${head.slice(0, 3)} ${head.slice(3)}`;
+}

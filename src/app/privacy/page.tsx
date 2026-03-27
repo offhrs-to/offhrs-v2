@@ -9,7 +9,7 @@ export default function PrivacyPage() {
           ← Back
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Privacy Policy</h1>
-        <p className="text-sm text-gray-500 mb-8">Last updated: February 2025</p>
+        <p className="text-sm text-gray-500 mb-8">Last updated: March 2025</p>
 
         <div className="prose prose-gray max-w-none space-y-6 text-gray-700">
           <section>
@@ -17,8 +17,11 @@ export default function PrivacyPage() {
             <p>
               We collect and process the following data when you use Offhrs: (a) <strong>Account data</strong> — email,
               name, and profile details you provide when signing up or in your profile; (b) <strong>Usage data</strong> —
-              workshops you book, attendance confirmations, saved vendors, and reviews; (c) <strong>Technical data</strong> —
-              such as IP address and device information where necessary for security and operation.
+              workshops you book, attendance confirmations, saved vendors, and reviews; (c){' '}
+              <strong>Approximate location for convenience</strong> — if you choose to share it, we may store a Canadian
+              postal code and/or latitude and longitude derived from your device location or from geocoding that postal
+              code, so we can show and sort workshops by distance. This is optional; (d) <strong>Technical data</strong>{' '}
+              — such as IP address and device information where necessary for security and operation.
             </p>
           </section>
 
@@ -27,7 +30,9 @@ export default function PrivacyPage() {
             <p>
               We use your data to provide the service (workshop discovery, booking, and experience tracking), to send
               you transactional emails (e.g. booking confirmations), to improve the product, and to comply with legal
-              obligations.
+              obligations. If you provide a postal code or device location, we use that information only to estimate
+              distance to listed workshops and to order results for your convenience — not for advertising profiles,
+              continuous background tracking, or sale to third parties.
             </p>
           </section>
 
@@ -56,7 +61,9 @@ export default function PrivacyPage() {
               You can request access to your data, correction of inaccuracies, or deletion of your account at any time.
               To delete your account, use the “Delete my account” option in your Profile, or contact us at the email
               below. We will delete your account and associated data (profile, bookings, saves, reviews) from our
-              systems. Some data may be retained where required by law (e.g. tax or legal hold).
+              systems. Some data may be retained where required by law (e.g. tax or legal hold). You can update or clear
+              your saved postal code and location at any time in the app’s Profile settings; clearing it removes those
+              values from your profile. You can also revoke location permission in your device settings at any time.
             </p>
           </section>
 

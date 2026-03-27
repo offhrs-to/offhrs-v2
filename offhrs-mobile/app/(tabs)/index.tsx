@@ -1,33 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import {
-  Dimensions,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { UserCircleIcon } from 'react-native-heroicons/outline';
 
 import InstructorIcon from '@/components/InstructorIcon';
 import UpcomingTorontoCarousel from '@/components/UpcomingTorontoCarousel';
+import WorkshopsNearYouCarousel from '@/components/WorkshopsNearYouCarousel';
 import OnboardingModal from '@/components/OnboardingModal';
 import { CATEGORIES } from '@/constants/categories';
 import { DesignColors, DesignSizes, DesignSpacing } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
-const CATEGORY_GAP = 12;
-const CATEGORY_GAP_ANDROID = 8;
-
-const SAGE_GREEN = '#5D755D';
-const LIGHT_GREEN_BORDER = '#A8C4A0';
 const CREAM_BG = '#FDFCF8';
 /** Display serif for hero headline (elegant, close to reference). */
 const HERO_SERIF_FONT = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
@@ -41,21 +29,15 @@ const isAndroid = Platform.OS === 'android';
 const AVATAR_SIZE = isAndroid ? 46 : 52;
 /** Space below header divider before hero — keep small so headline sits close to grey line. */
 const SCROLL_PADDING_TOP = isAndroid ? 4 : 6;
-/** Scroll padding below Browse — Android needs extra so CTA clears floating tab bar. */
+/** Scroll padding below content — room above floating tab bar. */
 const SCROLL_PADDING_BOTTOM = isAndroid ? 76 : 28;
 const HERO_HEADLINE_FONT_SIZE = isAndroid ? 30 : 34;
 const HERO_HEADLINE_LINE_HEIGHT = isAndroid ? 38 : 42;
 const ICON_BAR_HEIGHT = isAndroid ? 48 : 56;
 const ICON_CIRCLE_SIZE = isAndroid ? 40 : 44;
-const CURIOSITY_FONT_SIZE = isAndroid ? 14 : 15;
-/** Space above curiosity heading — paired with level-row marginBottom so gap matches search→icons. */
-const CURIOSITY_MARGIN_TOP = isAndroid ? 5 : 6;
-const CURIOSITY_MARGIN_BOTTOM = isAndroid ? 8 : 12;
-/** Half of the vertical rhythm between search / level icons / curiosity (margin pairs sum to this). */
-const LEVEL_SECTION_GAP = isAndroid ? 5 : 6;
-const CATEGORY_BUTTON_HEIGHT = isAndroid ? 42 : 44;
-const BROWSE_MARGIN_TOP = isAndroid ? 14 : 16;
-const BROWSE_PADDING_VERTICAL = isAndroid ? 10 : 12;
+const SECTION_TITLE_FONT_SIZE = isAndroid ? 14 : 15;
+const SECTION_SUBTITLE_FONT_SIZE = isAndroid ? 12 : 13;
+const CAROUSEL_SECTION_GAP = isAndroid ? 10 : 12;
 
 // Each level is 8 points; progression shown as X/8 for all levels (Novice → Master)
 const LEVEL_THRESHOLDS: Record<string, { start: number; step: number }> = {
@@ -147,12 +129,6 @@ const OTHER_ICONS: Record<string, any> = {
 const getOtherIconSource = (level: string) =>
   OTHER_ICONS[level] ?? OTHER_ICONS.Novice;
 
-// Button width so 2 fit per row (after HORIZONTAL_PADDING and gap)
-const getCategoryButtonWidth = () => {
-  const gap = isAndroid ? CATEGORY_GAP_ANDROID : CATEGORY_GAP;
-  return (Dimensions.get('window').width - HORIZONTAL_PADDING * 2 - gap) / 2;
-};
-
 export default function HomeScreen() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -164,11 +140,11 @@ export default function HomeScreen() {
     experience_points: number | null;
     instructor_categories: string[] | null;
     onboarding_completed: boolean | null;
+    location_lat: number | null;
+    location_lng: number | null;
   } | null>(null);
   const [categoryExperience, setCategoryExperience] = useState<Record<string, { level: string; points: number }>>({});
   const [profileLoaded, setProfileLoaded] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [popupCategory, setPopupCategory] = useState<string | null>(null);
 
   const levelCategories = CATEGORIES;
@@ -182,7 +158,9 @@ export default function HomeScreen() {
     Promise.all([
       supabase
         .from('profiles')
-        .select('display_name, avatar_url, expertise_level, experience_points, instructor_categories, onboarding_completed')
+        .select(
+          'display_name, avatar_url, expertise_level, experience_points, instructor_categories, onboarding_completed, location_lat, location_lng'
+        )
         .eq('id', user.id)
         .single()
         .then(({ data }) => data ?? null),
@@ -204,12 +182,14 @@ export default function HomeScreen() {
     });
   }, [user?.id]);
 
-  const refreshProfile = () => {
+  const refreshProfile = useCallback(() => {
     if (!user?.id) return;
     Promise.all([
       supabase
         .from('profiles')
-        .select('display_name, avatar_url, expertise_level, experience_points, instructor_categories, onboarding_completed')
+        .select(
+          'display_name, avatar_url, expertise_level, experience_points, instructor_categories, onboarding_completed, location_lat, location_lng'
+        )
         .eq('id', user.id)
         .single()
         .then(({ data }) => setProfile(data ?? null)),
@@ -225,15 +205,30 @@ export default function HomeScreen() {
           setCategoryExperience(map);
         }),
     ]);
-  };
+  }, [user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshProfile();
+    }, [refreshProfile])
+  );
 
   const showOnboarding =
     user &&
     profileLoaded &&
     (profile == null || profile.onboarding_completed === false);
 
+  const carouselLocationAnchor = useMemo(() => {
+    if (profile?.location_lat == null || profile?.location_lng == null) return null;
+    return { lat: Number(profile.location_lat), lng: Number(profile.location_lng) };
+  }, [profile?.location_lat, profile?.location_lng]);
+
   useEffect(() => {
-    if (authLoading || user) return;
+    if (user) {
+      setShowFirstTimeSignUpPrompt(false);
+      return;
+    }
+    if (authLoading) return;
     AsyncStorage.getItem(FIRST_TIME_SIGNUP_KEY).then((seen) => {
       if (seen !== 'true') setShowFirstTimeSignUpPrompt(true);
     });
@@ -261,31 +256,12 @@ export default function HomeScreen() {
   const points = profile?.experience_points ?? 0;
   const displayLevel = user ? level : 'Novice';
   const displayPoints = user ? points : 0;
-  const { progress: levelProgress, label: levelLabel } = getLevelProgress(displayLevel, displayPoints);
 
   const isInstructorForCategory = (cat: string) => instructorCategories.includes(cat);
   const getLevelForCategory = (cat: string) => {
     if (isInstructorForCategory(cat)) return { level: 'Instructor', points: 0 };
     const ce = categoryExperience[cat];
     return ce ? { level: ce.level, points: ce.points } : { level: displayLevel, points: displayPoints };
-  };
-
-  const toggleCategory = (cat: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
-    );
-  };
-
-  const handleBrowse = () => {
-    const params = new URLSearchParams();
-    if (selectedCategories.length > 0) {
-      params.set('categories', selectedCategories.join(','));
-    }
-    if (searchQuery.trim()) {
-      params.set('address', searchQuery.trim());
-    }
-    const query = params.toString();
-    router.push(query ? `/(tabs)/workshops?${query}` : '/(tabs)/workshops');
   };
 
   return (
@@ -378,61 +354,39 @@ export default function HomeScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-      {/* Hero headline + search (open layout on cream, no tinted card) */}
-      <View style={{ marginTop: isAndroid ? 2 : 4, marginBottom: LEVEL_SECTION_GAP }}>
-        <Text
-          style={{
-            color: CHARCOAL,
-            textAlign: 'left',
-            fontFamily: HERO_SERIF_FONT,
-            fontSize: HERO_HEADLINE_FONT_SIZE,
-            lineHeight: HERO_HEADLINE_LINE_HEIGHT,
-            fontWeight: '400',
-            letterSpacing: isAndroid ? 0 : -0.2,
-          }}
-        >
-          Discover your new passion.
-        </Text>
-        <Pressable
-          onPress={handleBrowse}
-          style={{
-            marginTop: isAndroid ? 12 : 14,
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: '#FFFFFF',
-            borderRadius: 9999,
-            borderWidth: 1,
-            borderColor: '#E5E5E5',
-            paddingHorizontal: isAndroid ? 10 : 12,
-            paddingVertical: isAndroid ? 6 : 8,
-            minHeight: isAndroid ? 36 : 38,
-          }}
-        >
-          <TextInput
-            placeholder="Enter your address (street, city, state, zip)"
-            placeholderTextColor="#888"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleBrowse}
-            returnKeyType="search"
-            className="flex-1"
-            style={{
-              color: CHARCOAL,
-              paddingVertical: 0,
-              fontSize: isAndroid ? 12 : 13,
-              minHeight: isAndroid ? 22 : 24,
-            }}
-          />
-          <Text style={{ color: SAGE_GREEN, fontSize: 14, fontWeight: '600' }}>→</Text>
-        </Pressable>
-      </View>
+      <Text
+        style={{
+          fontFamily: HERO_SERIF_FONT,
+          fontSize: HERO_HEADLINE_FONT_SIZE,
+          lineHeight: HERO_HEADLINE_LINE_HEIGHT,
+          color: CHARCOAL,
+          textAlign: 'left',
+          fontWeight: '400',
+          marginTop: isAndroid ? 2 : 4,
+          marginBottom: isAndroid ? 12 : 16,
+        }}
+      >
+        Discover your new passion
+      </Text>
+
+      <Text
+        style={{
+          color: CHARCOAL,
+          fontSize: SECTION_TITLE_FONT_SIZE,
+          fontWeight: '700',
+          textAlign: 'left',
+          alignSelf: 'stretch',
+          marginBottom: isAndroid ? 6 : 8,
+        }}
+      >
+        Your mastery progression
+      </Text>
 
       {/* Level icons bar: categories use level-specific icons (Novice → Master).
           - Instructor categories show graduation cap icon and "Instructor" (no progression) in popup. */}
       <View
         style={{
-          marginTop: LEVEL_SECTION_GAP,
-          marginBottom: LEVEL_SECTION_GAP,
+          marginBottom: isAndroid ? 10 : 12,
           height: ICON_BAR_HEIGHT,
           width: '100%',
           flexDirection: 'row',
@@ -515,91 +469,49 @@ export default function HomeScreen() {
         })}
       </View>
 
-      {/* Category pills — above upcoming carousel */}
       <Text
-        className="font-bold"
         style={{
           color: CHARCOAL,
-          fontSize: CURIOSITY_FONT_SIZE,
-          marginTop: CURIOSITY_MARGIN_TOP,
-          marginBottom: CURIOSITY_MARGIN_BOTTOM,
-        }}
-      >
-        What sparks your curiosity? Curate your discovery
-      </Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: isAndroid ? CATEGORY_GAP_ANDROID : CATEGORY_GAP }}>
-        {CATEGORIES.map((cat) => {
-          const isActive = selectedCategories.includes(cat);
-          return (
-            <Pressable
-              key={cat}
-              onPress={() => toggleCategory(cat)}
-              style={{
-                width: getCategoryButtonWidth(),
-                height: CATEGORY_BUTTON_HEIGHT,
-                paddingHorizontal: isAndroid ? 14 : 16,
-                paddingVertical: isAndroid ? 6 : 7,
-                borderRadius: 9999,
-                backgroundColor: isActive ? SAGE_GREEN : CREAM_BG,
-                borderWidth: 1,
-                borderColor: LIGHT_GREEN_BORDER,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Text
-                className="font-medium"
-                style={{
-                  fontSize: 11,
-                  color: isActive ? '#FFF' : SAGE_GREEN,
-                  textAlign: 'center',
-                  alignSelf: 'stretch',
-                }}
-              >
-                {cat}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {/* Upcoming Toronto-area picks (one per key category); tap → Workshops quick view */}
-      <Text
-        className="font-bold"
-        style={{
-          color: CHARCOAL,
-          fontSize: CURIOSITY_FONT_SIZE,
-          marginTop: isAndroid ? 10 : 12,
+          fontSize: SECTION_TITLE_FONT_SIZE,
+          fontWeight: '700',
+          textAlign: 'left',
+          alignSelf: 'stretch',
           marginBottom: 6,
         }}
       >
-        Upcoming workshops in Toronto…
+        Upcoming workshops in Toronto
       </Text>
-      {/* Carousel sits inside ScrollView padding — no extra ListHeader inset (avoids double left gap). */}
-      <UpcomingTorontoCarousel />
-      <View style={{ marginTop: BROWSE_MARGIN_TOP }}>
-        <Pressable
-          onPress={handleBrowse}
-          style={{
-            paddingVertical: BROWSE_PADDING_VERTICAL,
-            paddingHorizontal: 24,
-            borderRadius: 9999,
-            backgroundColor: '#38511B',
-            borderWidth: 1,
-            borderColor: '#38511B',
-            justifyContent: 'center',
-            alignItems: 'center',
-            alignSelf: 'stretch',
-          }}
-        >
-          <Text
-            className="text-sm font-medium"
-            style={{ color: '#FFF', textAlign: 'center', fontSize: isAndroid ? 13 : undefined }}
-          >
-            Browse Workshops
-          </Text>
-        </Pressable>
-      </View>
+      <UpcomingTorontoCarousel userLocationAnchor={carouselLocationAnchor} />
+
+      <Text
+        style={{
+          color: CHARCOAL,
+          fontSize: SECTION_TITLE_FONT_SIZE,
+          fontWeight: '700',
+          textAlign: 'left',
+          alignSelf: 'stretch',
+          marginTop: CAROUSEL_SECTION_GAP,
+          marginBottom: 4,
+        }}
+      >
+        Workshops near you
+      </Text>
+      <Text
+        style={{
+          color: MEDIUM_GRAY,
+          fontSize: SECTION_SUBTITLE_FONT_SIZE,
+          fontWeight: '400',
+          textAlign: 'left',
+          alignSelf: 'stretch',
+          marginBottom: 6,
+        }}
+      >
+        Explore nearby classes
+      </Text>
+      <WorkshopsNearYouCarousel
+        userLocationAnchor={carouselLocationAnchor}
+        showHintWhenNoLocation
+      />
       </ScrollView>
 
       <Modal

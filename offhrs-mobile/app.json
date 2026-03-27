@@ -2,7 +2,7 @@
   "expo": {
     "name": "offhrs-mobile",
     "slug": "offhrs-mobile",
-    "version": "1.2.17",
+    "version": "1.2.21",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "offhrsmobile",
@@ -12,15 +12,20 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.offhrs.app.offhrs",
-      "buildNumber": "13",
+      "buildNumber": "17",
       "backgroundColor": "#ECEFE5",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Offhrs uses your location to show workshops near you and sort results by distance. You can enter a postal code instead."
       }
     },
     "android": {
       "package": "com.offhrs.app",
-      "versionCode": 7,
+      "versionCode": 10,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -49,6 +54,12 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Offhrs uses your location to show workshops near you and sort results by distance. You can enter a postal code instead."
+        }
+      ],
       [
         "expo-splash-screen",
         {

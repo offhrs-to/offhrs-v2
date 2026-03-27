@@ -1,7 +1,7 @@
 {
   "name": "offhrs-mobile",
   "main": "expo-router/entry",
-  "version": "1.2.17",
+  "version": "1.2.21",
   "scripts": {
     "start": "expo start",
     "build:ios": "cross-env EXPO_NO_CAPABILITY_SYNC=1 npx eas-cli build --platform ios --profile production",
@@ -29,6 +29,7 @@
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",
     "expo-linking": "~8.0.11",
+    "expo-location": "~19.0.8",
     "expo-router": "~6.0.22",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",

@@ -1,6 +1,6 @@
-import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import MapView, { Callout, Marker } from 'react-native-maps';
 
+import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import { BOOK_API_BASE } from '@/constants/api';
 import { DesignColors } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,6 +40,7 @@ type EventWithCoords = {
   vendor_id?: string | null;
   lat?: number | null;
   lng?: number | null;
+  category?: string | null;
 };
 
 type Props = {
@@ -46,7 +48,13 @@ type Props = {
   loading: boolean;
   /** When provided, tapping a marker opens this (e.g. quick-view modal); avoids broken touches inside callout. */
   onEventPress?: (event: EventWithCoords) => void;
+  /** Fires when the user taps the map background (not a marker). */
+  onMapPress?: () => void;
+  /** Max markers to mount (native maps choke on 500+). */
+  maxMarkers?: number;
 };
+
+const DEFAULT_MAX_MARKERS = 280;
 
 function MapCalloutCard({ event }: { event: EventWithCoords }) {
   const router = useRouter();
@@ -75,17 +83,13 @@ function MapCalloutCard({ event }: { event: EventWithCoords }) {
   return (
     <View style={calloutStyles.card}>
       <View style={calloutStyles.imageWrap}>
-        {event.image_url ? (
-          <Image
-            source={{ uri: event.image_url }}
-            style={calloutStyles.image}
-            contentFit="cover"
-          />
-        ) : (
-          <View style={calloutStyles.imagePlaceholder}>
-            <Text style={calloutStyles.placeholderText}>No image</Text>
-          </View>
-        )}
+        <CategoryFallbackImage
+          imageUrl={event.image_url}
+          category={event.category}
+          style={calloutStyles.image}
+          contentFit="cover"
+          recyclingKey={`map-callout-${event.id}`}
+        />
       </View>
       <View style={calloutStyles.body}>
         <Text style={calloutStyles.title} numberOfLines={2}>{event.title}</Text>
@@ -138,16 +142,6 @@ const calloutStyles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderText: {
-    color: DesignColors.mediumGray,
-    fontSize: 12,
   },
   body: {
     padding: 12,
@@ -202,14 +196,24 @@ const calloutStyles = StyleSheet.create({
   },
 });
 
-export default function WorkshopMapView({ events, loading, onEventPress }: Props) {
-  const withCoords = events.filter(
-    (e) =>
-      e.lat != null &&
-      e.lng != null &&
-      !Number.isNaN(Number(e.lat)) &&
-      !Number.isNaN(Number(e.lng))
-  );
+export default function WorkshopMapView({
+  events,
+  loading,
+  onEventPress,
+  onMapPress,
+  maxMarkers = DEFAULT_MAX_MARKERS,
+}: Props) {
+  const withCoords = useMemo(() => {
+    const filtered = events.filter(
+      (e) =>
+        e.lat != null &&
+        e.lng != null &&
+        !Number.isNaN(Number(e.lat)) &&
+        !Number.isNaN(Number(e.lng))
+    );
+    if (filtered.length <= maxMarkers) return filtered;
+    return filtered.slice(0, maxMarkers);
+  }, [events, maxMarkers]);
 
   return (
     <View style={styles.container}>
@@ -217,6 +221,7 @@ export default function WorkshopMapView({ events, loading, onEventPress }: Props
         style={styles.map}
         initialRegion={DEFAULT_REGION}
         showsUserLocation
+        onPress={() => onMapPress?.()}
       >
         {withCoords.map((event) => (
           <Marker

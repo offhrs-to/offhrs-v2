@@ -48,6 +48,22 @@ Run these migrations in your Supabase project:
 - Enable **Email** and **Google** auth providers in Authentication → Providers
 - For Google OAuth: Add your Google Client ID and Secret from Google Cloud Console
 
+### Email sign-up: skip confirmation (recommended for mobile parity with Google/Apple)
+
+By default, Supabase **Email** auth sends a **confirm your email** message and does not create a session until the user clicks the link. OAuth users are signed in immediately, so email/password can feel inconsistent.
+
+**Turn off mandatory email confirmation** (you still get a secure password sign-up):
+
+1. Open [Supabase Dashboard](https://supabase.com/dashboard) → your project → **Authentication** → **Providers** → **Email**.
+2. Disable **Confirm email** (wording may be “Enable email confirmations” — set it off).
+3. Save.
+
+After this, `signUp` returns a **session** right away; the mobile app and web signup page sign the user in without a confirmation step. Keep **Secure email change** on if you want re-verification when users change their address.
+
+For **local** `supabase start`, set in `supabase/config.toml` under `[auth.email]`:
+
+`enable_confirmations = false`
+
 ## Recurring workshop instances (materialized rows)
 
 Events saved as **daily** or **weekly** renewal in the admin UI are stored as multiple dated rows (4 weeks of weekly or 28 days of daily), each with `recurrence = 'none'`.

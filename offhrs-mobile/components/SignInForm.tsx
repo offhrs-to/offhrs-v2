@@ -1,9 +1,12 @@
-import { DesignColors, DesignSpacing } from '@/constants/design-template';
+import { DesignColors, DesignSizes, DesignSpacing } from '@/constants/design-template';
 import { processAuthCallbackUrl } from '@/lib/auth-callback-url';
 import { supabase } from '@/lib/supabase';
-import { useState } from 'react';
+import { openWebAppPath } from '@/lib/web-app-links';
+import { useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import { Image as ExpoImage } from 'expo-image';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
   ActivityIndicator,
@@ -22,13 +25,31 @@ type Props = {
   /** Show "Back" button (e.g. when used on standalone login screen). */
   showBackButton?: boolean;
   onBack?: () => void;
+  /** Logo strip like Home / Contact / Workshops (e.g. Profile tab sign-in). */
+  showHeaderLogo?: boolean;
 };
+
+function isExistingAccountSignUpError(err: unknown): boolean {
+  const raw = err as { message?: string; code?: string };
+  const msg = (raw?.message ?? (err instanceof Error ? err.message : '') ?? '').toLowerCase();
+  const code = (raw?.code ?? '').toLowerCase();
+  if (code === 'user_already_exists' || code === 'email_exists') return true;
+  return (
+    msg.includes('already registered') ||
+    msg.includes('already been registered') ||
+    msg.includes('user already exists') ||
+    (msg.includes('email address') && msg.includes('already')) ||
+    (msg.includes('duplicate') && msg.includes('user'))
+  );
+}
 
 export function SignInForm({
   onSignInSuccess,
   showBackButton = false,
   onBack,
+  showHeaderLogo = false,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -37,10 +58,18 @@ export function SignInForm({
   const [error, setError] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [topBanner, setTopBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!topBanner) return;
+    const t = setTimeout(() => setTopBanner(null), 6000);
+    return () => clearTimeout(t);
+  }, [topBanner]);
 
   const handleEmailAuth = async () => {
     setLoading(true);
     setError(null);
+    setTopBanner(null);
     try {
       if (isSignUp) {
         const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
@@ -48,7 +77,7 @@ export function SignInForm({
         // Add this exact URL in Supabase Dashboard → Auth → URL Configuration → Redirect URLs.
         const webAppUrl = (process.env.EXPO_PUBLIC_APP_URL || '').replace(/\/$/, '') || 'https://offhrs.app';
         const emailRedirectTo = `${webAppUrl}/auth/callback`;
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -57,14 +86,23 @@ export function SignInForm({
           },
         });
         if (error) throw error;
-        setSuccess(true);
+        // If "Confirm email" is off in Supabase, a session is returned and the user is signed in immediately.
+        if (data.session) {
+          onSignInSuccess?.();
+        } else {
+          setSuccess(true);
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         onSignInSuccess?.();
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      if (isSignUp && isExistingAccountSignUpError(err)) {
+        setTopBanner('You have an existing account. Please sign in with your email');
+      } else {
+        setError(err instanceof Error ? err.message : 'Something went wrong');
+      }
     } finally {
       setLoading(false);
     }
@@ -153,15 +191,66 @@ export function SignInForm({
   }
 
   return (
+    <View style={{ flex: 1, backgroundColor: DesignColors.creamBg }}>
+      {topBanner ? (
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 100,
+            backgroundColor: '#B91C1C',
+            paddingTop: Math.max(insets.top, 6),
+            paddingBottom: 8,
+            paddingHorizontal: 14,
+            borderBottomWidth: 1,
+            borderBottomColor: '#991B1B',
+          }}
+        >
+          <Pressable onPress={() => setTopBanner(null)}>
+            <Text
+              style={{
+                color: '#FFFFFF',
+                fontSize: 13,
+                fontWeight: '600',
+                textAlign: 'center',
+                lineHeight: 18,
+              }}
+            >
+              {topBanner}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ flex: 1, backgroundColor: DesignColors.creamBg }}
     >
+      {showHeaderLogo ? (
+        <View
+          style={{
+            paddingTop: DesignSpacing.contentPaddingTop,
+            paddingBottom: DesignSpacing.logoHeaderPaddingBottom,
+            paddingHorizontal: DesignSpacing.horizontalPadding,
+            backgroundColor: DesignColors.creamBg,
+          }}
+        >
+          <View style={{ marginLeft: DesignSpacing.logoMarginLeft, paddingLeft: 0 }}>
+            <ExpoImage
+              source={require('@/assets/images/logo.png')}
+              style={{ height: DesignSizes.logoHeight, width: DesignSizes.logoWidth }}
+              contentFit="contain"
+            />
+          </View>
+        </View>
+      ) : null}
       <View
         style={{
           flex: 1,
           padding: DesignSpacing.horizontalPadding,
-          paddingTop: 60,
+          paddingTop: showHeaderLogo ? 16 : DesignSpacing.contentPaddingTop + 4,
         }}
       >
         <Text
@@ -172,7 +261,7 @@ export function SignInForm({
             marginBottom: 8,
           }}
         >
-          {isSignUp ? 'Create account' : 'Sign in'}
+          {isSignUp ? 'Create account' : showHeaderLogo ? 'Sign-in' : 'Sign in'}
         </Text>
         <Text
           style={{
@@ -181,7 +270,11 @@ export function SignInForm({
             marginBottom: 32,
           }}
         >
-          {isSignUp ? 'Join Offhrs to discover workshops' : 'Welcome back to Offhrs'}
+          {isSignUp
+            ? 'Join Offhrs to discover workshops'
+            : showHeaderLogo
+              ? 'Welcome to offhrs'
+              : 'Welcome back to Offhrs'}
         </Text>
 
         {error && (
@@ -316,7 +409,10 @@ export function SignInForm({
           placeholder="Email"
           placeholderTextColor={DesignColors.mediumGray}
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(t) => {
+            setEmail(t);
+            setTopBanner(null);
+          }}
           keyboardType="email-address"
           autoCapitalize="none"
           autoComplete="email"
@@ -389,6 +485,7 @@ export function SignInForm({
           onPress={() => {
             setIsSignUp(!isSignUp);
             setError(null);
+            setTopBanner(null);
             if (!isSignUp) {
               setFirstName('');
               setLastName('');
@@ -401,6 +498,43 @@ export function SignInForm({
           </Text>
         </Pressable>
 
+        {!isSignUp ? (
+          <View style={{ marginTop: 14, alignSelf: 'stretch' }}>
+            <Text
+              style={{
+                fontSize: 11,
+                color: DesignColors.mediumGray,
+                textAlign: 'left',
+                lineHeight: 16,
+              }}
+            >
+              By signing up you agree to our{' '}
+              <Text
+                onPress={() => void openWebAppPath('/terms')}
+                style={{
+                  color: DesignColors.primary,
+                  textDecorationLine: 'underline',
+                  fontSize: 11,
+                }}
+              >
+                Terms of Use
+              </Text>
+              {' '}and{' '}
+              <Text
+                onPress={() => void openWebAppPath('/privacy')}
+                style={{
+                  color: DesignColors.primary,
+                  textDecorationLine: 'underline',
+                  fontSize: 11,
+                }}
+              >
+                Privacy Notice
+              </Text>
+              .
+            </Text>
+          </View>
+        ) : null}
+
         {showBackButton && !isSignUp && onBack && (
           <Pressable
             onPress={onBack}
@@ -411,5 +545,6 @@ export function SignInForm({
         )}
       </View>
     </KeyboardAvoidingView>
+    </View>
   );
 }

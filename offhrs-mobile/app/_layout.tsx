@@ -117,6 +117,9 @@ export default function RootLayout() {
               <Stack.Screen name="login" options={{ headerShown: false }} />
               <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
               <Stack.Screen name="vendors/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="workshop-search" options={{ headerShown: false }} />
+              <Stack.Screen name="workshop-map" options={{ headerShown: false }} />
+              <Stack.Screen name="workshop-browse" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             </Stack>
             {showAppIntro && (

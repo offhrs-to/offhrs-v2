@@ -23,13 +23,18 @@ export default function SignupPage() {
     setError(null)
     try {
       const supabase = createClient()
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
       })
       if (error) throw error
-      setSuccess(true)
+      if (data.session) {
+        router.replace('/profile')
+        router.refresh()
+      } else {
+        setSuccess(true)
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to sign up')
     } finally {
