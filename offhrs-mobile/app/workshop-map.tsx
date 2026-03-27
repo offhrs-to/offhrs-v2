@@ -18,7 +18,7 @@ import * as Linking from 'expo-linking';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Gesture, GestureDetector, TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
+import { FlatList, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   ActivityIndicator,
   Alert,
@@ -27,13 +27,10 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const SaveButtonTouchable = Platform.OS === 'android' ? TouchableOpacity : GHTouchableOpacity;
 
 const LIST_THUMB = 56;
 
@@ -557,14 +554,13 @@ export default function WorkshopMapScreen() {
                       elevation: Platform.OS === 'android' ? 10 : undefined,
                     }}
                   >
-                    <SaveButtonTouchable
+                    <Pressable
                       onPress={handleQuickViewSave}
                       disabled={quickViewSaving}
-                      activeOpacity={0.7}
                       accessibilityRole="button"
                       accessibilityLabel={quickViewSaved ? 'Remove from saved workshops' : 'Save workshop'}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                      style={{
+                      style={({ pressed }) => ({
                         position: 'absolute',
                         top: 12,
                         right: 12,
@@ -574,15 +570,16 @@ export default function WorkshopMapScreen() {
                         backgroundColor: 'rgba(255,255,255,0.95)',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        opacity: pressed ? 0.85 : 1,
                         elevation: Platform.OS === 'android' ? 4 : undefined,
-                      }}
+                      })}
                     >
                       {quickViewSaving ? (
                         <ActivityIndicator size="small" color={DesignColors.primary} />
                       ) : (
                         <EventSaveHeartIcon saved={quickViewSaved} size={26} />
                       )}
-                    </SaveButtonTouchable>
+                    </Pressable>
                   </View>
                 )}
                 <View style={{ padding: 16, paddingTop: 12 }}>

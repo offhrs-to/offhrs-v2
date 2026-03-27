@@ -1,7 +1,7 @@
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import {
   DocumentMagnifyingGlassIcon,
@@ -10,7 +10,11 @@ import {
   UserCircleIcon,
 } from 'react-native-heroicons/solid';
 
+import OnboardingModal from '@/components/OnboardingModal';
 import { DesignColors } from '@/constants/design-template';
+import { useAuth } from '@/contexts/AuthContext';
+import { emitProfileUpdated } from '@/lib/profile-events';
+import { supabase } from '@/lib/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TAB_ICON_SIZE = 24;
@@ -122,8 +126,61 @@ function CustomTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
 }
 
 export default function TabLayout() {
+  const { user } = useAuth();
+  const [onboardingProfile, setOnboardingProfile] = useState<{
+    onboarding_completed: boolean | null;
+  } | null>(null);
+  const [onboardingGateReady, setOnboardingGateReady] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setOnboardingProfile(null);
+      setOnboardingGateReady(true);
+      return;
+    }
+    setOnboardingGateReady(false);
+    let cancelled = false;
+    supabase
+      .from('profiles')
+      .select('onboarding_completed')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (!cancelled) {
+          setOnboardingProfile(data ?? null);
+          setOnboardingGateReady(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const handleOnboardingComplete = useCallback(() => {
+    const uid = user?.id;
+    if (!uid) return;
+    supabase
+      .from('profiles')
+      .select('onboarding_completed')
+      .eq('id', uid)
+      .single()
+      .then(({ data }) => {
+        setOnboardingProfile(data ?? null);
+        emitProfileUpdated();
+      });
+  }, [user?.id]);
+
+  const showOnboarding =
+    !!user?.id &&
+    onboardingGateReady &&
+    (onboardingProfile == null || onboardingProfile.onboarding_completed === false);
+
   return (
-    <Tabs
+    <>
+      {showOnboarding ? (
+        <OnboardingModal userId={user.id} onComplete={handleOnboardingComplete} />
+      ) : null}
+      <Tabs
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
         tabBarActiveTintColor: DesignColors.primary,
@@ -178,5 +235,6 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    </>
   );
 }

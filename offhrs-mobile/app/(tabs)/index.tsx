@@ -3,17 +3,17 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { DeviceEventEmitter, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { UserCircleIcon } from 'react-native-heroicons/outline';
 
 import InstructorIcon from '@/components/InstructorIcon';
 import UpcomingTorontoCarousel from '@/components/UpcomingTorontoCarousel';
 import WorkshopsNearYouCarousel from '@/components/WorkshopsNearYouCarousel';
-import OnboardingModal from '@/components/OnboardingModal';
 import { CATEGORIES } from '@/constants/categories';
 import { DesignColors, DesignSizes, DesignSpacing } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
+import { PROFILE_UPDATED_EVENT } from '@/lib/profile-events';
 import { supabase } from '@/lib/supabase';
 
 const CREAM_BG = '#FDFCF8';
@@ -213,10 +213,12 @@ export default function HomeScreen() {
     }, [refreshProfile])
   );
 
-  const showOnboarding =
-    user &&
-    profileLoaded &&
-    (profile == null || profile.onboarding_completed === false);
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener(PROFILE_UPDATED_EVENT, () => {
+      refreshProfile();
+    });
+    return () => sub.remove();
+  }, [refreshProfile]);
 
   const carouselLocationAnchor = useMemo(() => {
     if (profile?.location_lat == null || profile?.location_lng == null) return null;
@@ -266,9 +268,6 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CREAM_BG }}>
-      {showOnboarding && user && (
-        <OnboardingModal userId={user.id} onComplete={refreshProfile} />
-      )}
       {/* Fixed header: logo + welcome row (stays in place when scrolling) */}
       <View
         style={{

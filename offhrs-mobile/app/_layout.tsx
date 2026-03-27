@@ -122,11 +122,15 @@ export default function RootLayout() {
               <Stack.Screen name="workshop-browse" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             </Stack>
-            {showAppIntro && (
-              <Modal visible transparent={false} animationType="fade">
-                <AppIntroScreen onDone={handleAppIntroDone} />
-              </Modal>
-            )}
+            {/* Always mount Modal; drive with `visible` so the native layer dismisses cleanly (avoids touch-eating ghost on Android after first-launch intro). */}
+            <Modal
+              visible={showAppIntro}
+              transparent={false}
+              animationType="fade"
+              onRequestClose={handleAppIntroDone}
+            >
+              {showAppIntro ? <AppIntroScreen onDone={handleAppIntroDone} /> : null}
+            </Modal>
             <StatusBar style="dark" />
           </ThemeProvider>
         </AuthProvider>

@@ -4,10 +4,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import HomeWorkshopCarouselCards, { type HomeCarouselEventItem } from '@/components/HomeWorkshopCarouselCards';
 import { useAuth } from '@/contexts/AuthContext';
 import { haversineKm } from '@/lib/distance';
+import { pickFirstNUniqueCategory } from '@/lib/home-carousel-events';
 import { supabase } from '@/lib/supabase';
-
-/** Used only to backfill toward 5 items when fewer than 5 GTA-location matches exist. */
-const TARGET_CATEGORIES = ['Beauty & Fragrance', 'Coffee', 'Pottery', 'Culinary', 'Floral'] as const;
 
 const FETCH_LIMIT = 500;
 
@@ -91,8 +89,8 @@ function distanceToAnchor(r: DbEventRow, anchor: { lat: number; lng: number }): 
 const CAROUSEL_COUNT = 5;
 
 /**
- * Up to 5 upcoming events with soonest dates first.
- * Prefers GTA/Toronto-area locations; backfills from featured categories then any upcoming row.
+ * Up to 5 upcoming events, each from a different category when possible.
+ * GTA/Toronto-area rows are considered first (soonest start, then distance to anchor); then other upcoming rows.
  */
 function pickNextFiveToronto(
   rows: DbEventRow[],
@@ -115,35 +113,9 @@ function pickNextFiveToronto(
   };
 
   const inArea = upcoming.filter((r) => isTorontoAreaLocation(r.location));
-  const sortedArea = [...inArea].sort(byTimeThenDistance);
-  let picked: DbEventRow[] = sortedArea.slice(0, CAROUSEL_COUNT);
-
-  if (picked.length < CAROUSEL_COUNT) {
-    const used = new Set(picked.map((r) => r.id));
-    const catFill = upcoming
-      .filter(
-        (r) =>
-          !used.has(r.id) &&
-          r.category != null &&
-          (TARGET_CATEGORIES as readonly string[]).includes(r.category)
-      )
-      .sort(byTimeThenDistance);
-    for (const r of catFill) {
-      if (picked.length >= CAROUSEL_COUNT) break;
-      picked.push(r);
-      used.add(r.id);
-    }
-  }
-
-  if (picked.length < CAROUSEL_COUNT) {
-    const used = new Set(picked.map((r) => r.id));
-    const rest = upcoming.filter((r) => !used.has(r.id)).sort(byTimeThenDistance);
-    for (const r of rest) {
-      if (picked.length >= CAROUSEL_COUNT) break;
-      picked.push(r);
-    }
-  }
-
+  const outOfArea = upcoming.filter((r) => !isTorontoAreaLocation(r.location));
+  const ordered = [...[...inArea].sort(byTimeThenDistance), ...[...outOfArea].sort(byTimeThenDistance)];
+  const picked = pickFirstNUniqueCategory(ordered, CAROUSEL_COUNT);
   picked.sort(byTimeThenDistance);
 
   return picked.map((best) => ({

@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
   ActivityIndicator,
+  DeviceEventEmitter,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -22,18 +23,38 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-
-import OnboardingModal from '@/components/OnboardingModal';
 import { SignInForm } from '@/components/SignInForm';
 import { openWebAppPath } from '@/lib/web-app-links';
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
 import { geocodeAddress, reverseGeocodeCanadianPostal } from '@/lib/geocode';
+import { emitProfileUpdated, PROFILE_UPDATED_EVENT } from '@/lib/profile-events';
 import { supabase } from '@/lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const STATS_DIVIDER_WIDTH = 1;
+
+type ProfileLocationUpsert = {
+  postal_code: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
+};
+
+/** Upsert so location/postal persist even if the profiles row was missing; avoids silent no-op from UPDATE 0 rows. */
+async function upsertProfileLocation(userId: string, loc: ProfileLocationUpsert) {
+  const { error } = await supabase.from('profiles').upsert(
+    {
+      id: userId,
+      postal_code: loc.postal_code,
+      location_lat: loc.location_lat,
+      location_lng: loc.location_lng,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'id' }
+  );
+  return error;
+}
 
 export default function ProfileScreen() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -273,12 +294,7 @@ export default function ProfileScreen() {
     setMyReviewsLoading(false);
   }, [user?.id]);
 
-  const showOnboarding =
-    user &&
-    profileLoaded &&
-    (profile == null || profile.onboarding_completed === false);
-
-  const refreshProfile = () => {
+  const refreshProfile = useCallback(() => {
     if (!user?.id) return;
     supabase
       .from('profiles')
@@ -288,7 +304,14 @@ export default function ProfileScreen() {
       .eq('id', user.id)
       .single()
       .then(({ data }) => setProfile(data ?? null));
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener(PROFILE_UPDATED_EVENT, () => {
+      refreshProfile();
+    });
+    return () => sub.remove();
+  }, [refreshProfile]);
 
   if (authLoading) {
     return (
@@ -319,9 +342,6 @@ export default function ProfileScreen() {
 
   return (
     <>
-      {showOnboarding && (
-        <OnboardingModal userId={user.id} onComplete={refreshProfile} />
-      )}
       <ScrollView
         ref={scrollViewRef}
         keyboardShouldPersistTaps="handled"
@@ -1021,18 +1041,15 @@ export default function ProfileScreen() {
                     setSettingsError('Could not find that postal code.');
                     return;
                   }
-                  const { error } = await supabase
-                    .from('profiles')
-                    .update({
-                      postal_code: norm,
-                      location_lat: coords.lat,
-                      location_lng: coords.lng,
-                      updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', user.id);
-                  if (error) throw error;
+                  const err = await upsertProfileLocation(user.id, {
+                    postal_code: norm,
+                    location_lat: coords.lat,
+                    location_lng: coords.lng,
+                  });
+                  if (err) throw err;
                   setSettingsLocationPostal(norm);
                   refreshProfile();
+                  emitProfileUpdated();
                 } catch (e) {
                   setSettingsError(e instanceof Error ? e.message : 'Could not save location');
                 } finally {
@@ -1072,18 +1089,15 @@ export default function ProfileScreen() {
                   const lat = pos.coords.latitude;
                   const lng = pos.coords.longitude;
                   const postal = await reverseGeocodeCanadianPostal(lat, lng);
-                  const { error } = await supabase
-                    .from('profiles')
-                    .update({
-                      postal_code: postal,
-                      location_lat: lat,
-                      location_lng: lng,
-                      updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', user.id);
-                  if (error) throw error;
+                  const err = await upsertProfileLocation(user.id, {
+                    postal_code: postal,
+                    location_lat: lat,
+                    location_lng: lng,
+                  });
+                  if (err) throw err;
                   if (postal) setSettingsLocationPostal(postal);
                   refreshProfile();
+                  emitProfileUpdated();
                 } catch (e) {
                   setSettingsError(e instanceof Error ? e.message : 'Could not save location');
                 } finally {
@@ -1114,18 +1128,15 @@ export default function ProfileScreen() {
                 setSettingsLocationAction('clear');
                 setSettingsError(null);
                 try {
-                  const { error } = await supabase
-                    .from('profiles')
-                    .update({
-                      postal_code: null,
-                      location_lat: null,
-                      location_lng: null,
-                      updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', user.id);
-                  if (error) throw error;
+                  const err = await upsertProfileLocation(user.id, {
+                    postal_code: null,
+                    location_lat: null,
+                    location_lng: null,
+                  });
+                  if (err) throw err;
                   setSettingsLocationPostal('');
                   refreshProfile();
+                  emitProfileUpdated();
                 } catch (e) {
                   setSettingsError(e instanceof Error ? e.message : 'Could not clear location');
                 } finally {
@@ -1151,15 +1162,49 @@ export default function ProfileScreen() {
                   const nameTrim = settingsName.trim();
                   const emailTrim = settingsEmail.trim();
                   const phoneTrim = settingsPhone.trim();
+                  const postalRaw = settingsLocationPostal.trim();
 
-                  await supabase
+                  let locationPatch: ProfileLocationUpsert | null = null;
+                  if (postalRaw) {
+                    const norm = parseCanadianPostalCode(postalRaw);
+                    if (!norm) {
+                      setSettingsError('Use Canadian postal format for workshop distance, e.g. A1A 1A1, or clear the field.');
+                      setSettingsSaving(false);
+                      return;
+                    }
+                    const coords = await geocodeAddress(`${norm}, Canada`);
+                    if (!coords) {
+                      setSettingsError('Could not find that postal code.');
+                      setSettingsSaving(false);
+                      return;
+                    }
+                    locationPatch = {
+                      postal_code: norm,
+                      location_lat: coords.lat,
+                      location_lng: coords.lng,
+                    };
+                  }
+
+                  const upsertBody: Record<string, string | number | null> = {
+                    id: user.id,
+                    display_name: nameTrim || null,
+                    phone: phoneTrim || null,
+                    updated_at: new Date().toISOString(),
+                  };
+                  if (locationPatch) {
+                    upsertBody.postal_code = locationPatch.postal_code;
+                    upsertBody.location_lat = locationPatch.location_lat;
+                    upsertBody.location_lng = locationPatch.location_lng;
+                  }
+
+                  const { error: profileUpsertError } = await supabase
                     .from('profiles')
-                    .update({
-                      display_name: nameTrim || null,
-                      phone: phoneTrim || null,
-                      updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', user.id);
+                    .upsert(upsertBody, { onConflict: 'id' });
+                  if (profileUpsertError) throw profileUpsertError;
+
+                  if (locationPatch) {
+                    setSettingsLocationPostal(locationPatch.postal_code ?? '');
+                  }
 
                   if (emailTrim && emailTrim !== (user.email ?? '')) {
                     const { error: emailError } = await supabase.auth.updateUser({ email: emailTrim });
@@ -1171,6 +1216,7 @@ export default function ProfileScreen() {
                   }
 
                   refreshProfile();
+                  emitProfileUpdated();
                   setSettingsVisible(false);
                 } catch (e) {
                   setSettingsError(e instanceof Error ? e.message : 'Something went wrong');

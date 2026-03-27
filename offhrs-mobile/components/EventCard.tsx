@@ -1,6 +1,7 @@
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+import type { ViewStyle } from 'react-native';
 import { ActivityIndicator, Alert, Platform, Pressable, View, Text } from 'react-native';
 
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
@@ -50,6 +51,8 @@ export const CARD_TOTAL_HEIGHT_ANDROID = CARD_IMAGE_HEIGHT + CARD_BODY_HEIGHT_AN
 
 /** Height reserved at bottom of card body for Vendor/Book buttons so they align across all cards */
 const CARD_BUTTONS_HEIGHT = 40;
+/** Action row: gap above buttons + button height + bottom padding (must match split when card has `onPress`). */
+const CARD_ACTION_ROW_HEIGHT = 4 + CARD_BUTTONS_HEIGHT + 12;
 
 const cardBodyHeight = Platform.OS === 'android' ? CARD_BODY_HEIGHT_ANDROID : CARD_BODY_HEIGHT;
 const cardTotalHeight = CARD_IMAGE_HEIGHT + cardBodyHeight;
@@ -141,17 +144,146 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
     if (url) Linking.openURL(url);
   };
 
+  const imageBlock = (
+    <View style={{ height: CARD_IMAGE_HEIGHT, width: '100%', overflow: 'hidden', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: '#F5F5F5' }}>
+      <CategoryFallbackImage
+        imageUrl={event.image_url}
+        category={event.category}
+        style={{ width: '100%', height: '100%' }}
+        contentFit="cover"
+        recyclingKey={`card-${event.id}`}
+      />
+    </View>
+  );
+
+  const titleDatePrice = (
+    <>
+      <View style={{ flexShrink: 0 }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: DesignColors.charcoal }} numberOfLines={2}>
+          {event.title}
+        </Text>
+        <Text style={{ marginTop: 4, fontSize: 11, color: DesignColors.mediumGray }} numberOfLines={1}>
+          {event.date}
+        </Text>
+      </View>
+      <View style={{ flex: 1, justifyContent: 'center', minHeight: 0 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          {displayPrice != null ? (
+            <Text style={{ fontSize: 12, fontWeight: '600', color: DesignColors.charcoal }}>{displayPrice}</Text>
+          ) : (
+            <View />
+          )}
+          {distanceKm != null ? (
+            <Text style={{ fontSize: 11, color: DesignColors.mediumGray }}>{distanceKm} km</Text>
+          ) : null}
+        </View>
+      </View>
+    </>
+  );
+
+  const actionButtons = (
+    <>
+      <Pressable
+        onPress={onHeartPress}
+        disabled={saving}
+        accessibilityRole="button"
+        accessibilityLabel={displaySaved ? 'Remove from saved workshops' : 'Save workshop'}
+        style={{
+          width: 40,
+          height: 36,
+          borderRadius: 10,
+          borderWidth: 1,
+          borderColor: DesignColors.lightGreenBorder,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#FFF',
+        }}
+      >
+        {saving ? (
+          <ActivityIndicator size="small" color={DesignColors.primary} />
+        ) : (
+          <EventSaveHeartIcon saved={displaySaved} size={22} />
+        )}
+      </Pressable>
+      {event.vendor_id && (
+        <Pressable
+          onPress={() => router.push(`/vendors/${event.vendor_id}`)}
+          style={{
+            paddingVertical: 8,
+            paddingHorizontal: 10,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: DesignColors.primary,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 11, fontWeight: '600', color: DesignColors.primary }}>
+            Vendor
+          </Text>
+        </Pressable>
+      )}
+      <Pressable
+        onPress={handleBook}
+        style={{
+          flex: 1,
+          paddingVertical: 8,
+          borderRadius: 10,
+          backgroundColor: DesignColors.primary,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}>Book</Text>
+      </Pressable>
+    </>
+  );
+
+  const tappableBodyHeight = cardBodyHeight - CARD_ACTION_ROW_HEIGHT;
+
+  const wrapperStyle: ViewStyle[] = [
+    softShadow,
+    { overflow: 'hidden', borderRadius: 20, backgroundColor: '#FFF', height: cardTotalHeight },
+  ];
+
+  if (onPress) {
+    return (
+      <View style={wrapperStyle}>
+        <Pressable onPress={onPress} style={{ height: CARD_IMAGE_HEIGHT + tappableBodyHeight, width: '100%' }}>
+          {imageBlock}
+          <View
+            style={{
+              height: tappableBodyHeight,
+              backgroundColor: '#FFF',
+              paddingHorizontal: 12,
+              paddingTop: 12,
+              paddingBottom: 8,
+            }}
+          >
+            {titleDatePrice}
+          </View>
+        </Pressable>
+        <View
+          style={{
+            height: CARD_ACTION_ROW_HEIGHT,
+            backgroundColor: '#FFF',
+            paddingTop: 4,
+            paddingBottom: 12,
+            paddingHorizontal: 12,
+            flexDirection: 'row',
+            gap: 6,
+            alignItems: 'center',
+          }}
+        >
+          {actionButtons}
+        </View>
+      </View>
+    );
+  }
+
   const cardContent = (
     <>
-      <View style={{ height: CARD_IMAGE_HEIGHT, width: '100%', overflow: 'hidden', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: '#F5F5F5' }}>
-        <CategoryFallbackImage
-          imageUrl={event.image_url}
-          category={event.category}
-          style={{ width: '100%', height: '100%' }}
-          contentFit="cover"
-          recyclingKey={`card-${event.id}`}
-        />
-      </View>
+      {imageBlock}
       <View
         style={{
           height: cardBodyHeight,
@@ -162,33 +294,7 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
           justifyContent: 'space-between',
         }}
       >
-        <View style={{ flexShrink: 0 }}>
-          <Text
-            style={{ fontSize: 13, fontWeight: '700', color: DesignColors.charcoal }}
-            numberOfLines={2}
-          >
-            {event.title}
-          </Text>
-          <Text style={{ marginTop: 4, fontSize: 11, color: DesignColors.mediumGray }} numberOfLines={1}>
-            {event.date}
-          </Text>
-        </View>
-        <View style={{ flex: 1, justifyContent: 'center', minHeight: 0 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            {displayPrice != null ? (
-              <Text style={{ fontSize: 12, fontWeight: '600', color: DesignColors.charcoal }}>
-                {displayPrice}
-              </Text>
-            ) : (
-              <View />
-            )}
-            {distanceKm != null ? (
-              <Text style={{ fontSize: 11, color: DesignColors.mediumGray }}>
-                {distanceKm} km
-              </Text>
-            ) : null}
-          </View>
-        </View>
+        {titleDatePrice}
         <View
           style={{
             position: 'absolute',
@@ -200,76 +306,11 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
             alignItems: 'center',
           }}
         >
-          <Pressable
-            onPress={onHeartPress}
-            disabled={saving}
-            accessibilityRole="button"
-            accessibilityLabel={displaySaved ? 'Remove from saved workshops' : 'Save workshop'}
-            style={{
-              width: 40,
-              height: 36,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: DesignColors.lightGreenBorder,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: '#FFF',
-            }}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color={DesignColors.primary} />
-            ) : (
-              <EventSaveHeartIcon saved={displaySaved} size={22} />
-            )}
-          </Pressable>
-          {event.vendor_id && (
-            <Pressable
-              onPress={() => router.push(`/vendors/${event.vendor_id}`)}
-              style={{
-                paddingVertical: 8,
-                paddingHorizontal: 10,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: DesignColors.primary,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ fontSize: 11, fontWeight: '600', color: DesignColors.primary }}>
-                Vendor
-              </Text>
-            </Pressable>
-          )}
-          <Pressable
-            onPress={handleBook}
-            style={{
-              flex: 1,
-              paddingVertical: 8,
-              borderRadius: 10,
-              backgroundColor: DesignColors.primary,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}>Book</Text>
-          </Pressable>
+          {actionButtons}
         </View>
       </View>
     </>
   );
-
-  const wrapperStyle = [
-    softShadow,
-    { overflow: 'hidden', borderRadius: 20, backgroundColor: '#FFF', height: cardTotalHeight },
-  ];
-
-  if (onPress) {
-    return (
-      <Pressable onPress={onPress} style={wrapperStyle}>
-        {cardContent}
-      </Pressable>
-    );
-  }
 
   return <View style={wrapperStyle}>{cardContent}</View>;
 }

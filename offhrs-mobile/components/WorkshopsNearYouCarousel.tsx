@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { haversineKm } from '@/lib/distance';
 import { DesignColors } from '@/constants/design-template';
 import HomeWorkshopCarouselCards, { type HomeCarouselEventItem } from '@/components/HomeWorkshopCarouselCards';
+import { pickFirstNUniqueCategory } from '@/lib/home-carousel-events';
 
 interface DbEventRow {
   id: number;
@@ -90,21 +91,15 @@ export default function WorkshopsNearYouCarousel({
         const db = haversineKm(anchor.lat, anchor.lng, Number(b.lat), Number(b.lng));
         return da - db;
       });
-      const seen = new Set<number>();
-      const top: HomeCarouselEventItem[] = [];
-      for (const r of withCoords) {
-        if (seen.has(r.id)) continue;
-        seen.add(r.id);
-        top.push({
-          id: r.id,
-          title: r.title ?? 'Workshop',
-          priceLabel: formatPrice(r.price),
-          image_url: r.image_url,
-          locationLine: neighborhoodLine(r.location),
-          category: r.category,
-        });
-        if (top.length >= CLOSEST_COUNT) break;
-      }
+      const picked = pickFirstNUniqueCategory(withCoords, CLOSEST_COUNT);
+      const top: HomeCarouselEventItem[] = picked.map((r) => ({
+        id: r.id,
+        title: r.title ?? 'Workshop',
+        priceLabel: formatPrice(r.price),
+        image_url: r.image_url,
+        locationLine: neighborhoodLine(r.location),
+        category: r.category,
+      }));
       setItems(top);
     } catch (e) {
       console.warn('WorkshopsNearYouCarousel fetch', e);

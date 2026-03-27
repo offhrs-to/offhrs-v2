@@ -1,93 +1,40 @@
-import CategoryFallbackImage from '@/components/CategoryFallbackImage';
-import type { Event } from '@/components/EventCard';
-import { EventCard } from '@/components/EventCard';
-import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
+import WorkshopBrowseGroupedCard from '@/components/WorkshopBrowseGroupedCard';
 import WorkshopsChrome from '@/components/WorkshopsChrome';
-import { BOOK_API_BASE } from '@/constants/api';
 import { CATEGORIES } from '@/constants/categories';
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
 import { WORKSHOP_LIST_PAGE_SIZE } from '@/constants/workshops-list';
 import { useAuth } from '@/contexts/AuthContext';
-import { haversineKm } from '@/lib/distance';
 import { supabase } from '@/lib/supabase';
 import { buildDateStrip, eventMatchesCalendarDay, getTorontoYmd } from '@/lib/workshop-calendar';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import { fetchWorkshopEvents } from '@/lib/workshops-events-query';
-import * as Linking from 'expo-linking';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
-import {
-  ActivityIndicator,
-  Dimensions,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const SaveButtonTouchable = Platform.OS === 'android' ? TouchableOpacity : GHTouchableOpacity;
-
-const GRID_GAP = 12;
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_W = (SCREEN_WIDTH - DesignSpacing.horizontalPadding * 2 - GRID_GAP) / 2;
+const LIST_GAP = 12;
 
 function parseParamString(v: string | string[] | undefined): string {
   if (v == null) return '';
   return typeof v === 'string' ? v : v[0] ?? '';
 }
 
-type QvEvent = {
-  id: number;
-  title: string;
-  date: string;
-  date_iso: string | null;
-  location: string;
-  image_url: string | null;
-  price: number | string | null;
-  external_link: string;
-  lat: number | null;
-  lng: number | null;
-  vendor_id: string | null;
-  recurrence: string | null;
-  category: string | null;
-};
-
-function rowToQv(r: WorkshopEventRow): QvEvent {
-  return {
-    id: r.id,
-    title: r.title,
-    date: r.date,
-    date_iso: r.date_iso,
-    location: r.location,
-    image_url: r.image_url,
-    price: r.price,
-    external_link: r.external_link,
-    lat: r.lat,
-    lng: r.lng,
-    vendor_id: r.vendor_id,
-    recurrence: r.recurrence,
-    category: r.category,
-  };
+function eventSortMs(r: WorkshopEventRow): number {
+  if (r.date_iso) {
+    const t = new Date(r.date_iso).getTime();
+    if (!Number.isNaN(t)) return t;
+  }
+  const t = new Date(r.date).getTime();
+  return Number.isNaN(t) ? 0 : t;
 }
 
-function toCardEvent(r: WorkshopEventRow): Event {
-  return {
-    id: r.id,
-    title: r.title,
-    date: r.date,
-    location: r.location,
-    image_url: r.image_url,
-    price: r.price,
-    external_link: r.external_link,
-    vendor_id: r.vendor_id,
-    category: r.category,
-  };
+/** Same workshop listing (vendor + title) on the same calendar day → one card with multiple time pills. */
+function workshopGroupKey(e: WorkshopEventRow): string {
+  const v = e.vendor_id ?? '';
+  const t = e.title.trim().toLowerCase().replace(/\s+/g, ' ');
+  return `${v}\u0001${t}`;
 }
 
 export default function WorkshopBrowseScreen() {
@@ -114,9 +61,7 @@ export default function WorkshopBrowseScreen() {
   const [events, setEvents] = useState<WorkshopEventRow[]>([]);
   const [listPage, setListPage] = useState(1);
 
-  const [quickViewEvent, setQuickViewEvent] = useState<QvEvent | null>(null);
   const [savedEventIds, setSavedEventIds] = useState<Set<number>>(new Set());
-  const [quickViewSaving, setQuickViewSaving] = useState(false);
 
   const [profileLocation, setProfileLocation] = useState<{
     lat: number;
@@ -201,9 +146,22 @@ export default function WorkshopBrowseScreen() {
     [events, selectedYmd]
   );
 
-  const pagedEvents = useMemo(
-    () => dayEvents.slice(0, listPage * WORKSHOP_LIST_PAGE_SIZE),
-    [dayEvents, listPage]
+  const groupedForDay = useMemo(() => {
+    const map = new Map<string, WorkshopEventRow[]>();
+    for (const e of dayEvents) {
+      const k = workshopGroupKey(e);
+      const arr = map.get(k) ?? [];
+      arr.push(e);
+      map.set(k, arr);
+    }
+    const groups = [...map.values()].map((g) => [...g].sort((a, b) => eventSortMs(a) - eventSortMs(b)));
+    groups.sort((a, b) => eventSortMs(a[0]!) - eventSortMs(b[0]!));
+    return groups;
+  }, [dayEvents]);
+
+  const pagedGroups = useMemo(
+    () => groupedForDay.slice(0, listPage * WORKSHOP_LIST_PAGE_SIZE),
+    [groupedForDay, listPage]
   );
 
   const syncParams = (next: { q?: string; categories?: string | null }) => {
@@ -228,47 +186,6 @@ export default function WorkshopBrowseScreen() {
     const qs = p.toString();
     router.push(qs ? `/workshop-search?${qs}` : '/workshop-search');
   };
-
-  const eventIdNum = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
-  const quickViewSaved = eventIdNum != null && savedEventIds.has(eventIdNum);
-
-  const handleQuickViewSave = useCallback(async () => {
-    const eid = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
-    if (eid == null || !Number.isInteger(eid) || quickViewSaving) return;
-    if (!user?.id) {
-      router.push('/login');
-      return;
-    }
-    setQuickViewSaving(true);
-    try {
-      const isCurrentlySaved = savedEventIds.has(eid);
-      if (isCurrentlySaved) {
-        const { error } = await supabase
-          .from('user_event_saves')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('event_id', eid);
-        if (error) {
-          Alert.alert("Couldn't update", error.message ?? 'Please try again.');
-        } else {
-          setSavedEventIds((prev) => {
-            const next = new Set(prev);
-            next.delete(eid);
-            return next;
-          });
-        }
-      } else {
-        const { error } = await supabase.from('user_event_saves').insert({ user_id: user.id, event_id: eid });
-        if (error) {
-          Alert.alert("Couldn't save", error.message ?? 'Please try again.');
-        } else {
-          setSavedEventIds((prev) => new Set(prev).add(eid));
-        }
-      }
-    } finally {
-      setQuickViewSaving(false);
-    }
-  }, [user?.id, quickViewEvent?.id, quickViewSaving, savedEventIds, router]);
 
   const pillCategories = useMemo(() => ['All', ...CATEGORIES] as const, []);
 
@@ -369,28 +286,17 @@ export default function WorkshopBrowseScreen() {
         ) : (
           <>
             <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 12 }}>
-              {dayEvents.length} workshop{dayEvents.length === 1 ? '' : 's'} on this day
+              {groupedForDay.length} workshop{groupedForDay.length === 1 ? '' : 's'} on this day
             </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP }}>
-              {pagedEvents.map((row) => {
-                const ev = toCardEvent(row);
-                const dist =
-                  profileLocation != null && row.lat != null && row.lng != null
-                    ? Math.round(
-                        haversineKm(
-                          profileLocation.lat,
-                          profileLocation.lng,
-                          Number(row.lat),
-                          Number(row.lng)
-                        ) * 10
-                      ) / 10
-                    : undefined;
+            <View style={{ gap: LIST_GAP }}>
+              {pagedGroups.map((group) => {
+                const anchor = group[0]!;
                 return (
-                  <View key={row.id} style={{ width: CARD_W }}>
-                    <EventCard
-                      event={ev}
-                      distanceKm={dist}
-                      saved={savedEventIds.has(row.id)}
+                  <View key={`${anchor.vendor_id ?? 'nv'}-${anchor.title}-${group.map((g) => g.id).join('-')}`} style={{ width: '100%' }}>
+                    <WorkshopBrowseGroupedCard
+                      group={group}
+                      profileLocation={profileLocation}
+                      savedEventIds={savedEventIds}
                       onSaveChange={(id, saved) => {
                         setSavedEventIds((prev) => {
                           const next = new Set(prev);
@@ -399,7 +305,6 @@ export default function WorkshopBrowseScreen() {
                           return next;
                         });
                       }}
-                      onPress={() => setQuickViewEvent(rowToQv(row))}
                     />
                   </View>
                 );
@@ -408,7 +313,7 @@ export default function WorkshopBrowseScreen() {
             {dayEvents.length === 0 ? (
               <Text style={{ color: DesignColors.mediumGray, marginTop: 8 }}>Nothing scheduled for this day.</Text>
             ) : null}
-            {pagedEvents.length < dayEvents.length ? (
+            {pagedGroups.length < groupedForDay.length ? (
               <Pressable
                 onPress={() => setListPage((p) => p + 1)}
                 style={{
@@ -426,199 +331,6 @@ export default function WorkshopBrowseScreen() {
           </>
         )}
       </ScrollView>
-
-      <Modal visible={!!quickViewEvent} transparent animationType="fade" onRequestClose={() => setQuickViewEvent(null)}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-          <Pressable
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' }}
-            onPress={() => setQuickViewEvent(null)}
-          />
-          <View
-            style={{
-              width: '100%',
-              maxWidth: 360,
-              backgroundColor: '#FFF',
-              borderRadius: 20,
-              overflow: 'hidden',
-              paddingBottom: 20,
-            }}
-          >
-            {quickViewEvent && (
-              <>
-                <View style={{ height: 200, width: '100%', backgroundColor: DesignColors.inputBg }}>
-                  <CategoryFallbackImage
-                    imageUrl={quickViewEvent.image_url}
-                    category={quickViewEvent.category}
-                    style={{ width: '100%', height: '100%' }}
-                    contentFit="cover"
-                    recyclingKey={`qv-browse-${quickViewEvent.id}`}
-                  />
-                </View>
-                {quickViewEvent.id != null && (
-                  <View
-                    pointerEvents="box-none"
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: 200,
-                      zIndex: 10,
-                      elevation: Platform.OS === 'android' ? 10 : undefined,
-                    }}
-                  >
-                    <SaveButtonTouchable
-                      onPress={handleQuickViewSave}
-                      disabled={quickViewSaving}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityLabel={quickViewSaved ? 'Remove from saved workshops' : 'Save workshop'}
-                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                      style={{
-                        position: 'absolute',
-                        top: 12,
-                        right: 12,
-                        width: 44,
-                        height: 44,
-                        borderRadius: 22,
-                        backgroundColor: 'rgba(255,255,255,0.95)',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        elevation: Platform.OS === 'android' ? 4 : undefined,
-                      }}
-                    >
-                      {quickViewSaving ? (
-                        <ActivityIndicator size="small" color={DesignColors.primary} />
-                      ) : (
-                        <EventSaveHeartIcon saved={quickViewSaved} size={26} />
-                      )}
-                    </SaveButtonTouchable>
-                  </View>
-                )}
-                <View style={{ padding: 16, paddingTop: 12 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }} numberOfLines={2}>
-                    {quickViewEvent.title}
-                  </Text>
-                  <Text style={{ marginTop: 8, fontSize: 14, color: DesignColors.mediumGray }}>{quickViewEvent.date}</Text>
-                  {quickViewEvent.location ? (
-                    <Text style={{ marginTop: 6, fontSize: 13, color: DesignColors.mediumGray }}>
-                      {quickViewEvent.location}
-                    </Text>
-                  ) : null}
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginTop: 8,
-                      flexWrap: 'wrap',
-                      gap: 4,
-                    }}
-                  >
-                    {quickViewEvent.price != null && String(quickViewEvent.price).trim() !== '' && (
-                      <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.charcoal }}>
-                        {typeof quickViewEvent.price === 'string' && quickViewEvent.price.startsWith('$')
-                          ? quickViewEvent.price
-                          : `$${quickViewEvent.price}`}
-                      </Text>
-                    )}
-                    {profileLocation != null &&
-                      quickViewEvent.lat != null &&
-                      quickViewEvent.lng != null && (
-                        <Text style={{ fontSize: 13, color: DesignColors.mediumGray }}>
-                          {Math.round(
-                            haversineKm(
-                              profileLocation.lat,
-                              profileLocation.lng,
-                              Number(quickViewEvent.lat),
-                              Number(quickViewEvent.lng)
-                            ) * 10
-                          ) / 10}{' '}
-                          km away
-                        </Text>
-                      )}
-                  </View>
-                  <Text
-                    style={{
-                      marginTop: 12,
-                      fontSize: 10,
-                      color: DesignColors.mediumGray,
-                      textAlign: 'center',
-                      lineHeight: 14,
-                    }}
-                  >
-                    You&apos;ll open the vendor&apos;s site. Their price, availability, and terms apply.
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-                    {quickViewEvent.vendor_id && (
-                      <Pressable
-                        onPress={() => {
-                          setQuickViewEvent(null);
-                          router.push(`/vendors/${quickViewEvent.vendor_id}`);
-                        }}
-                        style={{
-                          paddingVertical: 10,
-                          paddingHorizontal: 14,
-                          borderRadius: 12,
-                          borderWidth: 1,
-                          borderColor: DesignColors.primary,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>Vendor</Text>
-                      </Pressable>
-                    )}
-                    <Pressable
-                      onPress={async () => {
-                        try {
-                          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-                          if (user?.id) {
-                            const {
-                              data: { session },
-                            } = await supabase.auth.getSession();
-                            if (session?.access_token) {
-                              headers.Authorization = `Bearer ${session.access_token}`;
-                            }
-                          }
-                          await fetch(`${BOOK_API_BASE}/api/book`, {
-                            method: 'POST',
-                            headers,
-                            body: JSON.stringify({
-                              event_id: quickViewEvent.id,
-                              event_title: quickViewEvent.title,
-                            }),
-                          });
-                        } catch {}
-                        const url = quickViewEvent.external_link?.trim();
-                        if (url) Linking.openURL(url);
-                        setQuickViewEvent(null);
-                      }}
-                      style={{
-                        flex: 1,
-                        paddingVertical: 10,
-                        borderRadius: 12,
-                        backgroundColor: DesignColors.primary,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFF' }}>Book</Text>
-                    </Pressable>
-                  </View>
-                  <Pressable
-                    onPress={() => setQuickViewEvent(null)}
-                    style={{ marginTop: 12, paddingVertical: 8, alignItems: 'center' }}
-                  >
-                    <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>Close</Text>
-                  </Pressable>
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
-
     </View>
   );
 }

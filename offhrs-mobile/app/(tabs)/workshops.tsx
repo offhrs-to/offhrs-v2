@@ -21,7 +21,6 @@ import * as Linking from 'expo-linking';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { TouchableOpacity as GHTouchableOpacity } from 'react-native-gesture-handler';
 import {
   ActivityIndicator,
   Alert,
@@ -35,8 +34,6 @@ import {
   View,
 } from 'react-native';
 
-const SaveButtonTouchable = Platform.OS === 'android' ? TouchableOpacity : GHTouchableOpacity;
-
 type EventWithCoords = Event & {
   lat?: number | null;
   lng?: number | null;
@@ -45,10 +42,22 @@ type EventWithCoords = Event & {
   category?: string | null;
 };
 
-const GRID_GAP = 12;
+/** Tight gap so the 2×3 category grid fits above the tab bar on common phone heights. */
+const CATEGORY_GRID_GAP = 10;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const TILE_WIDTH = (SCREEN_WIDTH - DesignSpacing.horizontalPadding * 2 - GRID_GAP) / 2;
-const TILE_HEIGHT = Math.round(TILE_WIDTH * 0.72);
+const TILE_WIDTH =
+  (SCREEN_WIDTH - DesignSpacing.horizontalPadding * 2 - CATEGORY_GRID_GAP) / 2;
+const TILE_HEIGHT = Math.round(TILE_WIDTH * 0.74);
+/** Reserved strip for category title; image sits above so artwork is not cropped by the label. */
+const CATEGORY_TILE_LABEL_H = 30;
+const CATEGORY_TILE_UPPER_H = TILE_HEIGHT - CATEGORY_TILE_LABEL_H;
+/** Same inner box for all 6 category tiles — larger art, still contained with `contain`. */
+const CATEGORY_TILE_IMAGE_W = Math.round(TILE_WIDTH);
+const CATEGORY_TILE_IMAGE_H = Math.round(CATEGORY_TILE_UPPER_H);
+/** Slightly oversize layout vs the upper cell so masters read larger (centered; tile clips). */
+const CATEGORY_TILE_IMAGE_LAYOUT_SCALE = 1.04;
+/** Pottery artwork sits lighter in the frame than other category masters. */
+const CATEGORY_TILE_POTTERY_IMAGE_SCALE = 1.14;
 
 function formatDate(isoString: string): string {
   try {
@@ -347,14 +356,23 @@ export default function WorkshopsScreen() {
             fontSize: 15,
             fontWeight: '700',
             color: DesignColors.charcoal,
-            marginTop: 20,
-            marginBottom: 10,
+            marginTop: 14,
+            marginBottom: 8,
           }}
         >
           What sparks your curiosity?
         </Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP, marginBottom: 16 }}>
-          {CATEGORY_LIST.map((cat) => (
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: CATEGORY_GRID_GAP,
+            marginBottom: 12,
+          }}
+        >
+          {CATEGORY_LIST.map((cat) => {
+            const iconScale = cat === 'Pottery' ? CATEGORY_TILE_POTTERY_IMAGE_SCALE : 1;
+            return (
             <Pressable
               key={cat}
               onPress={() => pushBrowse(cat)}
@@ -365,30 +383,52 @@ export default function WorkshopsScreen() {
                 overflow: 'hidden',
                 borderWidth: 1,
                 borderColor: DesignColors.lightGreenBorder,
+                backgroundColor: DesignColors.inputBg,
               }}
             >
-              <Image
-                source={getCategoryMasterImageSource(cat)}
-                style={{ width: '100%', height: '100%' }}
-                contentFit="cover"
-              />
+              <View
+                style={{
+                  height: TILE_HEIGHT - CATEGORY_TILE_LABEL_H,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Image
+                  source={getCategoryMasterImageSource(cat)}
+                  style={{
+                    width: Math.round(
+                      CATEGORY_TILE_IMAGE_W * CATEGORY_TILE_IMAGE_LAYOUT_SCALE * iconScale
+                    ),
+                    height: Math.round(
+                      CATEGORY_TILE_IMAGE_H * CATEGORY_TILE_IMAGE_LAYOUT_SCALE * iconScale
+                    ),
+                  }}
+                  contentFit="contain"
+                />
+              </View>
               <View
                 style={{
                   position: 'absolute',
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
+                  height: CATEGORY_TILE_LABEL_H,
+                  paddingHorizontal: 6,
+                  paddingVertical: 3,
+                  justifyContent: 'center',
                   backgroundColor: 'rgba(0,0,0,0.35)',
                 }}
               >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFF' }} numberOfLines={2}>
+                <Text
+                  style={{ fontSize: 10, fontWeight: '700', color: '#FFF', lineHeight: 12 }}
+                  numberOfLines={2}
+                >
                   {cat}
                 </Text>
               </View>
             </Pressable>
-          ))}
+            );
+          })}
         </View>
 
         <View
@@ -525,14 +565,13 @@ export default function WorkshopsScreen() {
                       elevation: Platform.OS === 'android' ? 10 : undefined,
                     }}
                   >
-                    <SaveButtonTouchable
+                    <Pressable
                       onPress={handleQuickViewSave}
                       disabled={quickViewSaving}
-                      activeOpacity={0.7}
                       accessibilityRole="button"
                       accessibilityLabel={quickViewSaved ? 'Remove from saved workshops' : 'Save workshop'}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                      style={{
+                      style={({ pressed }) => ({
                         position: 'absolute',
                         top: 12,
                         right: 12,
@@ -542,15 +581,16 @@ export default function WorkshopsScreen() {
                         backgroundColor: 'rgba(255,255,255,0.95)',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        opacity: pressed ? 0.85 : 1,
                         elevation: Platform.OS === 'android' ? 4 : undefined,
-                      }}
+                      })}
                     >
                       {quickViewSaving ? (
                         <ActivityIndicator size="small" color={DesignColors.primary} />
                       ) : (
                         <EventSaveHeartIcon saved={quickViewSaved} size={26} />
                       )}
-                    </SaveButtonTouchable>
+                    </Pressable>
                   </View>
                 )}
                 <View style={{ padding: 16, paddingTop: 12 }}>

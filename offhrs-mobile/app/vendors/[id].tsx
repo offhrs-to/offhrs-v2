@@ -1,12 +1,12 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
-import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
   Modal,
+  Platform,
   ScrollView,
   Text,
   View,
@@ -407,15 +407,25 @@ export default function VendorProfileScreen() {
                   />
                 </View>
                 {quickViewEvent.id != null && (
-                  <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200, zIndex: 10 }}>
-                    <TouchableOpacity
+                  <View
+                    pointerEvents="box-none"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: 200,
+                      zIndex: 10,
+                      elevation: Platform.OS === 'android' ? 10 : undefined,
+                    }}
+                  >
+                    <Pressable
                       onPress={handleQuickViewSave}
                       disabled={quickViewSaving}
-                      activeOpacity={0.7}
                       accessibilityRole="button"
                       accessibilityLabel={quickViewSaved ? 'Remove from saved workshops' : 'Save workshop'}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                      style={{
+                      style={({ pressed }) => ({
                         position: 'absolute',
                         top: 12,
                         right: 12,
@@ -425,14 +435,16 @@ export default function VendorProfileScreen() {
                         backgroundColor: 'rgba(255,255,255,0.95)',
                         alignItems: 'center',
                         justifyContent: 'center',
-                      }}
+                        opacity: pressed ? 0.85 : 1,
+                        elevation: Platform.OS === 'android' ? 4 : undefined,
+                      })}
                     >
                       {quickViewSaving ? (
                         <ActivityIndicator size="small" color={DesignColors.primary} />
                       ) : (
                         <EventSaveHeartIcon saved={quickViewSaved} size={26} />
                       )}
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 )}
                 <View style={{ padding: 16, paddingTop: 12 }}>
