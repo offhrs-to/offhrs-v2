@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabase';
 import { haversineKm } from '@/lib/distance';
 import { DesignColors } from '@/constants/design-template';
 import HomeWorkshopCarouselCards, { type HomeCarouselEventItem } from '@/components/HomeWorkshopCarouselCards';
-import { pickFirstNUniqueCategory } from '@/lib/home-carousel-events';
 
 interface DbEventRow {
   id: number;
@@ -45,6 +44,7 @@ function neighborhoodLine(loc: string | null | undefined, maxLen = 32): string |
   return `${short.slice(0, maxLen - 1)}…`;
 }
 
+/** Closest N by distance (not one-per-category — that capped the carousel at ~3 when categories repeated). */
 const CLOSEST_COUNT = 5;
 
 type Props = {
@@ -91,7 +91,7 @@ export default function WorkshopsNearYouCarousel({
         const db = haversineKm(anchor.lat, anchor.lng, Number(b.lat), Number(b.lng));
         return da - db;
       });
-      const picked = pickFirstNUniqueCategory(withCoords, CLOSEST_COUNT);
+      const picked = withCoords.slice(0, CLOSEST_COUNT);
       const top: HomeCarouselEventItem[] = picked.map((r) => ({
         id: r.id,
         title: r.title ?? 'Workshop',

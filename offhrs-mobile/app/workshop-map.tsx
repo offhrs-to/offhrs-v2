@@ -552,6 +552,12 @@ export default function WorkshopMapScreen() {
                       height: 200,
                       zIndex: 10,
                       elevation: Platform.OS === 'android' ? 10 : undefined,
+                      direction: 'ltr',
+                      flexDirection: 'row',
+                      justifyContent: 'flex-end',
+                      alignItems: 'flex-start',
+                      paddingTop: 12,
+                      paddingRight: 12,
                     }}
                   >
                     <Pressable
@@ -561,9 +567,6 @@ export default function WorkshopMapScreen() {
                       accessibilityLabel={quickViewSaved ? 'Remove from saved workshops' : 'Save workshop'}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                       style={({ pressed }) => ({
-                        position: 'absolute',
-                        top: 12,
-                        right: 12,
                         width: 44,
                         height: 44,
                         borderRadius: 22,
