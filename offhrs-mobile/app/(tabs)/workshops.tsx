@@ -459,8 +459,8 @@ export default function WorkshopsScreen() {
           }}
         >
           <Text style={{ fontSize: 11, color: DesignColors.charcoal, lineHeight: 16 }}>
-            Listings may be incomplete or outdated. Confirm date, time, price, location, and requirements with the
-            vendor before you rely on them. Offhrs does not process bookings or payments.
+            We do our best to keep listings useful, but vendors may update their workshops. Please verify details with
+            the vendor before booking. Offhrs does not process bookings or payments.
           </Text>
           <View
             style={{
