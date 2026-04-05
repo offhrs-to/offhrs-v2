@@ -418,7 +418,7 @@ function Section5Categories() {
       >
         From pottery, coffee, culinary, beauty, wellness, floral, and more.
       </motion.p>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 w-full max-w-4xl max-md:gap-1.5">
+      <div className="grid grid-cols-3 gap-2 md:gap-3 w-full max-w-4xl max-md:gap-1.5">
         {LANDING_CATEGORIES.map((name) => (
           <motion.div
             key={name}

@@ -20,14 +20,14 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Email sign-up (Supabase)
+## Sign-in (Supabase — Google & Apple)
 
-If users don’t receive the confirmation email or sign-up doesn’t complete:
+The web and mobile apps use **Google** and **Apple** OAuth only (no email/password sign-up).
 
-1. **Site URL** – In [Supabase Dashboard](https://supabase.com/dashboard) → **Authentication** → **URL Configuration**, set **Site URL** to your web app (e.g. `https://yourdomain.com` or `http://localhost:3000` for dev). Add **Redirect URLs** such as `https://yourdomain.com/auth/callback` and `http://localhost:3000/auth/callback`.
-2. **Email deliverability** – Supabase’s default email has strict rate limits and is for testing. For production, configure **Custom SMTP** (Dashboard → **Project Settings** → **Auth** → **SMTP**) with a provider like Resend, SendGrid, or AWS SES so confirmation emails are sent reliably and don’t land in spam.
+1. **Site URL** – In [Supabase Dashboard](https://supabase.com/dashboard) → **Authentication** → **URL Configuration**, set **Site URL** to your web app (e.g. `https://yourdomain.com` or `http://localhost:3000` for dev). Add **Redirect URLs** such as `https://yourdomain.com/auth/callback`, `http://localhost:3000/auth/callback`, and your mobile scheme (e.g. `offhrsmobile://auth/callback`).
+2. **Providers** – Enable **Google** and **Apple** under Authentication → Providers and configure OAuth credentials.
 
-After confirming their email (by clicking the link), the session is set and the profile is created automatically by a database trigger.
+After OAuth completes, the session is set and the profile is created automatically by a database trigger where applicable.
 
 ## One account per email (Google / OAuth)
 

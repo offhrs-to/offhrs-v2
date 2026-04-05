@@ -707,12 +707,6 @@ export default function WorkshopsScreen() {
                       <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFF' }}>Book</Text>
                     </Pressable>
                   </View>
-                  <Pressable
-                    onPress={() => setQuickViewEvent(null)}
-                    style={{ marginTop: 12, paddingVertical: 8, alignItems: 'center' }}
-                  >
-                    <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>Close</Text>
-                  </Pressable>
                 </View>
               </>
             )}

@@ -45,24 +45,12 @@ Run these migrations in your Supabase project:
 
 ## Required Supabase Setup
 
-- Enable **Email** and **Google** auth providers in Authentication → Providers
-- For Google OAuth: Add your Google Client ID and Secret from Google Cloud Console
+- Enable **Google** and **Apple** auth providers in Authentication → Providers (the apps use OAuth only for sign-in).
+- For Google OAuth: add your Google Client ID and Secret from Google Cloud Console; configure Apple similarly for Sign in with Apple.
 
-### Email sign-up: skip confirmation (recommended for mobile parity with Google/Apple)
+The **Email** provider can be left enabled (e.g. for transactional mail or legacy accounts) or disabled in the Dashboard if you do not use email/password—only do this if you have no users who rely on email/password sign-in.
 
-By default, Supabase **Email** auth sends a **confirm your email** message and does not create a session until the user clicks the link. OAuth users are signed in immediately, so email/password can feel inconsistent.
-
-**Turn off mandatory email confirmation** (you still get a secure password sign-up):
-
-1. Open [Supabase Dashboard](https://supabase.com/dashboard) → your project → **Authentication** → **Providers** → **Email**.
-2. Disable **Confirm email** (wording may be “Enable email confirmations” — set it off).
-3. Save.
-
-After this, `signUp` returns a **session** right away; the mobile app and web signup page sign the user in without a confirmation step. Keep **Secure email change** on if you want re-verification when users change their address.
-
-For **local** `supabase start`, set in `supabase/config.toml` under `[auth.email]`:
-
-`enable_confirmations = false`
+If users update their email in the profile, Supabase may still send verification mail depending on your **Secure email change** settings.
 
 ## Recurring workshop instances (materialized rows)
 

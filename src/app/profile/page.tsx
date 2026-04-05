@@ -143,7 +143,7 @@ export default function ProfilePage() {
         <div className="text-center">
           <p className="text-gray-600 mb-4">Please sign in to view your profile</p>
           <Link href="/signup">
-            <Button className="bg-[#5D755D] hover:bg-[#4a5e4a]">Sign up</Button>
+            <Button className="bg-[#5D755D] hover:bg-[#4a5e4a]">Sign in with Google or Apple</Button>
           </Link>
         </div>
       </div>

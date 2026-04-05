@@ -552,7 +552,7 @@ export default function HomeScreen() {
                 marginBottom: 24,
               }}
             >
-              Sign-up to create your profile and begin tracking your Mastery!
+              Create a profile to begin tracking your Mastery! Sign in with Google or Apple on the Profile tab.
             </Text>
             <View style={{ gap: 12 }}>
               <Pressable
@@ -565,7 +565,7 @@ export default function HomeScreen() {
                 }}
               >
                 <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFF' }}>
-                  Sign up
+                  Continue
                 </Text>
               </Pressable>
               <Pressable

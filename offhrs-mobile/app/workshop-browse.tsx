@@ -37,6 +37,20 @@ function workshopGroupKey(e: WorkshopEventRow): string {
   return `${v}\u0001${t}`;
 }
 
+/** Non-recurring events on or after today (Toronto); recurring rows always included. */
+function eventIsUpcomingToronto(e: WorkshopEventRow): boolean {
+  if (e.recurrence === 'daily' || e.recurrence === 'weekly') return true;
+  if (!e.date_iso) return false;
+  return e.date_iso.slice(0, 10) >= getTorontoYmd();
+}
+
+function browseGroupKey(e: WorkshopEventRow, mode: 'single-day' | 'all-dates'): string {
+  if (mode === 'single-day') return workshopGroupKey(e);
+  if (e.recurrence === 'daily' || e.recurrence === 'weekly') return `rec:${e.id}`;
+  const ymd = e.date_iso ? e.date_iso.slice(0, 10) : '';
+  return `${ymd}\u0001${workshopGroupKey(e)}`;
+}
+
 export default function WorkshopBrowseScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -55,7 +69,8 @@ export default function WorkshopBrowseScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategory);
 
   const strip = useMemo(() => buildDateStrip(90), []);
-  const [selectedYmd, setSelectedYmd] = useState(() => strip[0]?.ymd ?? getTorontoYmd());
+  /** `null` = show all upcoming dates, chronological (soonest first). */
+  const [selectedYmd, setSelectedYmd] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<WorkshopEventRow[]>([]);
@@ -141,15 +156,19 @@ export default function WorkshopBrowseScreen() {
     setListPage(1);
   }, [selectedYmd, selectedCategory, searchTerm]);
 
-  const dayEvents = useMemo(
-    () => events.filter((e) => eventMatchesCalendarDay(e, selectedYmd)),
-    [events, selectedYmd]
-  );
+  const dayEvents = useMemo(() => {
+    if (selectedYmd != null) {
+      return events.filter((e) => eventMatchesCalendarDay(e, selectedYmd));
+    }
+    const upcoming = events.filter(eventIsUpcomingToronto);
+    return [...upcoming].sort((a, b) => eventSortMs(a) - eventSortMs(b));
+  }, [events, selectedYmd]);
 
   const groupedForDay = useMemo(() => {
+    const mode = selectedYmd != null ? 'single-day' : 'all-dates';
     const map = new Map<string, WorkshopEventRow[]>();
     for (const e of dayEvents) {
-      const k = workshopGroupKey(e);
+      const k = browseGroupKey(e, mode);
       const arr = map.get(k) ?? [];
       arr.push(e);
       map.set(k, arr);
@@ -157,7 +176,7 @@ export default function WorkshopBrowseScreen() {
     const groups = [...map.values()].map((g) => [...g].sort((a, b) => eventSortMs(a) - eventSortMs(b)));
     groups.sort((a, b) => eventSortMs(a[0]!) - eventSortMs(b[0]!));
     return groups;
-  }, [dayEvents]);
+  }, [dayEvents, selectedYmd]);
 
   const pagedGroups = useMemo(
     () => groupedForDay.slice(0, listPage * WORKSHOP_LIST_PAGE_SIZE),
@@ -245,6 +264,31 @@ export default function WorkshopBrowseScreen() {
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
           <View style={{ flexDirection: 'row', gap: 8, paddingRight: 8 }}>
+            <Pressable
+              onPress={() => setSelectedYmd(null)}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                borderRadius: 12,
+                backgroundColor: selectedYmd == null ? DesignColors.heroBg : DesignColors.inputBg,
+                borderWidth: 1,
+                borderColor: selectedYmd == null ? DesignColors.primary : DesignColors.lightGreenBorder,
+                minWidth: 72,
+                alignItems: 'center',
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: selectedYmd == null ? DesignColors.primary : DesignColors.charcoal,
+                  textAlign: 'center',
+                }}
+                numberOfLines={2}
+              >
+                All
+              </Text>
+            </Pressable>
             {strip.map((d) => {
               const active = d.ymd === selectedYmd;
               return (
@@ -286,7 +330,8 @@ export default function WorkshopBrowseScreen() {
         ) : (
           <>
             <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 12 }}>
-              {groupedForDay.length} workshop{groupedForDay.length === 1 ? '' : 's'} on this day
+              {groupedForDay.length} workshop{groupedForDay.length === 1 ? '' : 's'}
+              {selectedYmd == null ? ' upcoming' : ' on this day'}
             </Text>
             <View style={{ gap: LIST_GAP }}>
               {pagedGroups.map((group) => {
@@ -311,7 +356,9 @@ export default function WorkshopBrowseScreen() {
               })}
             </View>
             {dayEvents.length === 0 ? (
-              <Text style={{ color: DesignColors.mediumGray, marginTop: 8 }}>Nothing scheduled for this day.</Text>
+              <Text style={{ color: DesignColors.mediumGray, marginTop: 8 }}>
+                {selectedYmd == null ? 'No upcoming workshops.' : 'Nothing scheduled for this day.'}
+              </Text>
             ) : null}
             {pagedGroups.length < groupedForDay.length ? (
               <Pressable

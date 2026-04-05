@@ -368,7 +368,10 @@ export default function VendorProfileScreen() {
         ))
       )}
 
-      <Pressable onPress={() => router.back()} style={{ marginTop: 24, paddingVertical: 14, borderRadius: 9999, borderWidth: 1, borderColor: DesignColors.primary, alignItems: 'center' }}>
+      <Pressable
+        onPress={() => router.replace('/(tabs)/workshops')}
+        style={{ marginTop: 24, paddingVertical: 14, borderRadius: 9999, borderWidth: 1, borderColor: DesignColors.primary, alignItems: 'center' }}
+      >
         <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.primary }}>Back to Workshops</Text>
       </Pressable>
     </ScrollView>
@@ -512,9 +515,6 @@ export default function VendorProfileScreen() {
                       <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFF' }}>Book</Text>
                     </Pressable>
                   </View>
-                  <Pressable onPress={() => setQuickViewEvent(null)} style={{ marginTop: 12, paddingVertical: 8, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>Close</Text>
-                  </Pressable>
                 </View>
               </>
             )}

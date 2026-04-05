@@ -1,48 +1,16 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/browser'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
+import { useState } from 'react'
 
 export default function SignupPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
 
-  const handleEmailSignup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    try {
-      const supabase = createClient()
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-      })
-      if (error) throw error
-      if (data.session) {
-        router.replace('/profile')
-        router.refresh()
-      } else {
-        setSuccess(true)
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to sign up')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleOAuth = async (provider: 'google' | 'apple' | 'facebook') => {
+  const handleOAuth = async (provider: 'google' | 'apple') => {
     setLoading(true)
     setError(null)
     try {
@@ -55,38 +23,20 @@ export default function SignupPage() {
     } catch (err: unknown) {
       const message =
         provider === 'google'
-          ? 'Failed to sign up with Google'
-          : provider === 'apple'
-            ? 'Failed to sign up with Apple'
-            : 'Failed to sign up with Meta'
+          ? 'Failed to sign in with Google'
+          : 'Failed to sign in with Apple'
       setError(err instanceof Error ? err.message : message)
     } finally {
       setLoading(false)
     }
   }
 
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-md text-center space-y-4">
-          <h1 className="text-xl font-bold text-gray-900">Check your email</h1>
-          <p className="text-gray-600 text-sm">
-            We&apos;ve sent you a confirmation link. Click it to activate your account.
-          </p>
-          <Link href="/" className="text-[#5D755D] font-medium hover:underline">
-            Back to home
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-6">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900">Create an account</h1>
-          <p className="mt-1 text-gray-600 text-sm">Join Offhrs to discover workshops</p>
+          <h1 className="text-2xl font-bold text-gray-900">Sign in to Offhrs</h1>
+          <p className="mt-1 text-gray-600 text-sm">Continue with Google or Apple</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
@@ -133,62 +83,17 @@ export default function SignupPage() {
             Continue with Apple
           </Button>
 
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full bg-[#1877F2] text-white border-[#1877F2] hover:bg-[#166FE5] hover:text-white"
-            onClick={() => handleOAuth('facebook')}
-            disabled={loading}
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-              </svg>
-            )}
-            Continue with Meta
-          </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-200" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="bg-white px-2 text-gray-500">or</span>
-            </div>
-          </div>
-
-          <form onSubmit={handleEmailSignup} className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
-                required
-                className="mt-1"
-                placeholder="At least 6 characters"
-              />
-            </div>
-            <Button type="submit" className="w-full bg-[#5D755D] hover:bg-[#4a5e4a]" disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create account'}
-            </Button>
-          </form>
+          <p className="text-center text-xs text-gray-500 leading-relaxed">
+            By continuing you agree to our{' '}
+            <Link href="/terms" className="font-medium text-[#5D755D] hover:underline">
+              Terms of Use
+            </Link>{' '}
+            and{' '}
+            <Link href="/privacy" className="font-medium text-[#5D755D] hover:underline">
+              Privacy Notice
+            </Link>
+            .
+          </p>
 
           <p className="text-center text-sm text-gray-600">
             <Link href="/" className="font-medium text-[#5D755D] hover:underline">
