@@ -16,7 +16,9 @@ import { supabase } from '@/lib/supabase';
 import { fetchWorkshopEvents } from '@/lib/workshops-events-query';
 import { getCategoryMasterImageSource } from '@/lib/category-master-images';
 import { haversineKm } from '@/lib/distance';
+import { shareWorkshopEvent } from '@/lib/share-workshop';
 import { Image } from 'expo-image';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Linking from 'expo-linking';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -569,8 +571,32 @@ export default function WorkshopsScreen() {
                       alignItems: 'flex-start',
                       paddingTop: 12,
                       paddingRight: 12,
+                      gap: 8,
                     }}
                   >
+                    <Pressable
+                      onPress={() =>
+                        void shareWorkshopEvent({
+                          id: quickViewEvent.id,
+                          title: quickViewEvent.title,
+                        })
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel="Share workshop"
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      style={({ pressed }) => ({
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        backgroundColor: 'rgba(255,255,255,0.95)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: pressed ? 0.85 : 1,
+                        elevation: Platform.OS === 'android' ? 4 : undefined,
+                      })}
+                    >
+                      <MaterialCommunityIcons name="share-variant" size={22} color={DesignColors.primary} />
+                    </Pressable>
                     <Pressable
                       onPress={handleQuickViewSave}
                       disabled={quickViewSaving}

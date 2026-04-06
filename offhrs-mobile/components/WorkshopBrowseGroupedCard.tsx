@@ -1,4 +1,5 @@
 import * as Linking from 'expo-linking';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
@@ -9,6 +10,7 @@ import { BOOK_API_BASE } from '@/constants/api';
 import { DesignColors } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { haversineKm } from '@/lib/distance';
+import { shareWorkshopEvent } from '@/lib/share-workshop';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import { supabase } from '@/lib/supabase';
 
@@ -264,7 +266,36 @@ export default function WorkshopBrowseGroupedCard({ group, profileLocation, save
             </View>
           </View>
 
-          <View
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, flexShrink: 0 }}>
+            {/* Match heart overlay: paddingTop 4 + 36×36 control so share aligns with save on the same row */}
+            <View
+              style={{
+                height: THUMB_SIZE,
+                width: 36,
+                paddingTop: 4,
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+              }}
+            >
+              <Pressable
+                onPress={() => void shareWorkshopEvent({ id: selected.id, title })}
+                accessibilityRole="button"
+                accessibilityLabel="Share workshop"
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                style={({ pressed }) => ({
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: pressed ? 0.75 : 1,
+                })}
+              >
+                <MaterialCommunityIcons name="share-variant" size={22} color={DesignColors.primary} />
+              </Pressable>
+            </View>
+
+            <View
             style={{
               width: THUMB_SIZE,
               height: THUMB_SIZE,
@@ -343,6 +374,7 @@ export default function WorkshopBrowseGroupedCard({ group, profileLocation, save
                 )}
               </Pressable>
             </View>
+          </View>
           </View>
         </View>
 

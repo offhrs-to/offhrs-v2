@@ -14,6 +14,7 @@ import {
   Linking,
   TextInput,
 } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
@@ -21,6 +22,7 @@ import { BOOK_API_BASE } from '@/constants/api';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
+import { shareWorkshopEvent } from '@/lib/share-workshop';
 
 interface Vendor {
   id: string;
@@ -426,8 +428,32 @@ export default function VendorProfileScreen() {
                       alignItems: 'flex-start',
                       paddingTop: 12,
                       paddingRight: 12,
+                      gap: 8,
                     }}
                   >
+                    <Pressable
+                      onPress={() =>
+                        void shareWorkshopEvent({
+                          id: quickViewEvent.id,
+                          title: quickViewEvent.title,
+                        })
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel="Share workshop"
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      style={({ pressed }) => ({
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        backgroundColor: 'rgba(255,255,255,0.95)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: pressed ? 0.85 : 1,
+                        elevation: Platform.OS === 'android' ? 4 : undefined,
+                      })}
+                    >
+                      <MaterialCommunityIcons name="share-variant" size={22} color={DesignColors.primary} />
+                    </Pressable>
                     <Pressable
                       onPress={handleQuickViewSave}
                       disabled={quickViewSaving}

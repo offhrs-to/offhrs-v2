@@ -14,6 +14,7 @@ interface DbEventRow {
   price: number | string | null;
   category: string | null;
   recurrence: string | null;
+  vendor_id: string | null;
   lat?: number | null;
   lng?: number | null;
 }
@@ -44,8 +45,24 @@ function neighborhoodLine(loc: string | null | undefined, maxLen = 32): string |
   return `${short.slice(0, maxLen - 1)}…`;
 }
 
-/** Closest N by distance (not one-per-category — that capped the carousel at ~3 when categories repeated). */
+/** Closest N workshops by distance, at most one listing per vendor (that vendor’s nearest event wins). */
 const CLOSEST_COUNT = 5;
+
+function pickFirstNUniqueVendor(sortedClosestFirst: DbEventRow[], n: number): DbEventRow[] {
+  const seenVendor = new Set<string>();
+  const out: DbEventRow[] = [];
+  for (const row of sortedClosestFirst) {
+    const key =
+      row.vendor_id != null && String(row.vendor_id).trim() !== ''
+        ? String(row.vendor_id)
+        : `event:${row.id}`;
+    if (seenVendor.has(key)) continue;
+    seenVendor.add(key);
+    out.push(row);
+    if (out.length >= n) break;
+  }
+  return out;
+}
 
 type Props = {
   userLocationAnchor: { lat: number; lng: number } | null;
@@ -71,7 +88,7 @@ export default function WorkshopsNearYouCarousel({
       const nowIso = new Date().toISOString();
       const { data, error } = await supabase
         .from('events')
-        .select('id, title, date, location, image_url, price, category, recurrence, lat, lng')
+        .select('id, title, date, location, image_url, price, category, recurrence, lat, lng, vendor_id')
         .or(`recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso}`)
         .limit(500);
       if (error) throw error;
@@ -91,7 +108,7 @@ export default function WorkshopsNearYouCarousel({
         const db = haversineKm(anchor.lat, anchor.lng, Number(b.lat), Number(b.lng));
         return da - db;
       });
-      const picked = withCoords.slice(0, CLOSEST_COUNT);
+      const picked = pickFirstNUniqueVendor(withCoords, CLOSEST_COUNT);
       const top: HomeCarouselEventItem[] = picked.map((r) => ({
         id: r.id,
         title: r.title ?? 'Workshop',
