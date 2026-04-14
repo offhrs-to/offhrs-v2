@@ -32,9 +32,9 @@ export default function RootLayout() {
     SystemUI.setBackgroundColorAsync(ROOT_BG);
   }, []);
 
-  // Android Custom Tabs OAuth: completes the auth session when returning to the app (no iOS change).
+  // OAuth (Android Custom Tabs + iOS ASWebAuthenticationSession): complete session when returning to the app.
   useEffect(() => {
-    if (Platform.OS === 'android') {
+    if (Platform.OS === 'android' || Platform.OS === 'ios') {
       WebBrowser.maybeCompleteAuthSession();
     }
   }, []);

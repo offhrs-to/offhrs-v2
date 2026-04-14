@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
   ActivityIndicator,
+  Alert,
   DeviceEventEmitter,
   KeyboardAvoidingView,
   Modal,
@@ -27,6 +28,7 @@ import { SignInForm } from '@/components/SignInForm';
 import { openWebAppPath } from '@/lib/web-app-links';
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
 import { geocodeAddress, reverseGeocodeCanadianPostal } from '@/lib/geocode';
+import { deleteAuthenticatedUserAccount } from '@/lib/delete-account';
 import { emitProfileUpdated, PROFILE_UPDATED_EVENT } from '@/lib/profile-events';
 import { supabase } from '@/lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
@@ -93,6 +95,7 @@ export default function ProfileScreen() {
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsLocationPostal, setSettingsLocationPostal] = useState('');
   const [settingsLocationAction, setSettingsLocationAction] = useState<null | 'postal' | 'gps' | 'clear'>(null);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
@@ -305,6 +308,33 @@ export default function ProfileScreen() {
       .single()
       .then(({ data }) => setProfile(data ?? null));
   }, [user?.id]);
+
+  const runDeleteAccount = useCallback(async () => {
+    setDeletingAccount(true);
+    try {
+      const result = await deleteAuthenticatedUserAccount();
+      if (!result.ok) {
+        Alert.alert('Could not delete account', result.error);
+        return;
+      }
+      setProfile(null);
+      setProfileLoaded(false);
+      await signOut();
+    } finally {
+      setDeletingAccount(false);
+    }
+  }, [signOut]);
+
+  const promptDeleteAccount = useCallback(() => {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your account and all associated data. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => void runDeleteAccount() },
+      ]
+    );
+  }, [runDeleteAccount]);
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener(PROFILE_UPDATED_EVENT, () => {
@@ -597,9 +627,31 @@ export default function ProfileScreen() {
       </View>
 
       <Pressable
-        onPress={() => signOut()}
+        onPress={promptDeleteAccount}
+        disabled={deletingAccount}
         style={{
           marginTop: 16,
+          paddingVertical: DesignSpacing.ctaPaddingVertical,
+          borderRadius: 9999,
+          borderWidth: 1,
+          borderColor: '#FECACA',
+          backgroundColor: '#FFF',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: deletingAccount ? 0.7 : 1,
+        }}
+      >
+        {deletingAccount ? (
+          <ActivityIndicator size="small" color="#B91C1C" />
+        ) : (
+          <Text style={{ fontSize: 15, fontWeight: '600', color: '#B91C1C' }}>Delete my account</Text>
+        )}
+      </Pressable>
+
+      <Pressable
+        onPress={() => signOut()}
+        style={{
+          marginTop: 12,
           marginBottom: 8,
           paddingVertical: DesignSpacing.ctaPaddingVertical,
           borderRadius: 9999,

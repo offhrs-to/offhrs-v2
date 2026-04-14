@@ -51,7 +51,8 @@ export function SignInForm({
         provider,
         options: {
           redirectTo: redirectUrl,
-          skipBrowserRedirect: Platform.OS === 'android',
+          skipBrowserRedirect:
+            Platform.OS === 'ios' || Platform.OS === 'android',
         },
       });
       if (error) throw error;
@@ -61,7 +62,7 @@ export function SignInForm({
       }
       __DEV__ && console.log(`[SignIn] Opening ${provider} auth URL`);
 
-      if (Platform.OS === 'android') {
+      if (Platform.OS === 'ios' || Platform.OS === 'android') {
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
         if (result.type === 'success' && result.url) {
           const handled = await processAuthCallbackUrl(result.url);

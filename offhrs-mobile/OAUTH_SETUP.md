@@ -1,5 +1,9 @@
 # Mobile OAuth (Apple & Google) Setup
 
+## App Review (iOS)
+
+Google and Apple sign-in use **`expo-web-browser`** `openAuthSessionAsync`, which on iOS presents **`ASWebAuthenticationSession`** (an in-app authentication session). The OAuth page is **not** opened in the standalone Safari app solely for sign-in—users return to the app via the `offhrsmobile://auth/callback` redirect. `WebBrowser.maybeCompleteAuthSession()` runs on both iOS and Android when the app loads so the session completes cleanly after redirect.
+
 ## Supabase Dashboard Configuration
 
 To make Apple and Google sign-in work on the mobile app, add these redirect URLs in **Supabase Dashboard** → **Authentication** → **URL Configuration** → **Redirect URLs**:
