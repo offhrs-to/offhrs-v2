@@ -8,7 +8,6 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { TouchableOpacity } from 'react-native-gesture-handler';
 import {
   ActivityIndicator,
   Alert,
@@ -96,7 +95,6 @@ export default function ProfileScreen() {
   const [settingsLocationPostal, setSettingsLocationPostal] = useState('');
   const [settingsLocationAction, setSettingsLocationAction] = useState<null | 'postal' | 'gps' | 'clear'>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
@@ -315,11 +313,9 @@ export default function ProfileScreen() {
     try {
       const result = await deleteAuthenticatedUserAccount();
       if (!result.ok) {
-        setDeleteConfirmVisible(false);
         Alert.alert('Could not delete account', result.error);
         return;
       }
-      setDeleteConfirmVisible(false);
       setSettingsVisible(false);
       setProfile(null);
       setProfileLoaded(false);
@@ -676,9 +672,9 @@ export default function ProfileScreen() {
               }}
             >
               <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>Your reviews</Text>
-              <TouchableOpacity onPress={() => setReviewsModalVisible(false)} style={{ padding: 8 }} activeOpacity={0.7}>
+              <RNTouchableOpacity onPress={() => setReviewsModalVisible(false)} style={{ padding: 8 }} activeOpacity={0.7}>
                 <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.primary }}>Close</Text>
-              </TouchableOpacity>
+              </RNTouchableOpacity>
             </View>
             {myReviewsLoading ? (
               <View style={{ padding: 32, alignItems: 'center' }}>
@@ -694,7 +690,7 @@ export default function ProfileScreen() {
             ) : (
               <ScrollView style={{ maxHeight: 400 }} contentContainerStyle={{ paddingBottom: 24 }}>
                 {myReviews.map((r) => (
-                  <TouchableOpacity
+                  <RNTouchableOpacity
                     key={r.id}
                     onPress={() => {
                       setReviewsModalVisible(false);
@@ -723,7 +719,7 @@ export default function ProfileScreen() {
                       </Text>
                     ) : null}
                     <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 6 }}>View vendor →</Text>
-                  </TouchableOpacity>
+                  </RNTouchableOpacity>
                 ))}
               </ScrollView>
             )}
@@ -771,9 +767,9 @@ export default function ProfileScreen() {
               }}
             >
               <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>Workshops attended</Text>
-              <TouchableOpacity onPress={() => setWorkshopsModalVisible(false)} style={{ padding: 8 }} activeOpacity={0.7}>
+              <RNTouchableOpacity onPress={() => setWorkshopsModalVisible(false)} style={{ padding: 8 }} activeOpacity={0.7}>
                 <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.primary }}>Close</Text>
-              </TouchableOpacity>
+              </RNTouchableOpacity>
             </View>
             {attendedWorkshopsLoading ? (
               <View style={{ padding: 32, alignItems: 'center' }}>
@@ -789,7 +785,7 @@ export default function ProfileScreen() {
             ) : (
               <ScrollView style={{ maxHeight: 400 }} contentContainerStyle={{ paddingBottom: 24 }}>
                 {attendedWorkshops.map((w) => (
-                  <TouchableOpacity
+                  <RNTouchableOpacity
                     key={w.id}
                     onPress={() => {
                       if (w.vendor_id) {
@@ -819,7 +815,7 @@ export default function ProfileScreen() {
                     {w.vendor_id ? (
                       <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 6 }}>View workshop →</Text>
                     ) : null}
-                  </TouchableOpacity>
+                  </RNTouchableOpacity>
                 ))}
               </ScrollView>
             )}
@@ -926,8 +922,8 @@ export default function ProfileScreen() {
       <Modal
         visible={settingsVisible}
         animationType="slide"
-        presentationStyle="pageSheet"
         onRequestClose={() => setSettingsVisible(false)}
+        onDismiss={() => setSettingsVisible(false)}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1276,24 +1272,30 @@ export default function ProfileScreen() {
                 paddingTop: 24,
                 borderTopWidth: 1,
                 borderTopColor: DesignColors.lightGreenBorder,
+                alignItems: 'center',
               }}
             >
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '600',
-                  color: DesignColors.mediumGray,
-                  marginBottom: 12,
-                }}
-              >
-                Danger zone
-              </Text>
               <RNTouchableOpacity
                 activeOpacity={0.85}
-                onPress={() => setDeleteConfirmVisible(true)}
+                onPress={() =>
+                  Alert.alert(
+                    'Delete account?',
+                    'This permanently deletes your account and all associated data. This cannot be undone.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: () => void runDeleteAccount(),
+                      },
+                    ]
+                  )
+                }
                 disabled={deletingAccount}
                 style={{
-                  paddingVertical: DesignSpacing.ctaPaddingVertical,
+                  minWidth: 180,
+                  paddingVertical: 10,
+                  paddingHorizontal: 18,
                   borderRadius: 9999,
                   borderWidth: 1,
                   borderColor: '#FECACA',
@@ -1308,67 +1310,6 @@ export default function ProfileScreen() {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </Modal>
-
-      <Modal
-        visible={deleteConfirmVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => !deletingAccount && setDeleteConfirmVisible(false)}
-      >
-        <Pressable
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 24,
-          }}
-          onPress={() => !deletingAccount && setDeleteConfirmVisible(false)}
-        >
-          <Pressable
-            style={{
-              width: '100%',
-              maxWidth: 360,
-              backgroundColor: '#FFF',
-              borderRadius: 16,
-              padding: 24,
-            }}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal, marginBottom: 8 }}>
-              Delete account?
-            </Text>
-            <Text style={{ fontSize: 15, color: DesignColors.mediumGray, marginBottom: 24, lineHeight: 22 }}>
-              This permanently deletes your account and all associated data. This cannot be undone.
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 12, justifyContent: 'flex-end' }}>
-              <RNTouchableOpacity
-                onPress={() => setDeleteConfirmVisible(false)}
-                disabled={deletingAccount}
-                style={{ paddingVertical: 12, paddingHorizontal: 16 }}
-              >
-                <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.primary }}>Cancel</Text>
-              </RNTouchableOpacity>
-              <RNTouchableOpacity
-                onPress={() => void runDeleteAccount()}
-                disabled={deletingAccount}
-                style={{
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  minWidth: 88,
-                  alignItems: 'center',
-                }}
-              >
-                {deletingAccount ? (
-                  <ActivityIndicator size="small" color="#B91C1C" />
-                ) : (
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#B91C1C' }}>Delete</Text>
-                )}
-              </RNTouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
       </Modal>
     </>
   );

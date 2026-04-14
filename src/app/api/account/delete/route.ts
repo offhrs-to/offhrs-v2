@@ -4,8 +4,9 @@ import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * POST /api/account/delete
- * Deletes the authenticated user's account and all associated data.
- * Uses Supabase Auth admin API; RLS and DB cascades handle related rows (profiles, bookings, etc.).
+ * Deletes the authenticated user's account and user-owned data.
+ * Cascades remove rows in user-owned tables (profiles, bookings, saves, reviews, category experience).
+ * Analytics rows may remain anonymized (e.g. event_redirects.user_id is set to null).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -35,13 +36,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { error } = await admin.auth.admin.deleteUser(user.id)
+    const userId = user.id
+    const { error } = await admin.auth.admin.deleteUser(userId)
     if (error) {
       console.error('Account delete error:', error)
       return NextResponse.json(
         { error: error.message ?? 'Failed to delete account' },
         { status: 500 }
       )
+    }
+
+    // Verify user-owned tables are empty after auth deletion/cascades.
+    // Keep analytics anonymization behavior (do not delete event_redirects rows).
+    const checks = await Promise.all([
+      admin.from('profiles').select('id', { count: 'exact', head: true }).eq('id', userId),
+      admin.from('bookings').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      admin.from('user_event_saves').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      admin.from('user_vendor_saves').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      admin.from('vendor_reviews').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      admin
+        .from('profile_category_experience')
+        .select('user_id', { count: 'exact', head: true })
+        .eq('user_id', userId),
+    ])
+    const remaining = checks.map((r) => r.count ?? 0).reduce((sum, n) => sum + n, 0)
+    if (remaining > 0) {
+      console.warn('Account delete verification found remaining rows', {
+        userId,
+        profiles: checks[0].count ?? 0,
+        bookings: checks[1].count ?? 0,
+        user_event_saves: checks[2].count ?? 0,
+        user_vendor_saves: checks[3].count ?? 0,
+        vendor_reviews: checks[4].count ?? 0,
+        profile_category_experience: checks[5].count ?? 0,
+      })
     }
 
     return NextResponse.json({ success: true })

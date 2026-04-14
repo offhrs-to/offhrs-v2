@@ -49,6 +49,7 @@ export async function processAuthCallbackUrl(url: string | null): Promise<boolea
   // Check for OAuth errors first
   if (error) {
     __DEV__ && console.warn('[Auth] OAuth error in URL:', error, error_description);
+    completeOAuthBrowserSession();
     return false;
   }
   

@@ -14,6 +14,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppIntroScreen from '@/components/AppIntroScreen';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { processAuthCallbackUrl } from '@/lib/auth-callback-url';
+import { completeOAuthBrowserSession } from '@/lib/auth-session-cleanup';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const HAS_SEEN_APP_INTRO_KEY = '@offhrs/hasSeenAppIntro';
@@ -65,6 +66,7 @@ export default function RootLayout() {
       if (cancelled) return;
       __DEV__ && console.log('[RootLayout] Initial URL:', url);
       processAuthCallbackUrl(url ?? null).then((handled) => {
+        completeOAuthBrowserSession();
         if (cancelled || !handled) return;
         setTimeout(goToProfile, 400);
       });
@@ -76,6 +78,7 @@ export default function RootLayout() {
         if (cancelled || !url) return;
         __DEV__ && console.log('[RootLayout] Retry initial URL:', url);
         processAuthCallbackUrl(url).then((handled) => {
+          completeOAuthBrowserSession();
           if (cancelled || !handled) return;
           setTimeout(goToProfile, 400);
         });
@@ -86,6 +89,7 @@ export default function RootLayout() {
     const sub = Linking.addEventListener('url', ({ url: eventUrl }) => {
       __DEV__ && console.log('[RootLayout] Link event:', eventUrl);
       processAuthCallbackUrl(eventUrl).then((handled) => {
+        completeOAuthBrowserSession();
         if (cancelled || !handled) return;
         setTimeout(goToProfile, 400);
       });

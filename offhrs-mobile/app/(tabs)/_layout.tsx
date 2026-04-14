@@ -127,28 +127,32 @@ function CustomTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
 
 export default function TabLayout() {
   const { user } = useAuth();
-  const [onboardingProfile, setOnboardingProfile] = useState<{
-    onboarding_completed: boolean | null;
-  } | null>(null);
-  const [onboardingGateReady, setOnboardingGateReady] = useState(false);
+  const [onboardingStatus, setOnboardingStatus] = useState<
+    'unknown' | 'needs_onboarding' | 'complete'
+  >('unknown');
 
   useEffect(() => {
     if (!user?.id) {
-      setOnboardingProfile(null);
-      setOnboardingGateReady(true);
+      setOnboardingStatus('unknown');
       return;
     }
-    setOnboardingGateReady(false);
+    setOnboardingStatus('unknown');
     let cancelled = false;
     supabase
       .from('profiles')
       .select('onboarding_completed')
       .eq('id', user.id)
       .single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (!cancelled) {
-          setOnboardingProfile(data ?? null);
-          setOnboardingGateReady(true);
+          if (error || !data) {
+            // Fail-open: do not block tabs/profile if onboarding status is temporarily unavailable.
+            setOnboardingStatus('unknown');
+            return;
+          }
+          setOnboardingStatus(
+            data.onboarding_completed === false ? 'needs_onboarding' : 'complete'
+          );
         }
       });
     return () => {
@@ -165,15 +169,19 @@ export default function TabLayout() {
       .eq('id', uid)
       .single()
       .then(({ data }) => {
-        setOnboardingProfile(data ?? null);
+        if (!data) {
+          setOnboardingStatus('unknown');
+          return;
+        }
+        setOnboardingStatus(
+          data.onboarding_completed === false ? 'needs_onboarding' : 'complete'
+        );
         emitProfileUpdated();
       });
   }, [user?.id]);
 
   const showOnboarding =
-    !!user?.id &&
-    onboardingGateReady &&
-    (onboardingProfile == null || onboardingProfile.onboarding_completed === false);
+    !!user?.id && onboardingStatus === 'needs_onboarding';
 
   return (
     <>

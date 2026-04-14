@@ -7,6 +7,7 @@ import {
   processAuthCallbackFromParams,
   processAuthCallbackUrl,
 } from '@/lib/auth-callback-url';
+import { completeOAuthBrowserSession } from '@/lib/auth-session-cleanup';
 import { supabase } from '@/lib/supabase';
 
 export default function AuthCallbackScreen() {
@@ -47,69 +48,73 @@ export default function AuthCallbackScreen() {
         error: params.error,
       });
 
-      // Check for OAuth errors in params (e.g. Supabase couldn't exchange Apple code)
-      if (params.error) {
-        __DEV__ && console.warn('[AuthCallback] OAuth error in params:', params.error, params.error_description);
-        // If we already have a session, the error may be from a duplicate attempt; go to profile
-        const { data: { session } } = await supabase.auth.getSession();
-        if (cancelled) return;
-        if (session) {
-          __DEV__ && console.log('[AuthCallback] Session exists despite error param, navigating to profile');
-          setTimeout(() => finish(true), 100);
+      try {
+        // Check for OAuth errors in params (e.g. Supabase couldn't exchange Apple code)
+        if (params.error) {
+          __DEV__ && console.warn('[AuthCallback] OAuth error in params:', params.error, params.error_description);
+          // If we already have a session, the error may be from a duplicate attempt; go to profile
+          const { data: { session } } = await supabase.auth.getSession();
+          if (cancelled) return;
+          if (session) {
+            __DEV__ && console.log('[AuthCallback] Session exists despite error param, navigating to profile');
+            setTimeout(() => finish(true), 100);
+            return;
+          }
+          const rawDesc = params.error_description || params.error;
+          const shortMsg = rawDesc.length > 80 ? rawDesc.slice(0, 77) + '…' : rawDesc;
+          finish(false, `Sign-in failed: ${shortMsg}`);
           return;
         }
-        const rawDesc = params.error_description || params.error;
-        const shortMsg = rawDesc.length > 80 ? rawDesc.slice(0, 77) + '…' : rawDesc;
-        finish(false, `Sign-in failed: ${shortMsg}`);
-        return;
-      }
 
-      // 1) Prefer route params: on iOS cold start from "Open in offhrs-mobile",
-      //    getInitialURL() often returns null but Expo Router has parsed the URL into params.
-      if (params.code || params.access_token) {
-        __DEV__ && console.log('[AuthCallback] Processing route params');
-        const handled = await processAuthCallbackFromParams({
-          code: params.code,
-          access_token: params.access_token,
-          refresh_token: params.refresh_token,
-        });
+        // 1) Prefer route params: on iOS cold start from "Open in offhrs-mobile",
+        //    getInitialURL() often returns null but Expo Router has parsed the URL into params.
+        if (params.code || params.access_token) {
+          __DEV__ && console.log('[AuthCallback] Processing route params');
+          const handled = await processAuthCallbackFromParams({
+            code: params.code,
+            access_token: params.access_token,
+            refresh_token: params.refresh_token,
+          });
+          if (cancelled) return;
+          if (handled) {
+            __DEV__ && console.log('[AuthCallback] Route params handled successfully');
+            setTimeout(() => finish(true), 300);
+            return;
+          }
+          __DEV__ && console.log('[AuthCallback] Route params failed to handle');
+        }
+
+        // 2) Try getInitialURL() (works when not cold start or on Android).
+        const rawUrl = await Linking.getInitialURL();
+        __DEV__ && console.log('[AuthCallback] getInitialURL():', rawUrl);
+        const handledFromUrl = await processAuthCallbackUrl(rawUrl ?? null);
         if (cancelled) return;
-        if (handled) {
-          __DEV__ && console.log('[AuthCallback] Route params handled successfully');
+        if (handledFromUrl) {
+          __DEV__ && console.log('[AuthCallback] Initial URL handled successfully');
           setTimeout(() => finish(true), 300);
           return;
         }
-        __DEV__ && console.log('[AuthCallback] Route params failed to handle');
-      }
 
-      // 2) Try getInitialURL() (works when not cold start or on Android).
-      const rawUrl = await Linking.getInitialURL();
-      __DEV__ && console.log('[AuthCallback] getInitialURL():', rawUrl);
-      const handledFromUrl = await processAuthCallbackUrl(rawUrl ?? null);
-      if (cancelled) return;
-      if (handledFromUrl) {
-        __DEV__ && console.log('[AuthCallback] Initial URL handled successfully');
-        setTimeout(() => finish(true), 300);
-        return;
-      }
+        // 3) On iOS, URL can be delivered late; retry once after a short delay.
+        await new Promise((r) => setTimeout(r, 400));
+        if (cancelled) return;
+        const retryUrl = await Linking.getInitialURL();
+        __DEV__ && console.log('[AuthCallback] Retry getInitialURL():', retryUrl);
+        const handledRetry = await processAuthCallbackUrl(retryUrl ?? null);
+        if (cancelled) return;
+        if (handledRetry) {
+          __DEV__ && console.log('[AuthCallback] Retry URL handled successfully');
+          setTimeout(() => finish(true), 300);
+          return;
+        }
 
-      // 3) On iOS, URL can be delivered late; retry once after a short delay.
-      await new Promise((r) => setTimeout(r, 400));
-      if (cancelled) return;
-      const retryUrl = await Linking.getInitialURL();
-      __DEV__ && console.log('[AuthCallback] Retry getInitialURL():', retryUrl);
-      const handledRetry = await processAuthCallbackUrl(retryUrl ?? null);
-      if (cancelled) return;
-      if (handledRetry) {
-        __DEV__ && console.log('[AuthCallback] Retry URL handled successfully');
-        setTimeout(() => finish(true), 300);
-        return;
+        // 4) Last resort: check if there's already a session (user might have signed in before)
+        const { data: { session } } = await supabase.auth.getSession();
+        __DEV__ && console.log('[AuthCallback] Final session check:', !!session);
+        finish(!!session);
+      } finally {
+        completeOAuthBrowserSession();
       }
-
-      // 4) Last resort: check if there's already a session (user might have signed in before)
-      const { data: { session } } = await supabase.auth.getSession();
-      __DEV__ && console.log('[AuthCallback] Final session check:', !!session);
-      finish(!!session);
     };
 
     run();
@@ -117,6 +122,7 @@ export default function AuthCallbackScreen() {
     const sub = Linking.addEventListener('url', ({ url: eventUrl }) => {
       __DEV__ && console.log('[AuthCallback] Link event received:', eventUrl);
       processAuthCallbackUrl(eventUrl).then((handled) => {
+        completeOAuthBrowserSession();
         if (cancelled) return;
         if (handled) {
           __DEV__ && console.log('[AuthCallback] Link event handled successfully');

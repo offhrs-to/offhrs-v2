@@ -10,4 +10,9 @@ export function completeOAuthBrowserSession(): void {
   } catch {
     /* Session may already be closed */
   }
+  try {
+    WebBrowser.dismissBrowser();
+  } catch {
+    /* Browser may already be closed */
+  }
 }
