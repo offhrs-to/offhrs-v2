@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.offhrs.app.offhrs",
-      "buildNumber": "27",
+      "buildNumber": "28",
       "backgroundColor": "#ECEFE5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -26,7 +26,7 @@
     },
     "android": {
       "package": "com.offhrs.app",
-      "versionCode": 20,
+      "versionCode": 21,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"

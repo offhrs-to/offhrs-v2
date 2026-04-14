@@ -14,7 +14,8 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_NO_CAPABILITY_SYNC": "1"
+        "EXPO_NO_CAPABILITY_SYNC": "1",
+        "EXPO_PUBLIC_APP_URL": "https://offhrs.app"
       },
       "ios": {
         "simulator": false
@@ -26,7 +27,8 @@
     "production": {
       "env": {
         "EAS_BUILD_NO_EXPO_GO_WARNING": "true",
-        "EXPO_NO_CAPABILITY_SYNC": "1"
+        "EXPO_NO_CAPABILITY_SYNC": "1",
+        "EXPO_PUBLIC_APP_URL": "https://offhrs.app"
       },
       "ios": {
         "resourceClass": "m1-medium",

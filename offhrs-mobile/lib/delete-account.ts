@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { getWebAppOrigin } from '@/lib/web-app-links';
+import { BOOK_API_BASE } from '@/constants/api';
 
 export type DeleteAccountResult =
   | { ok: true }
@@ -16,20 +17,38 @@ export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountRes
     return { ok: false, error: 'Not signed in' };
   }
 
-  const base = getWebAppOrigin();
-  const res = await fetch(`${base}/api/account/delete`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${session.access_token}` },
-  });
+  const bases = [getWebAppOrigin(), BOOK_API_BASE].filter(
+    (value, index, arr) => !!value && arr.indexOf(value) === index
+  );
 
-  const body = (await res.json().catch(() => ({}))) as { error?: string };
+  for (const base of bases) {
+    try {
+      const res = await fetch(`${base}/api/account/delete`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
 
-  if (!res.ok) {
-    return {
-      ok: false,
-      error: body.error ?? 'Failed to delete account',
-    };
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+
+      if (!res.ok) {
+        return {
+          ok: false,
+          error: body.error ?? 'Failed to delete account',
+        };
+      }
+
+      return { ok: true };
+    } catch (error) {
+      // Try fallback base when the first host is unreachable in release builds.
+      if (base !== bases[bases.length - 1]) continue;
+      return {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Network error while deleting account',
+      };
+    }
   }
-
-  return { ok: true };
+  return { ok: false, error: 'Failed to delete account' };
 }

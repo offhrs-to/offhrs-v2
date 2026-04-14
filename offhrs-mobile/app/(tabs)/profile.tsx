@@ -321,6 +321,11 @@ export default function ProfileScreen() {
       setProfileLoaded(false);
       await signOut();
       router.replace('/(tabs)/profile');
+    } catch (error) {
+      Alert.alert(
+        'Could not delete account',
+        error instanceof Error ? error.message : 'Something went wrong'
+      );
     } finally {
       setDeletingAccount(false);
     }
