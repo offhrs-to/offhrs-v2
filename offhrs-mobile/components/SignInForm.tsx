@@ -1,4 +1,5 @@
 import { DesignColors, DesignSizes, DesignSpacing } from '@/constants/design-template';
+import { completeOAuthBrowserSession } from '@/lib/auth-session-cleanup';
 import { processAuthCallbackUrl } from '@/lib/auth-callback-url';
 import { supabase } from '@/lib/supabase';
 import { openWebAppPath } from '@/lib/web-app-links';
@@ -63,10 +64,14 @@ export function SignInForm({
       __DEV__ && console.log(`[SignIn] Opening ${provider} auth URL`);
 
       if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-        if (result.type === 'success' && result.url) {
-          const handled = await processAuthCallbackUrl(result.url);
-          if (handled) onSignInSuccess?.();
+        try {
+          const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+          if (result.type === 'success' && result.url) {
+            const handled = await processAuthCallbackUrl(result.url);
+            if (handled) onSignInSuccess?.();
+          }
+        } finally {
+          completeOAuthBrowserSession();
         }
         return;
       }

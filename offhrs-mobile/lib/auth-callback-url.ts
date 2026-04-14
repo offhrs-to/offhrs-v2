@@ -1,3 +1,4 @@
+import { completeOAuthBrowserSession } from '@/lib/auth-session-cleanup';
 import { supabase } from '@/lib/supabase';
 
 export function parseAuthParams(url: string): {
@@ -82,6 +83,7 @@ export async function processAuthCallbackFromParams(
       return false;
     }
     __DEV__ && console.log('[Auth] Code exchange successful, session established for user:', data.session.user.id);
+    completeOAuthBrowserSession();
     return true;
   }
   
@@ -104,5 +106,6 @@ export async function processAuthCallbackFromParams(
     return false;
   }
   __DEV__ && console.log('[Auth] Session set successfully for user:', data.session.user.id);
+  completeOAuthBrowserSession();
   return true;
 }

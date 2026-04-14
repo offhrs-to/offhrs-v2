@@ -177,9 +177,6 @@ export default function TabLayout() {
 
   return (
     <>
-      {showOnboarding ? (
-        <OnboardingModal userId={user.id} onComplete={handleOnboardingComplete} />
-      ) : null}
       <Tabs
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
@@ -235,6 +232,9 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+      {showOnboarding ? (
+        <OnboardingModal userId={user.id} onComplete={handleOnboardingComplete} />
+      ) : null}
     </>
   );
 }
