@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import * as Location from 'expo-location';
@@ -40,6 +42,15 @@ export default function OnboardingModal({
   userId: string;
   onComplete: () => void;
 }) {
+  const { height: windowHeight } = useWindowDimensions();
+  const step1ChipMetrics = useMemo(
+    () =>
+      Platform.OS === 'android'
+        ? { padH: 12, padV: 8, font: 13, gap: 8, scrollMax: Math.min(480, Math.round(windowHeight * 0.55)) }
+        : { padH: 16, padV: 10, font: 14, gap: 10, scrollMax: 360 },
+    [windowHeight]
+  );
+
   const [step, setStep] = useState(0);
   const [experienceCategoryIndex, setExperienceCategoryIndex] = useState(0);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -374,11 +385,23 @@ export default function OnboardingModal({
 
         {step === 1 ? (
           <>
-            <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={{ maxHeight: step1ChipMetrics.scrollMax }}
+              contentContainerStyle={Platform.OS === 'android' ? { paddingBottom: 12 } : undefined}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={Platform.OS === 'android'}
+            >
               <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.charcoal, marginBottom: 8 }}>
                 What sparks your curiosity?
               </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  gap: step1ChipMetrics.gap,
+                  marginBottom: 20,
+                }}
+              >
                 {CATEGORIES.map((cat) => {
                   const isInstructor = instructorCategories.includes(cat);
                   const isActive = selectedCategories.includes(cat);
@@ -389,8 +412,8 @@ export default function OnboardingModal({
                       onPress={() => !disabled && toggleCategory(cat)}
                       disabled={disabled}
                       style={{
-                        paddingHorizontal: 16,
-                        paddingVertical: 10,
+                        paddingHorizontal: step1ChipMetrics.padH,
+                        paddingVertical: step1ChipMetrics.padV,
                         borderRadius: 9999,
                         backgroundColor: disabled ? '#E5E7EB' : isActive ? DesignColors.primary : DesignColors.inputBg,
                         borderWidth: 1,
@@ -400,7 +423,7 @@ export default function OnboardingModal({
                     >
                       <Text
                         style={{
-                          fontSize: 14,
+                          fontSize: step1ChipMetrics.font,
                           fontWeight: '500',
                           color: disabled ? '#9CA3AF' : isActive ? '#FFF' : DesignColors.sageGreen,
                         }}
@@ -414,7 +437,7 @@ export default function OnboardingModal({
               <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.charcoal, marginBottom: 8 }}>
                 I&apos;m an Instructor in (optional)
               </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: step1ChipMetrics.gap }}>
                 {CATEGORIES.map((cat) => {
                   const isInstructor = instructorCategories.includes(cat);
                   return (
@@ -422,8 +445,8 @@ export default function OnboardingModal({
                       key={cat}
                       onPress={() => toggleInstructorCategory(cat)}
                       style={{
-                        paddingHorizontal: 16,
-                        paddingVertical: 10,
+                        paddingHorizontal: step1ChipMetrics.padH,
+                        paddingVertical: step1ChipMetrics.padV,
                         borderRadius: 9999,
                         backgroundColor: isInstructor ? DesignColors.primary : DesignColors.inputBg,
                         borderWidth: 1,
@@ -432,7 +455,7 @@ export default function OnboardingModal({
                     >
                       <Text
                         style={{
-                          fontSize: 14,
+                          fontSize: step1ChipMetrics.font,
                           fontWeight: '500',
                           color: isInstructor ? '#FFF' : DesignColors.sageGreen,
                         }}

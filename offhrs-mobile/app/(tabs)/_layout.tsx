@@ -191,6 +191,24 @@ export default function TabLayout() {
     const uid = user?.id;
     if (!uid) return;
     setOnboardingStatus('complete');
+
+    // Android: do not re-open onboarding from a follow-up read — stale rows after upsert caused the modal to repeat.
+    // The modal only calls onComplete after a successful save; trust that and still refresh other screens.
+    if (Platform.OS === 'android') {
+      supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('id', uid)
+        .single()
+        .then(() => {
+          emitProfileUpdated();
+        })
+        .catch(() => {
+          emitProfileUpdated();
+        });
+      return;
+    }
+
     supabase
       .from('profiles')
       .select('onboarding_completed')
@@ -206,6 +224,9 @@ export default function TabLayout() {
         } else {
           setOnboardingStatus('complete');
         }
+        emitProfileUpdated();
+      })
+      .catch(() => {
         emitProfileUpdated();
       });
   }, [user?.id]);
