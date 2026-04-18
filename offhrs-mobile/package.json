@@ -14,7 +14,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "submit:android": "npx eas-cli submit --platform android --profile production --latest",
-    "app-store-screenshots": "node scripts/render-app-store-screenshots.mjs"
+    "app-store-screenshots": "node scripts/render-app-store-screenshots.mjs",
+    "resize-ipad-13-screenshots": "node scripts/resize-app-store-ipad-13-screenshots.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
