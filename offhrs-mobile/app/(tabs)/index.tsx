@@ -3,7 +3,16 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { DeviceEventEmitter, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  DeviceEventEmitter,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { UserCircleIcon } from 'react-native-heroicons/outline';
 
@@ -11,7 +20,7 @@ import InstructorIcon from '@/components/InstructorIcon';
 import UpcomingTorontoCarousel from '@/components/UpcomingTorontoCarousel';
 import WorkshopsNearYouCarousel from '@/components/WorkshopsNearYouCarousel';
 import { CATEGORIES } from '@/constants/categories';
-import { DesignColors, DesignSizes, DesignSpacing } from '@/constants/design-template';
+import { DesignColors, DesignSizes, DesignSpacing, isIOSPad } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { PROFILE_UPDATED_EVENT } from '@/lib/profile-events';
 import { supabase } from '@/lib/supabase';
@@ -130,6 +139,14 @@ const getOtherIconSource = (level: string) =>
   OTHER_ICONS[level] ?? OTHER_ICONS.Novice;
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  const isIPad = isIOSPad();
+  const headerPaddingTop = isIPad
+    ? Math.max(insets.top, 20) + 12
+    : DesignSpacing.contentPaddingTop;
+  const logoMarginLeft = isIPad ? 0 : DesignSpacing.logoMarginLeft;
+  const homeScrollPaddingBottom = isIPad ? Math.max(SCROLL_PADDING_BOTTOM, insets.bottom + 72) : SCROLL_PADDING_BOTTOM;
+
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [showFirstTimeSignUpPrompt, setShowFirstTimeSignUpPrompt] = useState(false);
@@ -271,7 +288,7 @@ export default function HomeScreen() {
       {/* Fixed header: logo + welcome row (stays in place when scrolling) */}
       <View
         style={{
-          paddingTop: DesignSpacing.contentPaddingTop,
+          paddingTop: headerPaddingTop,
           paddingBottom: DesignSpacing.logoHeaderPaddingBottom,
           paddingHorizontal: DesignSpacing.horizontalPadding,
           backgroundColor: CREAM_BG,
@@ -287,7 +304,7 @@ export default function HomeScreen() {
             marginBottom: isAndroid ? 10 : 12,
           }}
         >
-          <View style={{ marginLeft: DesignSpacing.logoMarginLeft, paddingLeft: 0, flexShrink: 0 }}>
+          <View style={{ marginLeft: logoMarginLeft, paddingLeft: 0, flexShrink: 0 }}>
             <Image
               source={require('@/assets/images/logo.png')}
               style={{ height: DesignSizes.logoHeight, width: DesignSizes.logoWidth }}
@@ -348,7 +365,7 @@ export default function HomeScreen() {
         contentContainerStyle={{
           flexGrow: 1,
           paddingTop: SCROLL_PADDING_TOP,
-          paddingBottom: SCROLL_PADDING_BOTTOM,
+          paddingBottom: homeScrollPaddingBottom,
           paddingHorizontal: HORIZONTAL_PADDING,
         }}
         showsVerticalScrollIndicator={false}
@@ -357,12 +374,12 @@ export default function HomeScreen() {
         style={{
           fontFamily: HERO_SERIF_FONT,
           fontSize: HERO_HEADLINE_FONT_SIZE,
-          lineHeight: HERO_HEADLINE_LINE_HEIGHT,
+          lineHeight: isIPad ? HERO_HEADLINE_LINE_HEIGHT + 8 : HERO_HEADLINE_LINE_HEIGHT,
           color: CHARCOAL,
           textAlign: 'left',
           fontWeight: '400',
           marginTop: isAndroid ? 2 : 4,
-          marginBottom: isAndroid ? 12 : 16,
+          marginBottom: isIPad ? 20 : isAndroid ? 12 : 16,
         }}
       >
         Discover your new passion
@@ -375,7 +392,7 @@ export default function HomeScreen() {
           fontWeight: '700',
           textAlign: 'left',
           alignSelf: 'stretch',
-          marginBottom: isAndroid ? 6 : 8,
+          marginBottom: isIPad ? 10 : isAndroid ? 6 : 8,
         }}
       >
         Your mastery progression
@@ -385,8 +402,8 @@ export default function HomeScreen() {
           - Instructor categories show graduation cap icon and "Instructor" (no progression) in popup. */}
       <View
         style={{
-          marginBottom: isAndroid ? 10 : 12,
-          height: ICON_BAR_HEIGHT,
+          marginBottom: isIPad ? 14 : isAndroid ? 10 : 12,
+          height: isIPad ? ICON_BAR_HEIGHT + 8 : ICON_BAR_HEIGHT,
           width: '100%',
           flexDirection: 'row',
           justifyContent: 'space-evenly',

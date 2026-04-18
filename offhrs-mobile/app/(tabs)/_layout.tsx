@@ -11,12 +11,13 @@ import {
 } from 'react-native-heroicons/solid';
 
 import OnboardingModal from '@/components/OnboardingModal';
-import { DesignColors } from '@/constants/design-template';
+import { DesignColors, isIOSPad } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { emitProfileUpdated } from '@/lib/profile-events';
 import { supabase } from '@/lib/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const TAB_BAR_BOTTOM_INSET_IPHONE = 28;
 const TAB_ICON_SIZE = 24;
 
 /** Same size as Browse Workshops button (index.tsx: HORIZONTAL_PADDING 24, paddingVertical 12) */
@@ -66,10 +67,15 @@ const ANDROID_SCENE_PADDING_BOTTOM = 132;
 function CustomTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
   const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const isIPad = isIOSPad();
   const barWidth = screenWidth - HORIZONTAL_PADDING * 2;
   const barLeft = (screenWidth - barWidth) / 2;
   const bottomInset =
-    Platform.OS === 'ios' ? 28 : Math.max(insets.bottom, 12) + 4;
+    Platform.OS === 'ios'
+      ? isIPad
+        ? Math.max(insets.bottom, 20) + 10
+        : TAB_BAR_BOTTOM_INSET_IPHONE
+      : Math.max(insets.bottom, 12) + 4;
 
   const routes = state.routes.filter((r) => r.name !== 'explore');
 
@@ -125,7 +131,11 @@ function CustomTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
   );
 }
 
+const IOS_SCENE_PADDING_BOTTOM = 84;
+const IOS_SCENE_PADDING_BOTTOM_IPAD = 112;
+
 export default function TabLayout() {
+  const isIPad = isIOSPad();
   const { user } = useAuth();
   const [onboardingStatus, setOnboardingStatus] = useState<
     'unknown' | 'needs_onboarding' | 'complete'
@@ -193,7 +203,12 @@ export default function TabLayout() {
         headerShown: false,
         tabBarShowLabel: false,
         sceneContainerStyle: {
-          paddingBottom: Platform.OS === 'ios' ? 84 : ANDROID_SCENE_PADDING_BOTTOM,
+          paddingBottom:
+            Platform.OS === 'ios'
+              ? isIPad
+                ? IOS_SCENE_PADDING_BOTTOM_IPAD
+                : IOS_SCENE_PADDING_BOTTOM
+              : ANDROID_SCENE_PADDING_BOTTOM,
         },
       }}
     >

@@ -3,15 +3,15 @@ import {
   Text,
   Pressable,
   FlatList,
-  Dimensions,
   Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
-import { DesignColors } from '@/constants/design-template';
+import { DesignColors, isIOSPad } from '@/constants/design-template';
 
 export type HomeCarouselEventItem = {
   id: number;
@@ -27,21 +27,27 @@ type Props = {
   loading: boolean;
 };
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-
 /**
  * Horizontal workshop cards for home (shared by Toronto picks and “near you” lists).
  */
 export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
   const router = useRouter();
+  const { width: windowWidth } = useWindowDimensions();
   const [activeIndex, setActiveIndex] = useState(0);
 
   const isAndroid = Platform.OS === 'android';
-  const CARD_WIDTH = Math.round(SCREEN_WIDTH * (isAndroid ? 0.45 : 0.48));
+  const isIPad = isIOSPad();
+  const CARD_WIDTH = Math.round(windowWidth * (isAndroid ? 0.45 : 0.48));
   const CARD_GAP = 6;
   const PAGE = CARD_WIDTH + CARD_GAP;
-  const CARD_IMAGE_HEIGHT = isAndroid ? 66 : 76;
-  const CARD_FOOTER_HEIGHT = isAndroid ? 74 : 82;
+  const CARD_IMAGE_HEIGHT = isAndroid ? 66 : isIPad ? 84 : 76;
+  const titleLineHeight = isIPad ? 18 : 15;
+  const titleBlockHeight = isIPad ? 40 : 30;
+  const CARD_FOOTER_HEIGHT = isAndroid
+    ? 74
+    : isIPad
+      ? 102
+      : 82;
   const loadingPlaceholderHeight = CARD_IMAGE_HEIGHT + CARD_FOOTER_HEIGHT + 14;
 
   useEffect(() => {
@@ -123,12 +129,12 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
                   paddingBottom: 10,
                 }}
               >
-                <View style={{ height: 30, justifyContent: 'flex-start' }}>
+                <View style={{ minHeight: titleBlockHeight, justifyContent: 'flex-start' }}>
                   <Text
                     numberOfLines={2}
                     style={{
                       fontSize: 12,
-                      lineHeight: 15,
+                      lineHeight: titleLineHeight,
                       fontWeight: '700',
                       color: DesignColors.charcoal,
                     }}

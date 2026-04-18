@@ -3,7 +3,13 @@
  * Import these tokens and specs to keep new screens consistent.
  */
 
-import { Dimensions } from 'react-native';
+import { Dimensions, Platform } from 'react-native';
+
+/** True on iPad only. Use for layout that must not affect iPhone or Android. */
+export function isIOSPad(): boolean {
+  if (Platform.OS !== 'ios') return false;
+  return (Platform as { isPad: boolean }).isPad;
+}
 
 // ─── Colors ─────────────────────────────────────────────────────────────
 export const DesignColors = {

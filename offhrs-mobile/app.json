@@ -15,7 +15,7 @@
     "backgroundColor": "#ECEFE5",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.offhrs.app.offhrs",
       "buildNumber": "28",
       "backgroundColor": "#ECEFE5",
