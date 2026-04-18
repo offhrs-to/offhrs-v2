@@ -1,7 +1,7 @@
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import {
   DocumentMagnifyingGlassIcon,
@@ -134,24 +134,41 @@ function CustomTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
 const IOS_SCENE_PADDING_BOTTOM = 84;
 const IOS_SCENE_PADDING_BOTTOM_IPAD = 112;
 
+/** True only when onboarding is explicitly finished; false and null mean show onboarding. */
+function profileNeedsOnboarding(
+  onboarding_completed: boolean | null | undefined
+): boolean {
+  return onboarding_completed !== true;
+}
+
 export default function TabLayout() {
   const isIPad = isIOSPad();
   const { user } = useAuth();
   const [onboardingStatus, setOnboardingStatus] = useState<
     'unknown' | 'needs_onboarding' | 'complete'
   >('unknown');
+  /** Avoid resetting to unknown on every effect run for the same user — that unmounted OnboardingModal and reset step state. */
+  const prevOnboardingUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user?.id) {
+      prevOnboardingUserIdRef.current = null;
       setOnboardingStatus('unknown');
       return;
     }
-    setOnboardingStatus('unknown');
+    const userId = user.id;
+    const switchedAccount = prevOnboardingUserIdRef.current !== userId;
+    prevOnboardingUserIdRef.current = userId;
+
+    if (switchedAccount) {
+      setOnboardingStatus('unknown');
+    }
+
     let cancelled = false;
     supabase
       .from('profiles')
       .select('onboarding_completed')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
       .then(({ data, error }) => {
         if (!cancelled) {
@@ -161,7 +178,7 @@ export default function TabLayout() {
             return;
           }
           setOnboardingStatus(
-            data.onboarding_completed === false ? 'needs_onboarding' : 'complete'
+            profileNeedsOnboarding(data.onboarding_completed) ? 'needs_onboarding' : 'complete'
           );
         }
       });
@@ -173,19 +190,22 @@ export default function TabLayout() {
   const handleOnboardingComplete = useCallback(() => {
     const uid = user?.id;
     if (!uid) return;
+    setOnboardingStatus('complete');
     supabase
       .from('profiles')
       .select('onboarding_completed')
       .eq('id', uid)
       .single()
-      .then(({ data }) => {
-        if (!data) {
-          setOnboardingStatus('unknown');
+      .then(({ data, error }) => {
+        if (error || !data) {
+          emitProfileUpdated();
           return;
         }
-        setOnboardingStatus(
-          data.onboarding_completed === false ? 'needs_onboarding' : 'complete'
-        );
+        if (profileNeedsOnboarding(data.onboarding_completed)) {
+          setOnboardingStatus('needs_onboarding');
+        } else {
+          setOnboardingStatus('complete');
+        }
         emitProfileUpdated();
       });
   }, [user?.id]);
