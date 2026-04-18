@@ -957,7 +957,9 @@ export default function ProfileScreen() {
             contentContainerStyle={{
               padding: DesignSpacing.horizontalPadding,
               paddingTop: 24,
-              paddingBottom: 32,
+              // Android: system nav / gesture bar sits under modal content; extra inset so "Delete my account" scrolls clear.
+              paddingBottom:
+                Platform.OS === 'android' ? 32 + insets.bottom + 48 : 32,
             }}
             keyboardShouldPersistTaps="handled"
           >

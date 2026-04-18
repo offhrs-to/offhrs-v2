@@ -12,6 +12,7 @@ import MapView, { Callout, Marker } from 'react-native-maps';
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import { BOOK_API_BASE } from '@/constants/api';
 import { DesignColors } from '@/constants/design-template';
+import { canMountNativeMapView } from '@/lib/android-google-maps';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
@@ -215,6 +216,17 @@ export default function WorkshopMapView({
     return filtered.slice(0, maxMarkers);
   }, [events, maxMarkers]);
 
+  if (!canMountNativeMapView()) {
+    return (
+      <View style={[styles.container, styles.noKeyFallback]}>
+        <Text style={styles.noKeyText}>
+          Map is unavailable until a Google Maps API key is configured for this Android build. You can still use the
+          list below.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <MapView
@@ -256,6 +268,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     minHeight: 300,
+  },
+  noKeyFallback: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(245, 245, 245, 0.95)',
+  },
+  noKeyText: {
+    textAlign: 'center',
+    color: DesignColors.mediumGray,
+    fontSize: 15,
+    lineHeight: 22,
   },
   map: {
     ...StyleSheet.absoluteFillObject,

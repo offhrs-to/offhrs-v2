@@ -1,5 +1,6 @@
 import { WORKSHOP_PREVIEW_MARKER_CAP } from '@/constants/workshops-list';
 import { DesignColors } from '@/constants/design-template';
+import { canMountNativeMapView } from '@/lib/android-google-maps';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
@@ -35,7 +36,8 @@ export default function WorkshopsMapPreview({ events, loading, height = 168, onP
     )
     .slice(0, WORKSHOP_PREVIEW_MARKER_CAP);
 
-  if (Platform.OS === 'web') {
+  // Web has no native maps; Android embeds Google Maps and crashes without a valid API key in the manifest.
+  if (Platform.OS === 'web' || !canMountNativeMapView()) {
     return (
       <Pressable
         onPress={onPress}
