@@ -141,16 +141,21 @@ function profileNeedsOnboarding(
   return onboarding_completed !== true;
 }
 
+const ANDROID_TRANSIENT_NULL_MS = 350;
+
 export default function TabLayout() {
   const isIPad = isIOSPad();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [onboardingStatus, setOnboardingStatus] = useState<
     'unknown' | 'needs_onboarding' | 'complete'
   >('unknown');
   /** Avoid resetting to unknown on every effect run for the same user — that unmounted OnboardingModal and reset step state. */
   const prevOnboardingUserIdRef = useRef<string | null>(null);
+  const androidNullDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+
     if (!user?.id) {
       prevOnboardingUserIdRef.current = null;
       setOnboardingStatus('unknown');
@@ -186,6 +191,75 @@ export default function TabLayout() {
       cancelled = true;
     };
   }, [user?.id]);
+
+  useEffect(() => {
+    if (Platform.OS === 'ios') return;
+
+    if (!user?.id) {
+      if (authLoading) {
+        if (androidNullDebounceRef.current !== null) {
+          clearTimeout(androidNullDebounceRef.current);
+          androidNullDebounceRef.current = null;
+        }
+        return;
+      }
+      const hadUser = prevOnboardingUserIdRef.current !== null;
+      if (hadUser) {
+        if (androidNullDebounceRef.current !== null) {
+          clearTimeout(androidNullDebounceRef.current);
+        }
+        androidNullDebounceRef.current = setTimeout(() => {
+          androidNullDebounceRef.current = null;
+          prevOnboardingUserIdRef.current = null;
+          setOnboardingStatus('unknown');
+        }, ANDROID_TRANSIENT_NULL_MS);
+        return () => {
+          if (androidNullDebounceRef.current !== null) {
+            clearTimeout(androidNullDebounceRef.current);
+            androidNullDebounceRef.current = null;
+          }
+        };
+      }
+      prevOnboardingUserIdRef.current = null;
+      setOnboardingStatus('unknown');
+      return;
+    }
+
+    if (androidNullDebounceRef.current !== null) {
+      clearTimeout(androidNullDebounceRef.current);
+      androidNullDebounceRef.current = null;
+    }
+
+    const userId = user.id;
+    const prev = prevOnboardingUserIdRef.current;
+    const switchedAccount = prev !== null && prev !== userId;
+    prevOnboardingUserIdRef.current = userId;
+
+    if (switchedAccount) {
+      setOnboardingStatus('unknown');
+    }
+
+    let cancelled = false;
+    supabase
+      .from('profiles')
+      .select('onboarding_completed')
+      .eq('id', userId)
+      .single()
+      .then(({ data, error }) => {
+        if (!cancelled) {
+          if (error || !data) {
+            setOnboardingStatus('unknown');
+            return;
+          }
+          setOnboardingStatus(
+            profileNeedsOnboarding(data.onboarding_completed) ? 'needs_onboarding' : 'complete'
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, authLoading]);
 
   const handleOnboardingComplete = useCallback(() => {
     const uid = user?.id;
