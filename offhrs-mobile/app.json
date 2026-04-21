@@ -26,7 +26,7 @@
     },
     "android": {
       "package": "com.offhrs.app",
-      "versionCode": 28,
+      "versionCode": 29,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
@@ -82,6 +82,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/1014e351-ffd9-4953-b655-a54559e93f12"
     },
     "extra": {
       "router": {},
