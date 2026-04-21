@@ -64,7 +64,6 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<{
     display_name: string | null;
     avatar_url: string | null;
-    phone: string | null;
     expertise_level: string | null;
     experience_points: number | null;
     onboarding_completed: boolean | null;
@@ -89,7 +88,6 @@ export default function ProfileScreen() {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [settingsName, setSettingsName] = useState('');
   const [settingsEmail, setSettingsEmail] = useState('');
-  const [settingsPhone, setSettingsPhone] = useState('');
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsLocationPostal, setSettingsLocationPostal] = useState('');
@@ -105,7 +103,7 @@ export default function ProfileScreen() {
     supabase
       .from('profiles')
       .select(
-        'display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng'
+        'display_name, avatar_url, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng'
       )
       .eq('id', user.id)
       .single()
@@ -154,7 +152,7 @@ export default function ProfileScreen() {
         supabase
           .from('profiles')
           .select(
-            'display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng'
+            'display_name, avatar_url, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng'
           )
           .eq('id', user.id)
           .single()
@@ -301,7 +299,7 @@ export default function ProfileScreen() {
     supabase
       .from('profiles')
       .select(
-        'display_name, avatar_url, phone, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng'
+        'display_name, avatar_url, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng'
       )
       .eq('id', user.id)
       .single()
@@ -358,7 +356,6 @@ export default function ProfileScreen() {
     '—';
   const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture;
   const email = user.email || '—';
-  const phone = profile?.phone || '—';
 
   /** Equal thirds so dividers sit at true ⅓ / ⅔ (GH TouchableOpacity + flex:1 was skewing layout). */
   const statsRowInnerWidth = windowWidth - DesignSpacing.horizontalPadding * 2;
@@ -404,7 +401,6 @@ export default function ProfileScreen() {
           onPress={() => {
             setSettingsName(displayName === '—' ? '' : displayName);
             setSettingsEmail(email === '—' ? '' : email);
-            setSettingsPhone(phone === '—' ? '' : phone);
             setSettingsLocationPostal(profile?.postal_code ?? '');
             setSettingsError(null);
             setSettingsVisible(true);
@@ -565,13 +561,9 @@ export default function ProfileScreen() {
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 4 }}>Name</Text>
           <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>{displayName}</Text>
         </View>
-        <View style={{ marginBottom: Platform.OS === 'android' ? 12 : 16 }}>
+        <View>
           <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 4 }}>Email</Text>
           <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>{email}</Text>
-        </View>
-        <View>
-          <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 4 }}>Phone number</Text>
-          <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>{phone}</Text>
         </View>
       </View>
 
@@ -1002,25 +994,6 @@ export default function ProfileScreen() {
                 marginBottom: 20,
               }}
             />
-            <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 6 }}>Phone number</Text>
-            <TextInput
-              value={settingsPhone}
-              onChangeText={setSettingsPhone}
-              placeholder="Phone"
-              placeholderTextColor={DesignColors.mediumGray}
-              keyboardType="phone-pad"
-              style={{
-                backgroundColor: DesignColors.inputBg,
-                borderWidth: 1,
-                borderColor: DesignColors.lightGreenBorder,
-                borderRadius: 12,
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                fontSize: 16,
-                color: DesignColors.charcoal,
-                marginBottom: 20,
-              }}
-            />
             <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.charcoal, marginBottom: 8 }}>
               Workshop distance
             </Text>
@@ -1188,7 +1161,6 @@ export default function ProfileScreen() {
                 try {
                   const nameTrim = settingsName.trim();
                   const emailTrim = settingsEmail.trim();
-                  const phoneTrim = settingsPhone.trim();
                   const postalRaw = settingsLocationPostal.trim();
 
                   let locationPatch: ProfileLocationUpsert | null = null;
@@ -1215,7 +1187,6 @@ export default function ProfileScreen() {
                   const upsertBody: Record<string, string | number | null> = {
                     id: user.id,
                     display_name: nameTrim || null,
-                    phone: phoneTrim || null,
                     updated_at: new Date().toISOString(),
                   };
                   if (locationPatch) {
