@@ -31,15 +31,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      // Android: during an OAuth sign-in, startAutoRefresh() can race with the OAuth
-      // code exchange, causing Supabase to emit a null-session event (failed auto-refresh)
-      // that is NOT a real sign-out. Ignore these so the user object is not cleared and
-      // the onboarding check is not re-triggered.
-      if (Platform.OS === 'android' && !session?.user && event !== 'SIGNED_OUT') {
-        if (hasUserRef.current) {
-          setLoading(false);
-          return;
-        }
+      // Android: SIGNED_OUT and other null-session events fire during token refresh
+      // cycles (startAutoRefresh racing with OAuth callback, or a failed refresh).
+      // These are NOT intentional sign-outs. Real sign-out goes through signOut()
+      // below, which calls setUser(null) directly — so onAuthStateChange never needs
+      // to clear the user on Android. Ignoring all null-session events when a user
+      // is currently set prevents the modal/onboarding from being re-triggered.
+      if (Platform.OS === 'android' && !session?.user && hasUserRef.current) {
+        setLoading(false);
+        return;
       }
       hasUserRef.current = !!session?.user;
       setSession(session);
