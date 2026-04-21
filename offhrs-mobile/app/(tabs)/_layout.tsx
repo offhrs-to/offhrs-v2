@@ -152,6 +152,18 @@ export default function TabLayout() {
   /** Avoid resetting to unknown on every effect run for the same user — that unmounted OnboardingModal and reset step state. */
   const prevOnboardingUserIdRef = useRef<string | null>(null);
   const androidNullDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Android: userId for whom onboarding was confirmed complete via handleOnboardingComplete.
+   * More durable than an onboardingStatus snapshot — survives debounce resets and transient
+   * null-user periods. Only cleared on a real account switch (different user id signs in).
+   */
+  const completedForUserIdRef = useRef<string | null>(null);
+  /**
+   * Android: userId captured when the onboarding modal first opens.
+   * Keeps the modal mounted during transient null-user periods (token refresh SIGNED_OUT cycle)
+   * so the user does not lose their step/selection state mid-fill.
+   */
+  const savedModalUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
@@ -236,7 +248,17 @@ export default function TabLayout() {
     prevOnboardingUserIdRef.current = userId;
 
     if (switchedAccount) {
+      // Real account switch: drop the prior user's completion record so the new user is checked fresh.
+      completedForUserIdRef.current = null;
       setOnboardingStatus('unknown');
+    }
+
+    // If handleOnboardingComplete already confirmed onboarding for this specific user, skip the DB
+    // round-trip entirely. This guard is userId-scoped and survives debounce resets and token-refresh
+    // auth cycles, unlike a status snapshot which can be cleared by the debounce.
+    if (completedForUserIdRef.current === userId) {
+      setOnboardingStatus('complete');
+      return;
     }
 
     let cancelled = false;
@@ -259,16 +281,27 @@ export default function TabLayout() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, authLoading]);
+  }, [user?.id]);
 
   const handleOnboardingComplete = useCallback(() => {
-    const uid = user?.id;
-    if (!uid) return;
+    // Always mark complete immediately — do not gate on uid being available.
+    // On Android, a token-refresh SIGNED_OUT can transiently make user null exactly when the
+    // modal calls onComplete after a successful upsert. Bailing before setOnboardingStatus would
+    // leave status as needs_onboarding and the modal would reopen when the user returns.
     setOnboardingStatus('complete');
 
-    // Android: do not re-open onboarding from a follow-up read — stale rows after upsert caused the modal to repeat.
-    // The modal only calls onComplete after a successful save; trust that and still refresh other screens.
+    const uid = user?.id ?? prevOnboardingUserIdRef.current;
+
     if (Platform.OS === 'android') {
+      // Record that this userId has confirmed onboarding. This ref survives debounce resets and
+      // transient null-user periods, so the Android effect will not re-open the modal even if
+      // the auth state cycles before the next profile fetch.
+      if (uid) completedForUserIdRef.current = uid;
+
+      if (!uid) {
+        emitProfileUpdated();
+        return;
+      }
       supabase
         .from('profiles')
         .select('onboarding_completed')
@@ -305,8 +338,21 @@ export default function TabLayout() {
       });
   }, [user?.id]);
 
+  // Android: keep the modal's userId pinned so that a transient SIGNED_OUT during token refresh
+  // does not unmount the modal and erase the user's step / selection state mid-fill.
+  if (Platform.OS === 'android') {
+    if (user?.id && onboardingStatus === 'needs_onboarding') {
+      savedModalUserIdRef.current = user.id;
+    }
+    if (onboardingStatus !== 'needs_onboarding') {
+      savedModalUserIdRef.current = null;
+    }
+  }
+
   const showOnboarding =
-    !!user?.id && onboardingStatus === 'needs_onboarding';
+    Platform.OS === 'android'
+      ? onboardingStatus === 'needs_onboarding' && !!savedModalUserIdRef.current
+      : !!user?.id && onboardingStatus === 'needs_onboarding';
 
   return (
     <>
@@ -371,7 +417,14 @@ export default function TabLayout() {
       />
     </Tabs>
       {showOnboarding ? (
-        <OnboardingModal userId={user.id} onComplete={handleOnboardingComplete} />
+        <OnboardingModal
+          userId={
+            Platform.OS === 'android'
+              ? savedModalUserIdRef.current!
+              : user!.id
+          }
+          onComplete={handleOnboardingComplete}
+        />
       ) : null}
     </>
   );

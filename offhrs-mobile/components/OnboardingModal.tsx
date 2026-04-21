@@ -201,7 +201,7 @@ export default function OnboardingModal({
             expertise_level: option?.level ?? 'Novice',
             experience_points: option?.points ?? 0,
           },
-          { onConflict: ['user_id', 'category'] }
+          { onConflict: 'user_id,category' }
         );
         if (rowError) throw rowError;
       }
