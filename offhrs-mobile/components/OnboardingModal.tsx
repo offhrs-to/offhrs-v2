@@ -190,6 +190,28 @@ export default function OnboardingModal({
       );
       if (profileError) throw profileError;
 
+      // Android: PostgREST returns HTTP 200 even when RLS blocks a write (0 rows affected).
+      // This happens when startAutoRefresh() fires at the same moment as the OAuth callback,
+      // leaving the client with a stale/mid-refresh token. The upsert appears to succeed but
+      // onboarding_completed is never written. Verify the row actually has the flag set, and if
+      // not, force a session refresh and retry once.
+      if (Platform.OS === 'android') {
+        const { data: saved } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', userId)
+          .single();
+
+        if (!saved?.onboarding_completed) {
+          await supabase.auth.refreshSession();
+          const { error: retryError } = await supabase.from('profiles').upsert(
+            { ...profilePayload, expertise_level: defaultLevel, experience_points: defaultPoints },
+            { onConflict: 'id' }
+          );
+          if (retryError) throw retryError;
+        }
+      }
+
       for (const category of learnerCategories) {
         const value = experienceByCategory[category];
         if (!value) continue;
@@ -203,7 +225,11 @@ export default function OnboardingModal({
           },
           { onConflict: 'user_id,category' }
         );
-        if (rowError) throw rowError;
+        // Non-fatal: onboarding_completed is already committed in profiles.
+        // Category preferences can be updated anytime in profile settings.
+        if (rowError) {
+          console.error('Onboarding: category experience row error (non-fatal):', rowError);
+        }
       }
 
       onComplete();
