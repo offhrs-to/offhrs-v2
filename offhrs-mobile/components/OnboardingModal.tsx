@@ -191,24 +191,34 @@ export default function OnboardingModal({
       if (profileError) throw profileError;
 
       // Android: PostgREST returns HTTP 200 even when RLS blocks a write (0 rows affected).
-      // This happens when startAutoRefresh() fires at the same moment as the OAuth callback,
-      // leaving the client with a stale/mid-refresh token. The upsert appears to succeed but
-      // onboarding_completed is never written. Verify the row actually has the flag set, and if
-      // not, force a session refresh and retry once.
+      // Verify the row actually has onboarding_completed = true. If not, refresh the session
+      // and retry once, then verify again. A clear error is thrown if both attempts fail so
+      // the user sees a retry prompt rather than silent data loss.
       if (Platform.OS === 'android') {
-        const { data: saved } = await supabase
+        const { data: check1 } = await supabase
           .from('profiles')
           .select('onboarding_completed')
           .eq('id', userId)
           .single();
 
-        if (!saved?.onboarding_completed) {
+        if (!check1?.onboarding_completed) {
           await supabase.auth.refreshSession();
           const { error: retryError } = await supabase.from('profiles').upsert(
             { ...profilePayload, expertise_level: defaultLevel, experience_points: defaultPoints },
             { onConflict: 'id' }
           );
           if (retryError) throw retryError;
+
+          // Verify the retry actually committed — PostgREST can return 200 with 0 rows.
+          const { data: check2 } = await supabase
+            .from('profiles')
+            .select('onboarding_completed')
+            .eq('id', userId)
+            .single();
+
+          if (!check2?.onboarding_completed) {
+            throw new Error('Could not save your onboarding info. Please check your connection and try again.');
+          }
         }
       }
 

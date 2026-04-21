@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
 type AuthContextType = {
@@ -15,9 +16,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // Tracks whether a user is currently set so the onAuthStateChange handler can decide
+  // whether a null-session event on Android is a real sign-out or a token-refresh artifact.
+  const hasUserRef = useRef(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
+      hasUserRef.current = !!session?.user;
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -25,7 +30,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // Android: during an OAuth sign-in, startAutoRefresh() can race with the OAuth
+      // code exchange, causing Supabase to emit a null-session event (failed auto-refresh)
+      // that is NOT a real sign-out. Ignore these so the user object is not cleared and
+      // the onboarding check is not re-triggered.
+      if (Platform.OS === 'android' && !session?.user && event !== 'SIGNED_OUT') {
+        if (hasUserRef.current) {
+          setLoading(false);
+          return;
+        }
+      }
+      hasUserRef.current = !!session?.user;
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);

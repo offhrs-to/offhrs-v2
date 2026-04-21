@@ -34,10 +34,28 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // Auto-refresh tokens when app returns to foreground (native only, skip in Node/build)
 if (!isNode && Platform.OS !== 'web') {
+  // Android: debounce startAutoRefresh() by 500ms so the OAuth code exchange has time to
+  // complete and the session is fully stored before the auto-refresh timer starts. Without
+  // this, startAutoRefresh() races with the OAuth callback when Chrome Custom Tab closes,
+  // causing a SIGNED_OUT event that clears the user and triggers spurious onboarding rechecks.
+  let androidAutoRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
   const handleAppStateChange = (state: AppStateStatus) => {
     if (state === 'active') {
-      supabase.auth.startAutoRefresh();
+      if (Platform.OS === 'android') {
+        if (androidAutoRefreshTimer) clearTimeout(androidAutoRefreshTimer);
+        androidAutoRefreshTimer = setTimeout(() => {
+          androidAutoRefreshTimer = null;
+          supabase.auth.startAutoRefresh();
+        }, 500);
+      } else {
+        supabase.auth.startAutoRefresh();
+      }
     } else {
+      if (androidAutoRefreshTimer) {
+        clearTimeout(androidAutoRefreshTimer);
+        androidAutoRefreshTimer = null;
+      }
       supabase.auth.stopAutoRefresh();
     }
   };

@@ -141,29 +141,20 @@ function profileNeedsOnboarding(
   return onboarding_completed !== true;
 }
 
-const ANDROID_TRANSIENT_NULL_MS = 350;
-
 export default function TabLayout() {
   const isIPad = isIOSPad();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [onboardingStatus, setOnboardingStatus] = useState<
     'unknown' | 'needs_onboarding' | 'complete'
   >('unknown');
-  /** Avoid resetting to unknown on every effect run for the same user — that unmounted OnboardingModal and reset step state. */
+  /** Tracks the last seen userId to detect account switches. Used by both iOS and Android effects. */
   const prevOnboardingUserIdRef = useRef<string | null>(null);
-  const androidNullDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
    * Android: userId for whom onboarding was confirmed complete via handleOnboardingComplete.
-   * More durable than an onboardingStatus snapshot — survives debounce resets and transient
-   * null-user periods. Only cleared on a real account switch (different user id signs in).
+   * Set synchronously before any async work so that any in-flight SELECT can detect completion
+   * and skip overriding the status with stale data.
    */
   const completedForUserIdRef = useRef<string | null>(null);
-  /**
-   * Android: userId captured when the onboarding modal first opens.
-   * Keeps the modal mounted during transient null-user periods (token refresh SIGNED_OUT cycle)
-   * so the user does not lose their step/selection state mid-fill.
-   */
-  const savedModalUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
@@ -208,38 +199,12 @@ export default function TabLayout() {
     if (Platform.OS === 'ios') return;
 
     if (!user?.id) {
-      if (authLoading) {
-        if (androidNullDebounceRef.current !== null) {
-          clearTimeout(androidNullDebounceRef.current);
-          androidNullDebounceRef.current = null;
-        }
-        return;
-      }
-      const hadUser = prevOnboardingUserIdRef.current !== null;
-      if (hadUser) {
-        if (androidNullDebounceRef.current !== null) {
-          clearTimeout(androidNullDebounceRef.current);
-        }
-        androidNullDebounceRef.current = setTimeout(() => {
-          androidNullDebounceRef.current = null;
-          prevOnboardingUserIdRef.current = null;
-          setOnboardingStatus('unknown');
-        }, ANDROID_TRANSIENT_NULL_MS);
-        return () => {
-          if (androidNullDebounceRef.current !== null) {
-            clearTimeout(androidNullDebounceRef.current);
-            androidNullDebounceRef.current = null;
-          }
-        };
-      }
+      // AuthContext now suppresses spurious null-session events on Android (non-SIGNED_OUT),
+      // so reaching here means a genuine sign-out. Reset fully.
       prevOnboardingUserIdRef.current = null;
+      completedForUserIdRef.current = null;
       setOnboardingStatus('unknown');
       return;
-    }
-
-    if (androidNullDebounceRef.current !== null) {
-      clearTimeout(androidNullDebounceRef.current);
-      androidNullDebounceRef.current = null;
     }
 
     const userId = user.id;
@@ -248,14 +213,12 @@ export default function TabLayout() {
     prevOnboardingUserIdRef.current = userId;
 
     if (switchedAccount) {
-      // Real account switch: drop the prior user's completion record so the new user is checked fresh.
       completedForUserIdRef.current = null;
       setOnboardingStatus('unknown');
     }
 
-    // If handleOnboardingComplete already confirmed onboarding for this specific user, skip the DB
-    // round-trip entirely. This guard is userId-scoped and survives debounce resets and token-refresh
-    // auth cycles, unlike a status snapshot which can be cleared by the debounce.
+    // In-session cache: skip DB round-trip if handleOnboardingComplete already confirmed
+    // onboarding complete for this user during the current app session.
     if (completedForUserIdRef.current === userId) {
       setOnboardingStatus('complete');
       return;
@@ -269,6 +232,11 @@ export default function TabLayout() {
       .single()
       .then(({ data, error }) => {
         if (!cancelled) {
+          // Critical guard: handleOnboardingComplete sets completedForUserIdRef synchronously
+          // before calling onComplete(). If this SELECT was in-flight during the modal's async
+          // DB writes, it may have seen pre-write state. Do not override a confirmed completion
+          // with stale data.
+          if (completedForUserIdRef.current === userId) return;
           if (error || !data) {
             setOnboardingStatus('unknown');
             return;
@@ -284,38 +252,20 @@ export default function TabLayout() {
   }, [user?.id]);
 
   const handleOnboardingComplete = useCallback(() => {
-    // Always mark complete immediately — do not gate on uid being available.
-    // On Android, a token-refresh SIGNED_OUT can transiently make user null exactly when the
-    // modal calls onComplete after a successful upsert. Bailing before setOnboardingStatus would
-    // leave status as needs_onboarding and the modal would reopen when the user returns.
     setOnboardingStatus('complete');
 
     const uid = user?.id ?? prevOnboardingUserIdRef.current;
 
     if (Platform.OS === 'android') {
-      // Record that this userId has confirmed onboarding. This ref survives debounce resets and
-      // transient null-user periods, so the Android effect will not re-open the modal even if
-      // the auth state cycles before the next profile fetch.
+      // Set completedForUserIdRef synchronously, before any async work, so that any SELECT
+      // still in-flight from the Android useEffect will see this ref and skip overriding the
+      // 'complete' status with stale data.
       if (uid) completedForUserIdRef.current = uid;
-
-      if (!uid) {
-        emitProfileUpdated();
-        return;
-      }
-      supabase
-        .from('profiles')
-        .select('onboarding_completed')
-        .eq('id', uid)
-        .single()
-        .then(() => {
-          emitProfileUpdated();
-        })
-        .catch(() => {
-          emitProfileUpdated();
-        });
+      emitProfileUpdated();
       return;
     }
 
+    // iOS path — unchanged: verify the DB write then emit.
     supabase
       .from('profiles')
       .select('onboarding_completed')
@@ -338,21 +288,7 @@ export default function TabLayout() {
       });
   }, [user?.id]);
 
-  // Android: keep the modal's userId pinned so that a transient SIGNED_OUT during token refresh
-  // does not unmount the modal and erase the user's step / selection state mid-fill.
-  if (Platform.OS === 'android') {
-    if (user?.id && onboardingStatus === 'needs_onboarding') {
-      savedModalUserIdRef.current = user.id;
-    }
-    if (onboardingStatus !== 'needs_onboarding') {
-      savedModalUserIdRef.current = null;
-    }
-  }
-
-  const showOnboarding =
-    Platform.OS === 'android'
-      ? onboardingStatus === 'needs_onboarding' && !!savedModalUserIdRef.current
-      : !!user?.id && onboardingStatus === 'needs_onboarding';
+  const showOnboarding = !!user?.id && onboardingStatus === 'needs_onboarding';
 
   return (
     <>
@@ -418,11 +354,7 @@ export default function TabLayout() {
     </Tabs>
       {showOnboarding ? (
         <OnboardingModal
-          userId={
-            Platform.OS === 'android'
-              ? savedModalUserIdRef.current!
-              : user!.id
-          }
+          userId={user!.id}
           onComplete={handleOnboardingComplete}
         />
       ) : null}
