@@ -23,6 +23,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const ANDROID_ONBOARDING_DONE_KEY_PREFIX = '@offhrs/androidOnboardingDone/';
 const androidOnboardingDoneKey = (userId: string) =>
   `${ANDROID_ONBOARDING_DONE_KEY_PREFIX}${userId}`;
+const ANDROID_ONBOARDING_PENDING_KEY_PREFIX = '@offhrs/androidOnboardingPending/';
+const androidOnboardingPendingKey = (userId: string) =>
+  `${ANDROID_ONBOARDING_PENDING_KEY_PREFIX}${userId}`;
 
 /**
  * Android-only: module-scoped DONE lock. Lives OUTSIDE the React component tree so it
@@ -41,6 +44,18 @@ let moduleAndroidOnboardingDoneForUserId: string | null = null;
  * the user can retry; promoted to the DONE lock on save success.
  */
 let moduleAndroidOnboardingPendingForUserId: string | null = null;
+/**
+ * Android-only: singleton owner lock for rendering OnboardingModal.
+ * Under auth callback + permission dialog churn, Android can transiently create multiple
+ * MainActivity windows and duplicate TabLayout instances. Without this lock, both instances
+ * can render a modal at the same time (stacked questionnaires). Only the owner instance is
+ * allowed to render the modal until onboarding closes.
+ */
+let moduleAndroidOnboardingModalOwnerInstanceId: string | null = null;
+const onboardingTrace = (...args: unknown[]) => {
+  // Temporary production trace for Android onboarding investigation.
+  if (Platform.OS === 'android') console.warn('[ONBOARDING_TRACE][TabLayout]', ...args);
+};
 
 const TAB_BAR_BOTTOM_INSET_IPHONE = 28;
 const TAB_ICON_SIZE = 24;
@@ -167,6 +182,9 @@ function profileNeedsOnboarding(
 }
 
 export default function TabLayout() {
+  const tabLayoutInstanceIdRef = useRef(
+    `tablayout-${Math.random().toString(36).slice(2, 10)}`
+  );
   const isIPad = isIOSPad();
   const { user } = useAuth();
   const [onboardingStatus, setOnboardingStatus] = useState<
@@ -180,6 +198,24 @@ export default function TabLayout() {
    * and skip overriding the status with stale data.
    */
   const completedForUserIdRef = useRef<string | null>(null);
+
+  // Diagnostic: log TabLayout mount and unmount so we can detect unexpected remounts.
+  useEffect(() => {
+    __DEV__ && console.log('[TabLayout] MOUNTED, user?.id:', user?.id, 'platform:', Platform.OS);
+    return () => {
+      if (
+        Platform.OS === 'android' &&
+        moduleAndroidOnboardingModalOwnerInstanceId === tabLayoutInstanceIdRef.current
+      ) {
+        onboardingTrace('modal owner released on unmount', {
+          owner: moduleAndroidOnboardingModalOwnerInstanceId,
+        });
+        moduleAndroidOnboardingModalOwnerInstanceId = null;
+      }
+      __DEV__ && console.log('[TabLayout] UNMOUNTED');
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
@@ -206,8 +242,9 @@ export default function TabLayout() {
       .then(({ data, error }) => {
         if (!cancelled) {
           if (error || !data) {
-            // Fail-open: do not block tabs/profile if onboarding status is temporarily unavailable.
-            setOnboardingStatus('unknown');
+            // Brand-new users may not have a profile row yet; default to showing onboarding.
+            // This avoids a hidden-modal state where onboarding never appears.
+            setOnboardingStatus('needs_onboarding');
             return;
           }
           setOnboardingStatus(
@@ -222,10 +259,21 @@ export default function TabLayout() {
 
   useEffect(() => {
     if (Platform.OS === 'ios') return;
+    onboardingTrace('android effect start', {
+      userId: user?.id,
+      doneLock: moduleAndroidOnboardingDoneForUserId,
+      pendingLock: moduleAndroidOnboardingPendingForUserId,
+    });
+
+    __DEV__ && console.log('[TabLayout Android] useEffect fired, user?.id:', user?.id,
+      'doneLock:', moduleAndroidOnboardingDoneForUserId,
+      'pendingLock:', moduleAndroidOnboardingPendingForUserId);
 
     if (!user?.id) {
       prevOnboardingUserIdRef.current = null;
       completedForUserIdRef.current = null;
+      __DEV__ && console.log('[TabLayout Android] no user → setOnboardingStatus(unknown)');
+      onboardingTrace('set status unknown: no user');
       setOnboardingStatus('unknown');
       return;
     }
@@ -242,6 +290,8 @@ export default function TabLayout() {
       moduleAndroidOnboardingDoneForUserId === userId ||
       moduleAndroidOnboardingPendingForUserId === userId
     ) {
+      onboardingTrace('set status complete: module lock hit', userId);
+      __DEV__ && console.log('[TabLayout Android] module lock hit → setOnboardingStatus(complete)');
       prevOnboardingUserIdRef.current = userId;
       completedForUserIdRef.current = userId;
       setOnboardingStatus('complete');
@@ -252,11 +302,14 @@ export default function TabLayout() {
     const switchedAccount = prev !== null && prev !== userId;
     prevOnboardingUserIdRef.current = userId;
 
+    __DEV__ && console.log('[TabLayout Android] prev userId:', prev, 'switchedAccount:', switchedAccount);
+
     if (switchedAccount) {
       completedForUserIdRef.current = null;
       // Clear both module locks on genuine account switch — the ONLY path that clears them.
       moduleAndroidOnboardingDoneForUserId = null;
       moduleAndroidOnboardingPendingForUserId = null;
+      __DEV__ && console.log('[TabLayout Android] account switch → setOnboardingStatus(unknown)');
       setOnboardingStatus('unknown');
       // Clear the previous user's persistent cache so we don't leak completion status
       // across account switches. New user's key will be written on their own completion.
@@ -264,11 +317,16 @@ export default function TabLayout() {
         AsyncStorage.removeItem(androidOnboardingDoneKey(prev)).catch(() => {
           /* ignore */
         });
+        AsyncStorage.removeItem(androidOnboardingPendingKey(prev)).catch(() => {
+          /* ignore */
+        });
       }
     }
 
     // In-session cache: skip DB round-trip if handleOnboardingComplete already confirmed.
     if (completedForUserIdRef.current === userId) {
+      onboardingTrace('set status complete: completedForUserIdRef hit', userId);
+      __DEV__ && console.log('[TabLayout Android] completedForUserIdRef hit → setOnboardingStatus(complete)');
       setOnboardingStatus('complete');
       return;
     }
@@ -280,14 +338,28 @@ export default function TabLayout() {
     // This is the definitive guard — it survives remounts, auth cycles, DB replication lag,
     // and any in-memory ref being cleared. Only a real account switch clears this.
     (async () => {
+      __DEV__ && console.log('[TabLayout Android] checking AsyncStorage cache for userId:', userId);
       try {
+        const pendingCached = await AsyncStorage.getItem(androidOnboardingPendingKey(userId));
+        if (cancelled) return;
+        if (pendingCached === 'true') {
+          moduleAndroidOnboardingPendingForUserId = userId;
+          completedForUserIdRef.current = userId;
+          onboardingTrace('set status complete: pending cache true', userId);
+          setOnboardingStatus('complete');
+          return;
+        }
+
         const cached = await AsyncStorage.getItem(androidOnboardingDoneKey(userId));
         if (cancelled) return;
+        __DEV__ && console.log('[TabLayout Android] AsyncStorage cache result:', cached);
         if (cached === 'true') {
           // Re-establish module lock on app restart: the first AsyncStorage hit repopulates it
           // so subsequent remounts in this session short-circuit at the top of the effect.
           moduleAndroidOnboardingDoneForUserId = userId;
           completedForUserIdRef.current = userId;
+          onboardingTrace('set status complete: AsyncStorage cache true', userId);
+          __DEV__ && console.log('[TabLayout Android] AsyncStorage hit → setOnboardingStatus(complete)');
           setOnboardingStatus('complete');
           return;
         }
@@ -297,20 +369,39 @@ export default function TabLayout() {
 
       if (cancelled) return;
 
+      __DEV__ && console.log('[TabLayout Android] querying DB for onboarding_completed, userId:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('onboarding_completed')
         .eq('id', userId)
         .single();
 
+      __DEV__ && console.log('[TabLayout Android] DB result:', { onboarding_completed: data?.onboarding_completed, error: error?.message, cancelled });
+
       if (cancelled) return;
       // Guard against stale reads overriding a just-completed (or in-progress) onboarding.
-      if (completedForUserIdRef.current === userId) return;
-      if (moduleAndroidOnboardingDoneForUserId === userId) return;
-      if (moduleAndroidOnboardingPendingForUserId === userId) return;
+      if (completedForUserIdRef.current === userId) {
+        __DEV__ && console.log('[TabLayout Android] DB result discarded — completedForUserIdRef already set');
+        return;
+      }
+      if (moduleAndroidOnboardingDoneForUserId === userId) {
+        __DEV__ && console.log('[TabLayout Android] DB result discarded — done lock already set');
+        return;
+      }
+      if (moduleAndroidOnboardingPendingForUserId === userId) {
+        __DEV__ && console.log('[TabLayout Android] DB result discarded — pending lock already set');
+        return;
+      }
 
       if (error || !data) {
-        setOnboardingStatus('unknown');
+        const isMissingProfileRow = !data || error?.code === 'PGRST116';
+        if (isMissingProfileRow) {
+          onboardingTrace('set status needs_onboarding: missing profile row', error?.message ?? 'no-data');
+          setOnboardingStatus('needs_onboarding');
+        } else {
+          onboardingTrace('set status unknown: transient DB error', error?.message ?? 'unknown-error');
+          setOnboardingStatus('unknown');
+        }
         return;
       }
 
@@ -326,13 +417,18 @@ export default function TabLayout() {
         // a user who completed onboarding on another device), this seals the lock.
         moduleAndroidOnboardingDoneForUserId = userId;
         completedForUserIdRef.current = userId;
+        onboardingTrace('set status complete: DB says onboarding_completed true', userId);
+        __DEV__ && console.log('[TabLayout Android] DB complete → setOnboardingStatus(complete)');
         setOnboardingStatus('complete');
       } else {
+        onboardingTrace('set status needs_onboarding: DB says onboarding incomplete', userId);
+        __DEV__ && console.log('[TabLayout Android] DB needs_onboarding → setOnboardingStatus(needs_onboarding)');
         setOnboardingStatus('needs_onboarding');
       }
     })();
 
     return () => {
+      __DEV__ && console.log('[TabLayout Android] useEffect cleanup for userId:', userId);
       cancelled = true;
     };
   }, [user?.id]);
@@ -341,17 +437,27 @@ export default function TabLayout() {
     // Called by OnboardingModal the INSTANT the user presses Complete, before any async work.
     // Sets the pending lock so the Android useEffect cannot re-trigger the modal during the
     // 500ms–5000ms async save window, even if TabLayout remounts or auth state churns.
+    __DEV__ && console.log('[TabLayout] handleOnboardingBeginComplete uid:', uid, 'platform:', Platform.OS);
     if (Platform.OS === 'android' && uid) {
+      onboardingTrace('beginComplete set pending lock', uid);
       moduleAndroidOnboardingPendingForUserId = uid;
+      AsyncStorage.setItem(androidOnboardingPendingKey(uid), 'true').catch(() => {
+        /* ignore */
+      });
     }
   }, []);
 
   const handleOnboardingFailedComplete = useCallback((uid: string) => {
     // Called by OnboardingModal when the async save fails (inside the catch block).
     // Clears the pending lock so the user can retry pressing Complete and the modal stays open.
+    __DEV__ && console.log('[TabLayout] handleOnboardingFailedComplete uid:', uid, 'platform:', Platform.OS);
     if (Platform.OS === 'android' && uid) {
       if (moduleAndroidOnboardingPendingForUserId === uid) {
+        onboardingTrace('failedComplete clearing pending lock', uid);
         moduleAndroidOnboardingPendingForUserId = null;
+        AsyncStorage.removeItem(androidOnboardingPendingKey(uid)).catch(() => {
+          /* ignore */
+        });
       }
     }
   }, []);
@@ -360,6 +466,7 @@ export default function TabLayout() {
     // uid is the stable userId prop from OnboardingModal — set at render time from user!.id.
     // Using this avoids a race where user?.id or prevOnboardingUserIdRef.current could be null
     // at the moment onComplete() fires (after a multi-second async save chain).
+    __DEV__ && console.log('[TabLayout] handleOnboardingComplete uid:', uid, 'platform:', Platform.OS);
 
     if (Platform.OS === 'android') {
       // Promote pending lock → done lock. Both guards are now set so no future re-run can
@@ -367,8 +474,14 @@ export default function TabLayout() {
       if (uid) {
         moduleAndroidOnboardingDoneForUserId = uid;
         moduleAndroidOnboardingPendingForUserId = null;
+        onboardingTrace('complete promoted pending->done lock', uid);
+        AsyncStorage.removeItem(androidOnboardingPendingKey(uid)).catch(() => {
+          /* ignore */
+        });
       }
 
+      onboardingTrace('set status complete: handleOnboardingComplete');
+      __DEV__ && console.log('[TabLayout Android] handleOnboardingComplete → setOnboardingStatus(complete)');
       setOnboardingStatus('complete');
 
       // Set in-memory ref synchronously so any in-flight SELECT in this session skips its update.
@@ -410,6 +523,32 @@ export default function TabLayout() {
   }, []);
 
   const showOnboarding = !!user?.id && onboardingStatus === 'needs_onboarding';
+  __DEV__ && console.log('[TabLayout] render — showOnboarding:', showOnboarding, 'status:', onboardingStatus, 'user:', user?.id?.slice(0, 8));
+
+  // Android-only singleton modal owner arbitration (module-scoped).
+  // Claim ownership lazily on first render that needs onboarding; subsequent duplicate
+  // TabLayout instances cannot render another modal while ownership is held.
+  let androidCanRenderOnboardingModal = true;
+  if (Platform.OS === 'android') {
+    if (showOnboarding && user?.id) {
+      if (moduleAndroidOnboardingModalOwnerInstanceId == null) {
+        moduleAndroidOnboardingModalOwnerInstanceId = tabLayoutInstanceIdRef.current;
+        onboardingTrace('modal owner claimed', {
+          owner: moduleAndroidOnboardingModalOwnerInstanceId,
+          userId: user.id,
+        });
+      }
+      androidCanRenderOnboardingModal =
+        moduleAndroidOnboardingModalOwnerInstanceId === tabLayoutInstanceIdRef.current;
+    } else if (
+      moduleAndroidOnboardingModalOwnerInstanceId === tabLayoutInstanceIdRef.current
+    ) {
+      onboardingTrace('modal owner released on non-show state', {
+        owner: moduleAndroidOnboardingModalOwnerInstanceId,
+      });
+      moduleAndroidOnboardingModalOwnerInstanceId = null;
+    }
+  }
 
   return (
     <>
@@ -474,12 +613,14 @@ export default function TabLayout() {
       />
     </Tabs>
       {showOnboarding ? (
-        <OnboardingModal
-          userId={user!.id}
-          onBeginComplete={handleOnboardingBeginComplete}
-          onComplete={handleOnboardingComplete}
-          onFailedComplete={handleOnboardingFailedComplete}
-        />
+        Platform.OS !== 'android' || androidCanRenderOnboardingModal ? (
+          <OnboardingModal
+            userId={user!.id}
+            onBeginComplete={handleOnboardingBeginComplete}
+            onComplete={handleOnboardingComplete}
+            onFailedComplete={handleOnboardingFailedComplete}
+          />
+        ) : null
       ) : null}
     </>
   );

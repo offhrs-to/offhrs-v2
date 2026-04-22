@@ -18,6 +18,9 @@ import { CATEGORIES } from '@/constants/categories';
 import { DesignColors } from '@/constants/design-template';
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
 import { geocodeAddress, reverseGeocodeCanadianPostal } from '@/lib/geocode';
+const onboardingTrace = (...args: unknown[]) => {
+  if (Platform.OS === 'android') console.warn('[ONBOARDING_TRACE][OnboardingModal]', ...args);
+};
 
 // Points align with level progression: each level = 8 pts (Novice 0, Intermediate 8, Advanced 16, Expert 24, Master 32)
 const EXPERIENCE_OPTIONS = [
@@ -169,12 +172,19 @@ export default function OnboardingModal({
 
   const handleComplete = async () => {
     if (!canComplete) return;
+    onboardingTrace('handleComplete pressed', {
+      userId,
+      step,
+      learnerCount: learnerCategories.length,
+      selectedCount: selectedCategories.length,
+    });
 
     // Notify _layout immediately — before any await — so the module-level pending lock is set.
     // This closes the race window where a TabLayout remount + stale SELECT during the async
     // save chain could re-trigger the onboarding modal.
     if (Platform.OS === 'android') {
       onBeginComplete?.(userId);
+      onboardingTrace('onBeginComplete fired', userId);
     }
 
     setError(null);
@@ -204,6 +214,7 @@ export default function OnboardingModal({
         { onConflict: 'id' }
       );
       if (profileError) throw profileError;
+      onboardingTrace('profiles upsert success');
 
       // Android: PostgREST returns HTTP 200 even when RLS blocks a write (0 rows affected).
       // Verify the row actually has onboarding_completed = true. If not, refresh the session
@@ -217,6 +228,7 @@ export default function OnboardingModal({
           .single();
 
         if (!check1?.onboarding_completed) {
+          onboardingTrace('post-write check1 incomplete, refreshing session and retrying');
           await supabase.auth.refreshSession();
           const { error: retryError } = await supabase.from('profiles').upsert(
             { ...profilePayload, expertise_level: defaultLevel, experience_points: defaultPoints },
@@ -234,6 +246,7 @@ export default function OnboardingModal({
           if (!check2?.onboarding_completed) {
             throw new Error('Could not save your onboarding info. Please check your connection and try again.');
           }
+          onboardingTrace('post-write check2 confirmed complete');
         }
       }
 
@@ -258,6 +271,7 @@ export default function OnboardingModal({
       }
 
       onComplete(userId);
+      onboardingTrace('onComplete fired', userId);
     } catch (err: unknown) {
       const raw = err as { message?: string; details?: string; hint?: string };
       const message =
@@ -269,6 +283,10 @@ export default function OnboardingModal({
       // Clear the pending lock so the user can retry pressing Complete.
       if (Platform.OS === 'android') {
         onFailedComplete?.(userId);
+        onboardingTrace('onFailedComplete fired', {
+          userId,
+          message,
+        });
       }
     } finally {
       setLoading(false);
