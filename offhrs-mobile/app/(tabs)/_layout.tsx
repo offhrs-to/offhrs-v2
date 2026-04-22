@@ -1,6 +1,7 @@
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import {
@@ -16,6 +17,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { emitProfileUpdated } from '@/lib/profile-events';
 import { supabase } from '@/lib/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+/** Android-only: persistent per-user onboarding completion cache. Survives any remount, auth
+ *  cycle, or DB read race. Key is user-scoped so account switches get a fresh check. */
+const ANDROID_ONBOARDING_DONE_KEY_PREFIX = '@offhrs/androidOnboardingDone/';
+const androidOnboardingDoneKey = (userId: string) =>
+  `${ANDROID_ONBOARDING_DONE_KEY_PREFIX}${userId}`;
 
 const TAB_BAR_BOTTOM_INSET_IPHONE = 28;
 const TAB_ICON_SIZE = 24;
@@ -199,8 +206,6 @@ export default function TabLayout() {
     if (Platform.OS === 'ios') return;
 
     if (!user?.id) {
-      // AuthContext now suppresses spurious null-session events on Android (non-SIGNED_OUT),
-      // so reaching here means a genuine sign-out. Reset fully.
       prevOnboardingUserIdRef.current = null;
       completedForUserIdRef.current = null;
       setOnboardingStatus('unknown');
@@ -215,37 +220,72 @@ export default function TabLayout() {
     if (switchedAccount) {
       completedForUserIdRef.current = null;
       setOnboardingStatus('unknown');
+      // Clear the previous user's persistent cache so we don't leak completion status
+      // across account switches. New user's key will be written on their own completion.
+      if (prev) {
+        AsyncStorage.removeItem(androidOnboardingDoneKey(prev)).catch(() => {
+          /* ignore */
+        });
+      }
     }
 
-    // In-session cache: skip DB round-trip if handleOnboardingComplete already confirmed
-    // onboarding complete for this user during the current app session.
+    // In-session cache: skip DB round-trip if handleOnboardingComplete already confirmed.
     if (completedForUserIdRef.current === userId) {
       setOnboardingStatus('complete');
       return;
     }
 
     let cancelled = false;
-    supabase
-      .from('profiles')
-      .select('onboarding_completed')
-      .eq('id', userId)
-      .single()
-      .then(({ data, error }) => {
-        if (!cancelled) {
-          // Critical guard: handleOnboardingComplete sets completedForUserIdRef synchronously
-          // before calling onComplete(). If this SELECT was in-flight during the modal's async
-          // DB writes, it may have seen pre-write state. Do not override a confirmed completion
-          // with stale data.
-          if (completedForUserIdRef.current === userId) return;
-          if (error || !data) {
-            setOnboardingStatus('unknown');
-            return;
-          }
-          setOnboardingStatus(
-            profileNeedsOnboarding(data.onboarding_completed) ? 'needs_onboarding' : 'complete'
-          );
+
+    // Android: check persistent AsyncStorage cache FIRST. If onboarding was completed on this
+    // device for this user (even in a previous app session), never show the modal again.
+    // This is the definitive guard — it survives remounts, auth cycles, DB replication lag,
+    // and any in-memory ref being cleared. Only a real account switch clears this.
+    (async () => {
+      try {
+        const cached = await AsyncStorage.getItem(androidOnboardingDoneKey(userId));
+        if (cancelled) return;
+        if (cached === 'true') {
+          completedForUserIdRef.current = userId;
+          setOnboardingStatus('complete');
+          return;
         }
-      });
+      } catch {
+        // Fall through to DB check on storage errors.
+      }
+
+      if (cancelled) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('id', userId)
+        .single();
+
+      if (cancelled) return;
+      // Guard against stale reads overriding a just-completed onboarding.
+      if (completedForUserIdRef.current === userId) return;
+
+      if (error || !data) {
+        setOnboardingStatus('unknown');
+        return;
+      }
+
+      if (!profileNeedsOnboarding(data.onboarding_completed)) {
+        // Cache completion locally so we never re-check from DB for this user on this device.
+        try {
+          await AsyncStorage.setItem(androidOnboardingDoneKey(userId), 'true');
+        } catch {
+          /* ignore */
+        }
+        if (cancelled) return;
+        completedForUserIdRef.current = userId;
+        setOnboardingStatus('complete');
+      } else {
+        setOnboardingStatus('needs_onboarding');
+      }
+    })();
+
     return () => {
       cancelled = true;
     };
@@ -257,10 +297,15 @@ export default function TabLayout() {
     const uid = user?.id ?? prevOnboardingUserIdRef.current;
 
     if (Platform.OS === 'android') {
-      // Set completedForUserIdRef synchronously, before any async work, so that any SELECT
-      // still in-flight from the Android useEffect will see this ref and skip overriding the
-      // 'complete' status with stale data.
-      if (uid) completedForUserIdRef.current = uid;
+      // Set in-memory ref synchronously so any in-flight SELECT in this session skips its update.
+      if (uid) {
+        completedForUserIdRef.current = uid;
+        // Persist completion to AsyncStorage so the modal never reopens on this device for this
+        // user, regardless of remounts, auth cycles, or DB read anomalies. Fire-and-forget.
+        AsyncStorage.setItem(androidOnboardingDoneKey(uid), 'true').catch(() => {
+          /* ignore — worst case the next session does a fresh DB check */
+        });
+      }
       emitProfileUpdated();
       return;
     }

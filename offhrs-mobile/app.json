@@ -26,7 +26,7 @@
     },
     "android": {
       "package": "com.offhrs.app",
-      "versionCode": 30,
+      "versionCode": 31,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
