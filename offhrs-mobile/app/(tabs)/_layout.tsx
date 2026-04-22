@@ -24,6 +24,15 @@ const ANDROID_ONBOARDING_DONE_KEY_PREFIX = '@offhrs/androidOnboardingDone/';
 const androidOnboardingDoneKey = (userId: string) =>
   `${ANDROID_ONBOARDING_DONE_KEY_PREFIX}${userId}`;
 
+/**
+ * Android-only: module-scoped completion lock. Lives OUTSIDE the React component tree so it
+ * survives TabLayout unmount/remount, navigation state cycles, React Strict Mode double-invocation,
+ * Fabric reconciliation, and any other lifecycle reset. The only path that clears it is a genuine
+ * account switch (a different userId signs in). Once set for a userId, the onboarding modal can
+ * never reopen for that user in this app session.
+ */
+let moduleAndroidOnboardingDoneForUserId: string | null = null;
+
 const TAB_BAR_BOTTOM_INSET_IPHONE = 28;
 const TAB_ICON_SIZE = 24;
 
@@ -213,12 +222,27 @@ export default function TabLayout() {
     }
 
     const userId = user.id;
+
+    // DEFINITIVE GUARD (module-scoped): survives any remount of TabLayout, any React ref reset,
+    // any auth cycle, and any navigation storm. Checked FIRST — before switchedAccount detection,
+    // before AsyncStorage, before the DB SELECT — so no stale read can ever flip the state back
+    // to needs_onboarding for a user whose onboarding already completed in this app session.
+    if (moduleAndroidOnboardingDoneForUserId === userId) {
+      prevOnboardingUserIdRef.current = userId;
+      completedForUserIdRef.current = userId;
+      setOnboardingStatus('complete');
+      return;
+    }
+
     const prev = prevOnboardingUserIdRef.current;
     const switchedAccount = prev !== null && prev !== userId;
     prevOnboardingUserIdRef.current = userId;
 
     if (switchedAccount) {
       completedForUserIdRef.current = null;
+      // Clear module lock — the ONLY path that clears it. A genuine account switch means a
+      // different userId has signed in, so this new user must go through the fresh check.
+      moduleAndroidOnboardingDoneForUserId = null;
       setOnboardingStatus('unknown');
       // Clear the previous user's persistent cache so we don't leak completion status
       // across account switches. New user's key will be written on their own completion.
@@ -246,6 +270,9 @@ export default function TabLayout() {
         const cached = await AsyncStorage.getItem(androidOnboardingDoneKey(userId));
         if (cancelled) return;
         if (cached === 'true') {
+          // Re-establish module lock on app restart: the first AsyncStorage hit repopulates it
+          // so subsequent remounts in this session short-circuit at the top of the effect.
+          moduleAndroidOnboardingDoneForUserId = userId;
           completedForUserIdRef.current = userId;
           setOnboardingStatus('complete');
           return;
@@ -265,6 +292,7 @@ export default function TabLayout() {
       if (cancelled) return;
       // Guard against stale reads overriding a just-completed onboarding.
       if (completedForUserIdRef.current === userId) return;
+      if (moduleAndroidOnboardingDoneForUserId === userId) return;
 
       if (error || !data) {
         setOnboardingStatus('unknown');
@@ -279,6 +307,9 @@ export default function TabLayout() {
           /* ignore */
         }
         if (cancelled) return;
+        // Re-establish module lock from DB success: on app restart (or first ever check for
+        // a user who completed onboarding on another device), this seals the lock.
+        moduleAndroidOnboardingDoneForUserId = userId;
         completedForUserIdRef.current = userId;
         setOnboardingStatus('complete');
       } else {
@@ -292,11 +323,16 @@ export default function TabLayout() {
   }, [user?.id]);
 
   const handleOnboardingComplete = useCallback(() => {
-    setOnboardingStatus('complete');
-
     const uid = user?.id ?? prevOnboardingUserIdRef.current;
 
     if (Platform.OS === 'android') {
+      // MOST IMPORTANT LINE IN THE FILE: set the module-level lock SYNCHRONOUSLY, before any
+      // setState or async work. Once this is set, the onboarding modal cannot reopen for this
+      // user in this app session — not via remount, not via stale SELECT, not via auth churn.
+      if (uid) moduleAndroidOnboardingDoneForUserId = uid;
+
+      setOnboardingStatus('complete');
+
       // Set in-memory ref synchronously so any in-flight SELECT in this session skips its update.
       if (uid) {
         completedForUserIdRef.current = uid;
@@ -309,6 +345,8 @@ export default function TabLayout() {
       emitProfileUpdated();
       return;
     }
+
+    setOnboardingStatus('complete');
 
     // iOS path — unchanged: verify the DB write then emit.
     supabase
