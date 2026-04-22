@@ -25,13 +25,22 @@ const androidOnboardingDoneKey = (userId: string) =>
   `${ANDROID_ONBOARDING_DONE_KEY_PREFIX}${userId}`;
 
 /**
- * Android-only: module-scoped completion lock. Lives OUTSIDE the React component tree so it
+ * Android-only: module-scoped DONE lock. Lives OUTSIDE the React component tree so it
  * survives TabLayout unmount/remount, navigation state cycles, React Strict Mode double-invocation,
- * Fabric reconciliation, and any other lifecycle reset. The only path that clears it is a genuine
- * account switch (a different userId signs in). Once set for a userId, the onboarding modal can
- * never reopen for that user in this app session.
+ * Fabric reconciliation, and any other lifecycle reset. Set after the full save chain completes
+ * and confirmed. Cleared only on genuine account switch.
  */
 let moduleAndroidOnboardingDoneForUserId: string | null = null;
+
+/**
+ * Android-only: module-scoped PENDING lock. Set SYNCHRONOUSLY the instant the user presses
+ * the Complete button in OnboardingModal (via the onBeginComplete callback), BEFORE any async
+ * DB operations start. Ensures that if the Android useEffect re-runs during the 500ms–5000ms
+ * async save window (due to auth churn, TokenRefresh, or nav state change), it treats this
+ * user as "completing" and does NOT re-trigger the modal. Cleared to null on save failure so
+ * the user can retry; promoted to the DONE lock on save success.
+ */
+let moduleAndroidOnboardingPendingForUserId: string | null = null;
 
 const TAB_BAR_BOTTOM_INSET_IPHONE = 28;
 const TAB_ICON_SIZE = 24;
@@ -227,7 +236,12 @@ export default function TabLayout() {
     // any auth cycle, and any navigation storm. Checked FIRST — before switchedAccount detection,
     // before AsyncStorage, before the DB SELECT — so no stale read can ever flip the state back
     // to needs_onboarding for a user whose onboarding already completed in this app session.
-    if (moduleAndroidOnboardingDoneForUserId === userId) {
+    // Also treats PENDING (user pressed Complete, async save in flight) as done so the modal
+    // cannot reopen during the save window.
+    if (
+      moduleAndroidOnboardingDoneForUserId === userId ||
+      moduleAndroidOnboardingPendingForUserId === userId
+    ) {
       prevOnboardingUserIdRef.current = userId;
       completedForUserIdRef.current = userId;
       setOnboardingStatus('complete');
@@ -240,9 +254,9 @@ export default function TabLayout() {
 
     if (switchedAccount) {
       completedForUserIdRef.current = null;
-      // Clear module lock — the ONLY path that clears it. A genuine account switch means a
-      // different userId has signed in, so this new user must go through the fresh check.
+      // Clear both module locks on genuine account switch — the ONLY path that clears them.
       moduleAndroidOnboardingDoneForUserId = null;
+      moduleAndroidOnboardingPendingForUserId = null;
       setOnboardingStatus('unknown');
       // Clear the previous user's persistent cache so we don't leak completion status
       // across account switches. New user's key will be written on their own completion.
@@ -290,9 +304,10 @@ export default function TabLayout() {
         .single();
 
       if (cancelled) return;
-      // Guard against stale reads overriding a just-completed onboarding.
+      // Guard against stale reads overriding a just-completed (or in-progress) onboarding.
       if (completedForUserIdRef.current === userId) return;
       if (moduleAndroidOnboardingDoneForUserId === userId) return;
+      if (moduleAndroidOnboardingPendingForUserId === userId) return;
 
       if (error || !data) {
         setOnboardingStatus('unknown');
@@ -322,14 +337,37 @@ export default function TabLayout() {
     };
   }, [user?.id]);
 
-  const handleOnboardingComplete = useCallback(() => {
-    const uid = user?.id ?? prevOnboardingUserIdRef.current;
+  const handleOnboardingBeginComplete = useCallback((uid: string) => {
+    // Called by OnboardingModal the INSTANT the user presses Complete, before any async work.
+    // Sets the pending lock so the Android useEffect cannot re-trigger the modal during the
+    // 500ms–5000ms async save window, even if TabLayout remounts or auth state churns.
+    if (Platform.OS === 'android' && uid) {
+      moduleAndroidOnboardingPendingForUserId = uid;
+    }
+  }, []);
+
+  const handleOnboardingFailedComplete = useCallback((uid: string) => {
+    // Called by OnboardingModal when the async save fails (inside the catch block).
+    // Clears the pending lock so the user can retry pressing Complete and the modal stays open.
+    if (Platform.OS === 'android' && uid) {
+      if (moduleAndroidOnboardingPendingForUserId === uid) {
+        moduleAndroidOnboardingPendingForUserId = null;
+      }
+    }
+  }, []);
+
+  const handleOnboardingComplete = useCallback((uid: string) => {
+    // uid is the stable userId prop from OnboardingModal — set at render time from user!.id.
+    // Using this avoids a race where user?.id or prevOnboardingUserIdRef.current could be null
+    // at the moment onComplete() fires (after a multi-second async save chain).
 
     if (Platform.OS === 'android') {
-      // MOST IMPORTANT LINE IN THE FILE: set the module-level lock SYNCHRONOUSLY, before any
-      // setState or async work. Once this is set, the onboarding modal cannot reopen for this
-      // user in this app session — not via remount, not via stale SELECT, not via auth churn.
-      if (uid) moduleAndroidOnboardingDoneForUserId = uid;
+      // Promote pending lock → done lock. Both guards are now set so no future re-run can
+      // re-trigger the modal, regardless of remounts, auth churn, or DB replica lag.
+      if (uid) {
+        moduleAndroidOnboardingDoneForUserId = uid;
+        moduleAndroidOnboardingPendingForUserId = null;
+      }
 
       setOnboardingStatus('complete');
 
@@ -369,7 +407,7 @@ export default function TabLayout() {
       .catch(() => {
         emitProfileUpdated();
       });
-  }, [user?.id]);
+  }, []);
 
   const showOnboarding = !!user?.id && onboardingStatus === 'needs_onboarding';
 
@@ -438,7 +476,9 @@ export default function TabLayout() {
       {showOnboarding ? (
         <OnboardingModal
           userId={user!.id}
+          onBeginComplete={handleOnboardingBeginComplete}
           onComplete={handleOnboardingComplete}
+          onFailedComplete={handleOnboardingFailedComplete}
         />
       ) : null}
     </>

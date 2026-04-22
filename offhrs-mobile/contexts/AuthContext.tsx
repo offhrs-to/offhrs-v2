@@ -22,9 +22,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      hasUserRef.current = !!session?.user;
-      setSession(session);
-      setUser(session?.user ?? null);
+      // Guard: if onAuthStateChange already set a user (hasUserRef = true) and getSession
+      // returns no user, do NOT overwrite. This prevents a stale async getSession callback
+      // (captured at app startup before OAuth completed) from clearing a user that was just
+      // established by a faster onAuthStateChange SIGNED_IN event, which would reset all
+      // onboarding refs and cause the modal to re-appear.
+      if (!hasUserRef.current || session?.user) {
+        hasUserRef.current = !!session?.user;
+        setSession(session);
+        setUser(session?.user ?? null);
+      }
       setLoading(false);
     });
 

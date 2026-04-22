@@ -37,10 +37,17 @@ type PendingLocation = {
 
 export default function OnboardingModal({
   userId,
+  onBeginComplete,
   onComplete,
+  onFailedComplete,
 }: {
   userId: string;
-  onComplete: () => void;
+  /** Called synchronously when the user presses Complete, before any async DB work. */
+  onBeginComplete?: (userId: string) => void;
+  /** Called after all DB operations succeed and the save is confirmed. */
+  onComplete: (userId: string) => void;
+  /** Called when the async save fails so the pending lock can be cleared. */
+  onFailedComplete?: (userId: string) => void;
 }) {
   const { height: windowHeight } = useWindowDimensions();
   const step1ChipMetrics = useMemo(
@@ -162,6 +169,14 @@ export default function OnboardingModal({
 
   const handleComplete = async () => {
     if (!canComplete) return;
+
+    // Notify _layout immediately — before any await — so the module-level pending lock is set.
+    // This closes the race window where a TabLayout remount + stale SELECT during the async
+    // save chain could re-trigger the onboarding modal.
+    if (Platform.OS === 'android') {
+      onBeginComplete?.(userId);
+    }
+
     setError(null);
     setLoading(true);
     try {
@@ -242,7 +257,7 @@ export default function OnboardingModal({
         }
       }
 
-      onComplete();
+      onComplete(userId);
     } catch (err: unknown) {
       const raw = err as { message?: string; details?: string; hint?: string };
       const message =
@@ -250,7 +265,11 @@ export default function OnboardingModal({
       const detail = raw?.details || raw?.hint ? ` (${raw.details || ''} ${raw.hint || ''})`.trim() : '';
       setError(message);
       console.error('Onboarding error:', err);
-      Alert.alert('Couldn’t save', message + detail);
+      Alert.alert("Couldn't save", message + detail);
+      // Clear the pending lock so the user can retry pressing Complete.
+      if (Platform.OS === 'android') {
+        onFailedComplete?.(userId);
+      }
     } finally {
       setLoading(false);
     }

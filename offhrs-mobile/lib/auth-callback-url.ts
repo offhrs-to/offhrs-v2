@@ -1,6 +1,30 @@
 import { completeOAuthBrowserSession } from '@/lib/auth-session-cleanup';
 import { supabase } from '@/lib/supabase';
 
+export type AuthCallbackParams = {
+  code?: string;
+  access_token?: string;
+  refresh_token?: string;
+};
+
+/**
+ * Deduplication guard: tracks the last token key processed and when.
+ * On Android, Chrome Custom Tabs can fire BOTH a CCT-return (via openAuthSessionAsync)
+ * AND a system Linking event for the same redirect URL. Each fires processAuthCallbackUrl
+ * independently, which would call setSession / exchangeCodeForSession twice. The second call
+ * can emit a spurious SIGNED_OUT → SIGNED_IN sequence that briefly clears the user and
+ * resets all onboarding refs, causing the onboarding modal to re-appear.
+ */
+let _lastProcessedTokenKey: string | null = null;
+let _lastProcessedAt = 0;
+const DEDUP_WINDOW_MS = 8000;
+
+function getTokenKey(params: AuthCallbackParams): string | null {
+  if (params.code) return `code:${params.code.slice(0, 24)}`;
+  if (params.access_token) return `at:${params.access_token.slice(0, 24)}`;
+  return null;
+}
+
 export function parseAuthParams(url: string): {
   access_token?: string;
   refresh_token?: string;
@@ -43,24 +67,17 @@ export function parseAuthParams(url: string): {
 export async function processAuthCallbackUrl(url: string | null): Promise<boolean> {
   const u = typeof url === 'string' ? url : '';
   if (!u) return false;
-  
+
   const { access_token, refresh_token, code, error, error_description } = parseAuthParams(u);
-  
-  // Check for OAuth errors first
+
   if (error) {
     __DEV__ && console.warn('[Auth] OAuth error in URL:', error, error_description);
     completeOAuthBrowserSession();
     return false;
   }
-  
+
   return processAuthCallbackFromParams({ code, access_token, refresh_token });
 }
-
-export type AuthCallbackParams = {
-  code?: string;
-  access_token?: string;
-  refresh_token?: string;
-};
 
 /**
  * Process auth callback from already-parsed params (e.g. from route search params).
@@ -71,12 +88,31 @@ export async function processAuthCallbackFromParams(
   params: AuthCallbackParams
 ): Promise<boolean> {
   const { code, access_token, refresh_token } = params;
-  
+
+  // Deduplication: if the same token was processed within DEDUP_WINDOW_MS, skip.
+  // This prevents a second call to setSession/exchangeCodeForSession when CCT fires
+  // both its native return value AND a system Linking event for the same redirect URL.
+  const tokenKey = getTokenKey(params);
+  if (tokenKey) {
+    const now = Date.now();
+    if (tokenKey === _lastProcessedTokenKey && now - _lastProcessedAt < DEDUP_WINDOW_MS) {
+      __DEV__ && console.log('[Auth] Duplicate token detected within dedup window — skipping', tokenKey);
+      return true; // Return true so callers know auth succeeded (first call handled it)
+    }
+    _lastProcessedTokenKey = tokenKey;
+    _lastProcessedAt = now;
+  }
+
   if (code) {
     __DEV__ && console.log('[Auth] Processing code flow (Apple):', code.substring(0, 20) + '...');
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       __DEV__ && console.warn('[Auth] exchangeCodeForSession failed:', error.message, error);
+      // Clear the dedup key so a retry is allowed.
+      if (tokenKey === _lastProcessedTokenKey) {
+        _lastProcessedTokenKey = null;
+        _lastProcessedAt = 0;
+      }
       return false;
     }
     if (!data?.session) {
@@ -87,12 +123,12 @@ export async function processAuthCallbackFromParams(
     completeOAuthBrowserSession();
     return true;
   }
-  
+
   if (!access_token) {
     __DEV__ && console.log('[Auth] No code or access_token in params');
     return false;
   }
-  
+
   __DEV__ && console.log('[Auth] Processing implicit flow (Google)');
   const { data, error } = await supabase.auth.setSession({
     access_token,
@@ -100,6 +136,10 @@ export async function processAuthCallbackFromParams(
   });
   if (error) {
     __DEV__ && console.warn('[Auth] setSession failed:', error.message, error);
+    if (tokenKey === _lastProcessedTokenKey) {
+      _lastProcessedTokenKey = null;
+      _lastProcessedAt = 0;
+    }
     return false;
   }
   if (!data?.session) {
