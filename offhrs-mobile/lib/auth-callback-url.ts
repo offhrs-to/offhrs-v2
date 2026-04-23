@@ -1,10 +1,5 @@
 import { completeOAuthBrowserSession } from '@/lib/auth-session-cleanup';
 import { supabase } from '@/lib/supabase';
-import { Platform } from 'react-native';
-
-const onboardingTrace = (...args: unknown[]) => {
-  if (Platform.OS === 'android') console.warn('[ONBOARDING_TRACE][AuthCallback]', ...args);
-};
 
 export type AuthCallbackParams = {
   code?: string;
@@ -74,12 +69,6 @@ export async function processAuthCallbackUrl(url: string | null): Promise<boolea
   if (!u) return false;
 
   const { access_token, refresh_token, code, error, error_description } = parseAuthParams(u);
-  onboardingTrace('processAuthCallbackUrl parsed params', {
-    hasCode: !!code,
-    hasAccessToken: !!access_token,
-    hasRefreshToken: !!refresh_token,
-    hasError: !!error,
-  });
 
   if (error) {
     __DEV__ && console.warn('[Auth] OAuth error in URL:', error, error_description);
@@ -108,7 +97,6 @@ export async function processAuthCallbackFromParams(
     const now = Date.now();
     if (tokenKey === _lastProcessedTokenKey && now - _lastProcessedAt < DEDUP_WINDOW_MS) {
       __DEV__ && console.log('[Auth] Duplicate token detected within dedup window — skipping', tokenKey);
-      onboardingTrace('duplicate token skipped', tokenKey);
       return true; // Return true so callers know auth succeeded (first call handled it)
     }
     _lastProcessedTokenKey = tokenKey;
@@ -120,7 +108,6 @@ export async function processAuthCallbackFromParams(
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       __DEV__ && console.warn('[Auth] exchangeCodeForSession failed:', error.message, error);
-      onboardingTrace('exchangeCodeForSession failed', error.message);
       // Clear the dedup key so a retry is allowed.
       if (tokenKey === _lastProcessedTokenKey) {
         _lastProcessedTokenKey = null;
@@ -149,7 +136,6 @@ export async function processAuthCallbackFromParams(
   });
   if (error) {
     __DEV__ && console.warn('[Auth] setSession failed:', error.message, error);
-    onboardingTrace('setSession failed', error.message);
     if (tokenKey === _lastProcessedTokenKey) {
       _lastProcessedTokenKey = null;
       _lastProcessedAt = 0;
@@ -158,10 +144,8 @@ export async function processAuthCallbackFromParams(
   }
   if (!data?.session) {
     __DEV__ && console.warn('[Auth] setSession succeeded but no session returned');
-    onboardingTrace('setSession succeeded but no session returned');
     return false;
   }
-  onboardingTrace('setSession success', data.session.user.id);
   __DEV__ && console.log('[Auth] Session set successfully for user:', data.session.user.id);
   completeOAuthBrowserSession();
   return true;

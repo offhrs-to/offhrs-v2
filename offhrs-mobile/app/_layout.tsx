@@ -20,10 +20,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 const HAS_SEEN_APP_INTRO_KEY = '@offhrs/hasSeenAppIntro';
 
 const ROOT_BG = '#ECEFE5';
-const onboardingTrace = (...args: unknown[]) => {
-  // Temporary production trace for Android onboarding investigation.
-  if (Platform.OS === 'android') console.warn('[ONBOARDING_TRACE][RootLayout]', ...args);
-};
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -56,7 +52,6 @@ export default function RootLayout() {
   // First-launch app intro: show once per install on native only
   useEffect(() => {
     if (Platform.OS === 'web') return;
-    onboardingTrace('oauth effect start', { segments });
     AsyncStorage.getItem(HAS_SEEN_APP_INTRO_KEY).then((seen) => {
       if (seen !== 'true') setShowAppIntro(true);
     });
@@ -74,24 +69,17 @@ export default function RootLayout() {
 
     const goToProfile = () => {
       if (cancelled) return;
-      onboardingTrace('goToProfile called', {
-        alreadyNavigated: authNavDoneRef.current,
-        segment0: segmentsRef.current[0],
-      });
 
       // Android hard-stop: never force a router.replace from RootLayout after OAuth callback.
       // Android sign-in paths already handle navigation (login onSignInSuccess or callback route).
       // Forcing replace from here can re-enter/recreate tab screens during onboarding and reopen modal.
       if (Platform.OS === 'android') {
-        onboardingTrace('goToProfile skipped: Android hard-stop');
         return;
       }
 
       // One-shot: only navigate once per effect lifecycle regardless of how many
       // Linking events or getInitialURL retries fire with the same OAuth URL.
       if (authNavDoneRef.current) {
-        __DEV__ && console.log('[RootLayout] goToProfile SKIPPED — already navigated this session');
-        onboardingTrace('goToProfile skipped: alreadyNavigated');
         return;
       }
 
@@ -99,27 +87,19 @@ export default function RootLayout() {
       // return value), the user is already inside (tabs). Skip the redundant replace so we
       // don't disturb the navigation stack while the onboarding modal may be open.
       if (Platform.OS === 'android' && segmentsRef.current[0] === '(tabs)') {
-        __DEV__ && console.log('[RootLayout] goToProfile SKIPPED — already in (tabs) on Android, segments:', segmentsRef.current);
-        onboardingTrace('goToProfile skipped: already in tabs');
         return;
       }
 
       authNavDoneRef.current = true;
-      __DEV__ && console.log('[RootLayout] goToProfile FIRING — navigating to profile, segments:', segmentsRef.current);
-      onboardingTrace('goToProfile firing router.replace');
       router.replace('/(tabs)/profile');
     };
 
     // Initial URL check (app cold start from deep link)
     Linking.getInitialURL().then((url) => {
       if (cancelled) return;
-      __DEV__ && console.log('[RootLayout] Initial URL:', url);
-      onboardingTrace('initialURL', url);
       processAuthCallbackUrl(url ?? null).then((handled) => {
         completeOAuthBrowserSession();
-        onboardingTrace('initialURL handled result', handled);
         if (cancelled || !handled) return;
-        __DEV__ && console.log('[RootLayout] Initial URL handled, scheduling goToProfile +400ms');
         setTimeout(goToProfile, 400);
       });
     });
@@ -132,12 +112,9 @@ export default function RootLayout() {
     const t = Platform.OS === 'ios' ? setTimeout(() => {
       Linking.getInitialURL().then((url) => {
         if (cancelled || !url) return;
-        __DEV__ && console.log('[RootLayout] Retry initial URL (iOS):', url);
         processAuthCallbackUrl(url).then((handled) => {
           completeOAuthBrowserSession();
-          onboardingTrace('retry initialURL handled result', handled);
           if (cancelled || !handled) return;
-          __DEV__ && console.log('[RootLayout] Retry URL handled, scheduling goToProfile +400ms');
           setTimeout(goToProfile, 400);
         });
       });
@@ -145,13 +122,9 @@ export default function RootLayout() {
 
     // Listen for deep links while app is running (user taps "Open" after OAuth redirect)
     const sub = Linking.addEventListener('url', ({ url: eventUrl }) => {
-      __DEV__ && console.log('[RootLayout] Link event:', eventUrl);
-      onboardingTrace('link event', eventUrl);
       processAuthCallbackUrl(eventUrl).then((handled) => {
         completeOAuthBrowserSession();
-        onboardingTrace('link event handled result', handled);
         if (cancelled || !handled) return;
-        __DEV__ && console.log('[RootLayout] Link event handled, scheduling goToProfile +400ms');
         setTimeout(goToProfile, 400);
       });
     });
