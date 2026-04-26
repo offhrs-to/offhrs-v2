@@ -1,6 +1,8 @@
 import { bookBodySchema } from '@/lib/api-validation'
+import { requireMobileAttestation } from '@/lib/mobile-attestation'
+import { logSecurityEvent } from '@/lib/security-monitor'
 import { createClient } from '@/lib/supabase/server'
-import { getRateLimitKey, rateLimit } from '@/lib/rate-limit'
+import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 
@@ -8,6 +10,16 @@ const BOOK_RATE_LIMIT = 15 // per minute per IP (and per user when authenticated
 
 export async function POST(request: NextRequest) {
   try {
+    const attestation = await requireMobileAttestation(request, '/api/book')
+    if (!attestation.ok) {
+      logSecurityEvent('warn', {
+        type: 'attestation_failed',
+        route: '/api/book',
+        details: { status: attestation.status },
+      })
+      return NextResponse.json({ error: attestation.error }, { status: attestation.status })
+    }
+
     // Resolve user first for IP + user-based rate limiting (OWASP API4)
     let supabase = await createClient()
     let user = (await supabase.auth.getUser()).data.user
@@ -25,8 +37,17 @@ export async function POST(request: NextRequest) {
     }
 
     const key = getRateLimitKey(request, user?.id)
-    if (!rateLimit(`book:${key}`, BOOK_RATE_LIMIT)) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    const rl = consumeRateLimit(`book:${key}`, BOOK_RATE_LIMIT)
+    if (!rl.allowed) {
+      logSecurityEvent('warn', {
+        type: 'rate_limited',
+        route: '/api/book',
+        ipKey: key,
+      })
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      )
     }
 
     const raw = await request.json()

@@ -1,21 +1,30 @@
 import { adminLoginBodySchema } from '@/lib/api-validation'
+import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
+import { logSecurityEvent } from '@/lib/security-monitor'
 import { createHmac, timingSafeEqual } from 'crypto'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 
 const ADMIN_COOKIE = 'admin_session'
 const COOKIE_MAX_AGE = 60 * 60 * 8 // 8 hours
+const ADMIN_LOGIN_LIMIT = 8 // per minute per ip+username
 
-function getSecret(): string {
-  return process.env.ADMIN_PASSWORD || process.env.ADMIN_API_SECRET || 'fallback-change-me'
+function getSecret(): string | null {
+  return process.env.ADMIN_API_SECRET || null
 }
 
 function sign(payload: string): string {
-  return createHmac('sha256', getSecret()).update(payload).digest('hex')
+  const secret = getSecret()
+  if (!secret) throw new Error('Admin API secret not configured')
+  return createHmac('sha256', secret).update(payload).digest('hex')
 }
 
 export async function POST(request: NextRequest) {
   try {
+    if (!getSecret()) {
+      return NextResponse.json({ error: 'Admin API secret not configured' }, { status: 503 })
+    }
+
     const raw = await request.json()
     if (typeof raw !== 'object' || raw === null) {
       return NextResponse.json({ error: 'Bad request' }, { status: 400 })
@@ -25,6 +34,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Bad request' }, { status: 400 })
     }
     const { username, password } = parsed.data
+    const rl = consumeRateLimit(
+      `admin-login:${getRateLimitKey(request)}:${username.toLowerCase()}`,
+      ADMIN_LOGIN_LIMIT
+    )
+    if (!rl.allowed) {
+      logSecurityEvent('warn', {
+        type: 'rate_limited',
+        route: '/api/admin/login',
+        ipKey: getRateLimitKey(request),
+        details: { username: username.toLowerCase() },
+      })
+      return NextResponse.json(
+        { error: 'Too many login attempts. Please try again shortly.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rl.retryAfterSeconds),
+          },
+        }
+      )
+    }
 
     const adminUser = process.env.ADMIN_USER || 'admin'
     const adminPassword = process.env.ADMIN_PASSWORD
@@ -42,6 +72,12 @@ export async function POST(request: NextRequest) {
       !timingSafeEqual(expectedUser, givenUser) ||
       !timingSafeEqual(expectedPass, givenPass)
     ) {
+      logSecurityEvent('warn', {
+        type: 'admin_login_failed',
+        route: '/api/admin/login',
+        ipKey: getRateLimitKey(request),
+        details: { username: username.toLowerCase() },
+      })
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 
@@ -66,6 +102,7 @@ export function getAdminCookieName(): string {
 }
 
 export function verifyAdminCookie(cookieHeader: string | null): boolean {
+  if (!getSecret()) return false
   if (!cookieHeader) return false
   const pairs = cookieHeader.split(';').map((s) => s.trim())
   let value: string | null = null

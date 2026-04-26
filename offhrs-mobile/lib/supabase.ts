@@ -4,12 +4,16 @@ import { AppState, type AppStateStatus, Platform } from 'react-native';
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ??
-  process.env.EXPO_PUBLIC_SUPABASE_URL ??
-  'https://gzoymzlegnfhdfmkblpd.supabase.co';
+  process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6b3ltemxlZ25maGRmbWtibHBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMDQ3ODEsImV4cCI6MjA4NDY4MDc4MX0.DCDfJP-hoi4IlWkrD3jc4Pxu1JV3n-PHYg_IRS7xE00';
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error(
+    'Supabase config missing. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.'
+  );
+}
 
 // During Node/build, window is undefined; AsyncStorage would throw. Use no-op storage.
 const isNode =

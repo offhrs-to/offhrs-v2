@@ -1,15 +1,26 @@
 import { scrapeBodySchema } from '@/lib/api-validation'
-import { getRateLimitKey, rateLimit } from '@/lib/rate-limit'
+import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
+import { logSecurityEvent } from '@/lib/security-monitor'
 import { NextResponse } from 'next/server'
 import * as cheerio from 'cheerio'
 
 const SCRAPE_RATE_LIMIT = 15 // per minute per IP (expensive endpoint)
+const SCRAPE_TIMEOUT_MS = 12_000
 
 export async function POST(request: Request) {
   try {
     const key = getRateLimitKey(request)
-    if (!rateLimit(`scrape:${key}`, SCRAPE_RATE_LIMIT)) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    const rl = consumeRateLimit(`scrape:${key}`, SCRAPE_RATE_LIMIT)
+    if (!rl.allowed) {
+      logSecurityEvent('warn', {
+        type: 'rate_limited',
+        route: '/api/scrape',
+        ipKey: key,
+      })
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      )
     }
 
     const raw = await request.json()
@@ -22,13 +33,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: msg }, { status: 400 })
     }
     const { url } = parsed.data
+    let parsedUrl: URL
+    try {
+      parsedUrl = new URL(url)
+    } catch {
+      return NextResponse.json({ error: 'Invalid URL' }, { status: 400 })
+    }
+    if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+      return NextResponse.json({ error: 'Only http(s) URLs are allowed' }, { status: 400 })
+    }
 
     // 1. Fetch the website content
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), SCRAPE_TIMEOUT_MS)
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
+      },
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
     const html = await response.text()
     const $ = cheerio.load(html)
 

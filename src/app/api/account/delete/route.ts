@@ -1,5 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireMobileAttestation } from '@/lib/mobile-attestation'
+import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
+import { logSecurityEvent } from '@/lib/security-monitor'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
@@ -10,6 +13,30 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 export async function POST(request: NextRequest) {
   try {
+    const attestation = await requireMobileAttestation(request, '/api/account/delete')
+    if (!attestation.ok) {
+      logSecurityEvent('warn', {
+        type: 'attestation_failed',
+        route: '/api/account/delete',
+        details: { status: attestation.status },
+      })
+      return NextResponse.json({ error: attestation.error }, { status: attestation.status })
+    }
+
+    const baseKey = getRateLimitKey(request)
+    const globalRl = consumeRateLimit(`account-delete:${baseKey}`, 5)
+    if (!globalRl.allowed) {
+      logSecurityEvent('warn', {
+        type: 'rate_limited',
+        route: '/api/account/delete',
+        ipKey: baseKey,
+      })
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(globalRl.retryAfterSeconds) } }
+      )
+    }
+
     const supabase = await createClient()
     let user = (await supabase.auth.getUser()).data.user
 
@@ -26,6 +53,18 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const userRl = consumeRateLimit(`account-delete-user:${user.id}`, 3)
+    if (!userRl.allowed) {
+      logSecurityEvent('warn', {
+        type: 'rate_limited',
+        route: '/api/account/delete',
+        userId: user.id,
+      })
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(userRl.retryAfterSeconds) } }
+      )
     }
 
     const admin = createAdminClient()

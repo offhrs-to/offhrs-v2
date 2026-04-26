@@ -24,6 +24,16 @@ function evictExpired(): void {
  * @param limit Max requests per window
  */
 export function rateLimit(key: string, limit: number): boolean {
+  return consumeRateLimit(key, limit).allowed
+}
+
+export type RateLimitResult = {
+  allowed: boolean
+  retryAfterSeconds: number
+  remaining: number
+}
+
+export function consumeRateLimit(key: string, limit: number): RateLimitResult {
   const now = Date.now()
   if (store.size > MAX_ENTRIES) evictExpired()
 
@@ -33,7 +43,12 @@ export function rateLimit(key: string, limit: number): boolean {
     store.set(key, entry)
   }
   entry.count += 1
-  return entry.count <= limit
+  const remaining = Math.max(0, limit - entry.count)
+  return {
+    allowed: entry.count <= limit,
+    retryAfterSeconds: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
+    remaining,
+  }
 }
 
 /**

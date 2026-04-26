@@ -1,16 +1,26 @@
 import { confirmAttendanceTokenSchema } from '@/lib/api-validation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getRateLimitKey, rateLimit } from '@/lib/rate-limit'
+import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
+import { logSecurityEvent } from '@/lib/security-monitor'
 import { NextRequest, NextResponse } from 'next/server'
 
 const CONFIRM_RATE_LIMIT = 30 // per minute per IP (token guessing)
 
 export async function GET(request: NextRequest) {
   const key = getRateLimitKey(request)
-  if (!rateLimit(`confirm:${key}`, CONFIRM_RATE_LIMIT)) {
+  const rl = consumeRateLimit(`confirm:${key}`, CONFIRM_RATE_LIMIT)
+  if (!rl.allowed) {
+    logSecurityEvent('warn', {
+      type: 'rate_limited',
+      route: '/api/confirm-attendance',
+      ipKey: key,
+    })
     if (request.headers.get('accept')?.includes('application/json')) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      )
     }
     return NextResponse.redirect(new URL('/profile?error=too_many_requests', request.url))
   }
