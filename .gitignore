@@ -23,6 +23,11 @@
 # misc
 .DS_Store
 *.pem
+# Apple / signing (never commit)
+*.p8
+AuthKey_*.p8
+*.mobileprovision
+*.p12
 
 # debug
 npm-debug.log*
