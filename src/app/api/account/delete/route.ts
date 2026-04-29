@@ -31,13 +31,13 @@ export async function POST(request: NextRequest) {
 
     const authHeader = request.headers.get('authorization')
     if (!user && authHeader?.startsWith('Bearer ')) {
-      const { createClient: createSupabase } = await import('@supabase/supabase-js')
-      const client = createSupabase(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { global: { headers: { Authorization: authHeader } } }
-      )
-      user = (await client.auth.getUser()).data.user
+      const jwt = authHeader.slice(7).trim()
+      if (jwt) {
+        const {
+          data: { user: jwtUser },
+        } = await supabase.auth.getUser(jwt)
+        user = jwtUser ?? null
+      }
     }
 
     if (!user) {

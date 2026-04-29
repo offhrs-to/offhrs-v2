@@ -21,6 +21,8 @@ export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountRes
     (value, index, arr) => !!value && arr.indexOf(value) === index
   );
 
+  let lastError = 'Failed to delete account';
+
   for (const base of bases) {
     try {
       const res = await fetch(`${base}/api/account/delete`, {
@@ -30,25 +32,19 @@ export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountRes
 
       const body = (await res.json().catch(() => ({}))) as { error?: string };
 
-      if (!res.ok) {
-        return {
-          ok: false,
-          error: body.error ?? 'Failed to delete account',
-        };
+      if (res.ok) {
+        return { ok: true };
       }
 
-      return { ok: true };
+      lastError = body.error ?? 'Failed to delete account';
+      // Wrong/stale EXPO_PUBLIC_APP_URL often returns 401/404; always try BOOK_API_BASE next.
     } catch (error) {
-      // Try fallback base when the first host is unreachable in release builds.
-      if (base !== bases[bases.length - 1]) continue;
-      return {
-        ok: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Network error while deleting account',
-      };
+      lastError =
+        error instanceof Error
+          ? error.message
+          : 'Network error while deleting account';
     }
   }
-  return { ok: false, error: 'Failed to delete account' };
+
+  return { ok: false, error: lastError };
 }
