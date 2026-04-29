@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireMobileAttestation } from '@/lib/mobile-attestation'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { logSecurityEvent } from '@/lib/security-monitor'
 import { NextRequest, NextResponse } from 'next/server'
@@ -13,16 +12,6 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 export async function POST(request: NextRequest) {
   try {
-    const attestation = await requireMobileAttestation(request, '/api/account/delete')
-    if (!attestation.ok) {
-      logSecurityEvent('warn', {
-        type: 'attestation_failed',
-        route: '/api/account/delete',
-        details: { status: attestation.status },
-      })
-      return NextResponse.json({ error: attestation.error }, { status: attestation.status })
-    }
-
     const baseKey = getRateLimitKey(request)
     const globalRl = consumeRateLimit(`account-delete:${baseKey}`, 5)
     if (!globalRl.allowed) {
