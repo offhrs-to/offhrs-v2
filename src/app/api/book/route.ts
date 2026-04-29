@@ -1,5 +1,4 @@
 import { bookBodySchema } from '@/lib/api-validation'
-import { requireMobileAttestation } from '@/lib/mobile-attestation'
 import { logSecurityEvent } from '@/lib/security-monitor'
 import { createClient } from '@/lib/supabase/server'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
@@ -10,16 +9,6 @@ const BOOK_RATE_LIMIT = 15 // per minute per IP (and per user when authenticated
 
 export async function POST(request: NextRequest) {
   try {
-    const attestation = await requireMobileAttestation(request, '/api/book')
-    if (!attestation.ok) {
-      logSecurityEvent('warn', {
-        type: 'attestation_failed',
-        route: '/api/book',
-        details: { status: attestation.status },
-      })
-      return NextResponse.json({ error: attestation.error }, { status: attestation.status })
-    }
-
     // Resolve user first for IP + user-based rate limiting (OWASP API4)
     let supabase = await createClient()
     let user = (await supabase.auth.getUser()).data.user
