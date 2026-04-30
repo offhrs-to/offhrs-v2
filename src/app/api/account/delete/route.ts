@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
 
     const admin = createAdminClient()
     if (!admin) {
+      console.error('Account delete: admin client unavailable — SUPABASE_SERVICE_ROLE_KEY missing or blank in this environment')
       return NextResponse.json(
         { error: 'Account deletion is not available' },
         { status: 503 }
@@ -67,9 +68,13 @@ export async function POST(request: NextRequest) {
     const userId = user.id
     const { error } = await admin.auth.admin.deleteUser(userId)
     if (error) {
-      console.error('Account delete error:', error)
+      console.error('Account delete: admin.deleteUser failed', {
+        message: error.message,
+        status: (error as { status?: number }).status,
+        userId,
+      })
       return NextResponse.json(
-        { error: error.message ?? 'Failed to delete account' },
+        { error: 'Failed to delete account' },
         { status: 500 }
       )
     }
