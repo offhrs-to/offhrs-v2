@@ -21,5 +21,5 @@ CREATE POLICY "vendor_cal_tokens: service role all"
   ON vendor_cal_tokens FOR ALL
   USING (auth.role() = 'service_role');
 
-CREATE INDEX idx_vendor_cal_tokens_vendor_id ON vendor_cal_tokens(vendor_id);
-CREATE INDEX idx_vendor_cal_tokens_expires_at ON vendor_cal_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_vendor_cal_tokens_vendor_id ON vendor_cal_tokens(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_vendor_cal_tokens_expires_at ON vendor_cal_tokens(expires_at);
