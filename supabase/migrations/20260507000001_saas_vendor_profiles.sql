@@ -46,6 +46,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_vendor_profiles_updated_at ON vendor_profiles;
 CREATE TRIGGER trg_vendor_profiles_updated_at
   BEFORE UPDATE ON vendor_profiles
   FOR EACH ROW EXECUTE FUNCTION update_vendor_profiles_updated_at();
@@ -53,21 +54,22 @@ CREATE TRIGGER trg_vendor_profiles_updated_at
 -- RLS
 ALTER TABLE vendor_profiles ENABLE ROW LEVEL SECURITY;
 
--- Vendors can read/update their own profile
+DROP POLICY IF EXISTS "vendor_profiles: owner read" ON vendor_profiles;
 CREATE POLICY "vendor_profiles: owner read"
   ON vendor_profiles FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "vendor_profiles: owner update" ON vendor_profiles;
 CREATE POLICY "vendor_profiles: owner update"
   ON vendor_profiles FOR UPDATE
   USING (auth.uid() = user_id);
 
--- Service role (backend) can do everything
+DROP POLICY IF EXISTS "vendor_profiles: service role all" ON vendor_profiles;
 CREATE POLICY "vendor_profiles: service role all"
   ON vendor_profiles FOR ALL
   USING (auth.role() = 'service_role');
 
 -- Index for slug lookups (used in public vendor pages)
-CREATE INDEX idx_vendor_profiles_slug ON vendor_profiles(slug);
-CREATE INDEX idx_vendor_profiles_user_id ON vendor_profiles(user_id);
-CREATE INDEX idx_vendor_profiles_status ON vendor_profiles(status);
+CREATE INDEX IF NOT EXISTS idx_vendor_profiles_slug ON vendor_profiles(slug);
+CREATE INDEX IF NOT EXISTS idx_vendor_profiles_user_id ON vendor_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_vendor_profiles_status ON vendor_profiles(status);

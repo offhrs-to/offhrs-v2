@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS vendor_cal_tokens (
 ALTER TABLE vendor_cal_tokens ENABLE ROW LEVEL SECURITY;
 
 -- Tokens are server-only; no client policies needed beyond service role
+DROP POLICY IF EXISTS "vendor_cal_tokens: service role all" ON vendor_cal_tokens;
 CREATE POLICY "vendor_cal_tokens: service role all"
   ON vendor_cal_tokens FOR ALL
   USING (auth.role() = 'service_role');

@@ -27,12 +27,14 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_vendor_subscriptions_updated_at ON vendor_subscriptions;
 CREATE TRIGGER trg_vendor_subscriptions_updated_at
   BEFORE UPDATE ON vendor_subscriptions
   FOR EACH ROW EXECUTE FUNCTION update_vendor_subscriptions_updated_at();
 
 ALTER TABLE vendor_subscriptions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "vendor_subscriptions: owner read" ON vendor_subscriptions;
 CREATE POLICY "vendor_subscriptions: owner read"
   ON vendor_subscriptions FOR SELECT
   USING (
@@ -41,9 +43,10 @@ CREATE POLICY "vendor_subscriptions: owner read"
     )
   );
 
+DROP POLICY IF EXISTS "vendor_subscriptions: service role all" ON vendor_subscriptions;
 CREATE POLICY "vendor_subscriptions: service role all"
   ON vendor_subscriptions FOR ALL
   USING (auth.role() = 'service_role');
 
-CREATE INDEX idx_vendor_subscriptions_vendor_id ON vendor_subscriptions(vendor_id);
-CREATE INDEX idx_vendor_subscriptions_stripe_id ON vendor_subscriptions(stripe_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_vendor_subscriptions_vendor_id ON vendor_subscriptions(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_vendor_subscriptions_stripe_id ON vendor_subscriptions(stripe_subscription_id);

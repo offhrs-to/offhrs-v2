@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS vendor_payouts (
 
 ALTER TABLE vendor_payouts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "vendor_payouts: owner read" ON vendor_payouts;
 CREATE POLICY "vendor_payouts: owner read"
   ON vendor_payouts FOR SELECT
   USING (
@@ -24,8 +25,9 @@ CREATE POLICY "vendor_payouts: owner read"
     )
   );
 
+DROP POLICY IF EXISTS "vendor_payouts: service role all" ON vendor_payouts;
 CREATE POLICY "vendor_payouts: service role all"
   ON vendor_payouts FOR ALL
   USING (auth.role() = 'service_role');
 
-CREATE INDEX idx_vendor_payouts_vendor_id ON vendor_payouts(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_vendor_payouts_vendor_id ON vendor_payouts(vendor_id);

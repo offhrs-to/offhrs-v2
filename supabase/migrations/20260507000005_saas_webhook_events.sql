@@ -17,10 +17,11 @@ CREATE TABLE IF NOT EXISTS webhook_events (
 ALTER TABLE webhook_events ENABLE ROW LEVEL SECURITY;
 
 -- Webhook events are backend-only; no client access
+DROP POLICY IF EXISTS "webhook_events: service role all" ON webhook_events;
 CREATE POLICY "webhook_events: service role all"
   ON webhook_events FOR ALL
   USING (auth.role() = 'service_role');
 
-CREATE INDEX idx_webhook_events_event_id ON webhook_events(event_id);
-CREATE INDEX idx_webhook_events_source_type ON webhook_events(source, event_type);
-CREATE INDEX idx_webhook_events_created_at ON webhook_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_event_id ON webhook_events(event_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_source_type ON webhook_events(source, event_type);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_created_at ON webhook_events(created_at DESC);
