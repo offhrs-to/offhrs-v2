@@ -21,6 +21,7 @@ interface Event {
   external_link?: string
   price?: number | string | null
   vendor_id?: string | null
+  vendor_profile_id?: string | null
 }
 
 export default function EventCard({
@@ -72,9 +73,15 @@ export default function EventCard({
     setSaving(false)
   }
   
+  const isSaasEvent = !!event.vendor_profile_id
+
   const handleBookClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    if (isSaasEvent) {
+      window.location.href = `/workshops/${event.id}`
+      return
+    }
     openWorkshopBooking({
       id: event.id,
       title: event.title,

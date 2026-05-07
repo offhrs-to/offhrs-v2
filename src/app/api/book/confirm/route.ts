@@ -1,0 +1,185 @@
+/**
+ * POST /api/book/confirm
+ * Called by the frontend after Stripe payment succeeds.
+ * Verifies the PaymentIntent, creates a Cal.com booking, inserts the DB record,
+ * decrements available slots, and sends confirmation emails.
+ */
+import { createAdminClient } from '@/lib/supabase/admin'
+import { NextRequest, NextResponse } from 'next/server'
+import Stripe from 'stripe'
+import { z } from 'zod'
+import { sendConsumerBookingConfirmation, sendVendorBookingNotification, sendVendorFullyBooked } from '@/lib/emails'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-04-30.basil',
+})
+
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+
+const confirmSchema = z.object({
+  paymentIntentId: z.string(),
+  // Cal.com booking uid returned after creating the booking via the Booker atom
+  calBookingUid: z.string().optional(),
+  startTime: z.string().optional(),
+})
+
+export async function POST(request: NextRequest) {
+  try {
+    const raw = await request.json()
+    const parsed = confirmSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+    }
+
+    const { paymentIntentId, calBookingUid, startTime } = parsed.data
+
+    const admin = createAdminClient()
+    if (!admin) return NextResponse.json({ error: 'Server error' }, { status: 500 })
+
+    // Verify PaymentIntent succeeded
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
+    if (pi.status !== 'succeeded') {
+      return NextResponse.json({ error: 'Payment not completed' }, { status: 422 })
+    }
+
+    const meta = pi.metadata
+    const eventId = meta.event_id
+    const vendorId = meta.vendor_id
+    const attendeeName = meta.attendee_name
+    const attendeeEmail = meta.attendee_email
+    const priceCad = parseFloat(meta.price_cad ?? '0')
+    const calEventTypeId = meta.cal_event_type_id
+    const piStartTime = startTime ?? meta.start_time
+
+    // Idempotency — check if booking already exists for this PaymentIntent
+    const { data: existingBooking } = await admin
+      .from('bookings')
+      .select('id')
+      .eq('stripe_payment_intent_id', paymentIntentId)
+      .maybeSingle()
+
+    if (existingBooking) {
+      return NextResponse.json({ success: true, duplicate: true })
+    }
+
+    // Fetch event details
+    const { data: event } = await admin
+      .from('events')
+      .select('id, title, available_slots, max_attendees, duration_minutes, location, status, vendor_profile_id')
+      .eq('id', eventId)
+      .single()
+
+    if (!event) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+    }
+
+    // Fetch vendor profile + auth email
+    const { data: vendorProfile } = await admin
+      .from('vendor_profiles')
+      .select('business_name, website_url, user_id')
+      .eq('id', vendorId)
+      .single()
+
+    const vendorEmail = await (async () => {
+      if (!vendorProfile?.user_id) return null
+      const { data: authUser } = await admin.auth.admin.getUserById(vendorProfile.user_id)
+      return authUser?.user?.email ?? null
+    })()
+
+    // Calculate Stripe fee (2.9% + $0.30) and net vendor amount
+    const stripeFee = Math.round((priceCad * 0.029 + 0.30) * 100) / 100
+    const netVendor = Math.round((priceCad - stripeFee) * 100) / 100
+
+    // Get charge id for refund capability
+    const chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : (pi.latest_charge as { id: string } | null)?.id
+
+    // Insert booking record
+    const { data: booking, error: insertError } = await admin
+      .from('bookings')
+      .insert({
+        event_id: eventId,
+        vendor_id: vendorId,
+        cal_booking_uid: calBookingUid ?? null,
+        stripe_payment_intent_id: paymentIntentId,
+        stripe_charge_id: chargeId ?? null,
+        name: attendeeName,
+        email: attendeeEmail,
+        status: 'confirmed',
+        amount_cad: priceCad,
+        stripe_fee_cad: stripeFee,
+        net_vendor_cad: netVendor,
+        ics_sent: false,
+      })
+      .select()
+      .single()
+
+    if (insertError) {
+      console.error('Booking insert error:', insertError)
+      return NextResponse.json({ error: 'Failed to record booking' }, { status: 500 })
+    }
+
+    // Decrement available slots
+    const currentSlots = event.available_slots ?? event.max_attendees ?? 1
+    const newSlots = Math.max(0, currentSlots - 1)
+    const newStatus = newSlots === 0 ? 'fully_booked' : event.status
+
+    await admin
+      .from('events')
+      .update({ available_slots: newSlots, status: newStatus })
+      .eq('id', eventId)
+
+    // Send emails
+    const sessionDate = piStartTime ? new Date(piStartTime) : new Date()
+    const durationMinutes = (event.duration_minutes ?? 60) as number
+
+    const emailParams = {
+      attendeeName,
+      attendeeEmail,
+      sessionTitle: event.title,
+      vendorName: vendorProfile?.business_name ?? 'offhrs',
+      sessionDate,
+      durationMinutes,
+      location: event.location,
+      vendorWebsite: vendorProfile?.website_url ?? null,
+      bookingRef: booking.id,
+      amountCad: priceCad,
+    }
+
+    // Fire emails non-blocking
+    Promise.all([
+      sendConsumerBookingConfirmation(emailParams),
+      vendorEmail
+        ? sendVendorBookingNotification(vendorEmail, {
+            businessName: vendorProfile?.business_name ?? 'offhrs',
+            attendeeName,
+            attendeeEmail,
+            sessionTitle: event.title,
+            sessionDate: sessionDate.toLocaleDateString('en-CA', {
+              weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+            }),
+            amountCad: priceCad,
+            dashboardUrl: `${APP_URL}/partners/dashboard/bookings`,
+          })
+        : Promise.resolve(),
+      newSlots === 0 && vendorEmail
+        ? sendVendorFullyBooked(vendorEmail, event.title, `${APP_URL}/partners/dashboard/bookings`)
+        : Promise.resolve(),
+    ]).then(async () => {
+      await admin
+        .from('bookings')
+        .update({ ics_sent: true })
+        .eq('id', booking.id)
+    }).catch(console.error)
+
+    return NextResponse.json({
+      success: true,
+      bookingId: booking.id,
+      fullyBooked: newSlots === 0,
+    })
+  } catch (err) {
+    console.error('Book confirm error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
