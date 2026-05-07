@@ -26,6 +26,11 @@ function verifyCalSignature(rawBody: string, signature: string): boolean {
   return `sha256=${expected}` === signature
 }
 
+// Cal.com ping test uses GET
+export async function GET() {
+  return NextResponse.json({ ok: true })
+}
+
 export async function POST(request: NextRequest) {
   const rawBody = await request.text()
   const signature = request.headers.get('x-cal-signature-256') ?? ''
