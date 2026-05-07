@@ -7,6 +7,17 @@
     {
       "path": "/api/cron/renew-recurring-events",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-cal-tokens",
+      "schedule": "0 */12 * * *"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "partners.offhrs.app" }],
+      "destination": "/partners/:path*"
     }
   ]
 }
