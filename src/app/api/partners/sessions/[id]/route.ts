@@ -1,0 +1,166 @@
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { NextRequest, NextResponse } from 'next/server'
+import { updateCalEventType, deleteCalEventType } from '@/lib/cal'
+import { decrypt } from '@/lib/token-encryption'
+import { z } from 'zod'
+
+const updateSchema = z.object({
+  title: z.string().min(2).max(120).optional(),
+  description: z.string().max(2000).optional(),
+  price_cad: z.number().min(0).max(10000).optional(),
+  max_attendees: z.number().int().min(1).max(500).optional(),
+  duration_minutes: z.number().int().min(15).max(480).optional(),
+  date: z.string().optional(),
+  location_type: z.enum(['in_person', 'virtual']).optional(),
+  location_address: z.string().max(500).optional(),
+  location_link: z.string().url().optional(),
+  status: z.enum(['published', 'draft', 'archived']).optional(),
+})
+
+type Params = { params: Promise<{ id: string }> }
+
+async function getVendorAndSession(userId: string, sessionId: string) {
+  const admin = createAdminClient()
+  if (!admin) return { admin: null, vendor: null, session: null }
+
+  const { data: vendor } = await admin
+    .from('vendor_profiles')
+    .select('id, cal_user_id')
+    .eq('user_id', userId)
+    .single()
+
+  if (!vendor) return { admin, vendor: null, session: null }
+
+  const { data: session } = await admin
+    .from('events')
+    .select('*')
+    .eq('id', sessionId)
+    .eq('vendor_profile_id', vendor.id)
+    .single()
+
+  return { admin, vendor, session }
+}
+
+// PUT /api/partners/sessions/[id]
+export async function PUT(request: NextRequest, { params }: Params) {
+  const { id } = await params
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { admin, vendor, session } = await getVendorAndSession(user.id, id)
+    if (!admin) return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+    if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+
+    const raw = await request.json()
+    const parsed = updateSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validation failed', fields: parsed.error.flatten().fieldErrors }, { status: 400 })
+    }
+
+    const body = parsed.data
+
+    // Sync Cal.com event type if connected
+    if (session.cal_event_type_id && vendor.cal_user_id) {
+      const { data: tokenRow } = await admin
+        .from('vendor_cal_tokens')
+        .select('access_token')
+        .eq('vendor_id', vendor.id)
+        .single()
+
+      if (tokenRow) {
+        try {
+          const accessToken = decrypt(tokenRow.access_token)
+          const calUpdates: Parameters<typeof updateCalEventType>[2] = {}
+          if (body.title) calUpdates.title = body.title
+          if (body.description !== undefined) calUpdates.description = body.description
+          if (body.duration_minutes) calUpdates.lengthInMinutes = body.duration_minutes
+          if (body.price_cad !== undefined) calUpdates.price = Math.round(body.price_cad * 100)
+          if (body.max_attendees) calUpdates.seatsPerTimeSlot = body.max_attendees
+
+          if (body.location_type && (body.location_address || body.location_link)) {
+            calUpdates.locations = body.location_type === 'in_person'
+              ? [{ type: 'inPerson', address: body.location_address }]
+              : [{ type: 'link', link: body.location_link }]
+          }
+
+          if (Object.keys(calUpdates).length > 0) {
+            await updateCalEventType(accessToken, session.cal_event_type_id, calUpdates)
+          }
+        } catch (calErr) {
+          console.error('Cal.com event type update failed (non-fatal):', calErr)
+        }
+      }
+    }
+
+    const updatePayload: Record<string, unknown> = {}
+    if (body.title !== undefined) updatePayload.title = body.title
+    if (body.price_cad !== undefined) {
+      updatePayload.price_cad = body.price_cad
+      updatePayload.price = body.price_cad > 0 ? `$${body.price_cad} CAD` : 'Free'
+    }
+    if (body.max_attendees !== undefined) updatePayload.max_attendees = body.max_attendees
+    if (body.duration_minutes !== undefined) updatePayload.duration_minutes = body.duration_minutes
+    if (body.date !== undefined) updatePayload.date = body.date ? new Date(body.date).toISOString() : null
+    if (body.location_address !== undefined) updatePayload.location = body.location_address
+    if (body.location_link !== undefined) updatePayload.location = body.location_link
+    if (body.status !== undefined) updatePayload.status = body.status
+
+    const { data: updated, error } = await admin
+      .from('events')
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ session: updated })
+  } catch (err) {
+    console.error('Session update error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// DELETE /api/partners/sessions/[id] — archive (soft delete)
+export async function DELETE(_request: NextRequest, { params }: Params) {
+  const { id } = await params
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { admin, vendor, session } = await getVendorAndSession(user.id, id)
+    if (!admin) return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+    if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+
+    // Delete from Cal.com if connected
+    if (session.cal_event_type_id && vendor.cal_user_id) {
+      const { data: tokenRow } = await admin
+        .from('vendor_cal_tokens')
+        .select('access_token')
+        .eq('vendor_id', vendor.id)
+        .single()
+
+      if (tokenRow) {
+        try {
+          const accessToken = decrypt(tokenRow.access_token)
+          await deleteCalEventType(accessToken, session.cal_event_type_id)
+        } catch (calErr) {
+          console.error('Cal.com event type deletion failed (non-fatal):', calErr)
+        }
+      }
+    }
+
+    await admin.from('events').update({ status: 'archived' }).eq('id', id)
+
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error('Session delete error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}

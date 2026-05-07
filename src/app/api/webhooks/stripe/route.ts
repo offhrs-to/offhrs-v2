@@ -2,6 +2,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { Resend } from 'resend'
+import { provisionCalUser } from '@/lib/cal'
+import { encrypt } from '@/lib/token-encryption'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-04-30.basil',
@@ -146,6 +148,43 @@ async function handleStripeEvent(
           : null,
         cancel_at_period_end: subscription.cancel_at_period_end,
       }, { onConflict: 'stripe_subscription_id' })
+
+      // Provision Cal.com managed user (with retry)
+      const { data: vendorForCal } = await admin
+        .from('vendor_profiles')
+        .select('user_id, business_name, cal_user_id')
+        .eq('id', vendorId)
+        .single()
+
+      if (vendorForCal && !vendorForCal.cal_user_id) {
+        const { data: authUserForCal } = await admin.auth.admin.getUserById(vendorForCal.user_id)
+        const email = authUserForCal?.user?.email
+
+        if (email) {
+          let calProvisioned = false
+          for (let attempt = 0; attempt < 3 && !calProvisioned; attempt++) {
+            try {
+              if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 2000))
+              const calUser = await provisionCalUser(email, vendorForCal.business_name)
+
+              await admin.from('vendor_profiles')
+                .update({ cal_user_id: String(calUser.id) })
+                .eq('id', vendorId)
+
+              await admin.from('vendor_cal_tokens').upsert({
+                vendor_id: vendorId,
+                access_token: encrypt(calUser.accessToken),
+                refresh_token: encrypt(calUser.refreshToken),
+                expires_at: calUser.accessTokenExpiresAt,
+              }, { onConflict: 'vendor_id' })
+
+              calProvisioned = true
+            } catch (calErr) {
+              console.error(`Cal.com provisioning attempt ${attempt + 1} failed:`, calErr)
+            }
+          }
+        }
+      }
 
       // Send welcome email
       const { data: vendor } = await admin
