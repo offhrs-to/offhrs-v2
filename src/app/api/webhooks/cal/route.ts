@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Idempotency — use Cal's unique booking uid
-  const bookingUid: string = payload.payload?.uid ?? payload.uid ?? ''
+  const bookingUid: string = (payload.payload as Record<string, unknown>)?.uid as string ?? payload.uid as string ?? ''
   const eventId = `cal:${eventType}:${bookingUid}`
 
   if (bookingUid) {
