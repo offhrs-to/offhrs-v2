@@ -1,25 +1,9 @@
+import { verifyAdmin } from '@/app/api/admin/login/route'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  // Admin auth via Basic Auth header (same as /admin page)
-  const authHeader = request.headers.get('authorization')
-  const adminUser = process.env.ADMIN_USER
-  const adminPassword = process.env.ADMIN_PASSWORD
-
-  if (!adminUser || !adminPassword) {
-    return NextResponse.json({ error: 'Admin not configured' }, { status: 500 })
-  }
-  if (!authHeader?.startsWith('Basic ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-  try {
-    const credentials = Buffer.from(authHeader.split(' ')[1], 'base64').toString('utf-8')
-    const [u, p] = credentials.split(':')
-    if (u !== adminUser || p !== adminPassword) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
-    }
-  } catch {
+  if (!verifyAdmin(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

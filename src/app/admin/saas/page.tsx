@@ -53,12 +53,9 @@ export default function SaasAdminPage() {
     setLoading(true)
     setError(null)
     try {
-      // Use session cookie auth (same browser session as /admin)
-      const res = await fetch('/api/admin/saas-metrics', {
-        headers: { Authorization: `Basic ${btoa(`${sessionStorage.getItem('adminUser') ?? ''}:${sessionStorage.getItem('adminPassword') ?? ''}`)}` },
-      })
+      const res = await fetch('/api/admin/saas-metrics', { credentials: 'include' })
       if (res.status === 401) {
-        setError('Not authorized. Please log in to /admin first.')
+        setError('Not authorized. Open this page while logged into /admin.')
         setLoading(false)
         return
       }

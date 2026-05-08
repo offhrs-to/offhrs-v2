@@ -1,22 +1,29 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { getSiteUrl } from '@/lib/site'
+
+const site = getSiteUrl()
 
 export const metadata: Metadata = {
   title: 'offhrs Partners — Run your workshop business on autopilot',
   description:
     'offhrs Partners gives Toronto workshop vendors instant booking, Stripe payouts, and Google/Outlook calendar sync — for $79 CAD/month. Start your free 7-day trial.',
+  alternates: { canonical: `${site}/partners` },
   openGraph: {
     title: 'offhrs Partners — Run your workshop business on autopilot',
     description:
       'Instant booking, automated payouts, and two-way calendar sync for creative workshop vendors in Toronto.',
-    url: 'https://offhrs.app/partners',
+    url: `${site}/partners`,
     siteName: 'offhrs',
     type: 'website',
+    locale: 'en_CA',
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'offhrs' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'offhrs Partners',
     description: 'Booking, payouts, and calendar sync for workshop vendors.',
+    images: ['/twitter-image'],
   },
 }
 
@@ -87,8 +94,46 @@ const faqs = [
 ]
 
 export default function PartnersLandingPage() {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'SoftwareApplication',
+        name: 'offhrs Partners',
+        applicationCategory: 'BusinessApplication',
+        operatingSystem: 'Web',
+        description:
+          'SaaS booking engine for workshop vendors: instant booking, Stripe Connect payouts, and Cal.com calendar sync.',
+        url: `${site}/partners`,
+        offers: {
+          '@type': 'Offer',
+          price: '79',
+          priceCurrency: 'CAD',
+          description: 'Standard plan — monthly after 7-day free trial',
+        },
+        publisher: {
+          '@type': 'Organization',
+          name: 'offhrs',
+          url: site,
+        },
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: faqs.map((faq) => ({
+          '@type': 'Question',
+          name: faq.q,
+          acceptedAnswer: { '@type': 'Answer', text: faq.a },
+        })),
+      },
+    ],
+  }
+
   return (
     <div className="min-h-screen bg-[#FAFAF8] text-[#1a1a1a]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-50 bg-[#FAFAF8]/90 backdrop-blur border-b border-[#E8E6E0]">
@@ -236,9 +281,9 @@ export default function PartnersLandingPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            {
-              quote: 'I used to spend hours managing bookings by email. Now it&apos;s all automatic.',
-              name: 'Maya R.',
+  {
+    quote: 'I used to spend hours managing bookings by email. Now it\'s all automatic.',
+    name: 'Maya R.',
               role: 'Pottery instructor, Kensington Market',
             },
             {

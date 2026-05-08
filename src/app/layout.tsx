@@ -4,8 +4,11 @@ import { Inter } from 'next/font/google'
 import Footer from '@/components/footer'
 import { AuthProviderWrapper } from '@/components/auth-provider'
 import RecordVisit from '@/components/record-visit'
+import { getSiteUrl } from '@/lib/site'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+
+const siteUrl = getSiteUrl()
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -14,8 +17,29 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'Offhrs | Discover Creative Workshops',
-  description: 'Find the best local workshops in Toronto.',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'offhrs — Discover Creative Workshops',
+    template: '%s | offhrs',
+  },
+  description: 'Discover and book creative workshops across Toronto — pottery, floral design, culinary, and more.',
+  applicationName: 'offhrs',
+  alternates: siteUrl !== 'http://localhost:3000' ? { canonical: siteUrl } : undefined,
+  openGraph: {
+    type: 'website',
+    locale: 'en_CA',
+    url: siteUrl,
+    siteName: 'offhrs',
+    title: 'offhrs — Discover Creative Workshops',
+    description:
+      'Discover and book creative workshops across Toronto — pottery, floral design, culinary, and more.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'offhrs — Discover Creative Workshops',
+    description:
+      'Discover and book creative workshops across Toronto — pottery, floral design, culinary, and more.',
+  },
 }
 
 export default function RootLayout({
