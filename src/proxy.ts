@@ -111,6 +111,17 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
+    // Pending vendors must complete billing checkout first.
+    // Allow checkout route while blocking all other dashboard pages.
+    if (vendor.status === 'pending') {
+      if (pathname === '/partners/checkout' || pathname.startsWith('/partners/checkout/')) {
+        return supabaseResponse
+      }
+      const url = request.nextUrl.clone()
+      url.pathname = '/partners/checkout'
+      return NextResponse.redirect(url)
+    }
+
     if (!activeStatuses.includes(vendor.status)) {
       // Suspended or canceled → locked page
       const url = request.nextUrl.clone()
