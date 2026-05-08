@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/refresh-cal-tokens",
-      "schedule": "0 */12 * * *"
+      "schedule": "0 3 * * *"
     }
   ],
   "rewrites": [
