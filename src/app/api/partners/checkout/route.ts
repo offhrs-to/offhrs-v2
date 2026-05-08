@@ -7,12 +7,21 @@ const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholde
   apiVersion: '2026-04-22.dahlia',
 })
 
-const APP_URL =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+function getAppUrl(request: NextRequest): string {
+  const url = new URL(request.url)
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? url.host
+  const proto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '')
+  if (host) return `${proto}://${host}`
+
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+  )
+}
 
 export async function POST(request: NextRequest) {
   try {
+    const appUrl = getAppUrl(request)
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -82,8 +91,8 @@ export async function POST(request: NextRequest) {
           user_id: user.id,
         },
       },
-      success_url: `${APP_URL}/partners/dashboard?onboarding=1`,
-      cancel_url: `${APP_URL}/partners/checkout?canceled=1`,
+      success_url: `${appUrl}/partners/dashboard?onboarding=1`,
+      cancel_url: `${appUrl}/partners/checkout?canceled=1`,
       metadata: {
         vendor_id: vendor.id,
         user_id: user.id,
