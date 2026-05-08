@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, Eye, EyeOff, CalendarDays, Users, Clock, DollarSign } from 'lucide-react'
@@ -27,7 +28,7 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   archived: { label: 'Archived', className: 'bg-red-50 text-red-400' },
 }
 
-export default function SessionsPage() {
+function SessionsPageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [sessions, setSessions] = useState<Session[]>([])
@@ -218,5 +219,13 @@ export default function SessionsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function SessionsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-[#888]">Loading sessions…</div>}>
+      <SessionsPageInner />
+    </Suspense>
   )
 }

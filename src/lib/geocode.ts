@@ -29,3 +29,4 @@ export async function geocodeAddress(
   if (lat == null || lon == null) return null
   return { lat: String(lat), lng: String(lon) }
 }
+

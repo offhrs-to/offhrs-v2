@@ -15,8 +15,8 @@ const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-04-30.basil',
+const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
+  apiVersion: '2026-04-22.dahlia',
 })
 
 function verifyCalSignature(rawBody: string, signature: string): boolean {
@@ -112,7 +112,7 @@ async function handleBookingCreated(
   const booking = (payload.payload ?? payload) as Record<string, unknown>
   const calBookingUid = booking.uid as string
   const startTime = booking.startTime as string
-  const eventTypeId = String((booking.eventTypeId ?? booking.eventType?.id) ?? '')
+  const eventTypeId = String((booking.eventTypeId ?? (booking.eventType as Record<string, unknown>)?.id) ?? '')
 
   if (!calBookingUid || !startTime || !eventTypeId) return
 
@@ -364,3 +364,5 @@ async function handleBookingRescheduled(
     previousStartTime ? new Date(previousStartTime) : new Date()
   )
 }
+
+

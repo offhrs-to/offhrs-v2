@@ -25,3 +25,4 @@ export function logSecurityEvent(severity: SecuritySeverity, event: SecurityEven
   }
   console.log(message)
 }
+

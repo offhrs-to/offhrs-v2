@@ -160,3 +160,4 @@ export async function fetchWorkshopEvents(
 
   return sorted;
 }
+

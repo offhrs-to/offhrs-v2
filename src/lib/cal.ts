@@ -157,3 +157,4 @@ export async function deleteCalEventType(accessToken: string, eventTypeId: strin
     throw new Error(`Cal.com event type deletion failed (${res.status}): ${body}`)
   }
 }
+

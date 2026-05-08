@@ -38,21 +38,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
-    // Check for existing account
-    const { data: existing } = await admin
-      .from('vendor_profiles')
-      .select('id')
-      .eq('user_id', (await admin.auth.admin.getUserByEmail(email)).data.user?.id ?? '')
-      .maybeSingle()
-
-    if (existing) {
-      return NextResponse.json(
-        { error: 'An account with this email already exists. Please sign in.' },
-        { status: 409 }
-      )
-    }
-
     // Create Supabase auth user (email + password, not OAuth)
+    // createUser returns an error if the email is already registered
     const { data: authData, error: createError } = await admin.auth.admin.createUser({
       email,
       password,
@@ -110,6 +97,7 @@ export async function POST(request: NextRequest) {
       const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
         type: 'signup',
         email,
+        password,
         options: {
           redirectTo: `${APP_URL}/partners/auth/callback`,
         },
@@ -152,3 +140,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+

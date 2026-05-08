@@ -31,3 +31,4 @@ export function getCategoryNoviceIconPath(category: string | null | undefined): 
   const t = category.trim()
   return CATEGORY_NOVICE_ICONS[t] ?? DEFAULT_CATEGORY_NOVICE_ICON
 }
+

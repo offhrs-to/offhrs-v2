@@ -74,3 +74,4 @@ export function getWorkshopConfirmationHtml(params: WorkshopEmailParams): string
 </html>
 `.trim()
 }
+

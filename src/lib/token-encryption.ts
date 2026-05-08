@@ -32,3 +32,4 @@ export function decrypt(encoded: string): string {
   decipher.setAuthTag(tag)
   return decipher.update(ciphertext) + decipher.final('utf8')
 }
+

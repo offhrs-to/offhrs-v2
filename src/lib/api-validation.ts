@@ -26,3 +26,4 @@ export const adminLoginBodySchema = z
 export type BookBody = z.infer<typeof bookBodySchema>
 export type ScrapeBody = z.infer<typeof scrapeBodySchema>
 export type AdminLoginBody = z.infer<typeof adminLoginBodySchema>
+

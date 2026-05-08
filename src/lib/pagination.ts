@@ -20,3 +20,4 @@ export function getVisiblePageNumbers(current: number, total: number): (number |
   }
   return out
 }
+

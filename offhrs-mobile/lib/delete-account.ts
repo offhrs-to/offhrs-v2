@@ -48,3 +48,4 @@ export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountRes
 
   return { ok: false, error: lastError };
 }
+

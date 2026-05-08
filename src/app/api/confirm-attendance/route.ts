@@ -155,3 +155,4 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.redirect(new URL('/profile?attendance_confirmed=true', request.url))
 }
+

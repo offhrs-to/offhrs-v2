@@ -3,8 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-04-30.basil',
+const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
+  apiVersion: '2026-04-22.dahlia',
 })
 
 const APP_URL =
@@ -96,3 +96,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 })
   }
 }
+
+

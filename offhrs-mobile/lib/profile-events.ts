@@ -6,3 +6,4 @@ export const PROFILE_UPDATED_EVENT = 'offhrs-profile-updated';
 export function emitProfileUpdated() {
   DeviceEventEmitter.emit(PROFILE_UPDATED_EVENT);
 }
+

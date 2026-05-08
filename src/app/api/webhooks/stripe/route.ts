@@ -5,16 +5,15 @@ import { Resend } from 'resend'
 import { provisionCalUser } from '@/lib/cal'
 import { encrypt } from '@/lib/token-encryption'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-04-30.basil',
+const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
+  apiVersion: '2026-04-22.dahlia',
 })
 
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
-// Disable body parsing — Stripe needs the raw body for signature verification
-export const config = { api: { bodyParser: false } }
+// App Router routes use the Web Request API — no body parser config needed
 
 async function sendEmail(to: string, subject: string, html: string) {
   if (!process.env.RESEND_API_KEY) return
@@ -123,8 +122,8 @@ async function handleStripeEvent(
         trial_ends_at: subscription.trial_end
           ? new Date(subscription.trial_end * 1000).toISOString()
           : null,
-        subscription_current_period_end: subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000).toISOString()
+        subscription_current_period_end: subscription.items.data[0]?.current_period_end
+          ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
           : null,
       }).eq('id', vendorId)
 
@@ -140,11 +139,11 @@ async function handleStripeEvent(
         trial_end: subscription.trial_end
           ? new Date(subscription.trial_end * 1000).toISOString()
           : null,
-        current_period_start: subscription.current_period_start
-          ? new Date(subscription.current_period_start * 1000).toISOString()
+        current_period_start: subscription.items.data[0]?.current_period_start
+          ? new Date(subscription.items.data[0].current_period_start * 1000).toISOString()
           : null,
-        current_period_end: subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000).toISOString()
+        current_period_end: subscription.items.data[0]?.current_period_end
+          ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
           : null,
         cancel_at_period_end: subscription.cancel_at_period_end,
       }, { onConflict: 'stripe_subscription_id' })
@@ -264,18 +263,18 @@ async function handleStripeEvent(
         trial_ends_at: subscription.trial_end
           ? new Date(subscription.trial_end * 1000).toISOString()
           : null,
-        subscription_current_period_end: subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000).toISOString()
+        subscription_current_period_end: subscription.items.data[0]?.current_period_end
+          ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
           : null,
       }).eq('id', vendorId)
 
       await admin.from('vendor_subscriptions').update({
         status: subscription.status,
-        current_period_start: subscription.current_period_start
-          ? new Date(subscription.current_period_start * 1000).toISOString()
+        current_period_start: subscription.items.data[0]?.current_period_start
+          ? new Date(subscription.items.data[0].current_period_start * 1000).toISOString()
           : null,
-        current_period_end: subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000).toISOString()
+        current_period_end: subscription.items.data[0]?.current_period_end
+          ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
           : null,
         cancel_at_period_end: subscription.cancel_at_period_end,
         updated_at: new Date().toISOString(),
@@ -416,3 +415,5 @@ function stripeStatusToVendorStatus(stripeStatus: string): string {
     default: return 'past_due'
   }
 }
+
+

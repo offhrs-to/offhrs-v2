@@ -19,3 +19,4 @@ export function getCategoryMasterImageSource(category: string | null | undefined
       return require('@/assets/images/other-master.png');
   }
 }
+

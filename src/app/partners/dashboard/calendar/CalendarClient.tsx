@@ -12,7 +12,7 @@ interface CalendarClientProps {
 
 // Dynamically import Cal.com Atoms to avoid SSR issues
 let CalProvider: React.ComponentType<{ clientId: string; accessToken: string; children: React.ReactNode }> | null = null
-let Connect: React.ComponentType | null = null
+let Connect: React.ComponentType<{ onSuccess?: () => void | Promise<void> }> | null = null
 let AvailabilitySettings: React.ComponentType<{ id?: number }> | null = null
 
 export function CalendarClient({ calUserId, accessToken, calConnected, vendorId }: CalendarClientProps) {
@@ -24,9 +24,9 @@ export function CalendarClient({ calUserId, accessToken, calConnected, vendorId 
     async function loadAtoms() {
       try {
         const atoms = await import('@calcom/atoms')
-        CalProvider = atoms.CalProvider as typeof CalProvider
-        Connect = atoms.Connect as typeof Connect
-        AvailabilitySettings = atoms.AvailabilitySettings as typeof AvailabilitySettings
+        CalProvider = atoms.CalProvider as unknown as typeof CalProvider
+        Connect = atoms.Connect as unknown as typeof Connect
+        AvailabilitySettings = atoms.AvailabilitySettings as unknown as typeof AvailabilitySettings
         setAtomsLoaded(true)
       } catch (err) {
         console.error('Failed to load Cal.com Atoms:', err)

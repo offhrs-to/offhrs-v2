@@ -44,3 +44,4 @@ export function eventMatchesCalendarDay(e: WorkshopEventRow, ymd: string): boole
   const eventYmd = e.date_iso.slice(0, 10);
   return eventYmd === ymd;
 }
+

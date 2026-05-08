@@ -18,3 +18,4 @@ export function parseCanadianPostalCode(input: string): string | null {
 export function isValidCanadianPostalInput(input: string): boolean {
   return parseCanadianPostalCode(input) != null;
 }
+

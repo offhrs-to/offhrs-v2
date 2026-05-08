@@ -124,3 +124,4 @@ export async function updateEvent(id: string, data: {
     throw new Error(error.message || 'Failed to update event')
   }
 }
+

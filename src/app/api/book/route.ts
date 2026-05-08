@@ -10,8 +10,8 @@ import { z } from 'zod'
 
 const BOOK_RATE_LIMIT = 15 // per minute per IP
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-04-30.basil',
+const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
+  apiVersion: '2026-04-22.dahlia',
 })
 
 // Extended schema for SaaS bookings
@@ -179,3 +179,5 @@ async function handleLegacyBook(raw: Record<string, unknown>, user: { id: string
 
   return NextResponse.json({ success: true })
 }
+
+

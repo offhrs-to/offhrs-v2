@@ -85,3 +85,4 @@ export function generateIcs(params: IcsEventParams): string {
     })
     .join('\r\n')
 }
+
