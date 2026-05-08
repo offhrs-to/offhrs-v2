@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 function getAppUrl(request: NextRequest): string {
@@ -19,20 +20,22 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const token = searchParams.get('token')
     const tokenHash = searchParams.get('token_hash')
-    const type = searchParams.get('type') ?? 'email'
+    const type = searchParams.get('type') ?? 'signup'
 
+    // Use regular Supabase server client so verifyOtp sets auth cookies.
+    const supabase = await createClient()
     const admin = createAdminClient()
     if (!admin) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
-    // Supabase auth callback — exchange OTP token
+    // Supabase auth callback — exchange OTP token and establish session.
     const otpToken = token ?? tokenHash
     if (!otpToken) {
       return NextResponse.json({ error: 'Missing verification token' }, { status: 400 })
     }
 
-    const { data, error } = await admin.auth.verifyOtp({
+    const { data, error } = await supabase.auth.verifyOtp({
       token_hash: otpToken,
       type: type as 'email' | 'signup',
     })
