@@ -126,10 +126,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const verifyUrl = linkData.properties.action_link.replace(
-      /\/auth\/v1\/verify/,
-      '/api/partners/verify-email'
-    )
+    const actionUrl = new URL(linkData.properties.action_link)
+    const token = actionUrl.searchParams.get('token')
+    const tokenHash = actionUrl.searchParams.get('token_hash')
+    const otpToken = tokenHash ?? token
+    const otpType = actionUrl.searchParams.get('type') ?? 'signup'
+
+    if (!otpToken) {
+      console.error('Signup generateLink failed: Missing token/token_hash')
+      await rollbackSignup(admin, userId)
+      return NextResponse.json(
+        { error: 'Failed to create verification link. Please try again.' },
+        { status: 502 }
+      )
+    }
+
+    // Always verify on our app domain (not Supabase auth domain).
+    const verifyUrl = `${APP_URL}/api/partners/verify-email?token_hash=${encodeURIComponent(otpToken)}&type=${encodeURIComponent(otpType)}`
 
     const { error: sendError } = await resend.emails.send({
       from,
