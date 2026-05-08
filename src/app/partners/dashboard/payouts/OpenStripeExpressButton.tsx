@@ -9,7 +9,7 @@ export function OpenStripeExpressButton() {
   async function handleClick() {
     setLoading(true)
     try {
-      const res = await fetch('/api/partners/portal', { method: 'POST' })
+      const res = await fetch('/api/partners/stripe-express-login', { method: 'POST' })
       const data = await res.json()
       if (data.url) {
         window.open(data.url, '_blank')

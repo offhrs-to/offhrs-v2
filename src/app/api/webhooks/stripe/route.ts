@@ -400,6 +400,40 @@ async function handleStripeEvent(
       break
     }
 
+    // ── Connect: payout events ────────────────────────────────────────────
+    case 'payout.created':
+    case 'payout.paid':
+    case 'payout.failed':
+    case 'payout.canceled': {
+      const payout = event.data.object as Stripe.Payout
+      // account is set on Connect events
+      const accountId = (event as unknown as { account?: string }).account
+      if (!accountId) break
+
+      const { data: vp } = await admin
+        .from('vendor_profiles')
+        .select('id')
+        .eq('stripe_account_id', accountId)
+        .single()
+      if (!vp) break
+
+      const statusMap: Record<string, string> = {
+        'payout.created': 'pending',
+        'payout.paid': 'paid',
+        'payout.failed': 'failed',
+        'payout.canceled': 'canceled',
+      }
+
+      await admin.from('vendor_payouts').upsert({
+        vendor_id: vp.id,
+        stripe_payout_id: payout.id,
+        amount_cad: payout.amount / 100,
+        arrival_date: new Date(payout.arrival_date * 1000).toISOString().slice(0, 10),
+        status: statusMap[event.type] ?? 'pending',
+      }, { onConflict: 'stripe_payout_id' })
+      break
+    }
+
     default:
       break
   }
