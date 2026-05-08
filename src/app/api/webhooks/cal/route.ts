@@ -33,14 +33,29 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const rawBody = await request.text()
-  const signature = request.headers.get('x-cal-signature-256') ?? ''
 
+  // Handle empty body or PING events before signature check
+  if (!rawBody || rawBody.trim() === '') {
+    return NextResponse.json({ ok: true })
+  }
+
+  let payload: Record<string, unknown>
+  try {
+    payload = JSON.parse(rawBody)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  // Cal.com ping test — respond immediately
+  const eventType: string = payload.triggerEvent as string ?? payload.type as string ?? ''
+  if (eventType === 'PING' || eventType === 'ping') {
+    return NextResponse.json({ ok: true })
+  }
+
+  const signature = request.headers.get('x-cal-signature-256') ?? ''
   if (!verifyCalSignature(rawBody, signature)) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
-
-  const payload = JSON.parse(rawBody)
-  const eventType: string = payload.triggerEvent ?? payload.type ?? ''
 
   const admin = createAdminClient()
   if (!admin) {
