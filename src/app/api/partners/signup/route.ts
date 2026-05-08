@@ -22,6 +22,12 @@ const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
+async function rollbackSignup(admin: NonNullable<ReturnType<typeof createAdminClient>>, userId: string) {
+  // Remove profile first, then auth user, so retries are clean.
+  await admin.from('vendor_profiles').delete().eq('user_id', userId)
+  await admin.auth.admin.deleteUser(userId)
+}
+
 export async function POST(request: NextRequest) {
   try {
     const raw = await request.json()
@@ -88,50 +94,73 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create vendor profile' }, { status: 500 })
     }
 
-    // Send verification email via Resend
-    if (process.env.RESEND_API_KEY) {
-      const resend = new Resend(process.env.RESEND_API_KEY)
-      const from = process.env.RESEND_FROM_EMAIL ?? 'offhrs <noreply@offhrs.app>'
+    // Verification email is mandatory before checkout.
+    const resendKey = process.env.RESEND_API_KEY
+    if (!resendKey) {
+      await rollbackSignup(admin, userId)
+      return NextResponse.json(
+        { error: 'Email service is not configured. Please contact support.' },
+        { status: 503 }
+      )
+    }
 
-      // Generate a Supabase email verification token
-      const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-        type: 'signup',
-        email,
-        password,
-        options: {
-          redirectTo: `${APP_URL}/partners/auth/callback`,
-        },
-      })
+    const resend = new Resend(resendKey)
+    const from = process.env.RESEND_FROM_EMAIL ?? 'offhrs <noreply@offhrs.app>'
 
-      if (!linkError && linkData?.properties?.action_link) {
-        const verifyUrl = linkData.properties.action_link.replace(
-          /\/auth\/v1\/verify/,
-          '/api/partners/verify-email'
-        )
+    // Generate a Supabase email verification token
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: 'signup',
+      email,
+      password,
+      options: {
+        redirectTo: `${APP_URL}/partners/auth/callback`,
+      },
+    })
 
-        await resend.emails.send({
-          from,
-          to: email,
-          subject: `Verify your email — offhrs Partners`,
-          html: `
-            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
-              <h2 style="font-size:22px;font-weight:700;color:#1a1a1a;margin-bottom:8px;">
-                Welcome to offhrs, ${business_name}!
-              </h2>
-              <p style="color:#555;font-size:14px;line-height:1.6;">
-                Click the button below to verify your email address and continue setting up your account.
-              </p>
-              <a href="${linkData.properties.action_link}"
-                 style="display:inline-block;margin-top:24px;padding:12px 28px;background:#5D755D;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
-                Verify email
-              </a>
-              <p style="margin-top:32px;color:#999;font-size:12px;">
-                If you didn't sign up for offhrs Partners, you can safely ignore this email.
-              </p>
-            </div>
-          `,
-        })
-      }
+    if (linkError || !linkData?.properties?.action_link) {
+      console.error('Signup generateLink failed:', linkError?.message ?? 'Missing action link')
+      await rollbackSignup(admin, userId)
+      return NextResponse.json(
+        { error: 'Failed to create verification link. Please try again.' },
+        { status: 502 }
+      )
+    }
+
+    const verifyUrl = linkData.properties.action_link.replace(
+      /\/auth\/v1\/verify/,
+      '/api/partners/verify-email'
+    )
+
+    const { error: sendError } = await resend.emails.send({
+      from,
+      to: email,
+      subject: `Verify your email — offhrs Partners`,
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
+          <h2 style="font-size:22px;font-weight:700;color:#1a1a1a;margin-bottom:8px;">
+            Welcome to offhrs, ${business_name}!
+          </h2>
+          <p style="color:#555;font-size:14px;line-height:1.6;">
+            Click the button below to verify your email address and continue setting up your account.
+          </p>
+          <a href="${verifyUrl}"
+             style="display:inline-block;margin-top:24px;padding:12px 28px;background:#5D755D;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
+            Verify email
+          </a>
+          <p style="margin-top:32px;color:#999;font-size:12px;">
+            If you didn't sign up for offhrs Partners, you can safely ignore this email.
+          </p>
+        </div>
+      `,
+    })
+
+    if (sendError) {
+      console.error('Signup verification email failed:', sendError.message)
+      await rollbackSignup(admin, userId)
+      return NextResponse.json(
+        { error: 'Could not send verification email. Please try again in a minute.' },
+        { status: 502 }
+      )
     }
 
     return NextResponse.json({ success: true }, { status: 201 })
