@@ -1,12 +1,21 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 
-const APP_URL =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+function getAppUrl(request: NextRequest): string {
+  const url = new URL(request.url)
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? url.host
+  const proto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '')
+  if (host) return `${proto}://${host}`
+
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+  )
+}
 
 export async function GET(request: NextRequest) {
   try {
+    const appUrl = getAppUrl(request)
     const { searchParams } = new URL(request.url)
     const token = searchParams.get('token')
     const tokenHash = searchParams.get('token_hash')
@@ -42,7 +51,7 @@ export async function GET(request: NextRequest) {
       .eq('user_id', data.user.id)
 
     // Redirect to Stripe checkout page
-    return NextResponse.redirect(`${APP_URL}/partners/checkout`)
+    return NextResponse.redirect(`${appUrl}/partners/checkout`)
   } catch (err) {
     console.error('Partner verify-email error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

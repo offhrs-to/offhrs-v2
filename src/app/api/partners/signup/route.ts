@@ -18,9 +18,18 @@ function slugify(name: string): string {
     .slice(0, 60)
 }
 
-const APP_URL =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+function getAppUrl(request: NextRequest): string {
+  // Prefer request origin so preview signups stay on the same deployment host.
+  const url = new URL(request.url)
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? url.host
+  const proto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '')
+  if (host) return `${proto}://${host}`
+
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+  )
+}
 
 async function rollbackSignup(admin: NonNullable<ReturnType<typeof createAdminClient>>, userId: string) {
   // Remove profile first, then auth user, so retries are clean.
@@ -30,6 +39,7 @@ async function rollbackSignup(admin: NonNullable<ReturnType<typeof createAdminCl
 
 export async function POST(request: NextRequest) {
   try {
+    const appUrl = getAppUrl(request)
     const raw = await request.json()
     const parsed = signupSchema.safeParse(raw)
     if (!parsed.success) {
@@ -113,7 +123,7 @@ export async function POST(request: NextRequest) {
       email,
       password,
       options: {
-        redirectTo: `${APP_URL}/partners/auth/callback`,
+        redirectTo: `${appUrl}/partners/auth/callback`,
       },
     })
 
@@ -142,7 +152,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Always verify on our app domain (not Supabase auth domain).
-    const verifyUrl = `${APP_URL}/api/partners/verify-email?token_hash=${encodeURIComponent(otpToken)}&type=${encodeURIComponent(otpType)}`
+    const verifyUrl = `${appUrl}/api/partners/verify-email?token_hash=${encodeURIComponent(otpToken)}&type=${encodeURIComponent(otpType)}`
 
     const { error: sendError } = await resend.emails.send({
       from,
