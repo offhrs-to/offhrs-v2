@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -53,6 +53,34 @@ export function PartnerSignupWizard() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [mapsAuthError, setMapsAuthError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (step === 'location') setMapsAuthError(null)
+  }, [step])
+
+  const handleMapsAuthFailure = useCallback(() => {
+    if (typeof window === 'undefined') return
+    const origin = window.location.origin
+    setMapsAuthError(
+      `Google could not load Maps for ${origin}. In Google Cloud → APIs & Services → Credentials → your browser key: under Website restrictions add "${origin}/*" (exact scheme, host, and port). Enable Maps JavaScript API and Places API on the project, enable billing, then redeploy so NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is present. Check the browser console for codes like RefererNotAllowedMapError or ApiNotActivatedMapError.`
+    )
+  }, [])
+
+  /** Stable refs — inline handlers made Autocomplete re-attach every render and dropped place_changed. */
+  const handlePlaceResolved = useCallback(
+    (payload: { lat: number; lng: number; formattedAddress: string }) => {
+      setLocationAddress(payload.formattedAddress)
+      setLocationLat(payload.lat)
+      setLocationLng(payload.lng)
+    },
+    []
+  )
+
+  const handleClearGeocode = useCallback(() => {
+    setLocationLat(null)
+    setLocationLng(null)
+  }, [])
 
   const primaryCategory = categoryOrder[0] ?? null
   const needsOtherDetail = categoryOrder.includes('Other')
@@ -342,17 +370,16 @@ export function PartnerSignupWizard() {
               key="location-field"
               initialValue={locationAddress}
               onAddressChange={setLocationAddress}
-              onPlaceResolved={({ lat, lng, formattedAddress }) => {
-                setLocationAddress(formattedAddress)
-                setLocationLat(lat)
-                setLocationLng(lng)
-              }}
-              onClearGeocode={() => {
-                setLocationLat(null)
-                setLocationLng(null)
-              }}
+              onPlaceResolved={handlePlaceResolved}
+              onClearGeocode={handleClearGeocode}
+              onAuthFailure={handleMapsAuthFailure}
               apiKey={MAPS_KEY}
             />
+            {mapsAuthError && (
+              <p className="text-xs text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2 leading-relaxed whitespace-pre-wrap">
+                {mapsAuthError}
+              </p>
+            )}
             {MAPS_KEY && locationAddress && (locationLat == null || locationLng == null) && (
               <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 Choose a suggestion from the dropdown so we can save your map coordinates.

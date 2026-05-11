@@ -80,6 +80,11 @@ export async function proxy(request: NextRequest) {
 
   // ── Vendor portal: /partners/* protection ───────────────────────────────────
   if (pathname.startsWith('/partners')) {
+    // Public marketing landing — must not require auth or checkout (same as /partners/login, etc.)
+    if (pathname === '/partners' || pathname === '/partners/') {
+      return supabaseResponse
+    }
+
     const isPublicPartnerPath = PUBLIC_PARTNER_PATHS.some(
       (p) => pathname === p || pathname.startsWith(p + '/')
     )
