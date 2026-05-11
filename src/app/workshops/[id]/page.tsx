@@ -19,7 +19,7 @@ interface Event {
   max_attendees: number | null
   available_slots: number | null
   duration_minutes: number | null
-  status: string | null
+  booking_status: string | null
   cal_event_type_id: string | null
   vendor_profile_id: string | null
   external_link: string | null
@@ -50,7 +50,7 @@ export default async function WorkshopDetailPage({ params }: Params) {
 
   const { data: event } = await admin
     .from('events')
-    .select('id, title, description, date, location, category, price_cad, price, max_attendees, available_slots, duration_minutes, status, cal_event_type_id, vendor_profile_id, external_link')
+    .select('id, title, description, date, location, category, price_cad, price, max_attendees, available_slots, duration_minutes, booking_status, cal_event_type_id, vendor_profile_id, external_link')
     .eq('id', id)
     .single() as { data: Event | null }
 
@@ -84,7 +84,7 @@ export default async function WorkshopDetailPage({ params }: Params) {
   }
 
   const isSaasEvent = !!event.vendor_profile_id && !!event.cal_event_type_id
-  const isFullyBooked = event.status === 'fully_booked' || (event.available_slots ?? 1) <= 0
+  const isFullyBooked = event.booking_status === 'fully_booked' || (event.available_slots ?? 1) <= 0
   const priceCad = event.price_cad ?? 0
   const stripePk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''
 

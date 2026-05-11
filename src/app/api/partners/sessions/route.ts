@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { createCalEventType } from '@/lib/cal'
 import { decrypt } from '@/lib/token-encryption'
+import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
 
 function slugify(title: string): string {
@@ -16,7 +17,7 @@ function slugify(title: string): string {
 const sessionSchema = z.object({
   title: z.string().min(2).max(120),
   description: z.string().max(2000).optional(),
-  category: z.enum(['pottery', 'floral', 'culinary', 'other']),
+  category: z.enum(CATEGORY_ENUM),
   price_cad: z.number().min(0).max(10000),
   max_attendees: z.number().int().min(1).max(500),
   duration_minutes: z.number().int().min(15).max(480),
@@ -55,14 +56,19 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (status) {
-      query = query.eq('status', status)
+      query = query.eq('booking_status', status)
     }
 
     const { data: sessions, error } = await query
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    return NextResponse.json({ sessions })
+    const withStatusAlias = (sessions ?? []).map((row) => ({
+      ...row,
+      status: row.booking_status as string | undefined,
+    }))
+
+    return NextResponse.json({ sessions: withStatusAlias })
   } catch (err) {
     console.error('Sessions list error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -147,7 +153,7 @@ export async function POST(request: NextRequest) {
         duration_minutes: body.duration_minutes,
         location: body.location_address ?? body.location_link ?? null,
         date: body.date ? new Date(body.date).toISOString() : null,
-        status: body.status,
+        booking_status: body.status,
         cal_event_type_id: calEventTypeId,
         organizer: null,
       })
@@ -165,7 +171,9 @@ export async function POST(request: NextRequest) {
       .eq('id', vendor.id)
       .eq('first_session_created', false)
 
-    return NextResponse.json({ session: event }, { status: 201 })
+    return NextResponse.json({
+      session: event ? { ...event, status: event.booking_status } : null,
+    }, { status: 201 })
   } catch (err) {
     console.error('Session create error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

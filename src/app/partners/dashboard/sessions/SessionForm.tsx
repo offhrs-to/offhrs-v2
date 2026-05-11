@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ArrowLeft, Loader2 } from 'lucide-react'
+import { CATEGORIES, normalizePartnerSessionCategory } from '@/constants/categories'
 
 interface SessionFormProps {
   session?: {
@@ -18,19 +19,12 @@ interface SessionFormProps {
   onClose: () => void
 }
 
-const CATEGORIES = [
-  { value: 'pottery', label: 'Pottery' },
-  { value: 'floral', label: 'Floral' },
-  { value: 'culinary', label: 'Culinary' },
-  { value: 'other', label: 'Other' },
-]
-
 export function SessionForm({ session, onClose }: SessionFormProps) {
   const isEdit = !!session?.id
 
   const [form, setForm] = useState({
     title: session?.title ?? '',
-    category: session?.category ?? 'other',
+    category: normalizePartnerSessionCategory(session?.category),
     price_cad: session?.price_cad?.toString() ?? '0',
     max_attendees: session?.max_attendees?.toString() ?? '10',
     duration_minutes: session?.duration_minutes?.toString() ?? '90',
@@ -139,7 +133,7 @@ export function SessionForm({ session, onClose }: SessionFormProps) {
               className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
             >
               {CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
+                <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>

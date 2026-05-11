@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
   const { data: sessionCounts } = await admin
     .from('events')
     .select('vendor_profile_id')
-    .neq('status', 'archived')
+    .neq('booking_status', 'archived')
   const sessionCountMap: Record<string, number> = {}
   for (const s of sessionCounts ?? []) {
     if (s.vendor_profile_id) sessionCountMap[s.vendor_profile_id] = (sessionCountMap[s.vendor_profile_id] ?? 0) + 1

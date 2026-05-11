@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     // Fetch event details
     const { data: event } = await admin
       .from('events')
-      .select('id, title, available_slots, max_attendees, duration_minutes, location, status, vendor_profile_id')
+      .select('id, title, available_slots, max_attendees, duration_minutes, location, booking_status, vendor_profile_id')
       .eq('id', eventId)
       .single()
 
@@ -123,11 +123,11 @@ export async function POST(request: NextRequest) {
     // Decrement available slots
     const currentSlots = event.available_slots ?? event.max_attendees ?? 1
     const newSlots = Math.max(0, currentSlots - 1)
-    const newStatus = newSlots === 0 ? 'fully_booked' : event.status
+    const newStatus = newSlots === 0 ? 'fully_booked' : event.booking_status
 
     await admin
       .from('events')
-      .update({ available_slots: newSlots, status: newStatus })
+      .update({ available_slots: newSlots, booking_status: newStatus })
       .eq('id', eventId)
 
     // Send emails

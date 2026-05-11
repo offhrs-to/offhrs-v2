@@ -23,7 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .from('events')
     .select('id, created_at')
     .not('vendor_profile_id', 'is', null)
-    .in('status', ['published', 'fully_booked'])
+    .in('booking_status', ['published', 'fully_booked'])
     .limit(2000)
 
   const workshopEntries: MetadataRoute.Sitemap = (saasEvents ?? []).map((row) => ({

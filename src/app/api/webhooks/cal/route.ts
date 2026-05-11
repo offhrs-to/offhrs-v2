@@ -134,7 +134,7 @@ async function handleBookingCreated(
   // Find the event by cal_event_type_id
   const { data: event } = await admin
     .from('events')
-    .select('id, title, vendor_profile_id, duration_minutes, location, available_slots, max_attendees, price_cad, status')
+    .select('id, title, vendor_profile_id, duration_minutes, location, available_slots, max_attendees, price_cad, booking_status')
     .eq('cal_event_type_id', eventTypeId)
     .maybeSingle()
 
@@ -167,11 +167,11 @@ async function handleBookingCreated(
   // Decrement available slots
   if (event.available_slots !== null && event.available_slots > 0) {
     const newSlots = event.available_slots - 1
-    const newStatus = newSlots === 0 ? 'fully_booked' : event.status
+    const newStatus = newSlots === 0 ? 'fully_booked' : event.booking_status
 
     await admin
       .from('events')
-      .update({ available_slots: newSlots, status: newStatus })
+      .update({ available_slots: newSlots, booking_status: newStatus })
       .eq('id', event.id)
 
     // Notify vendor if fully booked
@@ -251,7 +251,7 @@ async function handleBookingCancelled(
       .from('events')
       .update({
         available_slots: newSlots,
-        status: newSlots > 0 ? 'published' : 'fully_booked',
+        booking_status: newSlots > 0 ? 'published' : 'fully_booked',
       })
       .eq('id', event.id)
 

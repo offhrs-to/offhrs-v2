@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { CalendarDays, AlertCircle } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 interface CalendarClientProps {
   calUserId: string | null
@@ -19,6 +20,9 @@ export function CalendarClient({ calUserId, accessToken, calConnected, vendorId 
   const [atomsLoaded, setAtomsLoaded] = useState(false)
   const [atomsError, setAtomsError] = useState(false)
   const [connected, setConnected] = useState(calConnected)
+  const router = useRouter()
+  const [provisionLoading, setProvisionLoading] = useState(false)
+  const [provisionMsg, setProvisionMsg] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadAtoms() {
@@ -51,6 +55,38 @@ export function CalendarClient({ calUserId, accessToken, calConnected, vendorId 
               If this persists, please contact support.
             </p>
           </div>
+        </div>
+
+        <div className="mt-4">
+          <button
+            type="button"
+            disabled={provisionLoading}
+            onClick={async () => {
+              setProvisionLoading(true)
+              setProvisionMsg(null)
+              try {
+                const res = await fetch('/api/partners/cal/provision', { method: 'POST', credentials: 'include' })
+                const data = await res.json().catch(() => ({}))
+                if (!res.ok) throw new Error(data.error ?? 'Failed to provision calendar access.')
+                router.refresh()
+                // If the server props change, refresh should be enough; reload as a fallback.
+                window.location.reload()
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : 'Failed to provision calendar access.'
+                setProvisionMsg(msg)
+              } finally {
+                setProvisionLoading(false)
+              }
+            }}
+            className="w-full text-sm font-semibold text-[#1a1a1a] border border-[#E8E4DE] px-4 py-2.5 rounded-xl hover:bg-[#F0EDE8] disabled:opacity-60 transition-colors"
+          >
+            {provisionLoading ? 'Provisioning…' : 'Provision calendar access'}
+          </button>
+          {provisionMsg && (
+            <p className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              {provisionMsg}
+            </p>
+          )}
         </div>
       </div>
     )

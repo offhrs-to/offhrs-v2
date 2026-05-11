@@ -45,6 +45,10 @@ export function SettingsClient({ vendor, email }: SettingsClientProps) {
   // Billing portal
   const [portalLoading, setPortalLoading] = useState(false)
 
+  // Account deletion
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteMsg, setDeleteMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
   function setP(key: keyof typeof profile, val: string) {
     setProfile((f) => ({ ...f, [key]: val }))
   }
@@ -113,6 +117,35 @@ export function SettingsClient({ vendor, email }: SettingsClientProps) {
       else alert(data.error ?? 'Could not open billing portal.')
     } finally {
       setPortalLoading(false)
+    }
+  }
+
+  async function deleteAccount() {
+    if (!confirm('Delete your account? This is permanent and cannot be undone.')) return
+    setDeleteLoading(true)
+    setDeleteMsg(null)
+    try {
+      const res = await fetch('/api/account/delete', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Failed to delete account.')
+      }
+
+      // Clear local session and return to partner login.
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      await supabase.auth.signOut()
+      router.push('/partners/login')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete account.'
+      setDeleteMsg({ type: 'error', text: message })
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -301,6 +334,27 @@ export function SettingsClient({ vendor, email }: SettingsClientProps) {
         >
           Cancel subscription
         </button>
+
+        <div className="mt-4 border-t border-red-100 pt-4">
+          <button
+            onClick={deleteAccount}
+            disabled={deleteLoading}
+            className="w-full text-sm font-semibold text-red-700 border border-red-200 px-4 py-2 rounded-xl hover:bg-red-50 disabled:opacity-50 transition-colors"
+          >
+            {deleteLoading ? 'Deleting…' : 'Delete account'}
+          </button>
+          {deleteMsg && (
+            <p
+              className={`mt-3 text-sm px-4 py-3 rounded-xl ${
+                deleteMsg.type === 'success'
+                  ? 'bg-green-50 border border-green-200 text-green-700'
+                  : 'bg-red-50 border border-red-200 text-red-600'
+              }`}
+            >
+              {deleteMsg.text}
+            </p>
+          )}
+        </div>
       </section>
     </div>
   )

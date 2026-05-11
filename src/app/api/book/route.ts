@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       // Fetch event with vendor details
       const { data: event } = await admin
         .from('events')
-        .select('id, title, vendor_profile_id, cal_event_type_id, price_cad, available_slots, duration_minutes, location, status')
+        .select('id, title, vendor_profile_id, cal_event_type_id, price_cad, available_slots, duration_minutes, location, booking_status')
         .eq('id', String(event_id))
         .single()
 
@@ -78,11 +78,11 @@ export async function POST(request: NextRequest) {
         return handleLegacyBook(raw, user)
       }
 
-      if (event.status === 'fully_booked') {
+      if (event.booking_status === 'fully_booked') {
         return NextResponse.json({ error: 'This session is fully booked' }, { status: 409 })
       }
 
-      if (event.status !== 'published') {
+      if (event.booking_status !== 'published') {
         return NextResponse.json({ error: 'This session is not available for booking' }, { status: 409 })
       }
 

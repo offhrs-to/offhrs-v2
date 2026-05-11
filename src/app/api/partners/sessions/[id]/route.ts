@@ -3,11 +3,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { updateCalEventType, deleteCalEventType } from '@/lib/cal'
 import { decrypt } from '@/lib/token-encryption'
+import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
 
 const updateSchema = z.object({
   title: z.string().min(2).max(120).optional(),
   description: z.string().max(2000).optional(),
+  category: z.enum(CATEGORY_ENUM).optional(),
   price_cad: z.number().min(0).max(10000).optional(),
   max_attendees: z.number().int().min(1).max(500).optional(),
   duration_minutes: z.number().int().min(15).max(480).optional(),
@@ -98,6 +100,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     const updatePayload: Record<string, unknown> = {}
     if (body.title !== undefined) updatePayload.title = body.title
+    if (body.category !== undefined) updatePayload.category = body.category
+    if (body.status !== undefined) updatePayload.booking_status = body.status
     if (body.price_cad !== undefined) {
       updatePayload.price_cad = body.price_cad
       updatePayload.price = body.price_cad > 0 ? `$${body.price_cad} CAD` : 'Free'
@@ -107,7 +111,6 @@ export async function PUT(request: NextRequest, { params }: Params) {
     if (body.date !== undefined) updatePayload.date = body.date ? new Date(body.date).toISOString() : null
     if (body.location_address !== undefined) updatePayload.location = body.location_address
     if (body.location_link !== undefined) updatePayload.location = body.location_link
-    if (body.status !== undefined) updatePayload.status = body.status
 
     const { data: updated, error } = await admin
       .from('events')
@@ -118,7 +121,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    return NextResponse.json({ session: updated })
+    return NextResponse.json({
+      session: updated ? { ...updated, status: updated.booking_status } : null,
+    })
   } catch (err) {
     console.error('Session update error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -156,7 +161,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
       }
     }
 
-    await admin.from('events').update({ status: 'archived' }).eq('id', id)
+    await admin.from('events').update({ booking_status: 'archived' }).eq('id', id)
 
     return NextResponse.json({ success: true })
   } catch (err) {

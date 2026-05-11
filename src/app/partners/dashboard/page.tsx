@@ -58,7 +58,7 @@ export default async function DashboardPage() {
       .from('events')
       .select('id', { count: 'exact' })
       .eq('vendor_profile_id', vendor.id)
-      .in('status', ['published', 'fully_booked']),
+      .in('booking_status', ['published', 'fully_booked']),
     admin
       .from('bookings')
       .select('amount_cad')

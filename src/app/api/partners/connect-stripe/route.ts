@@ -7,13 +7,17 @@ const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholde
   apiVersion: '2026-04-22.dahlia',
 })
 
-const APP_URL =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-
 // POST /api/partners/connect-stripe — create Stripe Connect Express account + return onboarding URL
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
+    // Build redirect URLs from the request host/protocol (prevents DEPLOYMENT_NOT_FOUND
+    // when NEXT_PUBLIC_APP_URL points to the wrong Vercel project/domain).
+    const url = new URL(request.url)
+    const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? url.host
+    const proto =
+      request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '')
+    const appUrl = `${proto}://${host}`
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -72,8 +76,8 @@ export async function POST(_request: NextRequest) {
 
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
-      refresh_url: `${APP_URL}/api/partners/connect-stripe/refresh`,
-      return_url: `${APP_URL}/partners/dashboard?connect=success`,
+      refresh_url: `${appUrl}/api/partners/connect-stripe/refresh`,
+      return_url: `${appUrl}/partners/dashboard?connect=success`,
       type: 'account_onboarding',
     })
 

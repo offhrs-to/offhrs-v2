@@ -161,6 +161,7 @@ async function handleStripeEvent(
 
         if (email) {
           let calProvisioned = false
+          let lastCalErr: unknown = null
           for (let attempt = 0; attempt < 3 && !calProvisioned; attempt++) {
             try {
               if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 2000))
@@ -180,7 +181,13 @@ async function handleStripeEvent(
               calProvisioned = true
             } catch (calErr) {
               console.error(`Cal.com provisioning attempt ${attempt + 1} failed:`, calErr)
+              lastCalErr = calErr
             }
+          }
+
+          if (!calProvisioned) {
+            const message = lastCalErr instanceof Error ? lastCalErr.message : String(lastCalErr ?? 'Unknown error')
+            throw new Error(`Cal.com provisioning failed after retries: ${message}`)
           }
         }
       }

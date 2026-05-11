@@ -23,7 +23,7 @@ export default async function BookingsPage() {
     .from('events')
     .select('id, title')
     .eq('vendor_profile_id', vendor.id)
-    .neq('status', 'archived')
+    .neq('booking_status', 'archived')
     .order('title')
 
   return <BookingsClient sessions={sessions ?? []} />
