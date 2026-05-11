@@ -1,14 +1,40 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { CATEGORY_ENUM } from '@/constants/categories'
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { z } from 'zod'
 
-const signupSchema = z.object({
-  business_name: z.string().min(2).max(100),
-  email: z.string().email(),
-  password: z.string().min(8).max(128),
-  phone: z.string().max(30).optional(),
-})
+const signupSchema = z
+  .object({
+    business_name: z.string().min(2).max(100),
+    website_url: z.string().max(500).optional().nullable(),
+    categories: z.array(z.enum(CATEGORY_ENUM)).min(1).max(4),
+    category_other_detail: z.string().max(200).optional().nullable(),
+    location_address: z.string().min(3).max(500),
+    location_lat: z.number().finite().optional().nullable(),
+    location_lng: z.number().finite().optional().nullable(),
+    email: z.string().email(),
+    password: z.string().min(8).max(128),
+    phone: z.string().max(30).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.categories.includes('Other') && !data.category_other_detail?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Describe your service when you select Other',
+        path: ['category_other_detail'],
+      })
+    }
+    const hasLat = data.location_lat != null
+    const hasLng = data.location_lng != null
+    if (hasLat !== hasLng) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Location coordinates must include both latitude and longitude',
+        path: ['location_lat'],
+      })
+    }
+  })
 
 function slugify(name: string): string {
   return name
@@ -43,11 +69,27 @@ export async function POST(request: NextRequest) {
     const raw = await request.json()
     const parsed = signupSchema.safeParse(raw)
     if (!parsed.success) {
-      const msg = parsed.error.flatten().fieldErrors
-      return NextResponse.json({ error: 'Validation failed', fields: msg }, { status: 400 })
+      const first = parsed.error.issues[0]?.message ?? 'Validation failed'
+      return NextResponse.json(
+        { error: first, fields: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      )
     }
 
-    const { business_name, email, password, phone } = parsed.data
+    const {
+      business_name,
+      website_url,
+      categories,
+      category_other_detail,
+      location_address,
+      location_lat,
+      location_lng,
+      email,
+      password,
+      phone,
+    } = parsed.data
+
+    const bioTrim = category_other_detail?.trim() || null
 
     const admin = createAdminClient()
     if (!admin) {
@@ -75,7 +117,7 @@ export async function POST(request: NextRequest) {
     const userId = authData.user.id
 
     // Generate unique slug from business name
-    let baseSlug = slugify(business_name)
+    const baseSlug = slugify(business_name)
     let slug = baseSlug
     let attempt = 0
     while (true) {
@@ -90,11 +132,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Create vendor profile
+    const websiteTrim = website_url?.trim()
     const { error: profileError } = await admin.from('vendor_profiles').insert({
       user_id: userId,
       business_name,
       slug,
-      phone: phone ?? null,
+      phone: phone?.trim() || null,
+      website_url: websiteTrim ? websiteTrim : null,
+      category: categories,
+      location_address: location_address.trim(),
+      location_lat: location_lat ?? null,
+      location_lng: location_lng ?? null,
+      bio: bioTrim,
       status: 'pending',
     })
 

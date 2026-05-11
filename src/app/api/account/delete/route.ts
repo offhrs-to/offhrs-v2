@@ -66,6 +66,26 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = user.id
+
+    // Vendor sessions reference vendor_profiles; deleting the auth user cascades to
+    // vendor_profiles, which fails if events still reference that profile (FK default NO ACTION).
+    // Remove vendor-owned events first so deleteUser succeeds (migration also adds ON DELETE CASCADE).
+    const { data: vendorRows } = await admin
+      .from('vendor_profiles')
+      .select('id')
+      .eq('user_id', userId)
+    const vendorIds = (vendorRows ?? []).map((r: { id: string }) => r.id).filter(Boolean)
+    if (vendorIds.length > 0) {
+      const { error: evErr } = await admin.from('events').delete().in('vendor_profile_id', vendorIds)
+      if (evErr) {
+        console.error('Account delete: failed to remove vendor events', { userId, message: evErr.message })
+        return NextResponse.json(
+          { error: 'Failed to delete account' },
+          { status: 500 }
+        )
+      }
+    }
+
     const { error } = await admin.auth.admin.deleteUser(userId)
     if (error) {
       console.error('Account delete: admin.deleteUser failed', {

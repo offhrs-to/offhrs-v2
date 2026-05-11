@@ -83,7 +83,7 @@ export function CalendarClient({ calUserId, accessToken, calConnected, vendorId 
             {provisionLoading ? 'Provisioning…' : 'Provision calendar access'}
           </button>
           {provisionMsg && (
-            <p className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <p className="mt-3 text-sm text-red-800 bg-red-50 border border-red-200 rounded-xl px-4 py-3 leading-relaxed whitespace-pre-wrap break-words">
               {provisionMsg}
             </p>
           )}
