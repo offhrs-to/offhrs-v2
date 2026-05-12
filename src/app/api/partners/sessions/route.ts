@@ -1,18 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
-import { createCalEventType } from '@/lib/cal'
-import { decrypt } from '@/lib/token-encryption'
 import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
-
-function slugify(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60)
-}
 
 const sessionSchema = z.object({
   title: z.string().min(2).max(120),
@@ -95,51 +85,13 @@ export async function POST(request: NextRequest) {
 
     const { data: vendor } = await admin
       .from('vendor_profiles')
-      .select('id, cal_user_id')
+      .select('id')
       .eq('user_id', user.id)
       .single()
 
     if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
 
-    // Build Cal.com locations
-    const locations: { type: string; address?: string; link?: string }[] = []
-    if (body.location_type === 'in_person' && body.location_address) {
-      locations.push({ type: 'inPerson', address: body.location_address })
-    } else if (body.location_type === 'virtual' && body.location_link) {
-      locations.push({ type: 'link', link: body.location_link })
-    }
-
-    // Sync to Cal.com if vendor has a managed user
-    let calEventTypeId: string | null = null
-
-    if (vendor.cal_user_id) {
-      const { data: tokenRow } = await admin
-        .from('vendor_cal_tokens')
-        .select('access_token')
-        .eq('vendor_id', vendor.id)
-        .single()
-
-      if (tokenRow) {
-        try {
-          const accessToken = decrypt(tokenRow.access_token)
-          const calEventType = await createCalEventType(accessToken, {
-            title: body.title,
-            slug: slugify(body.title),
-            lengthInMinutes: body.duration_minutes,
-            description: body.description,
-            price: body.price_cad > 0 ? Math.round(body.price_cad * 100) : undefined,
-            currency: 'cad',
-            seatsPerTimeSlot: body.max_attendees,
-            locations: locations.length > 0 ? locations : undefined,
-          })
-          calEventTypeId = String(calEventType.id ?? calEventType.eventTypeId)
-        } catch (calErr) {
-          console.error('Cal.com event type creation failed (non-fatal):', calErr)
-        }
-      }
-    }
-
-    // Insert into events table
+    // Insert into events table (first-party scheduling — date/time on the event row)
     const { data: event, error: insertError } = await admin
       .from('events')
       .insert({
@@ -154,7 +106,7 @@ export async function POST(request: NextRequest) {
         location: body.location_address ?? body.location_link ?? null,
         date: body.date ? new Date(body.date).toISOString() : null,
         booking_status: body.status,
-        cal_event_type_id: calEventTypeId,
+        cal_event_type_id: null,
         organizer: null,
       })
       .select()
@@ -179,4 +131,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

@@ -17,7 +17,6 @@ interface Session {
   date: string | null
   location: string | null
   status: string
-  cal_event_type_id: string | null
   created_at: string
 }
 
@@ -175,11 +174,6 @@ function SessionsPageInner() {
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${badge.className}`}>
                       {badge.label}
                     </span>
-                    {session.cal_event_type_id && (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 flex-shrink-0">
-                        Cal synced
-                      </span>
-                    )}
                   </div>
                   <div className="flex items-center gap-4 text-xs text-[#888]">
                     {session.price_cad !== null && (

@@ -11,7 +11,7 @@
  *   WAVES       — number of waves (default: 5)
  *   BYPASS      — optional Vercel protection bypass token (?x-vercel-protection-bypass=...)
  *
- * Expects GET /api/webhooks/cal to return 200 {"ok":true}.
+ * Expects GET / to return 200 (HTML).
  * Hits POST /api/book with empty body expecting 400 (validation path, no Stripe).
  */
 
@@ -20,21 +20,13 @@ const concurrent = Number(process.env.CONCURRENT || 10)
 const waves = Number(process.env.WAVES || 5)
 const bypass = process.env.BYPASS?.trim()
 
-const calUrl = bypass
-  ? `${base}/api/webhooks/cal?x-vercel-protection-bypass=${encodeURIComponent(bypass)}`
-  : `${base}/api/webhooks/cal`
+const homeUrl = bypass
+  ? `${base}/?x-vercel-protection-bypass=${encodeURIComponent(bypass)}`
+  : `${base}/`
 
-async function oneCalGet(i, wave) {
-  const res = await fetch(calUrl, { method: 'GET', headers: { Accept: 'application/json' } })
-  const text = await res.text()
-  let ok = res.ok
-  try {
-    const j = JSON.parse(text)
-    ok = ok && j.ok === true
-  } catch {
-    ok = false
-  }
-  return { i, wave, route: 'GET /api/webhooks/cal', status: res.status, ok }
+async function oneHomeGet(i, wave) {
+  const res = await fetch(homeUrl, { method: 'GET', headers: { Accept: 'text/html' } })
+  return { i, wave, route: 'GET /', status: res.status, ok: res.ok }
 }
 
 async function oneBookPost(i, wave) {
@@ -49,7 +41,7 @@ async function oneBookPost(i, wave) {
 async function wave(w) {
   const tasks = []
   for (let i = 0; i < concurrent; i++) {
-    tasks.push(oneCalGet(i, w))
+    tasks.push(oneHomeGet(i, w))
     tasks.push(oneBookPost(i, w))
   }
   return Promise.all(tasks)

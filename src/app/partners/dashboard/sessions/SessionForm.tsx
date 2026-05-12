@@ -234,7 +234,7 @@ export function SessionForm({ session, vendorDefaultAddress = '', onClose }: Ses
             onChange={(e) => set('date', e.target.value)}
             className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
           />
-          <p className="text-xs text-[#888] mt-1">Leave blank for recurring sessions managed in your calendar.</p>
+          <p className="text-xs text-[#888] mt-1">Shown on the public workshop page and in confirmation emails. Leave blank if you coordinate time separately.</p>
         </div>
 
         {/* Location */}

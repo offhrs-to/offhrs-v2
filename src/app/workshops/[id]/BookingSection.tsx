@@ -1,19 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import Link from 'next/link'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 
 interface BookingSectionProps {
   eventId: string
-  eventTitle: string
-  calEventTypeId: string
-  calAccessToken: string | null
+  /** Initial value for `datetime-local` from session `date` (local components). */
+  defaultStartLocal: string
   priceCad: number
   stripePk: string
   isFullyBooked: boolean
-  calOAuthClientId: string
 }
 
 interface AttendeeForm {
@@ -22,23 +21,13 @@ interface AttendeeForm {
   startTime: string
 }
 
-// ── Payment Form (inside Elements context) ───────────────────────────────────
-
 function PaymentForm({
   attendee,
-  eventId,
   priceCad,
-  calEventTypeId,
-  calAccessToken,
-  calOAuthClientId,
   onSuccess,
 }: {
   attendee: AttendeeForm
-  eventId: string
   priceCad: number
-  calEventTypeId: string
-  calAccessToken: string | null
-  calOAuthClientId: string
   onSuccess: () => void
 }) {
   const stripe = useStripe()
@@ -52,7 +41,6 @@ function PaymentForm({
     setError('')
 
     try {
-      // Confirm the payment
       const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: { return_url: window.location.href },
@@ -66,50 +54,24 @@ function PaymentForm({
       }
 
       if (paymentIntent?.status === 'succeeded') {
-        // Create Cal.com booking if we have a start time
-        let calBookingUid: string | undefined
-
-        if (calAccessToken && attendee.startTime) {
-          try {
-            const calRes = await fetch('https://api.cal.com/v2/bookings', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${calAccessToken}`,
-                'cal-api-version': '2024-08-13',
-              },
-              body: JSON.stringify({
-                eventTypeId: parseInt(calEventTypeId),
-                start: attendee.startTime,
-                attendee: {
-                  name: attendee.name,
-                  email: attendee.email,
-                  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                },
-                metadata: { paymentIntentId: paymentIntent.id },
-              }),
-            })
-            const calData = await calRes.json()
-            calBookingUid = calData.data?.uid ?? calData.uid
-          } catch (calErr) {
-            console.error('Cal.com booking creation failed (non-fatal):', calErr)
-          }
-        }
-
-        // Confirm booking in our system
-        await fetch('/api/book/confirm', {
+        const conf = await fetch('/api/book/confirm', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             paymentIntentId: paymentIntent.id,
-            calBookingUid,
-            startTime: attendee.startTime,
+            startTime: attendee.startTime || undefined,
           }),
         })
+        const confData = await conf.json().catch(() => ({}))
+        if (!conf.ok) {
+          setError((confData as { error?: string }).error ?? 'Could not finalize booking. Contact support with your payment receipt.')
+          setLoading(false)
+          return
+        }
 
         onSuccess()
       }
-    } catch (err) {
+    } catch {
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
@@ -137,29 +99,23 @@ function PaymentForm({
   )
 }
 
-// ── Main BookingSection ───────────────────────────────────────────────────────
-
 type Step = 'details' | 'payment' | 'success'
 
 export function BookingSection({
   eventId,
-  eventTitle,
-  calEventTypeId,
-  calAccessToken,
+  defaultStartLocal,
   priceCad,
   stripePk,
   isFullyBooked,
-  calOAuthClientId,
 }: BookingSectionProps) {
   const [step, setStep] = useState<Step>('details')
   const [attendee, setAttendee] = useState<AttendeeForm>({ name: '', email: '', startTime: '' })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [loadingIntent, setLoadingIntent] = useState(false)
   const [intentError, setIntentError] = useState('')
-  const [stripePromise] = useState(() => stripePk ? loadStripe(stripePk) : null)
+  const [stripePromise] = useState(() => (stripePk ? loadStripe(stripePk) : null))
 
-  // Available slots loaded from Cal.com (simplified — just a date/time picker for now)
-  const [selectedDateTime, setSelectedDateTime] = useState('')
+  const [selectedDateTime, setSelectedDateTime] = useState(defaultStartLocal)
 
   function setField(key: keyof AttendeeForm, val: string) {
     setAttendee((f) => ({ ...f, [key]: val }))
@@ -168,7 +124,6 @@ export function BookingSection({
   async function handleProceedToPayment() {
     if (!attendee.name.trim() || !attendee.email.trim()) return
     if (priceCad === 0) {
-      // Free session — just show a booking form without payment
       handleFreeBooking()
       return
     }
@@ -206,14 +161,29 @@ export function BookingSection({
   }
 
   async function handleFreeBooking() {
-    // For free sessions, confirm without payment
+    setIntentError('')
     try {
-      await fetch('/api/book/confirm', {
+      const res = await fetch('/api/book/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentIntentId: 'free', startTime: selectedDateTime }),
+        body: JSON.stringify({
+          free: true as const,
+          event_id: eventId,
+          attendee_name: attendee.name,
+          attendee_email: attendee.email,
+          startTime: selectedDateTime || undefined,
+        }),
       })
-    } catch {}
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setIntentError((data as { error?: string }).error ?? 'Could not complete booking.')
+        return
+      }
+      setIntentError('')
+    } catch {
+      setIntentError('Network error. Please try again.')
+      return
+    }
     setStep('success')
   }
 
@@ -230,16 +200,16 @@ export function BookingSection({
     return (
       <div className="bg-white border border-[#E8E4DE] rounded-2xl p-8 text-center">
         <CheckCircle2 className="w-12 h-12 text-[#5D755D] mx-auto mb-4" />
-        <h3 className="text-lg font-bold text-[#1a1a1a] mb-2">You're booked!</h3>
+        <h3 className="text-lg font-bold text-[#1a1a1a] mb-2">You&apos;re booked!</h3>
         <p className="text-sm text-[#888] mb-4">
-          A confirmation email with a calendar invite has been sent to <strong>{attendee.email}</strong>.
+          A confirmation email with session details has been sent to <strong>{attendee.email}</strong>.
         </p>
-        <a
+        <Link
           href="/workshops"
           className="inline-block text-sm font-medium text-[#5D755D] hover:underline"
         >
           Browse more workshops →
-        </a>
+        </Link>
       </div>
     )
   }
@@ -272,14 +242,16 @@ export function BookingSection({
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#555] mb-1.5">Preferred date & time</label>
+            <label className="block text-xs font-medium text-[#555] mb-1.5">Session start</label>
             <input
               type="datetime-local"
               value={selectedDateTime}
               onChange={(e) => setSelectedDateTime(e.target.value)}
               className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
             />
-            <p className="text-xs text-[#888] mt-1">Leave blank and the vendor will confirm a time with you.</p>
+            <p className="text-xs text-[#888] mt-1">
+              Defaults to the time set on your session. Adjust only if the host allows a different slot.
+            </p>
           </div>
 
           {intentError && (
@@ -318,6 +290,7 @@ export function BookingSection({
           <div className="mb-4 text-xs text-[#888]">
             Booking for <strong className="text-[#1a1a1a]">{attendee.name}</strong> · {attendee.email}
             <button
+              type="button"
               onClick={() => { setStep('details'); setClientSecret(null) }}
               className="ml-2 text-[#5D755D] hover:underline"
             >
@@ -326,11 +299,7 @@ export function BookingSection({
           </div>
           <PaymentForm
             attendee={attendee}
-            eventId={eventId}
             priceCad={priceCad}
-            calEventTypeId={calEventTypeId}
-            calAccessToken={calAccessToken}
-            calOAuthClientId={calOAuthClientId}
             onSuccess={() => setStep('success')}
           />
         </Elements>

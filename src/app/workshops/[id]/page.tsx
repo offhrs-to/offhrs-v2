@@ -20,7 +20,6 @@ interface Event {
   available_slots: number | null
   duration_minutes: number | null
   booking_status: string | null
-  cal_event_type_id: string | null
   vendor_profile_id: string | null
   external_link: string | null
 }
@@ -30,6 +29,14 @@ interface VendorProfile {
   bio: string | null
   website_url: string | null
   slug: string
+}
+
+function formatDatetimeLocalFromIso(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
@@ -50,15 +57,13 @@ export default async function WorkshopDetailPage({ params }: Params) {
 
   const { data: event } = await admin
     .from('events')
-    .select('id, title, description, date, location, category, price_cad, price, max_attendees, available_slots, duration_minutes, booking_status, cal_event_type_id, vendor_profile_id, external_link')
+    .select('id, title, description, date, location, category, price_cad, price, max_attendees, available_slots, duration_minutes, booking_status, vendor_profile_id, external_link')
     .eq('id', id)
     .single() as { data: Event | null }
 
   if (!event) return notFound()
 
-  // Fetch vendor profile if this is a SaaS event
   let vendor: VendorProfile | null = null
-  let calAccessToken: string | null = null
 
   if (event.vendor_profile_id) {
     const { data: vp } = await admin
@@ -67,23 +72,9 @@ export default async function WorkshopDetailPage({ params }: Params) {
       .eq('id', event.vendor_profile_id)
       .single()
     vendor = vp
-
-    // Get Cal.com access token for BookerEmbed
-    if (event.cal_event_type_id) {
-      const { data: tokenRow } = await admin
-        .from('vendor_cal_tokens')
-        .select('access_token')
-        .eq('vendor_id', event.vendor_profile_id)
-        .single()
-
-      if (tokenRow) {
-        const { decrypt } = await import('@/lib/token-encryption')
-        try { calAccessToken = decrypt(tokenRow.access_token) } catch { calAccessToken = null }
-      }
-    }
   }
 
-  const isSaasEvent = !!event.vendor_profile_id && !!event.cal_event_type_id
+  const canBookVendor = Boolean(event.vendor_profile_id) && event.booking_status === 'published'
   const isFullyBooked = event.booking_status === 'fully_booked' || (event.available_slots ?? 1) <= 0
   const priceCad = event.price_cad ?? 0
   const stripePk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''
@@ -119,7 +110,7 @@ export default async function WorkshopDetailPage({ params }: Params) {
               {vendor && (
                 <p className="text-sm text-[#888] mt-1">
                   by{' '}
-                  <Link href={`/vendors/${event.vendor_profile_id}`} className="text-[#5D755D] hover:underline font-medium">
+                  <Link href={`/vendors/${vendor.slug}`} className="text-[#5D755D] hover:underline font-medium">
                     {vendor.business_name}
                   </Link>
                 </p>
@@ -201,16 +192,13 @@ export default async function WorkshopDetailPage({ params }: Params) {
         )}
 
         {/* Booking section */}
-        {isSaasEvent ? (
+        {canBookVendor ? (
           <BookingSection
             eventId={String(event.id)}
-            eventTitle={event.title}
-            calEventTypeId={event.cal_event_type_id!}
-            calAccessToken={calAccessToken}
+            defaultStartLocal={formatDatetimeLocalFromIso(event.date)}
             priceCad={priceCad}
             stripePk={stripePk}
             isFullyBooked={isFullyBooked}
-            calOAuthClientId={process.env.NEXT_PUBLIC_CAL_OAUTH_CLIENT_ID ?? ''}
           />
         ) : event.external_link ? (
           <div className="bg-white border border-[#E8E4DE] rounded-2xl p-6">

@@ -1,8 +1,7 @@
 /**
  * POST /api/book/confirm
- * Called by the frontend after Stripe payment succeeds.
- * Verifies the PaymentIntent, creates a Cal.com booking, inserts the DB record,
- * decrements available slots, and sends confirmation emails.
+ * Called by the frontend after Stripe payment succeeds, or for free sessions (no PaymentIntent).
+ * Inserts the booking row, decrements available slots, and sends confirmation emails.
  */
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
@@ -18,25 +17,49 @@ const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
-const confirmSchema = z.object({
-  paymentIntentId: z.string(),
-  // Cal.com booking uid returned after creating the booking via the Booker atom
-  calBookingUid: z.string().optional(),
+const paidConfirmSchema = z.object({
+  paymentIntentId: z.string().min(1),
   startTime: z.string().optional(),
 })
+
+const freeConfirmSchema = z.object({
+  free: z.literal(true),
+  event_id: z.string(),
+  attendee_name: z.string().min(1).max(120),
+  attendee_email: z.string().email(),
+  startTime: z.string().optional(),
+})
+
+function resolveSessionDate(
+  startTime: string | undefined,
+  metaStart: string | undefined,
+  eventDateIso: string | null | undefined
+): Date {
+  const raw = startTime || metaStart || eventDateIso
+  if (raw) {
+    const d = new Date(raw)
+    if (!Number.isNaN(d.getTime())) return d
+  }
+  return new Date()
+}
 
 export async function POST(request: NextRequest) {
   try {
     const raw = await request.json()
-    const parsed = confirmSchema.safeParse(raw)
-    if (!parsed.success) {
+    const admin = createAdminClient()
+    if (!admin) return NextResponse.json({ error: 'Server error' }, { status: 500 })
+
+    const freeParsed = freeConfirmSchema.safeParse(raw)
+    if (freeParsed.success) {
+      return handleFreeConfirm(admin, freeParsed.data)
+    }
+
+    const paidParsed = paidConfirmSchema.safeParse(raw)
+    if (!paidParsed.success) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
     }
 
-    const { paymentIntentId, calBookingUid, startTime } = parsed.data
-
-    const admin = createAdminClient()
-    if (!admin) return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    const { paymentIntentId, startTime } = paidParsed.data
 
     // Verify PaymentIntent succeeded
     const pi = await stripe.paymentIntents.retrieve(paymentIntentId)
@@ -50,8 +73,7 @@ export async function POST(request: NextRequest) {
     const attendeeName = meta.attendee_name
     const attendeeEmail = meta.attendee_email
     const priceCad = parseFloat(meta.price_cad ?? '0')
-    const calEventTypeId = meta.cal_event_type_id
-    const piStartTime = startTime ?? meta.start_time
+    const piStartTime = startTime || meta.start_time
 
     // Idempotency — check if booking already exists for this PaymentIntent
     const { data: existingBooking } = await admin
@@ -64,10 +86,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, duplicate: true })
     }
 
-    // Fetch event details
     const { data: event } = await admin
       .from('events')
-      .select('id, title, available_slots, max_attendees, duration_minutes, location, booking_status, vendor_profile_id')
+      .select('id, title, available_slots, max_attendees, duration_minutes, location, booking_status, vendor_profile_id, date')
       .eq('id', eventId)
       .single()
 
@@ -75,7 +96,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    // Fetch vendor profile + auth email
     const { data: vendorProfile } = await admin
       .from('vendor_profiles')
       .select('business_name, website_url, user_id')
@@ -88,20 +108,17 @@ export async function POST(request: NextRequest) {
       return authUser?.user?.email ?? null
     })()
 
-    // Calculate Stripe fee (2.9% + $0.30) and net vendor amount
     const stripeFee = Math.round((priceCad * 0.029 + 0.30) * 100) / 100
     const netVendor = Math.round((priceCad - stripeFee) * 100) / 100
 
-    // Get charge id for refund capability
     const chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : (pi.latest_charge as { id: string } | null)?.id
 
-    // Insert booking record
     const { data: booking, error: insertError } = await admin
       .from('bookings')
       .insert({
         event_id: eventId,
         vendor_id: vendorId,
-        cal_booking_uid: calBookingUid ?? null,
+        cal_booking_uid: null,
         stripe_payment_intent_id: paymentIntentId,
         stripe_charge_id: chargeId ?? null,
         name: attendeeName,
@@ -120,7 +137,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to record booking' }, { status: 500 })
     }
 
-    // Decrement available slots
     const currentSlots = event.available_slots ?? event.max_attendees ?? 1
     const newSlots = Math.max(0, currentSlots - 1)
     const newStatus = newSlots === 0 ? 'fully_booked' : event.booking_status
@@ -130,13 +146,12 @@ export async function POST(request: NextRequest) {
       .update({ available_slots: newSlots, booking_status: newStatus })
       .eq('id', eventId)
 
-    // Send emails
-    const sessionDate = piStartTime ? new Date(piStartTime) : new Date()
+    const sessionDate = resolveSessionDate(piStartTime, undefined, event.date as string | null)
     const durationMinutes = (event.duration_minutes ?? 60) as number
 
     const emailParams = {
-      attendeeName,
-      attendeeEmail,
+      attendeeName: attendeeName ?? '',
+      attendeeEmail: attendeeEmail ?? '',
       sessionTitle: event.title,
       vendorName: vendorProfile?.business_name ?? 'offhrs',
       sessionDate,
@@ -147,14 +162,13 @@ export async function POST(request: NextRequest) {
       amountCad: priceCad,
     }
 
-    // Fire emails non-blocking
     Promise.all([
       sendConsumerBookingConfirmation(emailParams),
       vendorEmail
         ? sendVendorBookingNotification(vendorEmail, {
             businessName: vendorProfile?.business_name ?? 'offhrs',
-            attendeeName,
-            attendeeEmail,
+            attendeeName: attendeeName ?? '',
+            attendeeEmail: attendeeEmail ?? '',
             sessionTitle: event.title,
             sessionDate: sessionDate.toLocaleDateString('en-CA', {
               weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
@@ -166,12 +180,11 @@ export async function POST(request: NextRequest) {
       newSlots === 0 && vendorEmail
         ? sendVendorFullyBooked(vendorEmail, event.title, `${APP_URL}/partners/dashboard/bookings`)
         : Promise.resolve(),
-    ]).then(async () => {
-      await admin
-        .from('bookings')
-        .update({ ics_sent: true })
-        .eq('id', booking.id)
-    }).catch(console.error)
+    ])
+      .then(async () => {
+        await admin.from('bookings').update({ ics_sent: true }).eq('id', booking.id)
+      })
+      .catch(console.error)
 
     return NextResponse.json({
       success: true,
@@ -184,4 +197,142 @@ export async function POST(request: NextRequest) {
   }
 }
 
+async function handleFreeConfirm(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  data: z.infer<typeof freeConfirmSchema>
+) {
+  const { event_id, attendee_name, attendee_email, startTime } = data
 
+  const { data: existing } = await admin
+    .from('bookings')
+    .select('id')
+    .eq('event_id', event_id)
+    .eq('email', attendee_email)
+    .eq('status', 'confirmed')
+    .maybeSingle()
+
+  if (existing) {
+    return NextResponse.json({ success: true, duplicate: true })
+  }
+
+  const { data: event } = await admin
+    .from('events')
+    .select(
+      'id, title, available_slots, max_attendees, duration_minutes, location, booking_status, vendor_profile_id, price_cad, date'
+    )
+    .eq('id', event_id)
+    .single()
+
+  if (!event?.vendor_profile_id) {
+    return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+  }
+
+  if ((event.price_cad ?? 0) > 0) {
+    return NextResponse.json({ error: 'This session requires payment' }, { status: 409 })
+  }
+
+  if (event.booking_status === 'fully_booked') {
+    return NextResponse.json({ error: 'This session is fully booked' }, { status: 409 })
+  }
+
+  if (event.booking_status !== 'published') {
+    return NextResponse.json({ error: 'This session is not available for booking' }, { status: 409 })
+  }
+
+  if ((event.available_slots ?? 0) <= 0) {
+    return NextResponse.json({ error: 'No spots remaining' }, { status: 409 })
+  }
+
+  const vendorId = event.vendor_profile_id
+
+  const { data: vendorProfile } = await admin
+    .from('vendor_profiles')
+    .select('business_name, website_url, user_id')
+    .eq('id', vendorId)
+    .single()
+
+  const vendorEmail = await (async () => {
+    if (!vendorProfile?.user_id) return null
+    const { data: authUser } = await admin.auth.admin.getUserById(vendorProfile.user_id)
+    return authUser?.user?.email ?? null
+  })()
+
+  const { data: booking, error: insertError } = await admin
+    .from('bookings')
+    .insert({
+      event_id,
+      vendor_id: vendorId,
+      cal_booking_uid: null,
+      stripe_payment_intent_id: null,
+      stripe_charge_id: null,
+      name: attendee_name,
+      email: attendee_email,
+      status: 'confirmed',
+      amount_cad: 0,
+      stripe_fee_cad: 0,
+      net_vendor_cad: 0,
+      ics_sent: false,
+    })
+    .select()
+    .single()
+
+  if (insertError) {
+    console.error('Free booking insert error:', insertError)
+    return NextResponse.json({ error: 'Failed to record booking' }, { status: 500 })
+  }
+
+  const currentSlots = event.available_slots ?? event.max_attendees ?? 1
+  const newSlots = Math.max(0, currentSlots - 1)
+  const newStatus = newSlots === 0 ? 'fully_booked' : event.booking_status
+
+  await admin
+    .from('events')
+    .update({ available_slots: newSlots, booking_status: newStatus })
+    .eq('id', event_id)
+
+  const sessionDate = resolveSessionDate(startTime, undefined, event.date as string | null)
+  const durationMinutes = (event.duration_minutes ?? 60) as number
+
+  const emailParams = {
+    attendeeName: attendee_name,
+    attendeeEmail: attendee_email,
+    sessionTitle: event.title,
+    vendorName: vendorProfile?.business_name ?? 'offhrs',
+    sessionDate,
+    durationMinutes,
+    location: event.location,
+    vendorWebsite: vendorProfile?.website_url ?? null,
+    bookingRef: booking.id,
+    amountCad: 0,
+  }
+
+  Promise.all([
+    sendConsumerBookingConfirmation(emailParams),
+    vendorEmail
+      ? sendVendorBookingNotification(vendorEmail, {
+          businessName: vendorProfile?.business_name ?? 'offhrs',
+          attendeeName: attendee_name,
+          attendeeEmail: attendee_email,
+          sessionTitle: event.title,
+          sessionDate: sessionDate.toLocaleDateString('en-CA', {
+            weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+          }),
+          amountCad: 0,
+          dashboardUrl: `${APP_URL}/partners/dashboard/bookings`,
+        })
+      : Promise.resolve(),
+    newSlots === 0 && vendorEmail
+      ? sendVendorFullyBooked(vendorEmail, event.title, `${APP_URL}/partners/dashboard/bookings`)
+      : Promise.resolve(),
+  ])
+    .then(async () => {
+      await admin.from('bookings').update({ ics_sent: true }).eq('id', booking.id)
+    })
+    .catch(console.error)
+
+  return NextResponse.json({
+    success: true,
+    bookingId: booking.id,
+    fullyBooked: newSlots === 0,
+  })
+}

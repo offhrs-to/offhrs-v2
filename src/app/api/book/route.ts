@@ -19,7 +19,7 @@ const saasBookSchema = z.object({
   event_id: z.union([z.string(), z.number()]),
   attendee_name: z.string().min(1).max(120),
   attendee_email: z.string().email(),
-  start_time: z.string().optional(), // ISO string for Cal.com slot
+  start_time: z.string().optional(), // ISO start time (optional; defaults to session date on server)
 })
 
 export async function POST(request: NextRequest) {
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       // Fetch event with vendor details
       const { data: event } = await admin
         .from('events')
-        .select('id, title, vendor_profile_id, cal_event_type_id, price_cad, available_slots, duration_minutes, location, booking_status')
+        .select('id, title, vendor_profile_id, price_cad, available_slots, duration_minutes, location, booking_status, date')
         .eq('id', String(event_id))
         .single()
 
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
       // Free sessions — no payment needed
       if (priceCad === 0) {
-        return NextResponse.json({ free: true, message: 'Free session — proceed to Cal.com booking' })
+        return NextResponse.json({ free: true, message: 'Free session — confirm on the next step' })
       }
 
       // Create Stripe PaymentIntent with destination charge to vendor Connect account
@@ -122,8 +122,7 @@ export async function POST(request: NextRequest) {
           vendor_id: event.vendor_profile_id,
           attendee_name,
           attendee_email,
-          cal_event_type_id: event.cal_event_type_id ?? '',
-          start_time: start_time ?? '',
+          start_time: start_time ?? (event.date ? String(event.date) : ''),
           price_cad: String(priceCad),
         },
         description: `${vendor.business_name} — ${event.title}`,

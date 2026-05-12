@@ -17,14 +17,14 @@ export async function GET(request: NextRequest) {
   ] = await Promise.all([
     admin
       .from('vendor_profiles')
-      .select('status, created_at, trial_ends_at, subscription_current_period_end, stripe_connect_completed, cal_connected, first_session_created, business_name, slug')
+      .select('status, created_at, trial_ends_at, subscription_current_period_end, stripe_connect_completed, first_session_created, business_name, slug')
       .order('created_at', { ascending: false }),
     admin
       .from('bookings')
       .select('id, amount_cad, created_at, status'),
     admin
       .from('vendor_profiles')
-      .select('id, business_name, slug, status, trial_ends_at, subscription_current_period_end, stripe_connect_completed, cal_connected, first_session_created, created_at')
+      .select('id, business_name, slug, status, trial_ends_at, subscription_current_period_end, stripe_connect_completed, first_session_created, created_at')
       .order('created_at', { ascending: false })
       .limit(50),
   ])

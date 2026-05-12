@@ -1,8 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Prevent bundling of Cal.com Atoms server-side (uses browser-only APIs)
-  serverExternalPackages: ['@calcom/atoms'],
   images: {
     remotePatterns: [
       {

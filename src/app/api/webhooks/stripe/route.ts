@@ -2,9 +2,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { Resend } from 'resend'
-import { provisionCalUser } from '@/lib/cal'
-import { encrypt } from '@/lib/token-encryption'
-
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
 })
@@ -148,50 +145,6 @@ async function handleStripeEvent(
         cancel_at_period_end: subscription.cancel_at_period_end,
       }, { onConflict: 'stripe_subscription_id' })
 
-      // Provision Cal.com managed user (with retry)
-      const { data: vendorForCal } = await admin
-        .from('vendor_profiles')
-        .select('user_id, business_name, cal_user_id')
-        .eq('id', vendorId)
-        .single()
-
-      if (vendorForCal && !vendorForCal.cal_user_id) {
-        const { data: authUserForCal } = await admin.auth.admin.getUserById(vendorForCal.user_id)
-        const email = authUserForCal?.user?.email
-
-        if (email) {
-          let calProvisioned = false
-          let lastCalErr: unknown = null
-          for (let attempt = 0; attempt < 3 && !calProvisioned; attempt++) {
-            try {
-              if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 2000))
-              const calUser = await provisionCalUser(email, vendorForCal.business_name)
-
-              await admin.from('vendor_profiles')
-                .update({ cal_user_id: String(calUser.id) })
-                .eq('id', vendorId)
-
-              await admin.from('vendor_cal_tokens').upsert({
-                vendor_id: vendorId,
-                access_token: encrypt(calUser.accessToken),
-                refresh_token: encrypt(calUser.refreshToken),
-                expires_at: calUser.accessTokenExpiresAt,
-              }, { onConflict: 'vendor_id' })
-
-              calProvisioned = true
-            } catch (calErr) {
-              console.error(`Cal.com provisioning attempt ${attempt + 1} failed:`, calErr)
-              lastCalErr = calErr
-            }
-          }
-
-          if (!calProvisioned) {
-            const message = lastCalErr instanceof Error ? lastCalErr.message : String(lastCalErr ?? 'Unknown error')
-            throw new Error(`Cal.com provisioning failed after retries: ${message}`)
-          }
-        }
-      }
-
       // Send welcome email
       const { data: vendor } = await admin
         .from('vendor_profiles')
@@ -210,7 +163,7 @@ async function handleStripeEvent(
           emailHtml(`
             <h2 style="font-size:22px;font-weight:700;margin-bottom:8px;">You're in! 🎉</h2>
             <p style="color:#555;font-size:14px;line-height:1.6;">
-              Your 7-day free trial has started. Next step: connect your calendar and create your first session.
+              Your 7-day free trial has started. Next step: set up payouts and publish your first workshop session.
             </p>
             <a href="${APP_URL}/partners/dashboard"
                style="display:inline-block;margin-top:24px;padding:12px 28px;background:#5D755D;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">

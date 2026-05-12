@@ -24,7 +24,6 @@ interface VendorRow {
   trial_ends_at: string | null
   subscription_current_period_end: string | null
   stripe_connect_completed: boolean
-  cal_connected: boolean
   first_session_created: boolean
   created_at: string
   bookings: number
@@ -178,7 +177,7 @@ export default function SaasAdminPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#F0EDE8]">
-                  {['Business', 'Status', 'Signed up', 'Trial/Billing ends', 'Connect', 'Cal', 'Sessions', 'Bookings'].map((h) => (
+                  {['Business', 'Status', 'Signed up', 'Trial/Billing ends', 'Connect', 'Sessions', 'Bookings'].map((h) => (
                     <th key={h} className="text-left text-xs font-medium text-[#888] px-4 py-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -206,7 +205,6 @@ export default function SaasAdminPage() {
                         : '—'}
                     </td>
                     <td className="px-4 py-3 text-center">{v.stripe_connect_completed ? '✓' : '✗'}</td>
-                    <td className="px-4 py-3 text-center">{v.cal_connected ? '✓' : '✗'}</td>
                     <td className="px-4 py-3 text-center text-sm font-medium">{v.sessions}</td>
                     <td className="px-4 py-3 text-center text-sm font-medium">{v.bookings}</td>
                   </tr>

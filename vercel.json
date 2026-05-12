@@ -7,10 +7,6 @@
     {
       "path": "/api/cron/renew-recurring-events",
       "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/cron/refresh-cal-tokens",
-      "schedule": "0 3 * * *"
     }
   ],
   "rewrites": [

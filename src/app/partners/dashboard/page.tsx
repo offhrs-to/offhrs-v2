@@ -13,7 +13,6 @@ interface VendorProfile {
   email_verified: boolean
   stripe_checkout_completed: boolean
   stripe_connect_completed: boolean
-  cal_connected: boolean
   first_session_created: boolean
   trial_ends_at: string | null
   subscription_current_period_end: string | null
@@ -121,13 +120,6 @@ export default async function DashboardPage() {
       href: null,
     },
     {
-      key: 'cal_connected',
-      label: 'Connect Google or Outlook calendar',
-      done: vendor.cal_connected,
-      showStripeCta: false,
-      href: '/partners/dashboard/calendar',
-    },
-    {
       key: 'first_session_created',
       label: 'Create your first workshop session',
       done: vendor.first_session_created,
@@ -194,21 +186,6 @@ export default async function DashboardPage() {
             <span className="font-semibold">Set up your payout account</span> to receive payments from bookings.
           </div>
           <ConnectStripeButton />
-        </div>
-      )}
-
-      {!vendor.cal_connected && vendor.stripe_checkout_completed && (
-        <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-          <CalendarDays className="w-5 h-5 text-blue-500 flex-shrink-0" />
-          <div className="flex-1 text-sm text-blue-700">
-            <span className="font-semibold">Connect your calendar</span> so bookings sync automatically.
-          </div>
-          <Link
-            href="/partners/dashboard/calendar"
-            className="text-xs font-semibold text-blue-700 bg-blue-100 hover:bg-blue-200 px-3 py-1.5 rounded-lg transition-colors"
-          >
-            Connect
-          </Link>
         </div>
       )}
 

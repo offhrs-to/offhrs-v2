@@ -7,8 +7,6 @@ const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholde
   apiVersion: '2026-04-22.dahlia',
 })
 
-const CAL_API_BASE = 'https://api.cal.com/v2'
-
 type Params = { params: Promise<{ id: string }> }
 
 export async function POST(_request: NextRequest, { params }: Params) {
@@ -32,8 +30,8 @@ export async function POST(_request: NextRequest, { params }: Params) {
     .from('bookings')
     .select(`
       id, vendor_id, event_id, stripe_payment_intent_id, stripe_charge_id,
-      cal_booking_uid, amount_cad, status, refunded_at,
-      events ( date, cal_event_type_id )
+      amount_cad, status, refunded_at,
+      events ( date )
     `)
     .eq('id', id)
     .eq('vendor_id', vendor.id)
@@ -67,23 +65,6 @@ export async function POST(_request: NextRequest, { params }: Params) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Stripe refund failed'
       return NextResponse.json({ error: msg }, { status: 502 })
-    }
-  }
-
-  // Cancel Cal.com booking
-  if (booking.cal_booking_uid && process.env.CAL_API_KEY) {
-    try {
-      await fetch(`${CAL_API_BASE}/bookings/${booking.cal_booking_uid}/cancel`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.CAL_API_KEY}`,
-          'Content-Type': 'application/json',
-          'cal-api-version': '2024-08-13',
-        },
-        body: JSON.stringify({ cancellationReason: 'Refund issued by vendor' }),
-      })
-    } catch {
-      // Non-fatal — booking record still updated
     }
   }
 
