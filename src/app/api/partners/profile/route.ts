@@ -3,6 +3,37 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
+/** For dashboard forms (e.g. session location default from onboarding). */
+export async function GET() {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const admin = createAdminClient()
+    if (!admin) return NextResponse.json({ error: 'Server error' }, { status: 500 })
+
+    const { data: vendor, error } = await admin
+      .from('vendor_profiles')
+      .select('location_address')
+      .eq('user_id', user.id)
+      .single()
+
+    if (error || !vendor) {
+      return NextResponse.json({ error: 'Vendor profile not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      location_address: vendor.location_address ?? '',
+    })
+  } catch (err) {
+    console.error('Profile GET error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 const profileSchema = z.object({
   business_name: z.string().min(2).max(100),
   bio: z.string().max(2000).optional(),

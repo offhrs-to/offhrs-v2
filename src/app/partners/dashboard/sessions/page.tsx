@@ -33,6 +33,7 @@ function SessionsPageInner() {
   const router = useRouter()
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
+  const [vendorDefaultAddress, setVendorDefaultAddress] = useState('')
   const [showForm, setShowForm] = useState(searchParams.get('new') === '1')
   const [editingSession, setEditingSession] = useState<Session | null>(null)
   const [statusFilter, setStatusFilter] = useState('all')
@@ -50,6 +51,23 @@ function SessionsPageInner() {
   }, [statusFilter])
 
   useEffect(() => { fetchSessions() }, [fetchSessions])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/partners/profile')
+        const data = await res.json()
+        if (cancelled || !res.ok) return
+        setVendorDefaultAddress(typeof data.location_address === 'string' ? data.location_address : '')
+      } catch {
+        if (!cancelled) setVendorDefaultAddress('')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   async function handleDelete(id: string) {
     if (!confirm('Archive this session? It will no longer be visible to consumers.')) return
@@ -83,6 +101,7 @@ function SessionsPageInner() {
     return (
       <SessionForm
         session={editingSession}
+        vendorDefaultAddress={vendorDefaultAddress}
         onClose={handleFormClose}
       />
     )

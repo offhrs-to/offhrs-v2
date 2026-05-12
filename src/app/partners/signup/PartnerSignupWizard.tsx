@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import type { Category } from '@/constants/categories'
 import { CATEGORIES } from '@/constants/categories'
+import { OffhrsLogo } from '@/components/offhrs-logo'
 import { GooglePlacesField } from './GooglePlacesField'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
@@ -179,7 +180,9 @@ export function PartnerSignupWizard() {
         >
           <Check className="h-10 w-10 text-white" strokeWidth={2.5} />
         </div>
-        <span className="font-playfair text-3xl font-bold tracking-tight text-[#1a1a1a] mb-2">offhrs</span>
+        <div className="mb-2 flex justify-center">
+          <OffhrsLogo className="h-10 w-auto max-w-[200px] object-contain" width={240} height={56} />
+        </div>
         <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#1a1a1a] text-center mt-2">
           Your business is set up!
         </h1>

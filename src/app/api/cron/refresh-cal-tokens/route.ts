@@ -3,8 +3,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { encrypt, decrypt } from '@/lib/token-encryption'
 import { refreshCalToken } from '@/lib/cal'
 
-const CAL_API_KEY = process.env.CAL_API_KEY
-
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')
@@ -13,7 +11,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!CAL_API_KEY || !process.env.CAL_OAUTH_CLIENT_ID) {
+    if (!process.env.CAL_OAUTH_CLIENT_SECRET || !process.env.CAL_OAUTH_CLIENT_ID) {
       return NextResponse.json({ error: 'Cal.com credentials not configured' }, { status: 500 })
     }
 

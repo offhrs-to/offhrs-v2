@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { OffhrsLogoLink } from '@/components/offhrs-logo'
 import { createClient } from '@/lib/supabase/browser'
 
 export default function PartnerResetPasswordPage() {
@@ -55,11 +56,13 @@ export default function PartnerResetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <Link href="/partners" className="inline-block mb-6">
-            <span className="font-playfair text-2xl font-bold tracking-tight text-[#1a1a1a]">
-              offhrs
-            </span>
-          </Link>
+          <OffhrsLogoLink
+            href="/partners"
+            linkClassName="inline-flex justify-center mb-6"
+            className="h-9 w-auto max-w-[170px] object-contain mx-auto"
+            width={200}
+            height={48}
+          />
           <h1 className="font-playfair text-3xl font-bold text-[#1a1a1a]">Reset password</h1>
           <p className="mt-2 text-[#555] text-sm">
             Enter your email and we&apos;ll send a reset link.

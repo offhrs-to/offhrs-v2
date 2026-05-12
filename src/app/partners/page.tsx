@@ -1,18 +1,19 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { OffhrsLogoLink } from '@/components/offhrs-logo'
 import { getSiteUrl } from '@/lib/site'
 
 const site = getSiteUrl()
 
 export const metadata: Metadata = {
-  title: 'offhrs Partners — Run your workshop business on autopilot',
+  title: 'offhrs Partners — Run your workshop business the easy way',
   description:
     'offhrs Partners gives Toronto workshop vendors instant booking, Stripe payouts, and Google/Outlook calendar sync — for $79 CAD/month. Start your free 7-day trial.',
   alternates: { canonical: `${site}/partners` },
   openGraph: {
-    title: 'offhrs Partners — Run your workshop business on autopilot',
+    title: 'offhrs Partners — Run your workshop business the easy way',
     description:
-      'Instant booking, automated payouts, and two-way calendar sync for creative workshop vendors in Toronto.',
+      'All-in-one booking, payouts, and two-way calendar sync for creative workshop vendors in Toronto.',
     url: `${site}/partners`,
     siteName: 'offhrs',
     type: 'website',
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'offhrs Partners',
-    description: 'Booking, payouts, and calendar sync for workshop vendors.',
+    description: 'All-in-one booking, payouts, and calendar sync for workshop vendors.',
     images: ['/twitter-image'],
   },
 }
@@ -47,10 +48,10 @@ const features = [
       'Your workshop sessions appear in your personal calendar automatically — two-way.',
   },
   {
-    icon: '📬',
-    title: 'Automated emails',
+    icon: '🔒',
+    title: 'Secure checkout',
     description:
-      'Booking confirmations, calendar invites, and reminders sent on your behalf.',
+      'Card payments run through Stripe — you never store or touch card numbers.',
   },
   {
     icon: '🎟️',
@@ -138,9 +139,7 @@ export default function PartnersLandingPage() {
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-50 bg-[#FAFAF8]/90 backdrop-blur border-b border-[#E8E6E0]">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="font-playfair text-xl font-bold tracking-tight">
-            offhrs
-          </Link>
+          <OffhrsLogoLink href="/" priority className="h-9 w-auto max-w-[180px]" width={220} height={52} />
           <div className="flex items-center gap-4">
             <Link
               href="/partners/login"
@@ -164,7 +163,7 @@ export default function PartnersLandingPage() {
           Toronto workshop vendors
         </p>
         <h1 className="font-playfair text-5xl md:text-6xl font-bold leading-tight tracking-tight max-w-3xl mx-auto">
-          Run your workshop business on autopilot.
+          Run your workshop business the easy way — all in one platform.
         </h1>
         <p className="mt-6 text-lg text-[#555] max-w-xl mx-auto leading-relaxed">
           Bookings, payouts, and calendar sync — handled for you. Start your free 7-day trial for{' '}
@@ -184,7 +183,6 @@ export default function PartnersLandingPage() {
             Sign in
           </Link>
         </div>
-        <p className="mt-4 text-xs text-[#999]">No credit card required to start. Cancel anytime.</p>
       </section>
 
       {/* ── How it works ────────────────────────────────────────────────── */}
@@ -254,7 +252,7 @@ export default function PartnersLandingPage() {
                 '0% commission on ticket sales',
                 'Stripe Connect payouts',
                 'Google & Outlook calendar sync',
-                'Automated booking emails + .ics',
+                'Stripe-powered secure checkout',
                 'Fully booked management',
                 'Revenue dashboard',
               ].map((item) => (
@@ -271,43 +269,6 @@ export default function PartnersLandingPage() {
               Start free trial
             </Link>
           </div>
-        </div>
-      </section>
-
-      {/* ── Social proof ────────────────────────────────────────────────── */}
-      <section className="max-w-5xl mx-auto px-6 py-20">
-        <div className="text-center mb-12">
-          <h2 className="font-playfair text-3xl font-bold">Loved by Toronto vendors</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-  {
-    quote: 'I used to spend hours managing bookings by email. Now it\'s all automatic.',
-    name: 'Maya R.',
-              role: 'Pottery instructor, Kensington Market',
-            },
-            {
-              quote: 'The calendar sync alone saved me. No more double-bookings.',
-              name: 'Lena K.',
-              role: 'Floral design studio, Trinity Bellwoods',
-            },
-            {
-              quote: 'Payouts are fast and I keep every dollar. offhrs is a no-brainer.',
-              name: 'James T.',
-              role: 'Culinary class host, Leslieville',
-            },
-          ].map((t) => (
-            <div
-              key={t.name}
-              className="rounded-2xl bg-white border border-[#E8E6E0] p-6 space-y-4"
-            >
-              <p className="text-sm text-[#333] leading-relaxed italic">"{t.quote}"</p>
-              <div>
-                <p className="font-semibold text-sm text-[#1a1a1a]">{t.name}</p>
-                <p className="text-xs text-[#999]">{t.role}</p>
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 

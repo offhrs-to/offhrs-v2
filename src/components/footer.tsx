@@ -1,12 +1,13 @@
 import Link from 'next/link'
+import { OffhrsLogo } from '@/components/offhrs-logo'
 
 export default function Footer() {
   return (
     <footer className="bg-white border-t border-gray-100 py-6 mt-auto">
       <div className="container mx-auto px-4 flex flex-col items-center justify-center gap-4">
-        
-        {/* Brand Name */}
-        <h3 className="text-base font-serif font-bold tracking-tight text-gray-900">offhrs</h3>
+        <Link href="/" prefetch={false} className="inline-flex">
+          <OffhrsLogo className="h-8 w-auto max-w-[140px] object-contain" width={180} height={44} />
+        </Link>
         
         {/* Copyright, Privacy, Contact, Terms & Admin */}
         <div className="text-xs text-gray-400 mt-2 flex items-center gap-3 flex-wrap justify-center">

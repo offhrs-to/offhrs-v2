@@ -1,7 +1,18 @@
 const CAL_API_BASE = 'https://api.cal.com/v2'
 
-function calEnv(name: 'CAL_OAUTH_CLIENT_ID' | 'CAL_API_KEY'): string {
+function calEnv(name: 'CAL_OAUTH_CLIENT_ID' | 'CAL_OAUTH_CLIENT_SECRET'): string {
   return (process.env[name] ?? '').trim()
+}
+
+/** Headers for Platform managed-user endpoints (see Cal API v2 → Platform OAuth client credentials). */
+function calPlatformAuthHeaders(): Record<string, string> {
+  const clientId = calEnv('CAL_OAUTH_CLIENT_ID')
+  const clientSecret = calEnv('CAL_OAUTH_CLIENT_SECRET')
+  return {
+    'Content-Type': 'application/json',
+    'x-cal-client-id': clientId,
+    'x-cal-secret-key': clientSecret,
+  }
 }
 
 /** Maps Cal API failures to operator-friendly copy (avoid dumping raw JSON to end users). */
@@ -12,13 +23,17 @@ function formatCalProvisioningFailure(status: number, body: string): string {
 
   if (oauthClientMissing) {
     return (
-      'Cal.com could not find your OAuth client. Use the same Cal.com organization for both values: set CAL_OAUTH_CLIENT_ID ' +
-      '(and NEXT_PUBLIC_CAL_OAUTH_CLIENT_ID to the same id) to an OAuth client from Platform → OAuth clients, and set CAL_API_KEY ' +
-      'to an API key from that same team. If the client was deleted, create a new OAuth client and update both env vars.'
+      'Cal.com could not authenticate your OAuth client. In Cal.com open your OAuth client (e.g. Settings → Platform / Developer → OAuth) ' +
+      'and copy the Client ID into CAL_OAUTH_CLIENT_ID and NEXT_PUBLIC_CAL_OAUTH_CLIENT_ID (same value). ' +
+      'Copy a Client secret into CAL_OAUTH_CLIENT_SECRET — this must be the secret from that OAuth client, not the Developer → API keys value. ' +
+      'Redeploy after updating Vercel env vars.'
     )
   }
   if (status === 401 || status === 403) {
-    return 'Cal.com rejected the request (unauthorized). Confirm CAL_API_KEY is valid and has access to manage OAuth clients for your team.'
+    return (
+      'Cal.com rejected the request (unauthorized). Confirm CAL_OAUTH_CLIENT_ID and CAL_OAUTH_CLIENT_SECRET match your OAuth client ' +
+      '(x-cal-client-id + x-cal-secret-key from the same client). CAL_API_KEY is only used elsewhere (e.g. booking cancel), not for provisioning.'
+    )
   }
   if (status >= 500) {
     return 'Cal.com is temporarily unavailable. Try again in a few minutes.'
@@ -43,16 +58,17 @@ interface CalManagedUser {
 
 export async function provisionCalUser(email: string, name: string): Promise<CalManagedUser> {
   const clientId = calEnv('CAL_OAUTH_CLIENT_ID')
-  const apiKey = calEnv('CAL_API_KEY')
+  const clientSecret = calEnv('CAL_OAUTH_CLIENT_SECRET')
 
-  if (!clientId || !apiKey) throw new Error('Cal.com credentials not configured')
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      'Cal.com credentials not configured: set CAL_OAUTH_CLIENT_ID and CAL_OAUTH_CLIENT_SECRET (OAuth client secret from the same client, not Developer API key).'
+    )
+  }
 
   const res = await fetch(`${CAL_API_BASE}/oauth-clients/${clientId}/users`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-cal-secret-key': apiKey,
-    },
+    headers: calPlatformAuthHeaders(),
     body: JSON.stringify({ email, name }),
   })
 
@@ -79,16 +95,17 @@ export async function refreshCalToken(
   refreshToken: string
 ): Promise<CalTokens> {
   const clientId = calEnv('CAL_OAUTH_CLIENT_ID')
-  const apiKey = calEnv('CAL_API_KEY')
+  const clientSecret = calEnv('CAL_OAUTH_CLIENT_SECRET')
 
-  if (!clientId || !apiKey) throw new Error('Cal.com credentials not configured')
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      'Cal.com credentials not configured: set CAL_OAUTH_CLIENT_ID and CAL_OAUTH_CLIENT_SECRET (OAuth client secret).'
+    )
+  }
 
   const res = await fetch(`${CAL_API_BASE}/oauth-clients/${clientId}/users/token`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-cal-secret-key': apiKey,
-    },
+    headers: calPlatformAuthHeaders(),
     body: JSON.stringify({ refreshToken }),
   })
 

@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react'
 import { useState } from 'react'
+import { OffhrsLogo } from '@/components/offhrs-logo'
 
 const navItems = [
   { href: '/partners/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
@@ -60,9 +61,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="px-4 py-5 border-b border-[#E8E4DE]">
-        <Link href="/partners/dashboard" className="flex items-center gap-2">
-          <span className="text-lg font-semibold text-[#1a1a1a] tracking-tight">offhrs</span>
-          <span className="text-xs font-medium text-[#5D755D] bg-[#EDF2ED] px-2 py-0.5 rounded-full">
+        <Link href="/partners/dashboard" className="flex items-center gap-2 min-w-0">
+          <OffhrsLogo
+            className="h-8 w-auto max-w-[118px] object-contain object-left shrink-0"
+            width={140}
+            height={36}
+          />
+          <span className="text-xs font-medium text-[#5D755D] bg-[#EDF2ED] px-2 py-0.5 rounded-full shrink-0">
             Partners
           </span>
         </Link>
@@ -126,7 +131,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <span className="text-sm font-semibold text-[#1a1a1a]">offhrs Partners</span>
+          <div className="flex items-center gap-2 min-w-0 justify-center flex-1">
+            <OffhrsLogo className="h-7 w-auto max-w-[100px] object-contain shrink-0" width={120} height={32} />
+            <span className="text-xs font-medium text-[#5D755D] bg-[#EDF2ED] px-2 py-0.5 rounded-full shrink-0">
+              Partners
+            </span>
+          </div>
           <div className="w-7" />
         </header>
 

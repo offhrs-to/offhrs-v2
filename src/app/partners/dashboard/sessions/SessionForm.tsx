@@ -1,8 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { CATEGORIES, normalizePartnerSessionCategory } from '@/constants/categories'
+import { GooglePlacesField } from '@/app/partners/signup/GooglePlacesField'
+
+const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+
+const placesInputClass =
+  'w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D] focus:border-transparent disabled:opacity-50'
 
 interface SessionFormProps {
   session?: {
@@ -16,11 +22,17 @@ interface SessionFormProps {
     location: string | null
     status: string
   } | null
+  /** Vendor onboarding address — prefills in-person location for new sessions. */
+  vendorDefaultAddress?: string
   onClose: () => void
 }
 
-export function SessionForm({ session, onClose }: SessionFormProps) {
+export function SessionForm({ session, vendorDefaultAddress = '', onClose }: SessionFormProps) {
   const isEdit = !!session?.id
+
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [mapsAuthError, setMapsAuthError] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     title: session?.title ?? '',
@@ -30,14 +42,38 @@ export function SessionForm({ session, onClose }: SessionFormProps) {
     duration_minutes: session?.duration_minutes?.toString() ?? '90',
     date: session?.date ? new Date(session.date).toISOString().slice(0, 16) : '',
     location_type: 'in_person' as 'in_person' | 'virtual',
-    location_address: session?.location ?? '',
+    location_address: (session?.location ?? '').trim() || vendorDefaultAddress.trim(),
     location_link: '',
     description: '',
     status: (session?.status ?? 'published') as 'published' | 'draft',
   })
 
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  useEffect(() => {
+    if (isEdit) return
+    const v = vendorDefaultAddress.trim()
+    if (!v) return
+    setForm((f) => {
+      if (f.location_address.trim()) return f
+      return { ...f, location_address: v }
+    })
+  }, [isEdit, vendorDefaultAddress])
+
+  const handleMapsAuthFailure = useCallback(() => {
+    setMapsAuthError(
+      'Google Maps could not load for this site. Check API key referrer restrictions and that Maps JavaScript + Places APIs are enabled.'
+    )
+  }, [])
+
+  const handlePlaceResolved = useCallback(
+    (payload: { lat: number; lng: number; formattedAddress: string }) => {
+      setForm((f) => ({ ...f, location_address: payload.formattedAddress }))
+    },
+    []
+  )
+
+  const handleClearGeocode = useCallback(() => {
+    /* Sessions only persist address text; no lat/lng state to clear. */
+  }, [])
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }))
@@ -221,12 +257,45 @@ export function SessionForm({ session, onClose }: SessionFormProps) {
             ))}
           </div>
           {form.location_type === 'in_person' ? (
-            <input
-              value={form.location_address}
-              onChange={(e) => set('location_address', e.target.value)}
-              placeholder="123 Main St, Toronto, ON"
-              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-            />
+            <div className="space-y-2">
+              {MAPS_KEY ? (
+                <GooglePlacesField
+                  key={isEdit ? `edit-${session!.id}` : 'create-session-location'}
+                  initialValue={form.location_address}
+                  onAddressChange={(address) => setForm((f) => ({ ...f, location_address: address }))}
+                  onPlaceResolved={handlePlaceResolved}
+                  onClearGeocode={handleClearGeocode}
+                  onAuthFailure={handleMapsAuthFailure}
+                  apiKey={MAPS_KEY}
+                  disabled={loading}
+                  label="Address"
+                  inputId="session-location-address"
+                  placeholder="Search for an address or your business name…"
+                  inputClassName={placesInputClass}
+                />
+              ) : (
+                <div>
+                  <label htmlFor="session-location-fallback" className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+                    Address
+                  </label>
+                  <input
+                    id="session-location-fallback"
+                    value={form.location_address}
+                    onChange={(e) => set('location_address', e.target.value)}
+                    placeholder="123 Main St, Toronto, ON"
+                    className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                  />
+                  <p className="text-xs text-[#888] mt-1.5">
+                    Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable address autocomplete.
+                  </p>
+                </div>
+              )}
+              {mapsAuthError && (
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                  {mapsAuthError}
+                </p>
+              )}
+            </div>
           ) : (
             <input
               type="url"

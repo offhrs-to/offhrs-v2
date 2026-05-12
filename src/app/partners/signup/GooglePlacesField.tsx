@@ -12,10 +12,13 @@ type Props = {
   onAuthFailure?: () => void
   apiKey: string | undefined
   disabled?: boolean
+  /** Accessible label; default matches partner signup copy. */
+  label?: string
+  inputId?: string
+  placeholder?: string
+  /** Override default input styles (e.g. dashboard forms). */
+  inputClassName?: string
 }
-
-const inputClassName =
-  'w-full rounded-lg border border-[#D9D7CF] bg-[#FAFAF8] px-4 py-2.5 text-sm text-[#1a1a1a] placeholder:text-[#AAA] focus:outline-none focus:ring-2 focus:ring-[#5D755D] disabled:opacity-50'
 
 /**
  * Google Maps Places Autocomplete. Requires NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
@@ -31,6 +34,9 @@ function normalizeAddress(s: string): string {
   return s.trim().replace(/\s+/g, ' ').toLowerCase()
 }
 
+const defaultInputClassName =
+  'w-full rounded-lg border border-[#D9D7CF] bg-[#FAFAF8] px-4 py-2.5 text-sm text-[#1a1a1a] placeholder:text-[#AAA] focus:outline-none focus:ring-2 focus:ring-[#5D755D] disabled:opacity-50'
+
 export function GooglePlacesField({
   initialValue,
   onAddressChange,
@@ -39,7 +45,12 @@ export function GooglePlacesField({
   onAuthFailure,
   apiKey,
   disabled,
+  label = 'Search for your venue',
+  inputId = 'venue-address',
+  placeholder = 'Start typing an address or business name…',
+  inputClassName: inputClassNameProp,
 }: Props) {
+  const inputClassName = inputClassNameProp ?? defaultInputClassName
   const inputRef = useRef<HTMLInputElement>(null)
   const acRef = useRef<google.maps.places.Autocomplete | null>(null)
   const suppressClearUntilRef = useRef(0)
@@ -264,12 +275,12 @@ export function GooglePlacesField({
 
   return (
     <div className="space-y-2">
-      <label htmlFor="venue-address" className="block text-sm font-medium text-[#1a1a1a]">
-        Search for your venue
+      <label htmlFor={inputId} className="block text-sm font-medium text-[#1a1a1a]">
+        {label}
       </label>
       <input
         ref={inputRef}
-        id="venue-address"
+        id={inputId}
         type="text"
         autoComplete="off"
         defaultValue={initialValue}
@@ -297,7 +308,7 @@ export function GooglePlacesField({
             onClearGeocode()
           }, CLEAR_GEOCODE_DEBOUNCE_MS)
         }}
-        placeholder="Start typing an address or business name…"
+        placeholder={placeholder}
         className={inputClassName}
       />
       {!apiKey && (
