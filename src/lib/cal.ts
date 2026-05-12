@@ -18,15 +18,27 @@ function calManagedUserHeaders(clientSecret: string): Record<string, string> {
 /** Maps Cal API failures to operator-friendly copy (avoid dumping raw JSON to end users). */
 function formatCalProvisioningFailure(status: number, body: string): string {
   const lower = body.toLowerCase()
+  const calSaysClientIdUnknown =
+    status === 401 &&
+    lower.includes('client with id') &&
+    lower.includes('not found')
+
+  if (calSaysClientIdUnknown) {
+    return (
+      'Cal.com does not recognize this OAuth client ID for managed users. Managed users require a Platform OAuth client ' +
+      '(create it under https://app.cal.com/settings/platform/oauth-clients — not the generic Developer → OAuth app list if those are separate in your account). ' +
+      'Copy that client’s ID and active secret into CAL_OAUTH_CLIENT_ID, NEXT_PUBLIC_CAL_OAUTH_CLIENT_ID, and CAL_OAUTH_CLIENT_SECRET. ' +
+      'If the client is Pending approval, it may not exist in the API until Cal activates it. Contact Cal support if Platform access is unclear.'
+    )
+  }
+
   const oauthClientMissing =
     status === 401 && lower.includes('not found') && lower.includes('client')
 
   if (oauthClientMissing) {
     return (
-      'Cal.com could not authenticate your OAuth client. In Cal.com open your OAuth client (e.g. Settings → Platform / Developer → OAuth) ' +
-      'and copy the Client ID into CAL_OAUTH_CLIENT_ID and NEXT_PUBLIC_CAL_OAUTH_CLIENT_ID (same value). ' +
-      'Copy a Client secret into CAL_OAUTH_CLIENT_SECRET — this must be the secret from that OAuth client, not the Developer → API keys value. ' +
-      'Redeploy after updating Vercel env vars.'
+      'Cal.com could not authenticate your OAuth client. Copy the Platform OAuth client ID into CAL_OAUTH_CLIENT_ID and NEXT_PUBLIC_CAL_OAUTH_CLIENT_ID (same value), ' +
+      'and the matching client secret into CAL_OAUTH_CLIENT_SECRET (not the Developer → API keys value). Redeploy after updating Vercel env vars.'
     )
   }
   if (status === 401 || status === 403) {
