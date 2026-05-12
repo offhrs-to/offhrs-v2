@@ -52,6 +52,16 @@ function SessionsPageInner() {
   useEffect(() => { fetchSessions() }, [fetchSessions])
 
   useEffect(() => {
+    const editId = searchParams.get('edit')
+    if (!editId || sessions.length === 0) return
+    const s = sessions.find((x) => String(x.id) === editId)
+    if (s) {
+      setEditingSession(s)
+      setShowForm(true)
+    }
+  }, [searchParams, sessions])
+
+  useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {

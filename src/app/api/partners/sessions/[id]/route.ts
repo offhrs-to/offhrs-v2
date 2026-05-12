@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
+import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 
 const updateSchema = z.object({
   title: z.string().min(2).max(120).optional(),
@@ -65,6 +66,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     const updatePayload: Record<string, unknown> = {}
     if (body.title !== undefined) updatePayload.title = body.title
+    if (body.description !== undefined) updatePayload.description = body.description
     if (body.category !== undefined) updatePayload.category = body.category
     if (body.status !== undefined) updatePayload.booking_status = body.status
     if (body.price_cad !== undefined) {
@@ -85,6 +87,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    if (updated?.id) {
+      void syncVendorSessionToExternalCalendars(admin, vendor.id, String(updated.id)).catch((e) =>
+        console.error('[sessions] calendar sync', e)
+      )
+    }
 
     return NextResponse.json({
       session: updated ? { ...updated, status: updated.booking_status } : null,
@@ -109,6 +117,10 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
 
     await admin.from('events').update({ booking_status: 'archived' }).eq('id', id)
+
+    void syncVendorSessionToExternalCalendars(admin, vendor.id, id).catch((e) =>
+      console.error('[sessions] calendar sync', e)
+    )
 
     return NextResponse.json({ success: true })
   } catch (err) {

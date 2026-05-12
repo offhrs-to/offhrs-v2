@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
@@ -15,5 +16,9 @@ export default async function CalendarPage() {
 
   if (!vendor) redirect('/partners/signup')
 
-  return <CalendarClient />
+  return (
+    <Suspense fallback={<div className="p-6 max-w-5xl mx-auto text-sm text-[#888]">Loading calendar…</div>}>
+      <CalendarClient />
+    </Suspense>
+  )
 }

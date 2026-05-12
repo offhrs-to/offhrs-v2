@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
+import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 
 const sessionSchema = z.object({
   title: z.string().min(2).max(120),
@@ -38,16 +39,29 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
+    const from = searchParams.get('from')
+    const to = searchParams.get('to')
+    const excludeArchived = searchParams.get('exclude_archived') !== '0'
+    const calendarRange = Boolean(from && to)
 
-    let query = admin
-      .from('events')
-      .select('*')
-      .eq('vendor_profile_id', vendor.id)
-      .order('created_at', { ascending: false })
+    let query = admin.from('events').select('*').eq('vendor_profile_id', vendor.id)
 
     if (status) {
       query = query.eq('booking_status', status)
     }
+    if (from) {
+      query = query.gte('date', from)
+    }
+    if (to) {
+      query = query.lte('date', to)
+    }
+    if (excludeArchived) {
+      query = query.neq('booking_status', 'archived')
+    }
+
+    query = calendarRange
+      ? query.order('date', { ascending: true, nullsFirst: false })
+      : query.order('created_at', { ascending: false })
 
     const { data: sessions, error } = await query
 
@@ -106,6 +120,7 @@ export async function POST(request: NextRequest) {
         location: body.location_address ?? body.location_link ?? null,
         date: body.date ? new Date(body.date).toISOString() : null,
         booking_status: body.status,
+        description: body.description ?? null,
         organizer: null,
       })
       .select()
@@ -121,6 +136,12 @@ export async function POST(request: NextRequest) {
       .update({ first_session_created: true })
       .eq('id', vendor.id)
       .eq('first_session_created', false)
+
+    if (event?.id) {
+      void syncVendorSessionToExternalCalendars(admin, vendor.id, String(event.id)).catch((e) =>
+        console.error('[sessions] calendar sync', e)
+      )
+    }
 
     return NextResponse.json({
       session: event ? { ...event, status: event.booking_status } : null,
