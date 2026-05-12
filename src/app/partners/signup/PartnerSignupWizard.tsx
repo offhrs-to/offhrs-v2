@@ -2,21 +2,23 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
   CircleDot,
   Coffee,
+  CreditCard,
   Flower2,
+  ImagePlus,
   LayoutGrid,
   Sparkles,
   UtensilsCrossed,
 } from 'lucide-react'
 import type { Category } from '@/constants/categories'
 import { CATEGORIES } from '@/constants/categories'
-import { OffhrsLogo } from '@/components/offhrs-logo'
 import { GooglePlacesField } from './GooglePlacesField'
+import { createClient as createBrowserSupabaseClient } from '@/lib/supabase/browser'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -29,12 +31,42 @@ const CATEGORY_ICON: Record<Category, React.ElementType> = {
   Other: LayoutGrid,
 }
 
-const STEPS = ['business', 'categories', 'location', 'account'] as const
+const STEPS = ['business', 'categories', 'logo', 'location', 'account', 'billing'] as const
 type StepId = (typeof STEPS)[number]
 
+const LOGO_MIME = ['image/jpeg', 'image/png', 'image/webp'] as const
+
+async function workshopLogoPayloadFromFile(
+  file: File
+): Promise<{ base64: string; mime_type: (typeof LOGO_MIME)[number] }> {
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error('Logo must be 2 MB or smaller.')
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      const m = result.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/)
+      if (!m) {
+        reject(new Error('Use a JPEG, PNG, or WebP image.'))
+        return
+      }
+      resolve({ base64: m[2], mime_type: m[1] as (typeof LOGO_MIME)[number] })
+    }
+    reader.onerror = () => reject(new Error('Could not read the image file.'))
+    reader.readAsDataURL(file)
+  })
+}
+
 export function PartnerSignupWizard() {
+  const searchParams = useSearchParams()
   const [step, setStep] = useState<StepId>('business')
   const stepIndex = STEPS.indexOf(step)
+
+  const [accountCreated, setAccountCreated] = useState(false)
+  const [emailVerifiedForBilling, setEmailVerifiedForBilling] = useState(false)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [billingCanceled, setBillingCanceled] = useState(false)
 
   const [businessName, setBusinessName] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
@@ -51,14 +83,26 @@ export function PartnerSignupWizard() {
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
 
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
   const [mapsAuthError, setMapsAuthError] = useState<string | null>(null)
 
   useEffect(() => {
     if (step === 'location') setMapsAuthError(null)
   }, [step])
+
+  useEffect(() => {
+    if (!logoFile) {
+      setLogoPreview(null)
+      return
+    }
+    const url = URL.createObjectURL(logoFile)
+    setLogoPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [logoFile])
 
   const handleMapsAuthFailure = useCallback(() => {
     if (typeof window === 'undefined') return
@@ -102,6 +146,57 @@ export function PartnerSignupWizard() {
     })
   }
 
+  const refreshBillingStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/partners/onboarding-billing-status')
+      const data = (await res.json()) as {
+        authenticated?: boolean
+        email_verified?: boolean
+        vendor_status?: string | null
+        stripe_checkout_completed?: boolean
+      }
+      if (data.authenticated && data.email_verified) {
+        setEmailVerifiedForBilling(true)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  useEffect(() => {
+    setBillingCanceled(searchParams.get('canceled') === '1')
+  }, [searchParams])
+
+  useEffect(() => {
+    if (searchParams.get('billing') !== '1') return
+    void (async () => {
+      await refreshBillingStatus()
+      const res = await fetch('/api/partners/onboarding-billing-status')
+      const data = (await res.json()) as {
+        authenticated?: boolean
+        email_verified?: boolean
+        vendor_status?: string | null
+        stripe_checkout_completed?: boolean
+      }
+      if (
+        data.authenticated &&
+        data.email_verified &&
+        data.vendor_status === 'pending' &&
+        !data.stripe_checkout_completed
+      ) {
+        setEmailVerifiedForBilling(true)
+        setStep('billing')
+      }
+    })()
+  }, [searchParams, refreshBillingStatus])
+
+  useEffect(() => {
+    if (step !== 'billing') return
+    void refreshBillingStatus()
+    const t = setInterval(() => void refreshBillingStatus(), 4000)
+    return () => clearInterval(t)
+  }, [step, refreshBillingStatus])
+
   function canContinue(): boolean {
     switch (step) {
       case 'business':
@@ -109,6 +204,8 @@ export function PartnerSignupWizard() {
       case 'categories':
         if (!primaryCategory || categoryOrder.length === 0) return false
         if (needsOtherDetail && !otherDetail.trim()) return false
+        return true
+      case 'logo':
         return true
       case 'location': {
         if (!locationAddress.trim()) return false
@@ -120,6 +217,8 @@ export function PartnerSignupWizard() {
           /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
           password.length >= 8
         )
+      case 'billing':
+        return emailVerifiedForBilling
       default:
         return false
     }
@@ -127,21 +226,35 @@ export function PartnerSignupWizard() {
 
   function goNext() {
     if (!canContinue()) return
+    if (step === 'account') {
+      void submitAccountAndGoToBilling()
+      return
+    }
     const i = stepIndex
     if (i < STEPS.length - 1) setStep(STEPS[i + 1])
-    else void submit()
   }
 
   function goBack() {
+    if (step === 'billing' && accountCreated) return
     if (stepIndex > 0) setStep(STEPS[stepIndex - 1])
   }
 
-  async function submit() {
-    if (!canContinue()) return
+  async function submitAccountAndGoToBilling() {
+    if (!canContinue() || step !== 'account') return
     setLoading(true)
     setError(null)
     try {
       const website = websiteUrl.trim()
+      let workshop_logo: { base64: string; mime_type: (typeof LOGO_MIME)[number] } | undefined
+      try {
+        if (logoFile) {
+          workshop_logo = await workshopLogoPayloadFromFile(logoFile)
+        }
+      } catch (le) {
+        setError(le instanceof Error ? le.message : 'Could not read the image.')
+        setLoading(false)
+        return
+      }
       const res = await fetch('/api/partners/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -156,11 +269,23 @@ export function PartnerSignupWizard() {
           email: email.trim(),
           password,
           phone: phone.trim() || undefined,
+          workshop_logo,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Signup failed')
-      setSuccess(true)
+
+      setAccountCreated(true)
+      setStep('billing')
+
+      const supabase = createBrowserSupabaseClient()
+      const { error: signErr } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+      if (!signErr) {
+        await refreshBillingStatus()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -168,37 +293,38 @@ export function PartnerSignupWizard() {
     }
   }
 
+  async function startCheckout() {
+    if (!emailVerifiedForBilling) return
+    setCheckoutLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/partners/checkout', { method: 'POST' })
+      const payload = (await res.json()) as { url?: string; error?: string }
+      if (!res.ok || !payload.url) {
+        throw new Error(payload.error ?? 'Failed to start checkout')
+      }
+      window.location.href = payload.url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Checkout failed')
+      setCheckoutLoading(false)
+    }
+  }
+
+  function primaryAction() {
+    if (step === 'account') void submitAccountAndGoToBilling()
+    else if (step === 'billing') void startCheckout()
+    else goNext()
+  }
+
+  const primaryDisabled =
+    step === 'billing' ? !emailVerifiedForBilling || checkoutLoading : !canContinue() || loading
+
+  let primaryLabel = 'Continue'
+  if (step === 'account') primaryLabel = loading ? 'Creating…' : 'Continue'
+  if (step === 'billing') primaryLabel = checkoutLoading ? 'Redirecting…' : 'Add payment & start trial'
+
   const inputClass =
     'w-full rounded-lg border border-[#D9D7CF] bg-[#FAFAF8] px-4 py-2.5 text-sm text-[#1a1a1a] placeholder:text-[#AAA] focus:outline-none focus:ring-2 focus:ring-[#5D755D]'
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center px-6 py-16 pt-24">
-        <div
-          className="mb-8 flex h-20 w-20 items-center justify-center rounded-full bg-[#5D755D] shadow-md shadow-[#5D755D]/25"
-          aria-hidden
-        >
-          <Check className="h-10 w-10 text-white" strokeWidth={2.5} />
-        </div>
-        <div className="mb-2 flex justify-center">
-          <OffhrsLogo className="h-10 w-auto max-w-[200px] object-contain" width={240} height={56} />
-        </div>
-        <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#1a1a1a] text-center mt-2">
-          Your business is set up!
-        </h1>
-        <p className="mt-4 text-center text-sm text-[#555] max-w-md leading-relaxed">
-          Enjoy 7 days free of using offhrs for business. We sent a verification link to{' '}
-          <span className="text-[#1a1a1a] font-medium">{email}</span> — confirm your email to continue to billing.
-        </p>
-        <Link
-          href="/partners/login"
-          className="mt-10 inline-flex items-center justify-center rounded-lg bg-[#5D755D] px-10 py-3 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
-        >
-          Done
-        </Link>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] text-[#1a1a1a] flex flex-col pt-20 pb-8">
@@ -220,7 +346,7 @@ export function PartnerSignupWizard() {
         <button
           type="button"
           onClick={goBack}
-          disabled={stepIndex === 0}
+          disabled={stepIndex === 0 || (step === 'billing' && accountCreated)}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E8E4DE] bg-white text-[#555] hover:border-[#5D755D] hover:text-[#1a1a1a] disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-sm"
           aria-label="Back"
         >
@@ -232,11 +358,11 @@ export function PartnerSignupWizard() {
           </Link>
           <button
             type="button"
-            onClick={goNext}
-            disabled={!canContinue() || loading}
+            onClick={() => primaryAction()}
+            disabled={primaryDisabled}
             className="inline-flex items-center gap-2 rounded-lg bg-[#5D755D] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#4d634d] disabled:opacity-40 disabled:pointer-events-none transition-colors"
           >
-            {step === 'account' ? (loading ? 'Creating…' : 'Continue') : 'Continue'}
+            {primaryLabel}
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
@@ -363,6 +489,61 @@ export function PartnerSignupWizard() {
           </div>
         )}
 
+        {step === 'logo' && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <h1 className="font-playfair text-3xl font-bold text-[#1a1a1a] leading-tight">
+              Default workshop image
+            </h1>
+            <p className="text-sm text-[#555] leading-relaxed">
+              Add a logo or photo we&apos;ll use as the default picture for your workshops on offhrs. You can skip this
+              and add one later, or set a different image per session when you create listings.
+            </p>
+            <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-[#D9D7CF] bg-[#FAFAF8] px-6 py-10">
+              {logoPreview ? (
+                <div className="relative w-full max-w-[220px]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logoPreview}
+                    alt="Workshop logo preview"
+                    className="mx-auto max-h-40 w-auto max-w-full rounded-lg object-contain shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setLogoFile(null)}
+                    className="mt-3 w-full text-center text-xs font-medium text-[#5D755D] hover:underline"
+                  >
+                    Remove image
+                  </button>
+                </div>
+              ) : (
+                <label className="flex cursor-pointer flex-col items-center gap-2 text-center">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-[#5D755D] shadow-sm ring-1 ring-[#E8E4DE]">
+                    <ImagePlus className="h-7 w-7" />
+                  </span>
+                  <span className="text-sm font-medium text-[#1a1a1a]">Upload image</span>
+                  <span className="text-xs text-[#888]">JPEG, PNG, or WebP · max 2 MB</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      e.target.value = ''
+                      if (!f) return
+                      if (f.size > 2 * 1024 * 1024) {
+                        setError('Image must be 2 MB or smaller.')
+                        return
+                      }
+                      setError(null)
+                      setLogoFile(f)
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+        )}
+
         {step === 'location' && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <h1 className="font-playfair text-3xl font-bold text-[#1a1a1a] leading-tight">Where is your venue?</h1>
@@ -400,7 +581,8 @@ export function PartnerSignupWizard() {
           <div className="space-y-6 animate-in fade-in duration-300">
             <h1 className="font-playfair text-3xl font-bold text-[#1a1a1a] leading-tight">Create your login</h1>
             <p className="text-sm text-[#555] leading-relaxed">
-              Use a work email you can access — we&apos;ll send a verification link before billing.
+              Use a work email you can access. We&apos;ll send a verification link — you&apos;ll need to confirm it
+              before you can add a card for your 7-day trial and monthly subscription.
             </p>
             <div className="space-y-1">
               <label htmlFor="acct-email" className="block text-sm font-medium text-[#1a1a1a]">
@@ -443,6 +625,48 @@ export function PartnerSignupWizard() {
                 className={inputClass}
               />
             </div>
+          </div>
+        )}
+
+        {step === 'billing' && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="flex justify-center">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#EDF2ED] text-[#5D755D] ring-1 ring-[#5D755D]/20">
+                <CreditCard className="h-7 w-7" />
+              </span>
+            </div>
+            <h1 className="font-playfair text-3xl font-bold text-[#1a1a1a] leading-tight text-center">
+              Payment & subscription
+            </h1>
+            <p className="text-sm text-[#555] leading-relaxed text-center">
+              Add a payment method so we can start your <strong className="font-semibold text-[#1a1a1a]">7-day free trial</strong>.
+              After the trial, your monthly offhrs subscription is charged automatically unless you cancel before the trial
+              ends (see our Terms for details).
+            </p>
+            {billingCanceled && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 text-center">
+                Checkout was canceled. When you&apos;re ready, use the button below to try again.
+              </p>
+            )}
+            {!emailVerifiedForBilling && (
+              <div className="rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] px-4 py-4 text-center space-y-2">
+                <p className="text-sm font-medium text-[#1a1a1a]">Verify your email first</p>
+                <p className="text-xs text-[#555] leading-relaxed">
+                  We sent a link to <span className="font-medium text-[#1a1a1a]">{email.trim()}</span>. Open it in this
+                  browser (or any tab in the same browser) so we can confirm your address — this page updates
+                  automatically every few seconds.
+                </p>
+              </div>
+            )}
+            {emailVerifiedForBilling && (
+              <p className="text-center text-xs text-[#5D755D] font-medium">
+                Email confirmed — you can continue to secure Stripe checkout.
+              </p>
+            )}
+            <p className="text-center text-xs text-[#999]">
+              Payments are processed by Stripe. You won&apos;t be charged the subscription amount until after your trial
+              period.
+            </p>
           </div>
         )}
         </div>

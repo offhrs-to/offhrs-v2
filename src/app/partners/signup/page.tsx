@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { OffhrsLogoLink } from '@/components/offhrs-logo'
 import { PartnerSignupWizard } from './PartnerSignupWizard'
 
@@ -13,7 +14,9 @@ export default function PartnerSignupPage() {
           height={44}
         />
       </div>
-      <PartnerSignupWizard />
+      <Suspense fallback={<div className="min-h-screen pt-28 flex justify-center text-sm text-[#888]">Loading…</div>}>
+        <PartnerSignupWizard />
+      </Suspense>
     </div>
   )
 }

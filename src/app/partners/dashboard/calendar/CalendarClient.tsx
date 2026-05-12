@@ -101,7 +101,7 @@ export function CalendarClient() {
     if (err) setBanner(`Calendar: ${decodeURIComponent(err)}`)
     else if (ok) {
       setBanner(
-        `Connected ${ok === 'google' ? 'Google Calendar' : 'Outlook'} — syncing your published sessions.`
+        `Connected ${ok === 'google' ? 'Google Calendar' : 'Outlook'} — syncing your published workshops.`
       )
     }
     void loadStatus()
@@ -131,15 +131,15 @@ export function CalendarClient() {
         <div>
           <h1 className="text-2xl font-semibold text-[#1a1a1a] mb-1">Calendar</h1>
           <p className="text-sm text-[#888] max-w-xl">
-            Month view of your sessions. Connect Google Calendar or Outlook to create and update matching events when
-            you publish or change a session (published / fully booked only, with a scheduled date).
+            Month view of your workshops. Connect Google Calendar or Outlook to create and update matching events when
+            you publish or change a workshop (published / fully booked only, with a scheduled date).
           </p>
         </div>
         <Link
           href="/partners/dashboard/sessions?new=1"
           className="inline-flex items-center justify-center rounded-xl border border-[#E8E4DE] px-4 py-2 text-sm font-medium text-[#1a1a1a] hover:bg-[#FAFAF8] transition-colors self-start"
         >
-          New session
+          New workshop
         </Link>
       </div>
 
@@ -272,9 +272,9 @@ export function CalendarClient() {
         {loading && <div className="px-4 py-6 text-center text-sm text-[#888]">Loading…</div>}
         {!loading && sessions.length === 0 && (
           <div className="px-4 py-8 text-center text-sm text-[#888]">
-            No sessions with dates in this month.{' '}
+            No workshops with dates in this month.{' '}
             <Link href="/partners/dashboard/sessions" className="text-[#5D755D] font-medium hover:underline">
-              Add a session
+              Add a workshop
             </Link>
           </div>
         )}
@@ -283,7 +283,7 @@ export function CalendarClient() {
       <div className="text-xs text-[#888] space-y-1">
         <p>
           <strong className="text-[#555]">Sync rules:</strong> We push to Google/Outlook only when status is
-          Published or Fully booked and the session has a date/time. Drafts and archived sessions remove the external
+          Published or Fully booked and the workshop has a date/time. Drafts and archived workshops remove the external
           event.
         </p>
       </div>

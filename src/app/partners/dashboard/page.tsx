@@ -1,10 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { AlertTriangle, CalendarDays, Users, DollarSign, Clock } from 'lucide-react'
+import { AlertTriangle, CalendarDays, Users, DollarSign } from 'lucide-react'
 import Link from 'next/link'
 import { ConnectStripeButton } from './components/ConnectStripeButton'
-import { GettingStartedPanel } from './components/GettingStartedPanel'
+import { PartnerDashboardHeaderActions } from './components/PartnerDashboardHeaderActions'
 
 interface VendorProfile {
   id: string
@@ -121,7 +121,7 @@ export default async function DashboardPage() {
     },
     {
       key: 'first_session_created',
-      label: 'Create your first workshop session',
+      label: 'Create your first workshop',
       done: vendor.first_session_created,
       showStripeCta: false,
       href: '/partners/dashboard/sessions?new=1',
@@ -143,23 +143,14 @@ export default async function DashboardPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-[#1a1a1a]">
             Welcome back, {vendor.business_name}
           </h1>
           <p className="text-sm text-[#888] mt-1">Here's what's happening with your workshops.</p>
         </div>
-        {trialDays !== null && (
-          <div className={`text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5 ${
-            trialDays <= 3
-              ? 'bg-amber-50 text-amber-700 border border-amber-200'
-              : 'bg-[#EDF2ED] text-[#5D755D]'
-          }`}>
-            <Clock className="w-3.5 h-3.5" />
-            {trialDays === 0 ? 'Trial ends today' : `${trialDays} days left in trial`}
-          </div>
-        )}
+        <PartnerDashboardHeaderActions items={checklistItems} allDone={allDone} trialDays={trialDays} />
       </div>
 
       {/* Status banners */}
@@ -193,7 +184,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           {
-            label: 'Active sessions',
+            label: 'Active workshops',
             value: activeSessions,
             icon: CalendarDays,
             href: '/partners/dashboard/sessions',
@@ -228,13 +219,11 @@ export default async function DashboardPage() {
         })}
       </div>
 
-      <GettingStartedPanel items={checklistItems} allDone={allDone} />
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Sessions overview */}
+        {/* Workshops overview */}
         <div className="bg-white border border-[#E8E4DE] rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[#1a1a1a]">Your sessions</h2>
+            <h2 className="text-sm font-semibold text-[#1a1a1a]">Your workshops</h2>
             <Link
               href="/partners/dashboard/sessions"
               className="text-xs text-[#5D755D] font-medium hover:underline"
@@ -244,19 +233,19 @@ export default async function DashboardPage() {
           </div>
           <p className="text-xs text-[#888] -mt-2 mb-4">
             {vendorSessions.length >= 100
-              ? 'Showing your 100 most recent sessions by date (latest first). Open Sessions for the full list.'
-              : 'Sorted by session date (latest first). Counts reflect the latest data when you load this page.'}
+              ? 'Showing your 100 most recent workshops by date (latest first). Open Workshops for the full list.'
+              : 'Sorted by workshop date (latest first). Counts reflect the latest data when you load this page.'}
           </p>
 
           {!vendorSessions.length ? (
             <div className="text-center py-8">
               <CalendarDays className="w-8 h-8 text-[#C8BFB0] mx-auto mb-2" />
-              <p className="text-sm text-[#888]">No sessions yet.</p>
+              <p className="text-sm text-[#888]">No workshops yet.</p>
               <Link
                 href="/partners/dashboard/sessions?new=1"
                 className="inline-block mt-3 text-xs font-medium text-[#5D755D] hover:underline"
               >
-                Create a session →
+                Create a workshop →
               </Link>
             </div>
           ) : (
@@ -270,7 +259,7 @@ export default async function DashboardPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-[#1a1a1a] truncate">
-                          {session.title ?? 'Untitled session'}
+                          {session.title ?? 'Untitled workshop'}
                         </p>
                         <p className="text-xs text-[#555] mt-1">
                           {formatSessionDate(session.date)}
@@ -314,7 +303,7 @@ export default async function DashboardPage() {
                 href="/partners/dashboard/sessions?new=1"
                 className="inline-block mt-3 text-xs font-medium text-[#5D755D] hover:underline"
               >
-                Create your first session →
+                Create your first workshop →
               </Link>
             </div>
           ) : (
@@ -326,7 +315,7 @@ export default async function DashboardPage() {
                       {(booking.name as string) || 'Guest'}
                     </p>
                     <p className="text-xs text-[#888] truncate">
-                      {(booking.session_title as { title: string } | null)?.title || 'Unknown session'}
+                      {(booking.session_title as { title: string } | null)?.title || 'Unknown workshop'}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0 ml-3">

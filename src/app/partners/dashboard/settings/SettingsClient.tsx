@@ -216,7 +216,7 @@ export function SettingsClient({ vendor, email }: SettingsClientProps) {
             </div>
             <div>
               <label className="block text-xs font-medium text-[#555] mb-1.5">
-                Refund window (hours before session)
+                Refund window (hours before workshop)
               </label>
               <input
                 type="number"

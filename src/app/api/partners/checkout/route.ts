@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         },
       },
       success_url: `${appUrl}/partners/dashboard?onboarding=1`,
-      cancel_url: `${appUrl}/partners/checkout?canceled=1`,
+      cancel_url: `${appUrl}/partners/signup?billing=1&canceled=1`,
       metadata: {
         vendor_id: vendor.id,
         user_id: user.id,

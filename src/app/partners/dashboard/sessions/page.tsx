@@ -18,6 +18,8 @@ interface Session {
   location: string | null
   status: string
   created_at: string
+  description?: string | null
+  image_url?: string | null
 }
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
@@ -33,6 +35,7 @@ function SessionsPageInner() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [vendorDefaultAddress, setVendorDefaultAddress] = useState('')
+  const [vendorDefaultWorkshopImageUrl, setVendorDefaultWorkshopImageUrl] = useState('')
   const [showForm, setShowForm] = useState(searchParams.get('new') === '1')
   const [editingSession, setEditingSession] = useState<Session | null>(null)
   const [statusFilter, setStatusFilter] = useState('all')
@@ -69,8 +72,14 @@ function SessionsPageInner() {
         const data = await res.json()
         if (cancelled || !res.ok) return
         setVendorDefaultAddress(typeof data.location_address === 'string' ? data.location_address : '')
+        setVendorDefaultWorkshopImageUrl(
+          typeof data.default_workshop_image_url === 'string' ? data.default_workshop_image_url : ''
+        )
       } catch {
-        if (!cancelled) setVendorDefaultAddress('')
+        if (!cancelled) {
+          setVendorDefaultAddress('')
+          setVendorDefaultWorkshopImageUrl('')
+        }
       }
     })()
     return () => {
@@ -79,7 +88,7 @@ function SessionsPageInner() {
   }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm('Archive this session? It will no longer be visible to consumers.')) return
+    if (!confirm('Archive this workshop? It will no longer be visible to consumers.')) return
     await fetch(`/api/partners/sessions/${id}`, { method: 'DELETE' })
     await fetchSessions()
   }
@@ -111,6 +120,7 @@ function SessionsPageInner() {
       <SessionForm
         session={editingSession}
         vendorDefaultAddress={vendorDefaultAddress}
+        vendorDefaultWorkshopImageUrl={vendorDefaultWorkshopImageUrl}
         onClose={handleFormClose}
       />
     )
@@ -120,15 +130,15 @@ function SessionsPageInner() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-[#1a1a1a]">Sessions</h1>
-          <p className="text-sm text-[#888] mt-1">Manage your workshop sessions.</p>
+          <h1 className="text-2xl font-semibold text-[#1a1a1a]">Workshops</h1>
+          <p className="text-sm text-[#888] mt-1">Manage your workshops.</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2 bg-[#5D755D] text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-[#4d644d] transition-colors"
         >
           <Plus className="w-4 h-4" />
-          New session
+          New workshop
         </button>
       </div>
 
@@ -149,7 +159,7 @@ function SessionsPageInner() {
         ))}
       </div>
 
-      {/* Session list */}
+      {/* Workshop list */}
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
@@ -159,14 +169,14 @@ function SessionsPageInner() {
       ) : sessions.length === 0 ? (
         <div className="text-center py-16 bg-white border border-[#E8E4DE] rounded-xl">
           <CalendarDays className="w-10 h-10 text-[#C8BFB0] mx-auto mb-3" />
-          <p className="text-sm font-medium text-[#1a1a1a]">No sessions yet</p>
-          <p className="text-xs text-[#888] mt-1 mb-4">Create your first workshop session to get started.</p>
+          <p className="text-sm font-medium text-[#1a1a1a]">No workshops yet</p>
+          <p className="text-xs text-[#888] mt-1 mb-4">Create your first workshop to get started.</p>
           <button
             onClick={() => setShowForm(true)}
             className="inline-flex items-center gap-2 bg-[#5D755D] text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-[#4d644d] transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Create session
+            Create workshop
           </button>
         </div>
       ) : (
@@ -247,7 +257,7 @@ function SessionsPageInner() {
 
 export default function SessionsPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-[#888]">Loading sessions…</div>}>
+    <Suspense fallback={<div className="p-6 text-sm text-[#888]">Loading workshops…</div>}>
       <SessionsPageInner />
     </Suspense>
   )

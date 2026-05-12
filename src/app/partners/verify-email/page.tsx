@@ -26,7 +26,7 @@ function VerifyEmailPageInner() {
           throw new Error(data.error ?? 'Verification failed')
         }
         setStatus('success')
-        setTimeout(() => router.replace('/partners/checkout'), 2000)
+        setTimeout(() => router.replace('/partners/signup?billing=1'), 2000)
       })
       .catch((err) => {
         setStatus('error')

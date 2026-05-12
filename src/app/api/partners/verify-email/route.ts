@@ -53,8 +53,8 @@ export async function GET(request: NextRequest) {
       .update({ email_verified: true })
       .eq('user_id', data.user.id)
 
-    // Redirect to Stripe checkout page
-    return NextResponse.redirect(`${appUrl}/partners/checkout`)
+    // Continue onboarding: payment step in signup wizard
+    return NextResponse.redirect(`${appUrl}/partners/signup?billing=1`)
   } catch (err) {
     console.error('Partner verify-email error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

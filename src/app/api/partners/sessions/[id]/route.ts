@@ -17,6 +17,7 @@ const updateSchema = z.object({
   location_address: z.string().max(500).optional(),
   location_link: z.string().url().optional(),
   status: z.enum(['published', 'draft', 'archived']).optional(),
+  cover_image_url: z.string().url().nullable().optional(),
 })
 
 type Params = { params: Promise<{ id: string }> }
@@ -27,7 +28,7 @@ async function getVendorAndSession(userId: string, sessionId: string) {
 
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('id')
+    .select('id, default_workshop_image_url')
     .eq('user_id', userId)
     .single()
 
@@ -78,6 +79,13 @@ export async function PUT(request: NextRequest, { params }: Params) {
     if (body.date !== undefined) updatePayload.date = body.date ? new Date(body.date).toISOString() : null
     if (body.location_address !== undefined) updatePayload.location = body.location_address
     if (body.location_link !== undefined) updatePayload.location = body.location_link
+    if (body.cover_image_url !== undefined) {
+      if (body.cover_image_url === null) {
+        updatePayload.image_url = vendor.default_workshop_image_url ?? null
+      } else {
+        updatePayload.image_url = body.cover_image_url
+      }
+    }
 
     const { data: updated, error } = await admin
       .from('events')

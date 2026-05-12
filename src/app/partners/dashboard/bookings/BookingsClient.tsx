@@ -121,7 +121,7 @@ export function BookingsClient({ sessions }: { sessions: Session[] }) {
           onChange={(e) => setSessionFilter(e.target.value)}
           className="text-sm border border-[#E8E4DE] rounded-xl px-3 py-2 bg-white text-[#1a1a1a] focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
         >
-          <option value="all">All sessions</option>
+          <option value="all">All workshops</option>
           {sessions.map((s) => (
             <option key={s.id} value={s.id}>{s.title}</option>
           ))}
@@ -154,7 +154,7 @@ export function BookingsClient({ sessions }: { sessions: Session[] }) {
           {/* Desktop header */}
           <div className="hidden md:grid grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr] gap-3 px-5 py-3 border-b border-[#F0EDE8] text-xs font-medium text-[#888]">
             <span>Attendee</span>
-            <span>Session</span>
+            <span>Workshop</span>
             <span>Date</span>
             <span>Amount</span>
             <span>Status</span>
@@ -174,7 +174,7 @@ export function BookingsClient({ sessions }: { sessions: Session[] }) {
                   <p className="text-xs text-[#888] truncate">{b.email ?? ''}</p>
                 </div>
 
-                {/* Session */}
+                {/* Workshop */}
                 <p className="text-sm text-[#555] truncate">{b.events?.title ?? '—'}</p>
 
                 {/* Date */}

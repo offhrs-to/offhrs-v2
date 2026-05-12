@@ -3,6 +3,9 @@ import { CATEGORY_ENUM } from '@/constants/categories'
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { z } from 'zod'
+import { uploadVendorWorkshopImage } from '@/lib/vendor-workshop-image-storage'
+
+const LOGO_MAX_BYTES = 2 * 1024 * 1024
 
 const signupSchema = z
   .object({
@@ -16,6 +19,12 @@ const signupSchema = z
     email: z.string().email(),
     password: z.string().min(8).max(128),
     phone: z.string().max(30).optional().nullable(),
+    workshop_logo: z
+      .object({
+        base64: z.string().min(1),
+        mime_type: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+      })
+      .optional(),
   })
   .superRefine((data, ctx) => {
     if (data.categories.includes('Other') && !data.category_other_detail?.trim()) {
@@ -87,7 +96,20 @@ export async function POST(request: NextRequest) {
       email,
       password,
       phone,
+      workshop_logo,
     } = parsed.data
+
+    let logoBuffer: Buffer | null = null
+    if (workshop_logo) {
+      try {
+        logoBuffer = Buffer.from(workshop_logo.base64, 'base64')
+      } catch {
+        return NextResponse.json({ error: 'Invalid workshop logo encoding' }, { status: 400 })
+      }
+      if (logoBuffer.length > LOGO_MAX_BYTES) {
+        return NextResponse.json({ error: 'Workshop logo must be 2 MB or smaller' }, { status: 400 })
+      }
+    }
 
     const bioTrim = category_other_detail?.trim() || null
 
@@ -133,24 +155,47 @@ export async function POST(request: NextRequest) {
 
     // Create vendor profile
     const websiteTrim = website_url?.trim()
-    const { error: profileError } = await admin.from('vendor_profiles').insert({
-      user_id: userId,
-      business_name,
-      slug,
-      phone: phone?.trim() || null,
-      website_url: websiteTrim ? websiteTrim : null,
-      category: categories,
-      location_address: location_address.trim(),
-      location_lat: location_lat ?? null,
-      location_lng: location_lng ?? null,
-      bio: bioTrim,
-      status: 'pending',
-    })
+    const { data: insertedProfile, error: profileError } = await admin
+      .from('vendor_profiles')
+      .insert({
+        user_id: userId,
+        business_name,
+        slug,
+        phone: phone?.trim() || null,
+        website_url: websiteTrim ? websiteTrim : null,
+        category: categories,
+        location_address: location_address.trim(),
+        location_lat: location_lat ?? null,
+        location_lng: location_lng ?? null,
+        bio: bioTrim,
+        status: 'pending',
+      })
+      .select('id')
+      .single()
 
-    if (profileError) {
-      // Clean up auth user on profile failure
+    if (profileError || !insertedProfile) {
       await admin.auth.admin.deleteUser(userId)
       return NextResponse.json({ error: 'Failed to create vendor profile' }, { status: 500 })
+    }
+
+    if (logoBuffer && workshop_logo) {
+      const uploaded = await uploadVendorWorkshopImage(admin, {
+        pathPrefix: `vendors/${insertedProfile.id}/onboarding`,
+        buffer: logoBuffer,
+        contentType: workshop_logo.mime_type,
+      })
+      if ('error' in uploaded) {
+        await rollbackSignup(admin, userId)
+        return NextResponse.json({ error: uploaded.error }, { status: 400 })
+      }
+      const { error: logoUpdateErr } = await admin
+        .from('vendor_profiles')
+        .update({ default_workshop_image_url: uploaded.publicUrl })
+        .eq('id', insertedProfile.id)
+      if (logoUpdateErr) {
+        await rollbackSignup(admin, userId)
+        return NextResponse.json({ error: 'Failed to save workshop logo' }, { status: 500 })
+      }
     }
 
     // Verification email is mandatory before checkout.
