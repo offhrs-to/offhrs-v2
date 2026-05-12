@@ -48,3 +48,6 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+# Supabase CLI local link state (do not commit)
+supabase/.temp/
