@@ -3,15 +3,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { signOAuthState } from '@/lib/oauth-state'
 import { googleAuthorizeUrl } from '@/lib/google-calendar-api'
+import { calendarOAuthAppBase } from '@/lib/calendar-oauth-app-base'
 
-function appBase(): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-  ).replace(/\/$/, '')
-}
-
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID
   if (!clientId) {
     return NextResponse.json({ error: 'Google Calendar OAuth is not configured' }, { status: 503 })
@@ -27,7 +21,7 @@ export async function GET(_request: NextRequest) {
   const { data: vendor } = await admin.from('vendor_profiles').select('id').eq('user_id', user.id).single()
   if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
 
-  const redirectUri = `${appBase()}/api/partners/calendar/oauth/google/callback`
+  const redirectUri = `${calendarOAuthAppBase(request)}/api/partners/calendar/oauth/google/callback`
   const state = signOAuthState({
     vendorId: vendor.id,
     provider: 'google',
