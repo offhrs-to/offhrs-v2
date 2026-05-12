@@ -4,13 +4,13 @@ function calEnv(name: 'CAL_OAUTH_CLIENT_ID' | 'CAL_OAUTH_CLIENT_SECRET'): string
   return (process.env[name] ?? '').trim()
 }
 
-/** Headers for Platform managed-user endpoints (see Cal API v2 → Platform OAuth client credentials). */
-function calPlatformAuthHeaders(): Record<string, string> {
-  const clientId = calEnv('CAL_OAUTH_CLIENT_ID')
-  const clientSecret = calEnv('CAL_OAUTH_CLIENT_SECRET')
+/**
+ * Cal Platform managed-user calls: only `x-cal-secret-key` (OAuth client secret).
+ * @see https://cal.com/docs/platform/quickstart#create-managed-users-via-our-api
+ */
+function calManagedUserHeaders(clientSecret: string): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    'x-cal-client-id': clientId,
     'x-cal-secret-key': clientSecret,
   }
 }
@@ -31,8 +31,7 @@ function formatCalProvisioningFailure(status: number, body: string): string {
   }
   if (status === 401 || status === 403) {
     return (
-      'Cal.com rejected the request (unauthorized). Confirm CAL_OAUTH_CLIENT_ID and CAL_OAUTH_CLIENT_SECRET match your OAuth client ' +
-      '(x-cal-client-id + x-cal-secret-key from the same client). CAL_API_KEY is only used elsewhere (e.g. booking cancel), not for provisioning.'
+      'Cal.com rejected the request (unauthorized). Confirm CAL_OAUTH_CLIENT_ID is in the request URL and CAL_OAUTH_CLIENT_SECRET is the active secret from that same OAuth client (header x-cal-secret-key only — not your Developer API key). CAL_API_KEY is only used elsewhere (e.g. booking cancel).'
     )
   }
   if (status >= 500) {
@@ -68,13 +67,17 @@ export async function provisionCalUser(email: string, name: string): Promise<Cal
 
   const res = await fetch(`${CAL_API_BASE}/oauth-clients/${clientId}/users`, {
     method: 'POST',
-    headers: calPlatformAuthHeaders(),
-    body: JSON.stringify({ email, name }),
+    headers: calManagedUserHeaders(clientSecret),
+    body: JSON.stringify({ email, name, timeZone: 'America/Toronto' }),
   })
 
   if (!res.ok) {
     const body = await res.text()
-    console.error('[cal] provisionCalUser failed', { status: res.status, clientIdLen: clientId.length })
+    console.error('[cal] provisionCalUser failed', {
+      status: res.status,
+      clientIdLen: clientId.length,
+      bodyPreview: body.slice(0, 500),
+    })
     throw new Error(formatCalProvisioningFailure(res.status, body))
   }
 
@@ -103,9 +106,10 @@ export async function refreshCalToken(
     )
   }
 
-  const res = await fetch(`${CAL_API_BASE}/oauth-clients/${clientId}/users/token`, {
+  /** @see https://cal.com/docs/api-reference/v2/deprecated:-platform-managed-users/refresh-managed-user-tokens */
+  const res = await fetch(`${CAL_API_BASE}/oauth/${clientId}/refresh`, {
     method: 'POST',
-    headers: calPlatformAuthHeaders(),
+    headers: calManagedUserHeaders(clientSecret),
     body: JSON.stringify({ refreshToken }),
   })
 
