@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     .from('bookings')
     .select(`
       id, name, email, amount_cad, stripe_fee_cad, net_vendor_cad,
-      stripe_payment_intent_id, stripe_charge_id, cal_booking_uid,
+      stripe_payment_intent_id, stripe_charge_id,
       status, refunded_at, cancellation_reason, created_at, event_id,
       events ( title )
     `)

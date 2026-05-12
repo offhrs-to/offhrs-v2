@@ -106,7 +106,6 @@ export async function POST(request: NextRequest) {
         location: body.location_address ?? body.location_link ?? null,
         date: body.date ? new Date(body.date).toISOString() : null,
         booking_status: body.status,
-        cal_event_type_id: null,
         organizer: null,
       })
       .select()

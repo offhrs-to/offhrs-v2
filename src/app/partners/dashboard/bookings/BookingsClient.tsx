@@ -11,7 +11,6 @@ interface Booking {
   stripe_fee_cad: number | null
   net_vendor_cad: number | null
   stripe_charge_id: string | null
-  cal_booking_uid: string | null
   status: string | null
   refunded_at: string | null
   created_at: string

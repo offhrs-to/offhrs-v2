@@ -118,7 +118,6 @@ export async function POST(request: NextRequest) {
       .insert({
         event_id: eventId,
         vendor_id: vendorId,
-        cal_booking_uid: null,
         stripe_payment_intent_id: paymentIntentId,
         stripe_charge_id: chargeId ?? null,
         name: attendeeName,
@@ -262,7 +261,6 @@ async function handleFreeConfirm(
     .insert({
       event_id,
       vendor_id: vendorId,
-      cal_booking_uid: null,
       stripe_payment_intent_id: null,
       stripe_charge_id: null,
       name: attendee_name,
