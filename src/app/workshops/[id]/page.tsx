@@ -4,6 +4,7 @@ import { MapPin, Clock, Users, DollarSign, ExternalLink, ArrowLeft } from 'lucid
 import Link from 'next/link'
 import { BookingSection } from './BookingSection'
 import type { Metadata } from 'next'
+import { formatSeriesDateRangeLabel, parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -22,6 +23,8 @@ interface Event {
   booking_status: string | null
   vendor_profile_id: string | null
   external_link: string | null
+  workshop_series?: string | null
+  series_occurrences?: unknown
 }
 
 interface VendorProfile {
@@ -57,11 +60,30 @@ export default async function WorkshopDetailPage({ params }: Params) {
 
   const { data: event } = await admin
     .from('events')
-    .select('id, title, description, date, location, category, price_cad, price, max_attendees, available_slots, duration_minutes, booking_status, vendor_profile_id, external_link')
+    .select(
+      'id, title, description, date, location, category, price_cad, price, max_attendees, available_slots, duration_minutes, booking_status, vendor_profile_id, external_link, workshop_series, series_occurrences'
+    )
     .eq('id', id)
     .single() as { data: Event | null }
 
   if (!event) return notFound()
+
+  const series = parseSeriesOccurrences(event as EventSeriesFields)
+  const nowMs = Date.now()
+  const bookableOcc = series.filter(
+    (o) => new Date(o.start).getTime() >= nowMs - 60_000 && o.available_slots > 0
+  )
+  const occurrenceOptions = bookableOcc.map((o) => ({
+    value: o.start,
+    label: new Date(o.start).toLocaleString('en-CA', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }),
+  }))
+  const isMultiSeries = series.length > 1
 
   let vendor: VendorProfile | null = null
 
@@ -74,8 +96,14 @@ export default async function WorkshopDetailPage({ params }: Params) {
     vendor = vp
   }
 
-  const canBookVendor = Boolean(event.vendor_profile_id) && event.booking_status === 'published'
-  const isFullyBooked = event.booking_status === 'fully_booked' || (event.available_slots ?? 1) <= 0
+  const canBookVendor =
+    Boolean(event.vendor_profile_id) &&
+    event.booking_status === 'published' &&
+    (!isMultiSeries || occurrenceOptions.length > 0)
+  const isFullyBooked =
+    event.booking_status === 'fully_booked' ||
+    (event.available_slots ?? 1) <= 0 ||
+    (isMultiSeries && occurrenceOptions.length === 0)
   const priceCad = event.price_cad ?? 0
   const stripePk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''
 
@@ -153,7 +181,9 @@ export default async function WorkshopDetailPage({ params }: Params) {
             {event.date && (
               <span className="flex items-center gap-1.5">
                 <Clock className="w-4 h-4" />
-                {formatDate(event.date)}
+                {isMultiSeries && series.length > 0
+                  ? formatSeriesDateRangeLabel(series)
+                  : formatDate(event.date)}
               </span>
             )}
             {event.location && (
@@ -195,7 +225,10 @@ export default async function WorkshopDetailPage({ params }: Params) {
         {canBookVendor ? (
           <BookingSection
             eventId={String(event.id)}
-            defaultStartLocal={formatDatetimeLocalFromIso(event.date)}
+            defaultStartLocal={formatDatetimeLocalFromIso(
+              occurrenceOptions[0]?.value ?? event.date
+            )}
+            occurrenceOptions={occurrenceOptions.length > 0 ? occurrenceOptions : undefined}
             priceCad={priceCad}
             stripePk={stripePk}
             isFullyBooked={isFullyBooked}

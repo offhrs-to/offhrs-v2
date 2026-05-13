@@ -47,7 +47,12 @@ function formatWhen(iso: string): string {
   return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
 }
 
-export function PartnerNotificationsBell() {
+export function PartnerNotificationsBell({
+  gettingStartedOpen = false,
+}: {
+  /** When true, the bell stays under the getting-started overlay and the menu closes. */
+  gettingStartedOpen?: boolean
+}) {
   const [items, setItems] = useState<PartnerNotificationDto[]>([])
   const [open, setOpen] = useState(false)
   const [seen, setSeen] = useState<Set<string>>(() => (typeof window !== 'undefined' ? loadSeen() : new Set()))
@@ -69,6 +74,10 @@ export function PartnerNotificationsBell() {
     const t = setInterval(() => void load(), POLL_MS)
     return () => clearInterval(t)
   }, [load])
+
+  useEffect(() => {
+    if (gettingStartedOpen) setOpen(false)
+  }, [gettingStartedOpen])
 
   useLayoutEffect(() => {
     if (!open) return
@@ -99,7 +108,10 @@ export function PartnerNotificationsBell() {
   const unread = items.filter((n) => !seen.has(n.id)).length
 
   return (
-    <div className="relative z-[110]" ref={wrapRef}>
+    <div
+      className={gettingStartedOpen ? 'relative z-0' : 'relative z-[110]'}
+      ref={wrapRef}
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

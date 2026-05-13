@@ -27,6 +27,7 @@ type Session = {
   location: string | null
   price_cad: number | null
   status?: string
+  calendarRowKey?: string
 }
 
 type CalendarStatus = {
@@ -252,7 +253,7 @@ export function CalendarClient() {
                 <div className="space-y-0.5 overflow-hidden">
                   {list.slice(0, 3).map((s) => (
                     <Link
-                      key={s.id}
+                      key={'calendarRowKey' in s && s.calendarRowKey ? s.calendarRowKey : s.id}
                       href={`/partners/dashboard/sessions?edit=${s.id}`}
                       className="block truncate rounded px-0.5 py-0.5 text-[10px] sm:text-[11px] font-medium leading-tight bg-[#EDF2ED] text-[#3d523d] hover:bg-[#dfe8df]"
                       title={s.title}
@@ -284,7 +285,8 @@ export function CalendarClient() {
         <p>
           <strong className="text-[#555]">Sync rules:</strong> We push to Google/Outlook only when status is
           Published or Fully booked and the workshop has a date/time. Drafts and archived workshops remove the external
-          event.
+          event. Multi-week workshops (one listing with several dates) create one calendar event per session date; we
+          update them when you change the workshop.
         </p>
       </div>
     </div>

@@ -13,9 +13,11 @@ import {
   microsoftCalendarDeleteEvent,
 } from '@/lib/microsoft-calendar-api'
 
+import { parseSeriesOccurrences, type SeriesOccurrence } from '@/lib/workshop-series'
+
 const DEFAULT_TZ = process.env.VENDOR_CALENDAR_DEFAULT_TZ ?? 'America/Toronto'
 
-type EventRow = {
+type RichEvent = {
   id: string | number
   title: string
   description: string | null
@@ -29,6 +31,10 @@ type EventRow = {
   vendor_profile_id: string | null
   google_calendar_event_id: string | null
   microsoft_outlook_event_id: string | null
+  workshop_series?: string | null
+  series_occurrences?: unknown
+  series_google_calendar_event_ids?: unknown
+  series_microsoft_outlook_event_ids?: unknown
 }
 
 function appBaseUrl(): string {
@@ -43,25 +49,43 @@ function endIsoFromStart(start: Date, durationMinutes: number): string {
   return end.toISOString()
 }
 
-function buildDescription(event: EventRow): string {
+function buildDescriptionForOccurrence(row: RichEvent, series: SeriesOccurrence[], occIndex: number): string {
   const lines: string[] = []
-  if (event.description) lines.push(event.description)
-  if (event.location) lines.push(`Location: ${event.location}`)
-  const cap =
-    event.max_attendees != null
-      ? `${event.available_slots ?? event.max_attendees}/${event.max_attendees} spots`
-      : ''
-  if (cap) lines.push(cap)
-  if (event.price_cad != null) lines.push(`Price: $${event.price_cad} CAD`)
-  lines.push(`Workshop: ${appBaseUrl()}/workshops/${event.id}`)
+  if (row.description) lines.push(row.description)
+  if (row.location) lines.push(`Location: ${row.location}`)
+  if (series.length > 1 && series[occIndex]) {
+    lines.push(`Session ${occIndex + 1} of ${series.length}`)
+    lines.push(
+      `${series[occIndex].available_slots}/${series[occIndex].max_attendees} spots (this date)`
+    )
+  } else {
+    const cap =
+      row.max_attendees != null
+        ? `${row.available_slots ?? row.max_attendees}/${row.max_attendees} spots`
+        : ''
+    if (cap) lines.push(cap)
+  }
+  if (row.price_cad != null) lines.push(`Price: $${row.price_cad} CAD`)
+  lines.push(`Workshop: ${appBaseUrl()}/workshops/${row.id}`)
   lines.push('Managed by offhrs.')
   return lines.join('\n\n')
 }
 
-function shouldHaveExternalEvent(row: EventRow): boolean {
-  if (!row.date) return false
+function parseIdArray(v: unknown): (string | null)[] {
+  if (!Array.isArray(v)) return []
+  return v.map((x) => (typeof x === 'string' && x.length > 0 ? x : null))
+}
+
+function getStartIsoList(row: RichEvent): string[] {
+  const series = parseSeriesOccurrences(row)
+  if (series.length > 0) return series.map((o) => o.start)
+  if (row.date) return [row.date]
+  return []
+}
+
+function shouldHaveExternalEvent(row: RichEvent): boolean {
   const s = row.booking_status
-  return s === 'published' || s === 'fully_booked'
+  return (s === 'published' || s === 'fully_booked') && getStartIsoList(row).length > 0
 }
 
 function googleCreds(): { clientId: string; clientSecret: string } {
@@ -91,7 +115,7 @@ export async function syncVendorSessionToExternalCalendars(
     const { data: row, error } = await admin
       .from('events')
       .select(
-        'id, title, description, date, duration_minutes, booking_status, location, max_attendees, available_slots, price_cad, vendor_profile_id, google_calendar_event_id, microsoft_outlook_event_id'
+        'id, title, description, date, duration_minutes, booking_status, location, max_attendees, available_slots, price_cad, vendor_profile_id, google_calendar_event_id, microsoft_outlook_event_id, workshop_series, series_occurrences, series_google_calendar_event_ids, series_microsoft_outlook_event_ids'
       )
       .eq('id', eventId)
       .eq('vendor_profile_id', vendorId)
@@ -99,22 +123,25 @@ export async function syncVendorSessionToExternalCalendars(
 
     if (error || !row) return
 
-    const event = row as EventRow
+    const event = row as RichEvent
+    const series = parseSeriesOccurrences(event)
+    const starts = getStartIsoList(event)
+    const want = shouldHaveExternalEvent(event)
+    const duration = (event.duration_minutes ?? 60) as number
+    const summary = event.title
+
+    const prevGoogleSeries = parseIdArray(event.series_google_calendar_event_ids)
+    const prevMsSeries = parseIdArray(event.series_microsoft_outlook_event_ids)
+
+    let googleCalResult: { legacy: string | null; series: string[] | null } | null = null
+    let msCalResult: { legacy: string | null; series: string[] | null } | null = null
+
     const { data: connections } = await admin
       .from('vendor_calendar_connections')
       .select('provider, refresh_token_encrypted, account_email')
       .eq('vendor_id', vendorId)
 
-    const want = shouldHaveExternalEvent(event)
-    const start = event.date ? new Date(event.date) : null
-    const duration = (event.duration_minutes ?? 60) as number
-    const summary = event.title
-    const description = buildDescription(event)
-
-    const updates: { google_calendar_event_id: string | null; microsoft_outlook_event_id: string | null } = {
-      google_calendar_event_id: event.google_calendar_event_id,
-      microsoft_outlook_event_id: event.microsoft_outlook_event_id,
-    }
+    const isMulti = series.length > 1
 
     for (const c of connections ?? []) {
       const provider = c.provider as 'google' | 'microsoft'
@@ -129,48 +156,67 @@ export async function syncVendorSessionToExternalCalendars(
       if (provider === 'google') {
         try {
           const { clientId, clientSecret } = googleCreds()
-          if (!want || !start) {
-            if (event.google_calendar_event_id) {
-              const { access_token } = await googleRefreshAccessToken({
-                clientId,
-                clientSecret,
-                refreshToken,
-              })
-              await googleCalendarDeleteEvent({
-                accessToken: access_token,
-                eventId: event.google_calendar_event_id,
-              })
-            }
-            updates.google_calendar_event_id = null
-          } else {
-            const startIso = start.toISOString()
-            const endIso = endIsoFromStart(start, duration)
-            const { access_token } = await googleRefreshAccessToken({
-              clientId,
-              clientSecret,
-              refreshToken,
-            })
+          const { access_token } = await googleRefreshAccessToken({ clientId, clientSecret, refreshToken })
 
-            if (event.google_calendar_event_id) {
-              await googleCalendarPatchEvent({
-                accessToken: access_token,
-                eventId: event.google_calendar_event_id,
-                summary,
-                description,
-                startIso,
-                endIso,
-                timeZone: DEFAULT_TZ,
-              })
+          const collectDeleteTargets = (): string[] => {
+            const ids = new Set<string>()
+            if (event.google_calendar_event_id) ids.add(event.google_calendar_event_id)
+            for (const x of prevGoogleSeries) {
+              if (x) ids.add(x)
+            }
+            return [...ids]
+          }
+
+          if (!want || starts.length === 0) {
+            for (const gid of collectDeleteTargets()) {
+              await googleCalendarDeleteEvent({ accessToken: access_token, eventId: gid }).catch(() => {})
+            }
+            googleCalResult = { legacy: null, series: null }
+          } else {
+            const prevByIndex: (string | null)[] = []
+            for (let i = 0; i < starts.length; i++) {
+              prevByIndex.push(prevGoogleSeries[i] ?? (starts.length === 1 ? event.google_calendar_event_id : null))
+            }
+            const outIds: string[] = []
+            for (let i = 0; i < starts.length; i++) {
+              const start = new Date(starts[i])
+              const startIso = start.toISOString()
+              const endIso = endIsoFromStart(start, duration)
+              const description = buildDescriptionForOccurrence(event, series, series.length > 1 ? i : 0)
+              const prevId = prevByIndex[i] ?? null
+              let newId: string
+              if (prevId) {
+                await googleCalendarPatchEvent({
+                  accessToken: access_token,
+                  eventId: prevId,
+                  summary,
+                  description,
+                  startIso,
+                  endIso,
+                  timeZone: DEFAULT_TZ,
+                })
+                newId = prevId
+              } else {
+                const created = await googleCalendarInsertEvent({
+                  accessToken: access_token,
+                  summary,
+                  description,
+                  startIso,
+                  endIso,
+                  timeZone: DEFAULT_TZ,
+                })
+                newId = created.id
+              }
+              outIds.push(newId)
+            }
+            for (let i = starts.length; i < prevGoogleSeries.length; i++) {
+              const gid = prevGoogleSeries[i]
+              if (gid) await googleCalendarDeleteEvent({ accessToken: access_token, eventId: gid }).catch(() => {})
+            }
+            if (isMulti) {
+              googleCalResult = { legacy: null, series: outIds }
             } else {
-              const created = await googleCalendarInsertEvent({
-                accessToken: access_token,
-                summary,
-                description,
-                startIso,
-                endIso,
-                timeZone: DEFAULT_TZ,
-              })
-              updates.google_calendar_event_id = created.id
+              googleCalResult = { legacy: outIds[0] ?? null, series: null }
             }
           }
         } catch (e) {
@@ -179,48 +225,67 @@ export async function syncVendorSessionToExternalCalendars(
       } else if (provider === 'microsoft') {
         try {
           const { clientId, clientSecret } = microsoftCreds()
-          if (!want || !start) {
-            if (event.microsoft_outlook_event_id) {
-              const { access_token } = await microsoftRefreshAccessToken({
-                clientId,
-                clientSecret,
-                refreshToken,
-              })
-              await microsoftCalendarDeleteEvent({
-                accessToken: access_token,
-                eventId: event.microsoft_outlook_event_id,
-              })
-            }
-            updates.microsoft_outlook_event_id = null
-          } else {
-            const startIso = start.toISOString()
-            const endIso = endIsoFromStart(start, duration)
-            const { access_token } = await microsoftRefreshAccessToken({
-              clientId,
-              clientSecret,
-              refreshToken,
-            })
+          const { access_token } = await microsoftRefreshAccessToken({ clientId, clientSecret, refreshToken })
 
-            if (event.microsoft_outlook_event_id) {
-              await microsoftCalendarPatchEvent({
-                accessToken: access_token,
-                eventId: event.microsoft_outlook_event_id,
-                subject: summary,
-                body: description,
-                startIso,
-                endIso,
-                timeZone: DEFAULT_TZ,
-              })
+          const collectDeleteTargets = (): string[] => {
+            const ids = new Set<string>()
+            if (event.microsoft_outlook_event_id) ids.add(event.microsoft_outlook_event_id)
+            for (const x of prevMsSeries) {
+              if (x) ids.add(x)
+            }
+            return [...ids]
+          }
+
+          if (!want || starts.length === 0) {
+            for (const mid of collectDeleteTargets()) {
+              await microsoftCalendarDeleteEvent({ accessToken: access_token, eventId: mid }).catch(() => {})
+            }
+            msCalResult = { legacy: null, series: null }
+          } else {
+            const prevByIndex: (string | null)[] = []
+            for (let i = 0; i < starts.length; i++) {
+              prevByIndex.push(prevMsSeries[i] ?? (starts.length === 1 ? event.microsoft_outlook_event_id : null))
+            }
+            const outIds: string[] = []
+            for (let i = 0; i < starts.length; i++) {
+              const start = new Date(starts[i])
+              const startIso = start.toISOString()
+              const endIso = endIsoFromStart(start, duration)
+              const body = buildDescriptionForOccurrence(event, series, series.length > 1 ? i : 0)
+              const prevId = prevByIndex[i] ?? null
+              let newId: string
+              if (prevId) {
+                await microsoftCalendarPatchEvent({
+                  accessToken: access_token,
+                  eventId: prevId,
+                  subject: summary,
+                  body,
+                  startIso,
+                  endIso,
+                  timeZone: DEFAULT_TZ,
+                })
+                newId = prevId
+              } else {
+                const created = await microsoftCalendarInsertEvent({
+                  accessToken: access_token,
+                  subject: summary,
+                  body,
+                  startIso,
+                  endIso,
+                  timeZone: DEFAULT_TZ,
+                })
+                newId = created.id
+              }
+              outIds.push(newId)
+            }
+            for (let i = starts.length; i < prevMsSeries.length; i++) {
+              const mid = prevMsSeries[i]
+              if (mid) await microsoftCalendarDeleteEvent({ accessToken: access_token, eventId: mid }).catch(() => {})
+            }
+            if (isMulti) {
+              msCalResult = { legacy: null, series: outIds }
             } else {
-              const created = await microsoftCalendarInsertEvent({
-                accessToken: access_token,
-                subject: summary,
-                body: description,
-                startIso,
-                endIso,
-                timeZone: DEFAULT_TZ,
-              })
-              updates.microsoft_outlook_event_id = created.id
+              msCalResult = { legacy: outIds[0] ?? null, series: null }
             }
           }
         } catch (e) {
@@ -229,17 +294,27 @@ export async function syncVendorSessionToExternalCalendars(
       }
     }
 
-    if (
-      updates.google_calendar_event_id !== event.google_calendar_event_id ||
-      updates.microsoft_outlook_event_id !== event.microsoft_outlook_event_id
-    ) {
-      await admin
-        .from('events')
-        .update({
-          google_calendar_event_id: updates.google_calendar_event_id,
-          microsoft_outlook_event_id: updates.microsoft_outlook_event_id,
-        })
-        .eq('id', eventId)
+    const patch: Record<string, unknown> = {}
+    if (googleCalResult) {
+      patch.google_calendar_event_id = googleCalResult.legacy
+      patch.series_google_calendar_event_ids = googleCalResult.series
+    }
+    if (msCalResult) {
+      patch.microsoft_outlook_event_id = msCalResult.legacy
+      patch.series_microsoft_outlook_event_ids = msCalResult.series
+    }
+
+    const changedGoogle =
+      googleCalResult &&
+      (googleCalResult.legacy !== event.google_calendar_event_id ||
+        JSON.stringify(googleCalResult.series ?? null) !== JSON.stringify(event.series_google_calendar_event_ids ?? null))
+    const changedMs =
+      msCalResult &&
+      (msCalResult.legacy !== event.microsoft_outlook_event_id ||
+        JSON.stringify(msCalResult.series ?? null) !== JSON.stringify(event.series_microsoft_outlook_event_ids ?? null))
+
+    if (changedGoogle || changedMs) {
+      await admin.from('events').update(patch).eq('id', eventId)
     }
   } catch (e) {
     console.error('[calendar-sync] fatal', eventId, e)
@@ -295,17 +370,24 @@ export async function disconnectVendorCalendarProvider(
     refreshToken = decrypt(conn.refresh_token_encrypted as string)
   } catch {
     await deleteVendorCalendarConnection(admin, vendorId, provider)
-    const col = provider === 'google' ? 'google_calendar_event_id' : 'microsoft_outlook_event_id'
-    await admin.from('events').update({ [col]: null }).eq('vendor_profile_id', vendorId)
+    await admin
+      .from('events')
+      .update({
+        google_calendar_event_id: null,
+        series_google_calendar_event_ids: null,
+        microsoft_outlook_event_id: null,
+        series_microsoft_outlook_event_ids: null,
+      })
+      .eq('vendor_profile_id', vendorId)
     return
   }
 
-  const idColumn = provider === 'google' ? 'google_calendar_event_id' : 'microsoft_outlook_event_id'
   const { data: events } = await admin
     .from('events')
-    .select(`id, ${idColumn}`)
+    .select(
+      'id, google_calendar_event_id, microsoft_outlook_event_id, series_google_calendar_event_ids, series_microsoft_outlook_event_ids'
+    )
     .eq('vendor_profile_id', vendorId)
-    .not(idColumn, 'is', null)
 
   if (provider === 'google') {
     try {
@@ -316,13 +398,28 @@ export async function disconnectVendorCalendarProvider(
         refreshToken,
       })
       for (const ev of events ?? []) {
-        const gid = (ev as { google_calendar_event_id?: string }).google_calendar_event_id
-        if (gid) await googleCalendarDeleteEvent({ accessToken: access_token, eventId: gid }).catch(() => {})
+        const row = ev as {
+          google_calendar_event_id?: string | null
+          series_google_calendar_event_ids?: unknown
+        }
+        const ids = new Set<string>()
+        if (row.google_calendar_event_id) ids.add(row.google_calendar_event_id)
+        if (Array.isArray(row.series_google_calendar_event_ids)) {
+          for (const x of row.series_google_calendar_event_ids) {
+            if (typeof x === 'string' && x) ids.add(x)
+          }
+        }
+        for (const gid of ids) {
+          await googleCalendarDeleteEvent({ accessToken: access_token, eventId: gid }).catch(() => {})
+        }
       }
     } catch (e) {
       console.error('[calendar-disconnect] google cleanup', e)
     }
-    await admin.from('events').update({ google_calendar_event_id: null }).eq('vendor_profile_id', vendorId)
+    await admin
+      .from('events')
+      .update({ google_calendar_event_id: null, series_google_calendar_event_ids: null })
+      .eq('vendor_profile_id', vendorId)
   } else {
     try {
       const { clientId, clientSecret } = microsoftCreds()
@@ -332,13 +429,28 @@ export async function disconnectVendorCalendarProvider(
         refreshToken,
       })
       for (const ev of events ?? []) {
-        const mid = (ev as { microsoft_outlook_event_id?: string }).microsoft_outlook_event_id
-        if (mid) await microsoftCalendarDeleteEvent({ accessToken: access_token, eventId: mid }).catch(() => {})
+        const row = ev as {
+          microsoft_outlook_event_id?: string | null
+          series_microsoft_outlook_event_ids?: unknown
+        }
+        const ids = new Set<string>()
+        if (row.microsoft_outlook_event_id) ids.add(row.microsoft_outlook_event_id)
+        if (Array.isArray(row.series_microsoft_outlook_event_ids)) {
+          for (const x of row.series_microsoft_outlook_event_ids) {
+            if (typeof x === 'string' && x) ids.add(x)
+          }
+        }
+        for (const mid of ids) {
+          await microsoftCalendarDeleteEvent({ accessToken: access_token, eventId: mid }).catch(() => {})
+        }
       }
     } catch (e) {
       console.error('[calendar-disconnect] microsoft cleanup', e)
     }
-    await admin.from('events').update({ microsoft_outlook_event_id: null }).eq('vendor_profile_id', vendorId)
+    await admin
+      .from('events')
+      .update({ microsoft_outlook_event_id: null, series_microsoft_outlook_event_ids: null })
+      .eq('vendor_profile_id', vendorId)
   }
 
   await deleteVendorCalendarConnection(admin, vendorId, provider)

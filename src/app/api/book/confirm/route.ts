@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
 import { sendConsumerBookingConfirmation, sendVendorBookingNotification, sendVendorFullyBooked } from '@/lib/emails'
+import { computeSlotDecrementForEvent } from '@/lib/workshop-series'
+import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
@@ -88,12 +90,19 @@ export async function POST(request: NextRequest) {
 
     const { data: event } = await admin
       .from('events')
-      .select('id, title, available_slots, max_attendees, duration_minutes, location, booking_status, vendor_profile_id, date')
+      .select(
+        'id, title, available_slots, max_attendees, duration_minutes, location, booking_status, vendor_profile_id, date, workshop_series, series_occurrences'
+      )
       .eq('id', eventId)
       .single()
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+    }
+
+    const slot = computeSlotDecrementForEvent(event, startTime, piStartTime)
+    if (!slot.ok) {
+      return NextResponse.json({ error: slot.error }, { status: 409 })
     }
 
     const { data: vendorProfile } = await admin
@@ -127,6 +136,7 @@ export async function POST(request: NextRequest) {
         stripe_fee_cad: stripeFee,
         net_vendor_cad: netVendor,
         ics_sent: false,
+        session_starts_at: slot.sessionStartsAtIso,
       })
       .select()
       .single()
@@ -136,16 +146,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to record booking' }, { status: 500 })
     }
 
-    const currentSlots = event.available_slots ?? event.max_attendees ?? 1
-    const newSlots = Math.max(0, currentSlots - 1)
-    const newStatus = newSlots === 0 ? 'fully_booked' : event.booking_status
+    const eventUpdate: Record<string, unknown> = {
+      available_slots: slot.available_slots,
+      booking_status: slot.booking_status,
+    }
+    if (slot.series_occurrences) {
+      eventUpdate.series_occurrences = slot.series_occurrences
+    }
 
-    await admin
-      .from('events')
-      .update({ available_slots: newSlots, booking_status: newStatus })
-      .eq('id', eventId)
+    await admin.from('events').update(eventUpdate).eq('id', eventId)
 
-    const sessionDate = resolveSessionDate(piStartTime, undefined, event.date as string | null)
+    void syncVendorSessionToExternalCalendars(admin, vendorId, String(eventId)).catch(() => {})
+
+    const sessionDate = new Date(slot.sessionStartsAtIso)
     const durationMinutes = (event.duration_minutes ?? 60) as number
 
     const emailParams = {
@@ -176,7 +189,7 @@ export async function POST(request: NextRequest) {
             dashboardUrl: `${APP_URL}/partners/dashboard/bookings`,
           })
         : Promise.resolve(),
-      newSlots === 0 && vendorEmail
+      slot.booking_status === 'fully_booked' && vendorEmail
         ? sendVendorFullyBooked(vendorEmail, event.title, `${APP_URL}/partners/dashboard/bookings`)
         : Promise.resolve(),
     ])
@@ -188,7 +201,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       bookingId: booking.id,
-      fullyBooked: newSlots === 0,
+      fullyBooked: slot.booking_status === 'fully_booked',
     })
   } catch (err) {
     console.error('Book confirm error:', err)
@@ -217,7 +230,7 @@ async function handleFreeConfirm(
   const { data: event } = await admin
     .from('events')
     .select(
-      'id, title, available_slots, max_attendees, duration_minutes, location, booking_status, vendor_profile_id, price_cad, date'
+      'id, title, available_slots, max_attendees, duration_minutes, location, booking_status, vendor_profile_id, price_cad, date, workshop_series, series_occurrences'
     )
     .eq('id', event_id)
     .single()
@@ -240,6 +253,11 @@ async function handleFreeConfirm(
 
   if ((event.available_slots ?? 0) <= 0) {
     return NextResponse.json({ error: 'No spots remaining' }, { status: 409 })
+  }
+
+  const slot = computeSlotDecrementForEvent(event, startTime, undefined)
+  if (!slot.ok) {
+    return NextResponse.json({ error: slot.error }, { status: 409 })
   }
 
   const vendorId = event.vendor_profile_id
@@ -270,6 +288,7 @@ async function handleFreeConfirm(
       stripe_fee_cad: 0,
       net_vendor_cad: 0,
       ics_sent: false,
+      session_starts_at: slot.sessionStartsAtIso,
     })
     .select()
     .single()
@@ -279,16 +298,19 @@ async function handleFreeConfirm(
     return NextResponse.json({ error: 'Failed to record booking' }, { status: 500 })
   }
 
-  const currentSlots = event.available_slots ?? event.max_attendees ?? 1
-  const newSlots = Math.max(0, currentSlots - 1)
-  const newStatus = newSlots === 0 ? 'fully_booked' : event.booking_status
+  const eventUpdate: Record<string, unknown> = {
+    available_slots: slot.available_slots,
+    booking_status: slot.booking_status,
+  }
+  if (slot.series_occurrences) {
+    eventUpdate.series_occurrences = slot.series_occurrences
+  }
 
-  await admin
-    .from('events')
-    .update({ available_slots: newSlots, booking_status: newStatus })
-    .eq('id', event_id)
+  await admin.from('events').update(eventUpdate).eq('id', event_id)
 
-  const sessionDate = resolveSessionDate(startTime, undefined, event.date as string | null)
+  void syncVendorSessionToExternalCalendars(admin, vendorId, String(event_id)).catch(() => {})
+
+  const sessionDate = new Date(slot.sessionStartsAtIso)
   const durationMinutes = (event.duration_minutes ?? 60) as number
 
   const emailParams = {
@@ -319,7 +341,7 @@ async function handleFreeConfirm(
           dashboardUrl: `${APP_URL}/partners/dashboard/bookings`,
         })
       : Promise.resolve(),
-    newSlots === 0 && vendorEmail
+    slot.booking_status === 'fully_booked' && vendorEmail
       ? sendVendorFullyBooked(vendorEmail, event.title, `${APP_URL}/partners/dashboard/bookings`)
       : Promise.resolve(),
   ])
@@ -331,6 +353,6 @@ async function handleFreeConfirm(
   return NextResponse.json({
     success: true,
     bookingId: booking.id,
-    fullyBooked: newSlots === 0,
+    fullyBooked: slot.booking_status === 'fully_booked',
   })
 }

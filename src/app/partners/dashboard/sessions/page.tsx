@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, Eye, EyeOff, CalendarDays, Users, Clock, DollarSign } from 'lucide-react'
 import { SessionForm } from './SessionForm'
+import { formatSeriesDateRangeLabel, parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
 
 interface Session {
   id: string
@@ -20,6 +21,8 @@ interface Session {
   created_at: string
   description?: string | null
   image_url?: string | null
+  workshop_series?: string | null
+  series_occurrences?: unknown
 }
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
@@ -183,6 +186,8 @@ function SessionsPageInner() {
         <div className="space-y-3">
           {sessions.map((session) => {
             const badge = STATUS_BADGE[session.status] ?? { label: session.status, className: 'bg-[#F0EDE8] text-[#888]' }
+            const series = parseSeriesOccurrences(session as EventSeriesFields)
+            const isMulti = series.length > 1
             return (
               <div
                 key={session.id}
@@ -194,6 +199,11 @@ function SessionsPageInner() {
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${badge.className}`}>
                       {badge.label}
                     </span>
+                    {isMulti && (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 bg-[#EDF2ED] text-[#5D755D]">
+                        {series.length} weeks
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-4 text-xs text-[#888]">
                     {session.price_cad !== null && (
@@ -217,7 +227,13 @@ function SessionsPageInner() {
                     {session.date && (
                       <span className="flex items-center gap-1">
                         <CalendarDays className="w-3 h-3" />
-                        {new Date(session.date).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {isMulti && series.length > 0
+                          ? formatSeriesDateRangeLabel(series)
+                          : new Date(session.date).toLocaleDateString('en-CA', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
                       </span>
                     )}
                   </div>

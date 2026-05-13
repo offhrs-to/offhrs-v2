@@ -10,6 +10,8 @@ interface BookingSectionProps {
   eventId: string
   /** Initial value for `datetime-local` from session `date` (local components). */
   defaultStartLocal: string
+  /** When set, user picks a session from discrete ISO starts (multi-week). */
+  occurrenceOptions?: { value: string; label: string }[]
   priceCad: number
   stripePk: string
   isFullyBooked: boolean
@@ -104,6 +106,7 @@ type Step = 'details' | 'payment' | 'success'
 export function BookingSection({
   eventId,
   defaultStartLocal,
+  occurrenceOptions,
   priceCad,
   stripePk,
   isFullyBooked,
@@ -116,6 +119,13 @@ export function BookingSection({
   const [stripePromise] = useState(() => (stripePk ? loadStripe(stripePk) : null))
 
   const [selectedDateTime, setSelectedDateTime] = useState(defaultStartLocal)
+  const [selectedOccurrenceIso, setSelectedOccurrenceIso] = useState(
+    occurrenceOptions?.[0]?.value ?? ''
+  )
+
+  const effectiveStartForApi = occurrenceOptions?.length
+    ? selectedOccurrenceIso || occurrenceOptions[0]?.value || ''
+    : selectedDateTime
 
   function setField(key: keyof AttendeeForm, val: string) {
     setAttendee((f) => ({ ...f, [key]: val }))
@@ -139,7 +149,7 @@ export function BookingSection({
           event_id: eventId,
           attendee_name: attendee.name,
           attendee_email: attendee.email,
-          start_time: selectedDateTime || undefined,
+          start_time: effectiveStartForApi || undefined,
         }),
       })
 
@@ -151,7 +161,7 @@ export function BookingSection({
       }
 
       setClientSecret(data.clientSecret)
-      setAttendee((f) => ({ ...f, startTime: selectedDateTime }))
+      setAttendee((f) => ({ ...f, startTime: effectiveStartForApi }))
       setStep('payment')
     } catch {
       setIntentError('Network error. Please try again.')
@@ -171,7 +181,7 @@ export function BookingSection({
           event_id: eventId,
           attendee_name: attendee.name,
           attendee_email: attendee.email,
-          startTime: selectedDateTime || undefined,
+          startTime: effectiveStartForApi || undefined,
         }),
       })
       if (!res.ok) {
@@ -242,15 +252,33 @@ export function BookingSection({
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#555] mb-1.5">Session start</label>
-            <input
-              type="datetime-local"
-              value={selectedDateTime}
-              onChange={(e) => setSelectedDateTime(e.target.value)}
-              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-            />
+            <label className="block text-xs font-medium text-[#555] mb-1.5">
+              {occurrenceOptions?.length ? 'Session date' : 'Session start'}
+            </label>
+            {occurrenceOptions && occurrenceOptions.length > 0 ? (
+              <select
+                value={selectedOccurrenceIso}
+                onChange={(e) => setSelectedOccurrenceIso(e.target.value)}
+                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+              >
+                {occurrenceOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="datetime-local"
+                value={selectedDateTime}
+                onChange={(e) => setSelectedDateTime(e.target.value)}
+                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+              />
+            )}
             <p className="text-xs text-[#888] mt-1">
-              Defaults to the time set on your session. Adjust only if the host allows a different slot.
+              {occurrenceOptions?.length
+                ? 'Choose which week you are booking.'
+                : 'Defaults to the time set on your session. Adjust only if the host allows a different slot.'}
             </p>
           </div>
 

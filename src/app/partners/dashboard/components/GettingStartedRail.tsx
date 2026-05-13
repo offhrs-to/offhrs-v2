@@ -8,14 +8,21 @@ export function GettingStartedRail({
   items,
   allDone,
   trialDays,
+  onOpenChange,
 }: {
   items: ChecklistItemProps[]
   allDone: boolean
   trialDays: number | null
+  /** Fires when the rail opens or closes so siblings (e.g. notifications) can adjust stacking. */
+  onOpenChange?: (open: boolean) => void
 }) {
   const [open, setOpen] = useState(false)
 
   const close = useCallback(() => setOpen(false), [])
+
+  useEffect(() => {
+    onOpenChange?.(open)
+  }, [open, onOpenChange])
 
   useEffect(() => {
     if (!open) return
@@ -36,39 +43,9 @@ export function GettingStartedRail({
   }, [open])
 
   return (
-    <>
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          aria-controls="partner-getting-started-rail"
-          title={open ? 'Hide getting started checklist' : 'Open getting started checklist'}
-          className={`flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
-            open
-              ? 'border-[#5D755D] bg-[#EDF2ED] text-[#5D755D]'
-              : 'border-[#E8E4DE] bg-white text-[#555] hover:border-[#C8BFB0] hover:text-[#1a1a1a]'
-          }`}
-        >
-          <ClipboardList className="w-4 h-4" aria-hidden />
-        </button>
-
-        {trialDays !== null && (
-          <div
-            className={`text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5 ${
-              trialDays <= 3
-                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                : 'bg-[#EDF2ED] text-[#5D755D]'
-            }`}
-          >
-            <Clock className="w-3.5 h-3.5 shrink-0" aria-hidden />
-            {trialDays === 0 ? 'Trial ends today' : `${trialDays} days left in trial`}
-          </div>
-        )}
-      </div>
-
+    <div className={open ? 'relative z-[60]' : 'relative'}>
       <div
-        className={`fixed inset-0 z-[100] ${open ? '' : 'pointer-events-none'}`}
+        className={`fixed inset-0 z-40 ${open ? '' : 'pointer-events-none'}`}
         aria-hidden={!open}
       >
         <div
@@ -82,7 +59,7 @@ export function GettingStartedRail({
           role="dialog"
           aria-modal="true"
           aria-labelledby="getting-started-rail-title"
-          className={`absolute right-0 top-0 h-full w-full max-w-md border-l border-[#E8E4DE] bg-[#FAFAF8] shadow-[-12px_0_40px_rgba(0,0,0,0.1)] flex flex-col transition-transform duration-300 ease-out ${
+          className={`absolute right-0 top-0 z-10 h-full w-full max-w-md border-l border-[#E8E4DE] bg-[#FAFAF8] shadow-[-12px_0_40px_rgba(0,0,0,0.1)] flex flex-col transition-transform duration-300 ease-out ${
             open ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
@@ -109,6 +86,37 @@ export function GettingStartedRail({
           </div>
         </aside>
       </div>
-    </>
+
+      {/* Above the rail backdrop so the checklist toggle and trial pill stay usable */}
+      <div className="relative z-50 flex items-center gap-2 flex-shrink-0">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls="partner-getting-started-rail"
+          title={open ? 'Hide getting started checklist' : 'Open getting started checklist'}
+          className={`flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
+            open
+              ? 'border-[#5D755D] bg-[#EDF2ED] text-[#5D755D]'
+              : 'border-[#E8E4DE] bg-white text-[#555] hover:border-[#C8BFB0] hover:text-[#1a1a1a]'
+          }`}
+        >
+          <ClipboardList className="w-4 h-4" aria-hidden />
+        </button>
+
+        {trialDays !== null && (
+          <div
+            className={`text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5 ${
+              trialDays <= 3
+                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                : 'bg-[#EDF2ED] text-[#5D755D]'
+            }`}
+          >
+            <Clock className="w-3.5 h-3 shrink-0" aria-hidden />
+            {trialDays === 0 ? 'Trial ends today' : `${trialDays} days left in trial`}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

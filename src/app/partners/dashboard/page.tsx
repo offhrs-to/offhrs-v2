@@ -5,6 +5,8 @@ import { AlertTriangle, CalendarDays, Users, DollarSign } from 'lucide-react'
 import Link from 'next/link'
 import { ConnectStripeButton } from './components/ConnectStripeButton'
 import { PartnerDashboardHeaderActions } from './components/PartnerDashboardHeaderActions'
+import { DashboardActivityChart } from './components/DashboardActivityChart'
+import { buildActivitySeriesFromBookings, type BookingActivityRow } from '@/lib/partner-dashboard-activity'
 
 interface VendorProfile {
   id: string
@@ -78,8 +80,17 @@ export default async function DashboardPage() {
   // KPI data
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const activityWindow = new Date(now.getTime() - 30 * 86400000).toISOString()
 
-  const [sessionsRes, bookingsRes, recentBookingsRes, vendorSessionsRes] = await Promise.all([
+  const [
+    sessionsRes,
+    bookingsRes,
+    recentBookingsRes,
+    vendorSessionsRes,
+    activityCreatedRes,
+    activityRefundRes,
+    capacityRes,
+  ] = await Promise.all([
     admin
       .from('events')
       .select('id', { count: 'exact' })
@@ -103,6 +114,22 @@ export default async function DashboardPage() {
       .order('date', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(100),
+    admin
+      .from('bookings')
+      .select('id, created_at, status, refunded_at')
+      .eq('vendor_id', vendor.id)
+      .gte('created_at', activityWindow),
+    admin
+      .from('bookings')
+      .select('id, created_at, status, refunded_at')
+      .eq('vendor_id', vendor.id)
+      .not('refunded_at', 'is', null)
+      .gte('refunded_at', activityWindow),
+    admin
+      .from('events')
+      .select('available_slots')
+      .eq('vendor_profile_id', vendor.id)
+      .in('booking_status', ['published', 'fully_booked']),
   ])
 
   const activeSessions = sessionsRes.count ?? 0
@@ -139,6 +166,22 @@ export default async function DashboardPage() {
     booking_status: string | null
   }>
   const trialDays = vendor.status === 'trialing' ? daysUntil(vendor.trial_ends_at) : null
+
+  const activityBookingMap = new Map<string, BookingActivityRow>()
+  for (const row of activityCreatedRes.data ?? []) {
+    const r = row as BookingActivityRow & { id: string }
+    activityBookingMap.set(r.id, { created_at: r.created_at, status: r.status, refunded_at: r.refunded_at })
+  }
+  for (const row of activityRefundRes.data ?? []) {
+    const r = row as BookingActivityRow & { id: string }
+    activityBookingMap.set(r.id, { created_at: r.created_at, status: r.status, refunded_at: r.refunded_at })
+  }
+  const activitySeries30 = buildActivitySeriesFromBookings([...activityBookingMap.values()], 30)
+
+  const spotsRemaining = (capacityRes.data ?? []).reduce((sum: number, ev: { available_slots?: number | null }) => {
+    const n = ev.available_slots
+    return sum + (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, n) : 0)
+  }, 0)
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -218,6 +261,8 @@ export default async function DashboardPage() {
           )
         })}
       </div>
+
+      <DashboardActivityChart series30={activitySeries30} spotsRemaining={spotsRemaining} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Workshops overview */}

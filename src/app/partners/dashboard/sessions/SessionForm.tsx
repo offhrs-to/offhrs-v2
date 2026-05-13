@@ -406,8 +406,8 @@ export function SessionForm({
           <div className="rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] p-4 space-y-4">
             <p className="text-sm font-medium text-[#1a1a1a]">Recurring workshops</p>
             <p className="text-xs text-[#888] leading-relaxed -mt-2">
-              By default you create a single listing. Turn on recurring to add multiple weekly workshops at once
-              (each gets its own calendar entry when published and connected).
+              By default you create a single listing. Turn on recurring to schedule multiple weekly sessions on one
+              workshop card; each session still appears on your connected calendar.
             </p>
 
             <label className="flex items-start gap-3 cursor-pointer">
@@ -439,7 +439,7 @@ export function SessionForm({
                   >
                     {RECURRING_WEEK_OPTIONS.map((n) => (
                       <option key={n} value={n}>
-                        {n} weeks ({n} workshops)
+                        {n} weekly sessions — one workshop listing
                       </option>
                     ))}
                   </select>
@@ -457,10 +457,8 @@ export function SessionForm({
                         onChange={() => setMultiWeekMode('same_day_time')}
                       />
                       <span className="text-sm text-[#555] leading-relaxed">
-                        Same weekday and time each week — we create one listing per week at the same clock time and
-                        duration. For example, if the first workshop is Monday May 12 at 5:00 PM for 3 hours and you
-                        choose 4 weeks, we also add May 19, May 26, and June 2 at 5:00 PM (each 3 hours) to your calendar
-                        when published.
+                        Same weekday and time each week — we save one workshop with multiple session dates at the same
+                        clock time and duration. Your calendar shows each week when connected.
                       </span>
                     </label>
                     <label className="flex items-start gap-3 cursor-pointer">
@@ -597,7 +595,7 @@ export function SessionForm({
             {isEdit
               ? 'Save changes'
               : recurringWeekly
-                ? `Create ${recurringWeekCount} workshops`
+                ? `Create multi-week workshop (${recurringWeekCount} sessions)`
                 : 'Create workshop'}
           </button>
           <button

@@ -5,6 +5,10 @@ import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
 import { addWeeks } from 'date-fns'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
+import {
+  buildSeriesOccurrencesFromDateIsos,
+  expandSessionsForCalendarRange,
+} from '@/lib/workshop-series'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 
@@ -32,9 +36,26 @@ function parseUserDateTime(s: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d
 }
 
+/**
+ * One DB row per workshop: multi-week is stored as `workshop_series: multi_week` + `series_occurrences`.
+ * Infer multi-week when the client omits `workshop_series` (Zod would default to `one_day`) but sends
+ * a full recurring payload — avoids a single-date insert and duplicate weekly rows from retries.
+ */
+function inferSeriesKind(body: z.infer<typeof sessionSchema>): 'one_day' | 'multi_week' {
+  if (body.workshop_series === 'multi_week') return 'multi_week'
+  if (
+    typeof body.multi_week_occurrence_count === 'number' &&
+    body.multi_week_occurrence_count > 1 &&
+    body.multi_week_schedule
+  ) {
+    return 'multi_week'
+  }
+  return 'one_day'
+}
+
 /** ISO strings for each weekly occurrence (sorted ascending for custom). */
 function resolveWorkshopSeriesDates(body: z.infer<typeof sessionSchema>): { ok: true; dates: string[] } | { ok: false; error: string } {
-  const series = body.workshop_series ?? 'one_day'
+  const series = inferSeriesKind(body)
   if (series === 'one_day') {
     if (!body.date?.trim()) return { ok: true, dates: [] }
     const first = parseUserDateTime(body.date)
@@ -103,11 +124,19 @@ export async function GET(request: NextRequest) {
     if (status) {
       query = query.eq('booking_status', status)
     }
-    if (from) {
-      query = query.gte('date', from)
-    }
-    if (to) {
-      query = query.lte('date', to)
+    if (calendarRange && from && to) {
+      // Include multi-week series rows even when the first session is before `from`
+      // (later weeks still appear on the calendar after expansion).
+      query = query.or(
+        `workshop_series.eq.multi_week,and(date.gte.${from},date.lte.${to})`
+      )
+    } else {
+      if (from) {
+        query = query.gte('date', from)
+      }
+      if (to) {
+        query = query.lte('date', to)
+      }
     }
     if (excludeArchived) {
       query = query.neq('booking_status', 'archived')
@@ -121,9 +150,14 @@ export async function GET(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    const withStatusAlias = (sessions ?? []).map((row) => ({
+    let rows = sessions ?? []
+    if (calendarRange && from && to) {
+      rows = expandSessionsForCalendarRange(rows as Parameters<typeof expandSessionsForCalendarRange>[0], from, to)
+    }
+
+    const withStatusAlias = rows.map((row) => ({
       ...row,
-      status: row.booking_status as string | undefined,
+      status: (row as { booking_status?: string }).booking_status as string | undefined,
     }))
 
     return NextResponse.json({ sessions: withStatusAlias })
@@ -186,12 +220,29 @@ export async function POST(request: NextRequest) {
     }
 
     const dateIsos = resolvedDates.dates
-    const insertRows =
-      dateIsos.length === 0
-        ? [{ ...baseRow, date: null as string | null }]
-        : dateIsos.map((iso) => ({ ...baseRow, date: iso }))
+    const isMultiWeek = dateIsos.length > 1
+    const seriesOcc = isMultiWeek ? buildSeriesOccurrencesFromDateIsos(dateIsos, body.max_attendees) : null
+    const sumAvail = seriesOcc ? seriesOcc.reduce((a, o) => a + o.available_slots, 0) : body.max_attendees
+    const sumMax = seriesOcc ? seriesOcc.reduce((a, o) => a + o.max_attendees, 0) : body.max_attendees
 
-    const { data: events, error: insertError } = await admin.from('events').insert(insertRows).select()
+    const insertRow =
+      dateIsos.length === 0
+        ? {
+            ...baseRow,
+            date: null as string | null,
+            workshop_series: 'one_day' as const,
+            series_occurrences: null,
+          }
+        : {
+            ...baseRow,
+            date: dateIsos[0],
+            workshop_series: isMultiWeek ? ('multi_week' as const) : ('one_day' as const),
+            series_occurrences: seriesOcc,
+            available_slots: sumAvail,
+            max_attendees: sumMax,
+          }
+
+    const { data: created, error: insertError } = await admin.from('events').insert(insertRow).select().single()
 
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
@@ -204,21 +255,18 @@ export async function POST(request: NextRequest) {
       .eq('id', vendor.id)
       .eq('first_session_created', false)
 
-    const list = events ?? []
-    for (const ev of list) {
-      if (ev?.id) {
-        void syncVendorSessionToExternalCalendars(admin, vendor.id, String(ev.id)).catch((e) =>
-          console.error('[sessions] calendar sync', e)
-        )
-      }
+    if (created?.id) {
+      void syncVendorSessionToExternalCalendars(admin, vendor.id, String(created.id)).catch((e) =>
+        console.error('[sessions] calendar sync', e)
+      )
     }
 
-    const withStatus = list.map((row) => ({ ...row, status: row.booking_status }))
+    const row = { ...created, status: created.booking_status }
 
     return NextResponse.json(
       {
-        sessions: withStatus,
-        session: withStatus[0] ?? null,
+        sessions: [row],
+        session: row,
       },
       { status: 201 }
     )

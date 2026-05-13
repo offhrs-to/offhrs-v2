@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import Stripe from 'stripe'
 import { z } from 'zod'
+import { computeSlotDecrementForEvent } from '@/lib/workshop-series'
 
 const BOOK_RATE_LIMIT = 15 // per minute per IP
 
@@ -64,7 +65,9 @@ export async function POST(request: NextRequest) {
       // Fetch event with vendor details
       const { data: event } = await admin
         .from('events')
-        .select('id, title, vendor_profile_id, price_cad, available_slots, duration_minutes, location, booking_status, date')
+        .select(
+          'id, title, vendor_profile_id, price_cad, available_slots, duration_minutes, location, booking_status, date, workshop_series, series_occurrences'
+        )
         .eq('id', String(event_id))
         .single()
 
@@ -88,6 +91,11 @@ export async function POST(request: NextRequest) {
 
       if ((event.available_slots ?? 0) <= 0) {
         return NextResponse.json({ error: 'No spots remaining' }, { status: 409 })
+      }
+
+      const dry = computeSlotDecrementForEvent(event, start_time, undefined)
+      if (!dry.ok) {
+        return NextResponse.json({ error: dry.error }, { status: 409 })
       }
 
       const { data: vendor } = await admin
