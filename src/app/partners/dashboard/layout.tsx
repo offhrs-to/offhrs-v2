@@ -22,7 +22,7 @@ import { OffhrsLogo } from '@/components/offhrs-logo'
 const navItems = [
   { href: '/partners/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
   { href: '/partners/dashboard/sessions', label: 'Workshops', icon: BookOpen },
-  { href: '/partners/dashboard/calendar', label: 'Scheduling', icon: CalendarDays },
+  { href: '/partners/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/partners/dashboard/bookings', label: 'Bookings', icon: ClipboardList },
   { href: '/partners/dashboard/clients', label: 'Clients', icon: UserCircle2 },
   { href: '/partners/dashboard/payouts', label: 'Payouts', icon: DollarSign },

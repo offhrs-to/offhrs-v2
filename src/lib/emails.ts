@@ -68,19 +68,24 @@ export async function sendVendorWelcome(to: string, businessName: string, dashbo
     `Welcome to offhrs Partners, ${businessName}!`,
     wrap(`
       ${h2('You\'re in! 🎉')}
-      ${p(`Your 7-day free trial has started, <strong>${businessName}</strong>. Next: connect your calendar and create your first session.`)}
+      ${p(`Your 1-month free trial has started, <strong>${businessName}</strong>. Next: connect your calendar and create your first session.`)}
       ${btn(dashboardUrl, 'Go to dashboard')}
     `)
   )
 }
 
-export async function sendVendorTrialEnding(to: string, daysLeft: number, settingsUrl: string) {
+export async function sendVendorTrialEnding(
+  to: string,
+  daysLeft: number,
+  settingsUrl: string,
+  monthlyLine = 'your plan rate (see billing settings)'
+) {
   await send(
     to,
     'Your offhrs trial ends soon',
     wrap(`
       ${h2(`${daysLeft} day${daysLeft !== 1 ? 's' : ''} left in your trial`)}
-      ${p(`Your free trial ends in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}. After that, you'll be billed $79 CAD/month. No action needed if you'd like to continue.`)}
+      ${p(`Your free trial ends in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}. After that, you'll be billed ${monthlyLine}. No action needed if you'd like to continue.`)}
       ${btn(settingsUrl, 'Manage subscription')}
     `)
   )

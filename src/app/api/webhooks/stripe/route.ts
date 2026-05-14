@@ -1,4 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  monthlyAmountLabelForTier,
+  subscriptionTierFromStripePriceId,
+} from '@/lib/stripe-partner-plans'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { Resend } from 'resend'
@@ -21,6 +25,30 @@ async function sendEmail(to: string, subject: string, html: string) {
 
 function emailHtml(body: string): string {
   return `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#1a1a1a;">${body}</div>`
+}
+
+async function resolveVendorIdFromStripeSubscription(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  subscription: Stripe.Subscription
+): Promise<string | null> {
+  const fromMeta = subscription.metadata?.vendor_id
+  if (fromMeta) return fromMeta
+
+  const customer = subscription.customer
+  const customerId =
+    typeof customer === 'string' ? customer : customer && typeof customer === 'object' && 'id' in customer
+      ? (customer as { id: string }).id
+      : null
+
+  if (!customerId) return null
+
+  const { data: vp } = await admin
+    .from('vendor_profiles')
+    .select('id')
+    .eq('stripe_customer_id', customerId)
+    .maybeSingle()
+
+  return vp?.id ?? null
 }
 
 export async function POST(request: NextRequest) {
@@ -112,6 +140,10 @@ async function handleStripeEvent(
       const subscriptionId = session.subscription as string
       const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 
+      const stripePriceId = subscription.items.data[0]?.price.id ?? ''
+      const subscription_tier = subscriptionTierFromStripePriceId(stripePriceId)
+      const planLabel = subscription_tier === 'lite' ? 'Lite' : 'Pro'
+
       // Update vendor to trialing
       await admin.from('vendor_profiles').update({
         status: 'trialing',
@@ -128,7 +160,8 @@ async function handleStripeEvent(
       await admin.from('vendor_subscriptions').upsert({
         vendor_id: vendorId,
         stripe_subscription_id: subscriptionId,
-        stripe_price_id: subscription.items.data[0]?.price.id ?? '',
+        stripe_price_id: stripePriceId,
+        subscription_tier,
         status: subscription.status,
         trial_start: subscription.trial_start
           ? new Date(subscription.trial_start * 1000).toISOString()
@@ -163,7 +196,9 @@ async function handleStripeEvent(
           emailHtml(`
             <h2 style="font-size:22px;font-weight:700;margin-bottom:8px;">You're in! 🎉</h2>
             <p style="color:#555;font-size:14px;line-height:1.6;">
-              Your 7-day free trial has started. Next step: set up payouts and publish your first workshop session.
+              Your 1-month free trial has started on the <strong>${planLabel}</strong> plan.
+              After the trial, you&apos;ll be billed ${monthlyAmountLabelForTier(subscription_tier)} unless you cancel before then.
+              Next step: set up payouts and publish your first workshop session.
             </p>
             <a href="${APP_URL}/partners/dashboard"
                style="display:inline-block;margin-top:24px;padding:12px 28px;background:#5D755D;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
@@ -178,8 +213,19 @@ async function handleStripeEvent(
     // ── Trial ending soon ──────────────────────────────────────────────────
     case 'customer.subscription.trial_will_end': {
       const subscription = event.data.object as Stripe.Subscription
-      const vendorId = subscription.metadata?.vendor_id
+      const vendorId = await resolveVendorIdFromStripeSubscription(admin, subscription)
       if (!vendorId) break
+
+      const stripePriceId = subscription.items.data[0]?.price.id ?? ''
+      const { data: subRow } = await admin
+        .from('vendor_subscriptions')
+        .select('subscription_tier')
+        .eq('stripe_subscription_id', subscription.id)
+        .maybeSingle()
+
+      const tierFromRow = subRow?.subscription_tier as 'lite' | 'pro' | undefined
+      const subscription_tier = tierFromRow ?? subscriptionTierFromStripePriceId(stripePriceId)
+      const amountLine = monthlyAmountLabelForTier(subscription_tier)
 
       const { data: vp } = await admin
         .from('vendor_profiles')
@@ -196,7 +242,7 @@ async function handleStripeEvent(
             emailHtml(`
               <h2 style="font-size:22px;font-weight:700;margin-bottom:8px;">Trial ending soon</h2>
               <p style="color:#555;font-size:14px;line-height:1.6;">
-                Your free trial ends in 3 days. After that, you'll be billed $79 CAD/month.
+                Your free trial ends in 3 days. After that, you&apos;ll be billed ${amountLine}.
                 No action needed if you'd like to continue — we'll charge the card on file.
               </p>
               <a href="${APP_URL}/partners/dashboard/settings"
@@ -213,10 +259,12 @@ async function handleStripeEvent(
     // ── Subscription updated ───────────────────────────────────────────────
     case 'customer.subscription.updated': {
       const subscription = event.data.object as Stripe.Subscription
-      const vendorId = subscription.metadata?.vendor_id
+      const vendorId = await resolveVendorIdFromStripeSubscription(admin, subscription)
       if (!vendorId) break
 
       const newStatus = stripeStatusToVendorStatus(subscription.status)
+      const stripePriceId = subscription.items.data[0]?.price.id ?? ''
+      const subscription_tier = subscriptionTierFromStripePriceId(stripePriceId)
 
       await admin.from('vendor_profiles').update({
         status: newStatus,
@@ -230,6 +278,8 @@ async function handleStripeEvent(
 
       await admin.from('vendor_subscriptions').update({
         status: subscription.status,
+        stripe_price_id: stripePriceId,
+        subscription_tier,
         current_period_start: subscription.items.data[0]?.current_period_start
           ? new Date(subscription.items.data[0].current_period_start * 1000).toISOString()
           : null,
@@ -245,7 +295,7 @@ async function handleStripeEvent(
     // ── Subscription deleted / canceled ───────────────────────────────────
     case 'customer.subscription.deleted': {
       const subscription = event.data.object as Stripe.Subscription
-      const vendorId = subscription.metadata?.vendor_id
+      const vendorId = await resolveVendorIdFromStripeSubscription(admin, subscription)
       if (!vendorId) break
 
       await admin.from('vendor_profiles').update({ status: 'canceled' }).eq('id', vendorId)

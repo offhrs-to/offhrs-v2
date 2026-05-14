@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ClipboardList, Clock, X } from 'lucide-react'
 import { GettingStartedChecklist, type ChecklistItemProps } from './GettingStartedChecklist'
 
@@ -17,8 +18,13 @@ export function GettingStartedRail({
   onOpenChange?: (open: boolean) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [portalReady, setPortalReady] = useState(false)
 
   const close = useCallback(() => setOpen(false), [])
+
+  useEffect(() => {
+    setPortalReady(true)
+  }, [])
 
   useEffect(() => {
     onOpenChange?.(open)
@@ -42,22 +48,22 @@ export function GettingStartedRail({
     }
   }, [open])
 
-  return (
-    <div className={open ? 'relative z-[60]' : 'relative'}>
+  const overlay = portalReady ? (
+    createPortal(
       <div
-        className={`fixed inset-0 z-40 ${open ? '' : 'pointer-events-none'}`}
+        className={`fixed inset-0 z-[100] ${open ? '' : 'pointer-events-none'}`}
         aria-hidden={!open}
       >
         <div
-          className={`absolute inset-0 bg-black/25 transition-opacity duration-300 ${
+          className={`absolute inset-0 z-0 bg-black/25 transition-opacity duration-300 ${
             open ? 'opacity-100' : 'opacity-0'
           }`}
-          onClick={close}
+          onClick={open ? close : undefined}
         />
         <aside
           id="partner-getting-started-rail"
           role="dialog"
-          aria-modal="true"
+          aria-modal={open}
           aria-labelledby="getting-started-rail-title"
           className={`absolute right-0 top-0 z-10 h-full w-full max-w-md border-l border-[#E8E4DE] bg-[#FAFAF8] shadow-[-12px_0_40px_rgba(0,0,0,0.1)] flex flex-col transition-transform duration-300 ease-out ${
             open ? 'translate-x-0' : 'translate-x-full'
@@ -85,10 +91,15 @@ export function GettingStartedRail({
             </div>
           </div>
         </aside>
-      </div>
+      </div>,
+      document.body
+    )
+  ) : null
 
-      {/* Above the rail backdrop so the checklist toggle and trial pill stay usable */}
-      <div className="relative z-50 flex items-center gap-2 flex-shrink-0">
+  return (
+    <>
+      {overlay}
+      <div className="relative flex items-center gap-2 flex-shrink-0">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -117,6 +128,6 @@ export function GettingStartedRail({
           </div>
         )}
       </div>
-    </div>
+    </>
   )
 }

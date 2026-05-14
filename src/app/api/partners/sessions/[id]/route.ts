@@ -4,6 +4,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
+import type { PartnerSessionSeriesBody } from '@/lib/partner-session-series-resolve'
+import { resolveWorkshopSeriesDates } from '@/lib/partner-session-series-resolve'
+import {
+  inferScheduleFromOccurrences,
+  mergeSeriesOccurrencesPreservingSlots,
+  parseSeriesOccurrences,
+  type EventSeriesFields,
+} from '@/lib/workshop-series'
+
+const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 
 const updateSchema = z.object({
   title: z.string().min(2).max(120).optional(),
@@ -18,7 +28,46 @@ const updateSchema = z.object({
   location_link: z.string().url().optional(),
   status: z.enum(['published', 'draft', 'archived']).optional(),
   cover_image_url: z.string().url().nullable().optional(),
+  workshop_series: z.enum(['one_day', 'multi_week']).optional(),
+  multi_week_occurrence_count: multiWeekOccurrenceSchema.optional(),
+  multi_week_schedule: z.enum(['same_day_time', 'custom_times']).optional(),
+  multi_week_additional_datetimes: z.array(z.string()).max(11).optional(),
 })
+
+function buildMergedSeriesInput(
+  session: Record<string, unknown>,
+  body: z.infer<typeof updateSchema>
+): PartnerSessionSeriesBody {
+  const prevSeries = parseSeriesOccurrences(session as EventSeriesFields)
+  const sessionDate = typeof session.date === 'string' ? session.date : undefined
+  const sessionIsMulti = String(session.workshop_series) === 'multi_week' && prevSeries.length > 1
+
+  const occCount =
+    body.multi_week_occurrence_count ?? (sessionIsMulti ? prevSeries.length : undefined)
+
+  const scheduleFromPrev =
+    prevSeries.length > 1 ? inferScheduleFromOccurrences(prevSeries) : undefined
+  const extrasFromPrev =
+    scheduleFromPrev === 'custom_times' && prevSeries.length > 1
+      ? prevSeries.slice(1).map((o) => o.start)
+      : undefined
+
+  return {
+    date: body.date !== undefined ? body.date : sessionDate,
+    workshop_series:
+      body.workshop_series !== undefined
+        ? body.workshop_series
+        : sessionIsMulti
+          ? 'multi_week'
+          : 'one_day',
+    multi_week_occurrence_count: occCount,
+    multi_week_schedule: body.multi_week_schedule ?? scheduleFromPrev,
+    multi_week_additional_datetimes:
+      body.multi_week_additional_datetimes !== undefined
+        ? body.multi_week_additional_datetimes
+        : extrasFromPrev,
+  }
+}
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -74,9 +123,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
       updatePayload.price_cad = body.price_cad
       updatePayload.price = body.price_cad > 0 ? `$${body.price_cad} CAD` : 'Free'
     }
-    if (body.max_attendees !== undefined) updatePayload.max_attendees = body.max_attendees
     if (body.duration_minutes !== undefined) updatePayload.duration_minutes = body.duration_minutes
-    if (body.date !== undefined) updatePayload.date = body.date ? new Date(body.date).toISOString() : null
     if (body.location_address !== undefined) updatePayload.location = body.location_address
     if (body.location_link !== undefined) updatePayload.location = body.location_link
     if (body.cover_image_url !== undefined) {
@@ -85,6 +132,62 @@ export async function PUT(request: NextRequest, { params }: Params) {
       } else {
         updatePayload.image_url = body.cover_image_url
       }
+    }
+
+    const sessionRow = session as Record<string, unknown>
+    const mergedSeries = buildMergedSeriesInput(sessionRow, body)
+    const resolvedDates = resolveWorkshopSeriesDates(mergedSeries)
+    if (!resolvedDates.ok) {
+      return NextResponse.json({ error: resolvedDates.error }, { status: 400 })
+    }
+
+    const maxAtt =
+      body.max_attendees !== undefined
+        ? body.max_attendees
+        : typeof session.max_attendees === 'number'
+          ? session.max_attendees
+          : 10
+
+    const dateIsos = resolvedDates.dates
+    const prevOcc = parseSeriesOccurrences(session as EventSeriesFields)
+    const fromMultiWeek =
+      String(session.workshop_series) === 'multi_week' && prevOcc.length > 1
+
+    if (dateIsos.length === 0) {
+      updatePayload.date = null
+      updatePayload.workshop_series = 'one_day'
+      updatePayload.series_occurrences = null
+      updatePayload.max_attendees = maxAtt
+      updatePayload.available_slots = maxAtt
+    } else if (dateIsos.length === 1) {
+      const oldDateMs = session.date ? new Date(session.date as string).getTime() : NaN
+      const newDateMs = new Date(dateIsos[0]).getTime()
+      const dateChanged = !Number.isFinite(oldDateMs) || Math.abs(oldDateMs - newDateMs) > 60000
+      const maxChanged = maxAtt !== session.max_attendees
+      const sessionMax =
+        typeof session.max_attendees === 'number' ? session.max_attendees : maxAtt
+
+      updatePayload.date = dateIsos[0]
+      updatePayload.workshop_series = 'one_day'
+      updatePayload.series_occurrences = null
+      updatePayload.max_attendees = maxAtt
+
+      if (fromMultiWeek || dateChanged) {
+        updatePayload.available_slots = maxAtt
+      } else if (maxChanged) {
+        const prevAvail =
+          typeof session.available_slots === 'number' ? session.available_slots : sessionMax
+        updatePayload.available_slots = Math.min(prevAvail, maxAtt)
+      }
+    } else {
+      const seriesOcc = mergeSeriesOccurrencesPreservingSlots(dateIsos, maxAtt, prevOcc)
+      const sumAvail = seriesOcc.reduce((a, o) => a + o.available_slots, 0)
+      const sumMax = seriesOcc.reduce((a, o) => a + o.max_attendees, 0)
+      updatePayload.date = dateIsos[0]
+      updatePayload.workshop_series = 'multi_week'
+      updatePayload.series_occurrences = seriesOcc
+      updatePayload.available_slots = sumAvail
+      updatePayload.max_attendees = sumMax
     }
 
     const { data: updated, error } = await admin

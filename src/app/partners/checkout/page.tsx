@@ -13,12 +13,16 @@ export default function PartnersCheckoutPage() {
     setCanceled(params.get('canceled') === '1')
   }, [])
 
-  async function startCheckout() {
+  async function startCheckout(plan: 'lite' | 'pro') {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/partners/checkout', { method: 'POST' })
-      const data = await res.json()
+      const res = await fetch('/api/partners/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      })
+      const data = (await res.json()) as { url?: string; error?: string }
       if (!res.ok || !data.url) {
         throw new Error(data.error ?? 'Failed to start checkout')
       }
@@ -30,7 +34,9 @@ export default function PartnersCheckoutPage() {
   }
 
   useEffect(() => {
-    void startCheckout()
+    const params = new URLSearchParams(window.location.search)
+    const plan = params.get('plan') === 'lite' ? 'lite' : 'pro'
+    void startCheckout(plan)
   }, [])
 
   return (
@@ -42,7 +48,7 @@ export default function PartnersCheckoutPage() {
         </h1>
         <p className="text-sm text-[#555] leading-relaxed">
           {canceled
-            ? 'Checkout was canceled. You can restart your 7-day trial below.'
+            ? 'Checkout was canceled. You can restart your 1-month trial below.'
             : 'You need to complete billing setup to activate your vendor account.'}
         </p>
 
@@ -53,11 +59,16 @@ export default function PartnersCheckoutPage() {
         )}
 
         <button
-          onClick={() => void startCheckout()}
+          type="button"
+          onClick={() => {
+            const params = new URLSearchParams(window.location.search)
+            const plan = params.get('plan') === 'lite' ? 'lite' : 'pro'
+            void startCheckout(plan)
+          }}
           disabled={loading}
           className="w-full rounded-lg bg-[#5D755D] px-4 py-3 text-sm font-semibold text-white hover:bg-[#4d634d] disabled:opacity-60 transition-colors"
         >
-          {loading ? 'Starting checkout…' : 'Start 7-day trial'}
+          {loading ? 'Starting checkout…' : 'Start 1-month trial'}
         </button>
 
         <p className="text-xs text-[#999]">

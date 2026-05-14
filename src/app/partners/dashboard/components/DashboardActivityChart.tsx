@@ -1,11 +1,29 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { format, parseISO } from 'date-fns'
 import type { ActivityDayPoint } from '@/lib/partner-dashboard-activity'
 
 type Range = 7 | 30
 
 const CHART_INNER_PX = 168
+
+/** Short weekday + day (e.g. "Tue 12"), UTC date key yyyy-MM-dd */
+function axisLabel(yyyyMmDd: string): string {
+  try {
+    return format(parseISO(`${yyyyMmDd}T12:00:00.000Z`), 'EEE d')
+  } catch {
+    return yyyyMmDd
+  }
+}
+
+function showXAxisTick(i: number, len: number, range: Range): boolean {
+  if (len === 0) return false
+  if (range === 7) return true
+  // 30 days: every 3rd day from the start, and always the last column (today on the right)
+  if (i === len - 1) return true
+  return i % 3 === 0
+}
 
 export function DashboardActivityChart({
   series30,
@@ -17,8 +35,11 @@ export function DashboardActivityChart({
   const [range, setRange] = useState<Range>(7)
 
   const data = useMemo(() => {
-    if (series30.length < 30) return series30
-    return range === 7 ? series30.slice(-7) : series30
+    if (!series30.length) return []
+    if (series30.length >= 30) {
+      return range === 7 ? series30.slice(-7) : series30
+    }
+    return range === 7 ? series30.slice(-Math.min(7, series30.length)) : series30
   }, [series30, range])
 
   const maxY = useMemo(() => {
@@ -29,8 +50,10 @@ export function DashboardActivityChart({
     return m
   }, [data])
 
+  const gridCols = data.length > 0 ? `repeat(${data.length}, minmax(0, 1fr))` : undefined
+
   return (
-    <div className="bg-white border border-[#E8E4DE] rounded-xl p-5">
+    <div className="bg-white border border-[#E8E4DE] rounded-xl p-5 overflow-x-auto">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
         <div>
           <h2 className="text-sm font-semibold text-[#1a1a1a]">Booking activity</h2>
@@ -78,49 +101,69 @@ export function DashboardActivityChart({
         </span>
       </div>
 
-      <div className="relative min-h-[200px] pt-2">
-        <div className="flex items-end justify-between gap-px sm:gap-0.5 border-b border-[#E8E4DE]">
-          {data.map((day) => {
-            const hBook =
-              maxY > 0
-                ? Math.max(Math.round((day.bookings / maxY) * CHART_INNER_PX), day.bookings > 0 ? 3 : 0)
-                : 0
-            const hChurn =
-              maxY > 0
-                ? Math.max(Math.round((day.churn / maxY) * CHART_INNER_PX), day.churn > 0 ? 3 : 0)
-                : 0
-            return (
-              <div
-                key={day.date}
-                className="flex-1 flex flex-col justify-end items-center min-w-0 group"
-                style={{ height: CHART_INNER_PX }}
-                title={`${day.label}: ${day.bookings} booking(s), ${day.churn} refund(s) / cancelled`}
-              >
-                <div className="w-full flex items-end justify-center gap-[2px] sm:gap-0.5 px-px">
-                  <div
-                    className="w-[42%] max-w-[14px] sm:max-w-[18px] rounded-t bg-[#5D755D] transition-[height] duration-300 shrink-0"
-                    style={{ height: hBook }}
-                  />
-                  <div
-                    className="w-[42%] max-w-[14px] sm:max-w-[18px] rounded-t bg-[#B85C5C]/90 transition-[height] duration-300 shrink-0"
-                    style={{ height: hChurn }}
-                  />
+      {data.length === 0 ? (
+        <p className="text-sm text-[#888] py-8 text-center">No activity data for this range yet.</p>
+      ) : (
+        <div className="min-w-0 pb-6">
+          {/* Bars: grid columns align 1:1 with x-axis labels below */}
+          <div
+            className="grid gap-px border-b border-[#E8E4DE] pb-px"
+            style={{ gridTemplateColumns: gridCols }}
+          >
+            {data.map((day) => {
+              const hBook =
+                maxY > 0
+                  ? Math.max(Math.round((day.bookings / maxY) * CHART_INNER_PX), day.bookings > 0 ? 3 : 0)
+                  : 0
+              const hChurn =
+                maxY > 0
+                  ? Math.max(Math.round((day.churn / maxY) * CHART_INNER_PX), day.churn > 0 ? 3 : 0)
+                  : 0
+              return (
+                <div
+                  key={day.date}
+                  className="flex flex-col justify-end items-center min-w-0 min-h-0"
+                  style={{ height: CHART_INNER_PX }}
+                  title={`${axisLabel(day.date)} · ${day.bookings} booking(s), ${day.churn} refund(s) / cancelled`}
+                >
+                  <div className="w-full flex items-end justify-center gap-[2px] sm:gap-0.5 px-px max-w-full">
+                    <div
+                      className="w-[42%] max-w-[14px] sm:max-w-[18px] rounded-t bg-[#5D755D] transition-[height] duration-300 shrink-0"
+                      style={{ height: hBook }}
+                    />
+                    <div
+                      className="w-[42%] max-w-[14px] sm:max-w-[18px] rounded-t bg-[#B85C5C]/90 transition-[height] duration-300 shrink-0"
+                      style={{ height: hChurn }}
+                    />
+                  </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
+
+          {/* X-axis: same column template; cadence for 30d; no truncate (was causing "Ap…" ellipses) */}
+          <div className="grid mt-2" style={{ gridTemplateColumns: gridCols }}>
+            {data.map((day, i) => {
+              const tick = showXAxisTick(i, data.length, range)
+              return (
+                <div
+                  key={`${day.date}-axis`}
+                  className="flex justify-center items-start min-w-0 pt-0.5 h-12 sm:h-14"
+                >
+                  {tick ? (
+                    <span
+                      className="text-[10px] sm:text-[11px] text-[#888] whitespace-nowrap leading-none -rotate-45 origin-top translate-y-1"
+                      title={`${day.date}`}
+                    >
+                      {axisLabel(day.date)}
+                    </span>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
         </div>
-        <div className="flex justify-between gap-px sm:gap-0.5 mt-1.5 text-[9px] sm:text-[10px] leading-tight">
-          {data.map((day, i) => {
-            const showTick = range === 7 || i === 0 || i === data.length - 1 || i % 7 === 0
-            return (
-              <div key={`${day.date}-lbl`} className="flex-1 text-center min-w-0 truncate px-0.5">
-                {showTick ? <span className="text-[#888]">{day.label}</span> : <span className="text-transparent select-none">·</span>}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+      )}
     </div>
   )
 }

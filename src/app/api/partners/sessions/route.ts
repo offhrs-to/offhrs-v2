@@ -3,12 +3,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
-import { addWeeks } from 'date-fns'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 import {
   buildSeriesOccurrencesFromDateIsos,
   expandSessionsForCalendarRange,
 } from '@/lib/workshop-series'
+import { LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD } from '@/lib/stripe-partner-plans'
+import { resolveWorkshopSeriesDates } from '@/lib/partner-session-series-resolve'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 
@@ -30,69 +31,6 @@ const sessionSchema = z.object({
   multi_week_schedule: z.enum(['same_day_time', 'custom_times']).optional(),
   multi_week_additional_datetimes: z.array(z.string()).max(11).optional(),
 })
-
-function parseUserDateTime(s: string): Date | null {
-  const d = new Date(s)
-  return Number.isNaN(d.getTime()) ? null : d
-}
-
-/**
- * One DB row per workshop: multi-week is stored as `workshop_series: multi_week` + `series_occurrences`.
- * Infer multi-week when the client omits `workshop_series` (Zod would default to `one_day`) but sends
- * a full recurring payload — avoids a single-date insert and duplicate weekly rows from retries.
- */
-function inferSeriesKind(body: z.infer<typeof sessionSchema>): 'one_day' | 'multi_week' {
-  if (body.workshop_series === 'multi_week') return 'multi_week'
-  if (
-    typeof body.multi_week_occurrence_count === 'number' &&
-    body.multi_week_occurrence_count > 1 &&
-    body.multi_week_schedule
-  ) {
-    return 'multi_week'
-  }
-  return 'one_day'
-}
-
-/** ISO strings for each weekly occurrence (sorted ascending for custom). */
-function resolveWorkshopSeriesDates(body: z.infer<typeof sessionSchema>): { ok: true; dates: string[] } | { ok: false; error: string } {
-  const series = inferSeriesKind(body)
-  if (series === 'one_day') {
-    if (!body.date?.trim()) return { ok: true, dates: [] }
-    const first = parseUserDateTime(body.date)
-    if (!first) return { ok: false, error: 'Invalid date & time for the workshop.' }
-    return { ok: true, dates: [first.toISOString()] }
-  }
-
-  if (!body.date?.trim()) {
-    return { ok: false, error: 'Set the first workshop date & time for a recurring series.' }
-  }
-  const first = parseUserDateTime(body.date)
-  if (!first) return { ok: false, error: 'Invalid date & time for the first workshop.' }
-
-  const count = body.multi_week_occurrence_count
-  if (!count) return { ok: false, error: 'Choose how many weeks this recurring workshop runs.' }
-  const schedule = body.multi_week_schedule
-  if (!schedule) return { ok: false, error: 'Choose whether follow-up dates match each week or are set manually.' }
-
-  if (schedule === 'same_day_time') {
-    const dates = Array.from({ length: count }, (_, i) => addWeeks(first, i).toISOString())
-    return { ok: true, dates }
-  }
-
-  const extras = body.multi_week_additional_datetimes ?? []
-  const need = count - 1
-  if (extras.length !== need) {
-    return { ok: false, error: `Enter date & time for every additional session (${need} after the first).` }
-  }
-  const parsedExtras = extras.map((raw) => parseUserDateTime(raw))
-  if (parsedExtras.some((d) => !d)) {
-    return { ok: false, error: 'One or more additional session dates are invalid.' }
-  }
-  const all = [first, ...parsedExtras.map((d) => d!)]
-  const iso = all.map((d) => d.toISOString())
-  iso.sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-  return { ok: true, dates: iso }
-}
 
 // GET /api/partners/sessions — list vendor sessions
 export async function GET(request: NextRequest) {
@@ -192,6 +130,42 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+
+    const { data: activeSub } = await admin
+      .from('vendor_subscriptions')
+      .select('subscription_tier, current_period_start, current_period_end, status')
+      .eq('vendor_id', vendor.id)
+      .in('status', ['trialing', 'active', 'past_due'])
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (
+      activeSub?.subscription_tier === 'lite' &&
+      activeSub.current_period_start &&
+      activeSub.current_period_end
+    ) {
+      const { count, error: countError } = await admin
+        .from('events')
+        .select('*', { count: 'exact', head: true })
+        .eq('vendor_profile_id', vendor.id)
+        .gte('created_at', activeSub.current_period_start)
+        .lte('created_at', activeSub.current_period_end)
+
+      if (countError) {
+        console.error('[sessions] Lite quota count', countError)
+      } else if (
+        count != null &&
+        count >= LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD
+      ) {
+        return NextResponse.json(
+          {
+            error: `Lite plan allows up to ${LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD} new workshop sessions per billing period. Upgrade to Pro in billing settings, or wait until the next period.`,
+          },
+          { status: 403 }
+        )
+      }
+    }
 
     const resolvedImageUrl =
       body.cover_image_url != null && body.cover_image_url !== ''

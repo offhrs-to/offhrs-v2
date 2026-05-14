@@ -121,6 +121,7 @@ function SessionsPageInner() {
   if (showForm || editingSession) {
     return (
       <SessionForm
+        key={editingSession?.id ?? 'new'}
         session={editingSession}
         vendorDefaultAddress={vendorDefaultAddress}
         vendorDefaultWorkshopImageUrl={vendorDefaultWorkshopImageUrl}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, Loader2, ImagePlus } from 'lucide-react'
 import { CATEGORIES, normalizePartnerSessionCategory } from '@/constants/categories'
 import { GooglePlacesField } from '@/app/partners/signup/GooglePlacesField'
+import { parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -26,6 +27,8 @@ interface SessionFormProps {
     status: string
     description?: string | null
     image_url?: string | null
+    workshop_series?: string | null
+    series_occurrences?: unknown
   } | null
   /** Vendor onboarding address — prefills in-person location for new workshops. */
   vendorDefaultAddress?: string
@@ -85,14 +88,41 @@ export function SessionForm({
   }, [session?.id, isEdit])
 
   useEffect(() => {
-    if (isEdit) {
+    if (!session?.id) return
+    const row: EventSeriesFields = {
+      workshop_series: session.workshop_series ?? null,
+      series_occurrences: session.series_occurrences,
+    }
+    const occ = parseSeriesOccurrences(row)
+    if (occ.length > 1) {
+      setRecurringWeekly(true)
+      setRecurringWeekCount(occ.length)
+      let weekly = true
+      for (let i = 1; i < occ.length; i++) {
+        const days =
+          (new Date(occ[i].start).getTime() - new Date(occ[i - 1].start).getTime()) / (24 * 60 * 60 * 1000)
+        if (Math.abs(days - 7) > 0.35) {
+          weekly = false
+          break
+        }
+      }
+      if (weekly) {
+        setMultiWeekMode('same_day_time')
+        setMultiWeekExtraDates([])
+      } else {
+        setMultiWeekMode('custom_times')
+        setMultiWeekExtraDates(occ.slice(1).map((o) => new Date(o.start).toISOString().slice(0, 16)))
+      }
+    } else {
       setRecurringWeekly(false)
+      setRecurringWeekCount(4)
+      setMultiWeekMode('same_day_time')
       setMultiWeekExtraDates([])
     }
-  }, [isEdit])
+  }, [session?.id, session?.workshop_series, session?.series_occurrences])
 
   useEffect(() => {
-    if (isEdit || !recurringWeekly || multiWeekMode !== 'custom_times') return
+    if (!recurringWeekly || multiWeekMode !== 'custom_times') return
     const need = Math.max(0, recurringWeekCount - 1)
     setMultiWeekExtraDates((prev) => {
       if (prev.length === need) return prev
@@ -100,7 +130,7 @@ export function SessionForm({
       while (next.length < need) next.push('')
       return next
     })
-  }, [isEdit, recurringWeekly, multiWeekMode, recurringWeekCount])
+  }, [recurringWeekly, multiWeekMode, recurringWeekCount])
 
   useEffect(() => {
     if (isEdit) return
@@ -139,7 +169,7 @@ export function SessionForm({
     setError('')
 
     try {
-      if (!isEdit && recurringWeekly) {
+      if (recurringWeekly) {
         if (!form.date?.trim()) {
           setError('Set the first workshop date & time for a recurring series.')
           setLoading(false)
@@ -195,14 +225,12 @@ export function SessionForm({
         payload.cover_image_url = cover_image_url
       }
 
-      if (!isEdit) {
-        payload.workshop_series = recurringWeekly ? 'multi_week' : 'one_day'
-        if (recurringWeekly) {
-          payload.multi_week_occurrence_count = recurringWeekCount
-          payload.multi_week_schedule = multiWeekMode
-          if (multiWeekMode === 'custom_times') {
-            payload.multi_week_additional_datetimes = multiWeekExtraDates
-          }
+      payload.workshop_series = recurringWeekly ? 'multi_week' : 'one_day'
+      if (recurringWeekly) {
+        payload.multi_week_occurrence_count = recurringWeekCount
+        payload.multi_week_schedule = multiWeekMode
+        if (multiWeekMode === 'custom_times') {
+          payload.multi_week_additional_datetimes = multiWeekExtraDates
         }
       }
 
@@ -402,13 +430,18 @@ export function SessionForm({
           <p className="text-xs text-[#888] mt-1">Shown on the public workshop page and in confirmation emails. Leave blank if you coordinate time separately.</p>
         </div>
 
-        {!isEdit && (
-          <div className="rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] p-4 space-y-4">
+        <div className="rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] p-4 space-y-4">
             <p className="text-sm font-medium text-[#1a1a1a]">Recurring workshops</p>
             <p className="text-xs text-[#888] leading-relaxed -mt-2">
               By default you create a single listing. Turn on recurring to schedule multiple weekly sessions on one
               workshop card; each session still appears on your connected calendar.
             </p>
+            {isEdit && (
+              <p className="text-xs text-[#5D755D] font-medium leading-relaxed">
+                You can switch a single-date workshop to a weekly series or change week count and follow-up times
+                here — save to update this listing.
+              </p>
+            )}
 
             <label className="flex items-start gap-3 cursor-pointer">
               <input
@@ -508,7 +541,6 @@ export function SessionForm({
               </div>
             )}
           </div>
-        )}
 
         {/* Location */}
         <div>
@@ -593,7 +625,9 @@ export function SessionForm({
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             {isEdit
-              ? 'Save changes'
+              ? recurringWeekly
+                ? `Save changes (${recurringWeekCount} sessions)`
+                : 'Save changes'
               : recurringWeekly
                 ? `Create multi-week workshop (${recurringWeekCount} sessions)`
                 : 'Create workshop'}

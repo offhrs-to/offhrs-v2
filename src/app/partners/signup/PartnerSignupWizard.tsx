@@ -67,6 +67,7 @@ export function PartnerSignupWizard() {
   const [emailVerifiedForBilling, setEmailVerifiedForBilling] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [billingCanceled, setBillingCanceled] = useState(false)
+  const [billingPlan, setBillingPlan] = useState<'lite' | 'pro'>('pro')
 
   const [businessName, setBusinessName] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
@@ -298,7 +299,11 @@ export function PartnerSignupWizard() {
     setCheckoutLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/partners/checkout', { method: 'POST' })
+      const res = await fetch('/api/partners/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: billingPlan }),
+      })
       const payload = (await res.json()) as { url?: string; error?: string }
       if (!res.ok || !payload.url) {
         throw new Error(payload.error ?? 'Failed to start checkout')
@@ -582,7 +587,7 @@ export function PartnerSignupWizard() {
             <h1 className="font-playfair text-3xl font-bold text-[#1a1a1a] leading-tight">Create your login</h1>
             <p className="text-sm text-[#555] leading-relaxed">
               Use a work email you can access. We&apos;ll send a verification link — you&apos;ll need to confirm it
-              before you can add a card for your 7-day trial and monthly subscription.
+              before you can add a card for your 1-month free trial and monthly subscription.
             </p>
             <div className="space-y-1">
               <label htmlFor="acct-email" className="block text-sm font-medium text-[#1a1a1a]">
@@ -639,10 +644,48 @@ export function PartnerSignupWizard() {
               Payment & subscription
             </h1>
             <p className="text-sm text-[#555] leading-relaxed text-center">
-              Add a payment method so we can start your <strong className="font-semibold text-[#1a1a1a]">7-day free trial</strong>.
-              After the trial, your monthly offhrs subscription is charged automatically unless you cancel before the trial
-              ends (see our Terms for details).
+              Choose a plan, then add a payment method to start your{' '}
+              <strong className="font-semibold text-[#1a1a1a]">1-month free trial</strong>. After the trial, your
+              subscription renews monthly unless you cancel before the trial ends (see our Terms for details).
             </p>
+            {emailVerifiedForBilling && (
+              <div className="grid grid-cols-1 gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setBillingPlan('lite')}
+                  className={`rounded-xl border-2 p-4 text-left transition-colors ${
+                    billingPlan === 'lite'
+                      ? 'border-[#5D755D] bg-[#EDF2ED]'
+                      : 'border-[#E8E4DE] bg-[#FAFAF8] hover:border-[#D9D7CF]'
+                  }`}
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#5D755D]">Lite</p>
+                  <p className="mt-1 font-playfair text-2xl font-bold text-[#1a1a1a]">
+                    $49 <span className="text-sm font-normal text-[#555]">CAD / month</span>
+                  </p>
+                  <p className="mt-2 text-xs text-[#555] leading-relaxed">
+                    Up to 4 new workshop sessions per billing period. Same booking, payouts, and calendar sync as Pro.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingPlan('pro')}
+                  className={`rounded-xl border-2 p-4 text-left transition-colors ${
+                    billingPlan === 'pro'
+                      ? 'border-[#5D755D] bg-[#EDF2ED]'
+                      : 'border-[#E8E4DE] bg-[#FAFAF8] hover:border-[#D9D7CF]'
+                  }`}
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#5D755D]">Pro</p>
+                  <p className="mt-1 font-playfair text-2xl font-bold text-[#1a1a1a]">
+                    $79 <span className="text-sm font-normal text-[#555]">CAD / month</span>
+                  </p>
+                  <p className="mt-2 text-xs text-[#555] leading-relaxed">
+                    Unlimited workshop sessions. Full platform access.
+                  </p>
+                </button>
+              </div>
+            )}
             {billingCanceled && (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 text-center">
                 Checkout was canceled. When you&apos;re ready, use the button below to try again.

@@ -8,12 +8,12 @@ const site = getSiteUrl()
 export const metadata: Metadata = {
   title: 'offhrs Partners — Run your workshop business the easy way',
   description:
-    'offhrs Partners gives Toronto workshop vendors instant booking, Stripe payouts, and Google/Outlook calendar sync — for $79 CAD/month. Start your free 7-day trial.',
+    'offhrs Partners gives Toronto workshop vendors instant booking, Stripe payouts, and Google/Outlook calendar sync — from $49 CAD/mo (Lite) or $79 CAD/mo (Pro). Start your free 1-month trial.',
   alternates: { canonical: `${site}/partners` },
   openGraph: {
     title: 'offhrs Partners — Run your workshop business the easy way',
     description:
-      'All-in-one booking, payouts, and two-way calendar sync for creative workshop vendors in Toronto.',
+      'Booking, payouts, and calendar sync for Toronto workshop vendors — Lite from $49/mo or Pro from $79/mo after a 1-month free trial.',
     url: `${site}/partners`,
     siteName: 'offhrs',
     type: 'website',
@@ -69,8 +69,8 @@ const features = [
 
 const faqs = [
   {
-    q: 'What happens after my 7-day trial?',
-    a: 'Your account automatically moves to the $79 CAD/month plan on Day 8. You can cancel anytime before then with no charge.',
+    q: 'What happens after my 1-month trial?',
+    a: 'Your subscription automatically starts at the end of the trial at the Lite or Pro rate you chose. You can cancel anytime before the trial ends with no charge.',
   },
   {
     q: 'Does offhrs take a commission on my bookings?',
@@ -106,12 +106,22 @@ export default function PartnersLandingPage() {
         description:
           'SaaS booking engine for workshop vendors: instant booking, Stripe Connect payouts, and Cal.com calendar sync.',
         url: `${site}/partners`,
-        offers: {
-          '@type': 'Offer',
-          price: '79',
-          priceCurrency: 'CAD',
-          description: 'Standard plan — monthly after 7-day free trial',
-        },
+        offers: [
+          {
+            '@type': 'Offer',
+            name: 'Lite',
+            price: '49',
+            priceCurrency: 'CAD',
+            description: 'Lite plan — up to 4 new workshop sessions per billing period, after 1-month free trial',
+          },
+          {
+            '@type': 'Offer',
+            name: 'Pro',
+            price: '79',
+            priceCurrency: 'CAD',
+            description: 'Pro plan — unlimited workshop sessions, after 1-month free trial',
+          },
+        ],
         publisher: {
           '@type': 'Organization',
           name: 'offhrs',
@@ -166,15 +176,16 @@ export default function PartnersLandingPage() {
           Run your workshop business the easy way — all in one platform.
         </h1>
         <p className="mt-6 text-lg text-[#555] max-w-xl mx-auto leading-relaxed">
-          Bookings, payouts, and calendar sync — handled for you. Start your free 7-day trial for{' '}
-          <span className="font-semibold text-[#1a1a1a]">$79 CAD/month</span> after.
+          Bookings, payouts, and calendar sync — handled for you. Start your free 1-month trial; plans from{' '}
+          <span className="font-semibold text-[#1a1a1a]">$49 CAD/month (Lite)</span> or{' '}
+          <span className="font-semibold text-[#1a1a1a]">$79 CAD/month (Pro)</span> after the trial.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
             href="/partners/signup"
             className="rounded-full bg-[#5D755D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-sm"
           >
-            Start free 7-day trial
+            Start free 1-month trial
           </Link>
           <Link
             href="/partners/login"
@@ -194,7 +205,7 @@ export default function PartnersLandingPage() {
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             {[
-              { step: '01', title: 'Sign up', body: 'Create your account and start your free 7-day trial. No upfront payment needed.' },
+              { step: '01', title: 'Sign up', body: 'Create your account and start your free 1-month trial. No upfront payment needed.' },
               { step: '02', title: 'Connect your calendar', body: 'Link Google or Outlook in one click. Your availability syncs automatically.' },
               { step: '03', title: 'Get bookings', body: 'Attendees discover and book your sessions on offhrs. Payments go straight to you.' },
             ].map((item) => (
@@ -234,40 +245,71 @@ export default function PartnersLandingPage() {
       <section className="bg-white border-y border-[#E8E6E0] py-20">
         <div className="max-w-5xl mx-auto px-6 text-center">
           <h2 className="font-playfair text-3xl font-bold mb-4">Simple, honest pricing</h2>
-          <p className="text-[#555] text-sm mb-12 max-w-md mx-auto">
-            One plan. No hidden fees. Zero commission on your sales.
+          <p className="text-[#555] text-sm mb-12 max-w-lg mx-auto">
+            Lite or Pro — same booking engine and zero commission on your sales. Upgrade or downgrade anytime from
+            billing settings.
           </p>
-          <div className="inline-block rounded-3xl border-2 border-[#5D755D] bg-[#FAFAF8] p-10 text-left max-w-sm w-full shadow-sm">
-            <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-4">
-              Standard
-            </p>
-            <div className="flex items-end gap-1 mb-1">
-              <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">$79</span>
-              <span className="text-[#555] text-sm mb-2">CAD / month</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto text-left">
+            <div className="rounded-3xl border-2 border-[#E8E6E0] bg-[#FAFAF8] p-8 shadow-sm">
+              <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Lite</p>
+              <div className="flex items-end gap-1 mb-1">
+                <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">$49</span>
+                <span className="text-[#555] text-sm mb-2">CAD / month</span>
+              </div>
+              <p className="text-xs text-[#5D755D] font-medium mb-6">1-month free trial included</p>
+              <ul className="space-y-3 text-sm text-[#333] mb-8">
+                {[
+                  'Up to 4 new workshop sessions per billing period',
+                  '0% commission on ticket sales',
+                  'Stripe Connect payouts',
+                  'Google & Outlook calendar sync',
+                  'Stripe-powered secure checkout',
+                  'Fully booked management',
+                  'Revenue dashboard',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="text-[#5D755D] mt-0.5">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/partners/signup"
+                className="block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
+              >
+                Start free trial
+              </Link>
             </div>
-            <p className="text-xs text-[#5D755D] font-medium mb-6">7-day free trial included</p>
-            <ul className="space-y-3 text-sm text-[#333] mb-8">
-              {[
-                'Unlimited workshop sessions',
-                '0% commission on ticket sales',
-                'Stripe Connect payouts',
-                'Google & Outlook calendar sync',
-                'Stripe-powered secure checkout',
-                'Fully booked management',
-                'Revenue dashboard',
-              ].map((item) => (
-                <li key={item} className="flex items-start gap-2">
-                  <span className="text-[#5D755D] mt-0.5">✓</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-            <Link
-              href="/partners/signup"
-              className="block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
-            >
-              Start free trial
-            </Link>
+            <div className="rounded-3xl border-2 border-[#5D755D] bg-[#FAFAF8] p-8 shadow-sm">
+              <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Pro</p>
+              <div className="flex items-end gap-1 mb-1">
+                <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">$79</span>
+                <span className="text-[#555] text-sm mb-2">CAD / month</span>
+              </div>
+              <p className="text-xs text-[#5D755D] font-medium mb-6">1-month free trial included</p>
+              <ul className="space-y-3 text-sm text-[#333] mb-8">
+                {[
+                  'Unlimited workshop sessions',
+                  '0% commission on ticket sales',
+                  'Stripe Connect payouts',
+                  'Google & Outlook calendar sync',
+                  'Stripe-powered secure checkout',
+                  'Fully booked management',
+                  'Revenue dashboard',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="text-[#5D755D] mt-0.5">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/partners/signup"
+                className="block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
+              >
+                Start free trial
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -295,13 +337,13 @@ export default function PartnersLandingPage() {
           Ready to fill your workshops?
         </h2>
         <p className="text-[#555] text-sm max-w-md mx-auto mb-10 leading-relaxed">
-          Join offhrs Partners today. 7 days free, then $79 CAD/month. No commission. Cancel anytime.
+          Join offhrs Partners today. 1 month free, then from $49 CAD/mo (Lite) or $79 CAD/mo (Pro). No commission. Cancel anytime.
         </p>
         <Link
           href="/partners/signup"
           className="inline-block rounded-full bg-[#5D755D] px-10 py-4 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-md"
         >
-          Start free 7-day trial
+          Start free 1-month trial
         </Link>
       </section>
 

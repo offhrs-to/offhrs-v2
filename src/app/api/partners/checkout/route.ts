@@ -2,9 +2,18 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { z } from 'zod'
+import {
+  stripePriceIdForCheckoutPlan,
+  type PartnerCheckoutPlan,
+} from '@/lib/stripe-partner-plans'
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
+})
+
+const checkoutBodySchema = z.object({
+  plan: z.enum(['lite', 'pro']).optional(),
 })
 
 function getAppUrl(request: NextRequest): string {
@@ -32,6 +41,18 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient()
     if (!admin) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+
+    const rawJson = await request.json().catch(() => ({}))
+    const parsedBody = checkoutBodySchema.safeParse(rawJson)
+    const plan: PartnerCheckoutPlan = parsedBody.success && parsedBody.data.plan ? parsedBody.data.plan : 'pro'
+
+    let priceId: string
+    try {
+      priceId = stripePriceIdForCheckoutPlan(plan)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Billing is not configured'
+      return NextResponse.json({ error: msg }, { status: 500 })
     }
 
     // Fetch vendor profile
@@ -73,22 +94,23 @@ export async function POST(request: NextRequest) {
         .eq('id', vendor.id)
     }
 
-    // Create Stripe Checkout Session with 7-day trial
+    // Subscription Checkout: 1 month trial, then charge the selected plan monthly.
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [
         {
-          price: process.env.STRIPE_STANDARD_PRICE_ID!,
+          price: priceId,
           quantity: 1,
         },
       ],
       subscription_data: {
-        trial_period_days: 7,
+        trial_period_days: 30,
         metadata: {
           vendor_id: vendor.id,
           user_id: user.id,
+          plan,
         },
       },
       success_url: `${appUrl}/partners/dashboard?onboarding=1`,
@@ -96,6 +118,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         vendor_id: vendor.id,
         user_id: user.id,
+        plan,
       },
     })
 
@@ -105,5 +128,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 })
   }
 }
-
-

@@ -49,6 +49,47 @@ export function buildSeriesOccurrencesFromDateIsos(dateIsos: string[], maxAttend
   }))
 }
 
+/** If starts are ~7 days apart, treat as same weekday/time pattern; otherwise custom schedule. */
+export function inferScheduleFromOccurrences(occ: SeriesOccurrence[]): 'same_day_time' | 'custom_times' {
+  if (occ.length < 2) return 'same_day_time'
+  for (let i = 1; i < occ.length; i++) {
+    const days =
+      (new Date(occ[i].start).getTime() - new Date(occ[i - 1].start).getTime()) / (24 * 60 * 60 * 1000)
+    if (Math.abs(days - 7) > 0.35) return 'custom_times'
+  }
+  return 'same_day_time'
+}
+
+const MATCH_START_MS = 5 * 60 * 1000
+
+/** Rebuild series rows for new dates while keeping slots when a start time still matches (±5 min). */
+export function mergeSeriesOccurrencesPreservingSlots(
+  dateIsos: string[],
+  maxPerOccurrence: number,
+  previous: SeriesOccurrence[]
+): SeriesOccurrence[] {
+  const sorted = [...dateIsos].sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+  return sorted.map((start, idx) => {
+    let best: SeriesOccurrence | undefined
+    let bestDelta = Infinity
+    for (const p of previous) {
+      const d = Math.abs(new Date(p.start).getTime() - new Date(start).getTime())
+      if (d < bestDelta) {
+        bestDelta = d
+        best = p
+      }
+    }
+    const matched =
+      best && bestDelta <= MATCH_START_MS ? best : previous[idx] && idx < previous.length ? previous[idx] : undefined
+    const max = maxPerOccurrence
+    if (matched && bestDelta <= MATCH_START_MS) {
+      const avail = Math.min(Math.max(0, matched.available_slots), max)
+      return { start, max_attendees: max, available_slots: avail }
+    }
+    return { start, max_attendees: max, available_slots: max }
+  })
+}
+
 export function minAvailableAcrossSeries(series: SeriesOccurrence[]): number {
   if (series.length === 0) return 0
   return Math.min(...series.map((o) => o.available_slots))
