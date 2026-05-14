@@ -23,6 +23,8 @@ interface Session {
   image_url?: string | null
   workshop_series?: string | null
   series_occurrences?: unknown
+  external_booked_count?: number | null
+  partner_series_meta?: { pattern?: string; daily_js_weekdays?: number[]; weeks?: number } | null
 }
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {

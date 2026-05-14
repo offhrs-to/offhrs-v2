@@ -5,7 +5,8 @@ import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 import type { PartnerSessionSeriesBody } from '@/lib/partner-session-series-resolve'
-import { resolveWorkshopSeriesDates } from '@/lib/partner-session-series-resolve'
+import { buildPartnerSeriesMeta, resolveWorkshopSeriesDates } from '@/lib/partner-session-series-resolve'
+import { countBookingsPerOccurrence, setSeriesAvailabilityFromRules } from '@/lib/partner-event-availability'
 import {
   inferScheduleFromOccurrences,
   mergeSeriesOccurrencesPreservingSlots,
@@ -30,9 +31,17 @@ const updateSchema = z.object({
   cover_image_url: z.string().url().nullable().optional(),
   workshop_series: z.enum(['one_day', 'multi_week']).optional(),
   multi_week_occurrence_count: multiWeekOccurrenceSchema.optional(),
-  multi_week_schedule: z.enum(['same_day_time', 'custom_times']).optional(),
+  multi_week_schedule: z.enum(['same_day_time', 'custom_times', 'daily_weekdays']).optional(),
   multi_week_additional_datetimes: z.array(z.string()).max(11).optional(),
+  multi_week_daily_js_weekdays: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+  external_booked_count: z.number().int().min(0).max(500).optional(),
 })
+
+type PartnerMeta = {
+  pattern?: string
+  daily_js_weekdays?: number[]
+  weeks?: number
+}
 
 function buildMergedSeriesInput(
   session: Record<string, unknown>,
@@ -41,16 +50,31 @@ function buildMergedSeriesInput(
   const prevSeries = parseSeriesOccurrences(session as EventSeriesFields)
   const sessionDate = typeof session.date === 'string' ? session.date : undefined
   const sessionIsMulti = String(session.workshop_series) === 'multi_week' && prevSeries.length > 1
+  const meta = (session.partner_series_meta as PartnerMeta | null) ?? null
+
+  let schedule = body.multi_week_schedule
+  if (schedule === undefined) {
+    if (meta?.pattern === 'daily_weekdays') schedule = 'daily_weekdays'
+    else if (meta?.pattern === 'weekly_custom') schedule = 'custom_times'
+    else if (sessionIsMulti) schedule = inferScheduleFromOccurrences(prevSeries)
+    else schedule = undefined
+  }
+
+  const dailyJs =
+    body.multi_week_daily_js_weekdays ??
+    (schedule === 'daily_weekdays' && Array.isArray(meta?.daily_js_weekdays) && meta.daily_js_weekdays.length > 0
+      ? meta.daily_js_weekdays
+      : schedule === 'daily_weekdays'
+        ? [0, 1, 2, 3, 4, 5, 6]
+        : undefined)
 
   const occCount =
-    body.multi_week_occurrence_count ?? (sessionIsMulti ? prevSeries.length : undefined)
+    body.multi_week_occurrence_count ??
+    (schedule === 'daily_weekdays' ? undefined : (meta?.weeks as number | undefined)) ??
+    (sessionIsMulti && schedule !== 'daily_weekdays' ? prevSeries.length : undefined)
 
-  const scheduleFromPrev =
-    prevSeries.length > 1 ? inferScheduleFromOccurrences(prevSeries) : undefined
   const extrasFromPrev =
-    scheduleFromPrev === 'custom_times' && prevSeries.length > 1
-      ? prevSeries.slice(1).map((o) => o.start)
-      : undefined
+    schedule === 'custom_times' && prevSeries.length > 1 ? prevSeries.slice(1).map((o) => o.start) : undefined
 
   return {
     date: body.date !== undefined ? body.date : sessionDate,
@@ -61,11 +85,12 @@ function buildMergedSeriesInput(
           ? 'multi_week'
           : 'one_day',
     multi_week_occurrence_count: occCount,
-    multi_week_schedule: body.multi_week_schedule ?? scheduleFromPrev,
+    multi_week_schedule: schedule,
     multi_week_additional_datetimes:
       body.multi_week_additional_datetimes !== undefined
         ? body.multi_week_additional_datetimes
         : extrasFromPrev,
+    multi_week_daily_js_weekdays: dailyJs,
   }
 }
 
@@ -98,7 +123,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
   const { id } = await params
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { admin, vendor, session } = await getVendorAndSession(user.id, id)
@@ -109,7 +136,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const raw = await request.json()
     const parsed = updateSchema.safeParse(raw)
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Validation failed', fields: parsed.error.flatten().fieldErrors }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Validation failed', fields: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      )
     }
 
     const body = parsed.data
@@ -134,13 +164,6 @@ export async function PUT(request: NextRequest, { params }: Params) {
       }
     }
 
-    const sessionRow = session as Record<string, unknown>
-    const mergedSeries = buildMergedSeriesInput(sessionRow, body)
-    const resolvedDates = resolveWorkshopSeriesDates(mergedSeries)
-    if (!resolvedDates.ok) {
-      return NextResponse.json({ error: resolvedDates.error }, { status: 400 })
-    }
-
     const maxAtt =
       body.max_attendees !== undefined
         ? body.max_attendees
@@ -148,39 +171,59 @@ export async function PUT(request: NextRequest, { params }: Params) {
           ? session.max_attendees
           : 10
 
+    const extRaw =
+      body.external_booked_count !== undefined
+        ? body.external_booked_count
+        : ((session as { external_booked_count?: number }).external_booked_count ?? 0)
+    if (extRaw > maxAtt) {
+      return NextResponse.json(
+        { error: 'Spots booked elsewhere cannot exceed max spots (per session date).' },
+        { status: 400 }
+      )
+    }
+
+    const sessionRow = session as Record<string, unknown>
+    const mergedSeries = buildMergedSeriesInput(sessionRow, body)
+    const resolvedDates = resolveWorkshopSeriesDates(mergedSeries)
+    if (!resolvedDates.ok) {
+      return NextResponse.json({ error: resolvedDates.error }, { status: 400 })
+    }
+
+    const { data: bookingRows } = await admin
+      .from('bookings')
+      .select('session_starts_at, refunded_at')
+      .eq('event_id', id)
+
+    const bookings = bookingRows ?? []
+
     const dateIsos = resolvedDates.dates
     const prevOcc = parseSeriesOccurrences(session as EventSeriesFields)
-    const fromMultiWeek =
-      String(session.workshop_series) === 'multi_week' && prevOcc.length > 1
+
+    const metaOut = buildPartnerSeriesMeta(mergedSeries)
+    updatePayload.external_booked_count = extRaw
+    updatePayload.partner_series_meta = metaOut
 
     if (dateIsos.length === 0) {
       updatePayload.date = null
       updatePayload.workshop_series = 'one_day'
       updatePayload.series_occurrences = null
       updatePayload.max_attendees = maxAtt
-      updatePayload.available_slots = maxAtt
+      const booked = countBookingsPerOccurrence(bookings, [])
+      updatePayload.available_slots = Math.max(0, maxAtt - extRaw - (booked[0] ?? 0))
     } else if (dateIsos.length === 1) {
-      const oldDateMs = session.date ? new Date(session.date as string).getTime() : NaN
-      const newDateMs = new Date(dateIsos[0]).getTime()
-      const dateChanged = !Number.isFinite(oldDateMs) || Math.abs(oldDateMs - newDateMs) > 60000
-      const maxChanged = maxAtt !== session.max_attendees
-      const sessionMax =
-        typeof session.max_attendees === 'number' ? session.max_attendees : maxAtt
-
       updatePayload.date = dateIsos[0]
       updatePayload.workshop_series = 'one_day'
       updatePayload.series_occurrences = null
       updatePayload.max_attendees = maxAtt
-
-      if (fromMultiWeek || dateChanged) {
-        updatePayload.available_slots = maxAtt
-      } else if (maxChanged) {
-        const prevAvail =
-          typeof session.available_slots === 'number' ? session.available_slots : sessionMax
-        updatePayload.available_slots = Math.min(prevAvail, maxAtt)
-      }
+      const bookedPer = countBookingsPerOccurrence(bookings, dateIsos)
+      updatePayload.available_slots = Math.max(0, maxAtt - extRaw - (bookedPer[0] ?? 0))
     } else {
-      const seriesOcc = mergeSeriesOccurrencesPreservingSlots(dateIsos, maxAtt, prevOcc)
+      let seriesOcc = mergeSeriesOccurrencesPreservingSlots(dateIsos, maxAtt, prevOcc)
+      const bookedPer = countBookingsPerOccurrence(
+        bookings,
+        seriesOcc.map((o) => o.start)
+      )
+      seriesOcc = setSeriesAvailabilityFromRules(seriesOcc, extRaw, bookedPer)
       const sumAvail = seriesOcc.reduce((a, o) => a + o.available_slots, 0)
       const sumMax = seriesOcc.reduce((a, o) => a + o.max_attendees, 0)
       updatePayload.date = dateIsos[0]
@@ -219,7 +262,9 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   const { id } = await params
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { admin, vendor, session } = await getVendorAndSession(user.id, id)

@@ -9,7 +9,8 @@ import {
   expandSessionsForCalendarRange,
 } from '@/lib/workshop-series'
 import { LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD } from '@/lib/stripe-partner-plans'
-import { resolveWorkshopSeriesDates } from '@/lib/partner-session-series-resolve'
+import { buildPartnerSeriesMeta, resolveWorkshopSeriesDates } from '@/lib/partner-session-series-resolve'
+import { setSeriesAvailabilityFromRules } from '@/lib/partner-event-availability'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 
@@ -28,8 +29,10 @@ const sessionSchema = z.object({
   cover_image_url: z.string().url().optional().nullable(),
   workshop_series: z.enum(['one_day', 'multi_week']).default('one_day'),
   multi_week_occurrence_count: multiWeekOccurrenceSchema.optional(),
-  multi_week_schedule: z.enum(['same_day_time', 'custom_times']).optional(),
+  multi_week_schedule: z.enum(['same_day_time', 'custom_times', 'daily_weekdays']).optional(),
   multi_week_additional_datetimes: z.array(z.string()).max(11).optional(),
+  multi_week_daily_js_weekdays: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+  external_booked_count: z.number().int().min(0).max(500).optional().default(0),
 })
 
 // GET /api/partners/sessions — list vendor sessions
@@ -167,15 +170,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const resolvedImageUrl =
-      body.cover_image_url != null && body.cover_image_url !== ''
-        ? body.cover_image_url
-        : (vendor.default_workshop_image_url as string | null) ?? null
+    const extRaw = body.external_booked_count ?? 0
+    if (extRaw > body.max_attendees) {
+      return NextResponse.json(
+        { error: 'Spots booked elsewhere cannot exceed max spots (per session date).' },
+        { status: 400 }
+      )
+    }
 
     const resolvedDates = resolveWorkshopSeriesDates(body)
     if (!resolvedDates.ok) {
       return NextResponse.json({ error: resolvedDates.error }, { status: 400 })
     }
+
+    const meta = buildPartnerSeriesMeta({
+      date: body.date,
+      workshop_series: body.workshop_series,
+      multi_week_occurrence_count: body.multi_week_occurrence_count,
+      multi_week_schedule: body.multi_week_schedule,
+      multi_week_additional_datetimes: body.multi_week_additional_datetimes,
+      multi_week_daily_js_weekdays: body.multi_week_daily_js_weekdays,
+    })
+
+    const resolvedImageUrl =
+      body.cover_image_url != null && body.cover_image_url !== ''
+        ? body.cover_image_url
+        : (vendor.default_workshop_image_url as string | null) ?? null
 
     const baseRow = {
       title: body.title,
@@ -184,19 +204,26 @@ export async function POST(request: NextRequest) {
       price: body.price_cad > 0 ? `$${body.price_cad} CAD` : 'Free',
       price_cad: body.price_cad,
       max_attendees: body.max_attendees,
-      available_slots: body.max_attendees,
       duration_minutes: body.duration_minutes,
       location: body.location_address ?? body.location_link ?? null,
       booking_status: body.status,
       description: body.description ?? null,
       organizer: null,
       image_url: resolvedImageUrl,
+      external_booked_count: extRaw,
+      partner_series_meta: meta,
     }
 
     const dateIsos = resolvedDates.dates
     const isMultiWeek = dateIsos.length > 1
-    const seriesOcc = isMultiWeek ? buildSeriesOccurrencesFromDateIsos(dateIsos, body.max_attendees) : null
-    const sumAvail = seriesOcc ? seriesOcc.reduce((a, o) => a + o.available_slots, 0) : body.max_attendees
+    let seriesOcc = isMultiWeek ? buildSeriesOccurrencesFromDateIsos(dateIsos, body.max_attendees) : null
+    if (seriesOcc) {
+      const bookedZeros = seriesOcc.map(() => 0)
+      seriesOcc = setSeriesAvailabilityFromRules(seriesOcc, extRaw, bookedZeros)
+    }
+    const sumAvail = seriesOcc
+      ? seriesOcc.reduce((a, o) => a + o.available_slots, 0)
+      : Math.max(0, body.max_attendees - extRaw)
     const sumMax = seriesOcc ? seriesOcc.reduce((a, o) => a + o.max_attendees, 0) : body.max_attendees
 
     const insertRow =
@@ -206,6 +233,7 @@ export async function POST(request: NextRequest) {
             date: null as string | null,
             workshop_series: 'one_day' as const,
             series_occurrences: null,
+            available_slots: Math.max(0, body.max_attendees - extRaw),
           }
         : {
             ...baseRow,

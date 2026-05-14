@@ -1,10 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Loader2, ImagePlus } from 'lucide-react'
 import { CATEGORIES, normalizePartnerSessionCategory } from '@/constants/categories'
 import { GooglePlacesField } from '@/app/partners/signup/GooglePlacesField'
 import { parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
+import { ALL_JS_WEEKDAYS, countDailyInstancesInWindow, RENEW_INSTANCES_WEEKS } from '@/lib/recurring-event-instances'
+import { PARTNER_WEEKDAY_TOGGLE_ORDER } from '@/constants/partner-workshop-schedule'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -29,6 +31,8 @@ interface SessionFormProps {
     image_url?: string | null
     workshop_series?: string | null
     series_occurrences?: unknown
+    external_booked_count?: number | null
+    partner_series_meta?: { pattern?: string; daily_js_weekdays?: number[]; weeks?: number } | null
   } | null
   /** Vendor onboarding address — prefills in-person location for new workshops. */
   vendorDefaultAddress?: string
@@ -67,10 +71,15 @@ export function SessionForm({
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
   const [coverCleared, setCoverCleared] = useState(false)
 
-  const [recurringWeekly, setRecurringWeekly] = useState(false)
+  const [externalBooked, setExternalBooked] = useState(
+    String((session as { external_booked_count?: number } | null)?.external_booked_count ?? 0)
+  )
+
+  type SeriesPattern = 'single' | 'weekly_same' | 'weekly_custom' | 'daily_weekdays'
+  const [seriesPattern, setSeriesPattern] = useState<SeriesPattern>('single')
   const [recurringWeekCount, setRecurringWeekCount] = useState(4)
-  const [multiWeekMode, setMultiWeekMode] = useState<'same_day_time' | 'custom_times'>('same_day_time')
   const [multiWeekExtraDates, setMultiWeekExtraDates] = useState<string[]>([])
+  const [dailyWeekdays, setDailyWeekdays] = useState<Set<number>>(() => new Set(ALL_JS_WEEKDAYS))
 
   useEffect(() => {
     if (!coverFile) {
@@ -89,40 +98,71 @@ export function SessionForm({
 
   useEffect(() => {
     if (!session?.id) return
+    const ext = (session as { external_booked_count?: number }).external_booked_count ?? 0
+    setExternalBooked(String(ext))
+    const meta = session.partner_series_meta as
+      | { pattern?: string; daily_js_weekdays?: number[] }
+      | null
+      | undefined
     const row: EventSeriesFields = {
       workshop_series: session.workshop_series ?? null,
       series_occurrences: session.series_occurrences,
     }
     const occ = parseSeriesOccurrences(row)
     if (occ.length > 1) {
-      setRecurringWeekly(true)
-      setRecurringWeekCount(occ.length)
-      let weekly = true
-      for (let i = 1; i < occ.length; i++) {
-        const days =
-          (new Date(occ[i].start).getTime() - new Date(occ[i - 1].start).getTime()) / (24 * 60 * 60 * 1000)
-        if (Math.abs(days - 7) > 0.35) {
-          weekly = false
-          break
-        }
-      }
-      if (weekly) {
-        setMultiWeekMode('same_day_time')
+      if (meta?.pattern === 'daily_weekdays') {
+        setSeriesPattern('daily_weekdays')
+        setDailyWeekdays(
+          new Set(
+            Array.isArray(meta.daily_js_weekdays) && meta.daily_js_weekdays.length > 0
+              ? meta.daily_js_weekdays
+              : [...ALL_JS_WEEKDAYS]
+          )
+        )
+        setRecurringWeekCount(4)
         setMultiWeekExtraDates([])
       } else {
-        setMultiWeekMode('custom_times')
-        setMultiWeekExtraDates(occ.slice(1).map((o) => new Date(o.start).toISOString().slice(0, 16)))
+        setRecurringWeekCount(occ.length)
+        let weekly = true
+        for (let i = 1; i < occ.length; i++) {
+          const days =
+            (new Date(occ[i].start).getTime() - new Date(occ[i - 1].start).getTime()) / (24 * 60 * 60 * 1000)
+          if (Math.abs(days - 7) > 0.35) {
+            weekly = false
+            break
+          }
+        }
+        if (weekly) {
+          setSeriesPattern('weekly_same')
+          setMultiWeekExtraDates([])
+        } else {
+          setSeriesPattern('weekly_custom')
+          setMultiWeekExtraDates(occ.slice(1).map((o) => new Date(o.start).toISOString().slice(0, 16)))
+        }
       }
     } else {
-      setRecurringWeekly(false)
+      setSeriesPattern('single')
       setRecurringWeekCount(4)
-      setMultiWeekMode('same_day_time')
       setMultiWeekExtraDates([])
+      setDailyWeekdays(new Set(ALL_JS_WEEKDAYS))
     }
-  }, [session?.id, session?.workshop_series, session?.series_occurrences])
+  }, [session?.id, session?.workshop_series, session?.series_occurrences, session?.partner_series_meta])
+
+  const dailyPreviewCount = useMemo(() => {
+    if (seriesPattern !== 'daily_weekdays' || !form.date?.trim()) return null
+    const d = new Date(form.date)
+    if (Number.isNaN(d.getTime())) return null
+    return countDailyInstancesInWindow(d, dailyWeekdays)
+  }, [seriesPattern, form.date, dailyWeekdays])
+
+  const listingSessionCount = useMemo(() => {
+    if (seriesPattern === 'single') return 1
+    if (seriesPattern === 'daily_weekdays') return dailyPreviewCount ?? 0
+    return recurringWeekCount
+  }, [seriesPattern, dailyPreviewCount, recurringWeekCount])
 
   useEffect(() => {
-    if (!recurringWeekly || multiWeekMode !== 'custom_times') return
+    if (seriesPattern !== 'weekly_custom') return
     const need = Math.max(0, recurringWeekCount - 1)
     setMultiWeekExtraDates((prev) => {
       if (prev.length === need) return prev
@@ -130,7 +170,7 @@ export function SessionForm({
       while (next.length < need) next.push('')
       return next
     })
-  }, [recurringWeekly, multiWeekMode, recurringWeekCount])
+  }, [seriesPattern, recurringWeekCount])
 
   useEffect(() => {
     if (isEdit) return
@@ -169,13 +209,21 @@ export function SessionForm({
     setError('')
 
     try {
-      if (recurringWeekly) {
+      const maxSpots = parseInt(form.max_attendees) || 10
+      const extElsewhere = Math.max(0, parseInt(externalBooked, 10) || 0)
+      if (extElsewhere > maxSpots) {
+        setError('Spots booked elsewhere cannot exceed max spots (per session date).')
+        setLoading(false)
+        return
+      }
+
+      if (seriesPattern !== 'single') {
         if (!form.date?.trim()) {
-          setError('Set the first workshop date & time for a recurring series.')
+          setError('Set the first workshop date & time for a multi-date listing.')
           setLoading(false)
           return
         }
-        if (multiWeekMode === 'custom_times') {
+        if (seriesPattern === 'weekly_custom') {
           const need = recurringWeekCount - 1
           if (multiWeekExtraDates.length !== need || multiWeekExtraDates.some((d) => !d.trim())) {
             setError(
@@ -184,6 +232,18 @@ export function SessionForm({
             setLoading(false)
             return
           }
+        }
+        if (seriesPattern === 'daily_weekdays' && dailyWeekdays.size === 0) {
+          setError('Select at least one day of the week.')
+          setLoading(false)
+          return
+        }
+        if (seriesPattern === 'daily_weekdays' && dailyPreviewCount !== null && dailyPreviewCount < 2) {
+          setError(
+            'Too few sessions in the next few weeks with these weekdays. Add more days or pick a different start date.'
+          )
+          setLoading(false)
+          return
         }
       }
 
@@ -212,7 +272,7 @@ export function SessionForm({
         title: form.title,
         category: form.category,
         price_cad: parseFloat(form.price_cad) || 0,
-        max_attendees: parseInt(form.max_attendees) || 10,
+        max_attendees: maxSpots,
         duration_minutes: parseInt(form.duration_minutes) || 90,
         date: form.date || undefined,
         location_type: form.location_type,
@@ -220,17 +280,26 @@ export function SessionForm({
         location_link: form.location_type === 'virtual' ? form.location_link : undefined,
         description: form.description || undefined,
         status: form.status,
+        external_booked_count: extElsewhere,
       }
       if (cover_image_url !== undefined) {
         payload.cover_image_url = cover_image_url
       }
 
-      payload.workshop_series = recurringWeekly ? 'multi_week' : 'one_day'
-      if (recurringWeekly) {
-        payload.multi_week_occurrence_count = recurringWeekCount
-        payload.multi_week_schedule = multiWeekMode
-        if (multiWeekMode === 'custom_times') {
+      if (seriesPattern === 'single') {
+        payload.workshop_series = 'one_day'
+      } else {
+        payload.workshop_series = 'multi_week'
+        if (seriesPattern === 'weekly_same') {
+          payload.multi_week_schedule = 'same_day_time'
+          payload.multi_week_occurrence_count = recurringWeekCount
+        } else if (seriesPattern === 'weekly_custom') {
+          payload.multi_week_schedule = 'custom_times'
+          payload.multi_week_occurrence_count = recurringWeekCount
           payload.multi_week_additional_datetimes = multiWeekExtraDates
+        } else {
+          payload.multi_week_schedule = 'daily_weekdays'
+          payload.multi_week_daily_js_weekdays = [...dailyWeekdays].sort((a, b) => a - b)
         }
       }
 
@@ -379,8 +448,8 @@ export function SessionForm({
           </div>
         </div>
 
-        {/* Price + Max attendees + Duration */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* Price, max spots, booked elsewhere, duration */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Price (CAD) <span className="text-red-500">*</span></label>
             <div className="relative">
@@ -404,6 +473,20 @@ export function SessionForm({
               onChange={(e) => set('max_attendees', e.target.value)}
               className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Booked elsewhere</label>
+            <input
+              type="number"
+              min="0"
+              value={externalBooked}
+              onChange={(e) => setExternalBooked(e.target.value)}
+              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+            />
+            <p className="text-xs text-[#888] mt-1 leading-relaxed">
+              Per session date if you list the same workshop on other platforms (Eventbrite, etc.). Reduces spots
+              available on offhrs only.
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Duration (min) <span className="text-red-500">*</span></label>
@@ -431,116 +514,155 @@ export function SessionForm({
         </div>
 
         <div className="rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] p-4 space-y-4">
-            <p className="text-sm font-medium text-[#1a1a1a]">Recurring workshops</p>
-            <p className="text-xs text-[#888] leading-relaxed -mt-2">
-              By default you create a single listing. Turn on recurring to schedule multiple weekly sessions on one
-              workshop card; each session still appears on your connected calendar.
+          <p className="text-sm font-medium text-[#1a1a1a]">Schedule &amp; repeating dates</p>
+          <p className="text-xs text-[#888] leading-relaxed -mt-2">
+            One listing can include multiple session times at the same price, location, and duration. Repeats use the
+            date &amp; time above as the first occurrence (same clock time for each generated date).
+          </p>
+          {isEdit && (
+            <p className="text-xs text-[#5D755D] font-medium leading-relaxed">
+              You can change how this workshop repeats — save to update dates and availability.
             </p>
-            {isEdit && (
-              <p className="text-xs text-[#5D755D] font-medium leading-relaxed">
-                You can switch a single-date workshop to a weekly series or change week count and follow-up times
-                here — save to update this listing.
-              </p>
-            )}
+          )}
 
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 shrink-0 rounded border-[#C8BFB0] text-[#5D755D] focus:ring-[#5D755D]"
-                checked={recurringWeekly}
-                onChange={(e) => setRecurringWeekly(e.target.checked)}
-              />
-              <span>
-                <span className="text-sm font-medium text-[#1a1a1a]">Recurring weekly series</span>
-                <span className="block text-xs text-[#888] mt-0.5">
-                  Repeat this workshop on a weekly rhythm using the date & time above as the first occurrence.
+          <fieldset className="space-y-2">
+            <legend className="sr-only">Schedule type</legend>
+            {(
+              [
+                ['single', 'Single date', 'One workshop on the date above (or leave date blank).'],
+                ['weekly_same', 'Weekly — same weekday', 'Same weekday and time each week (pick how many weeks).'],
+                ['weekly_custom', 'Weekly — custom dates', 'Pick a different date and time for each week.'],
+                [
+                  'daily_weekdays',
+                  'Repeating weekdays',
+                  `Same time on selected days over the next ${RENEW_INSTANCES_WEEKS} weeks (same idea as admin daily renewals).`,
+                ],
+              ] as const
+            ).map(([value, title, help]) => (
+              <label key={value} className="flex items-start gap-3 cursor-pointer rounded-lg p-2 hover:bg-white/60">
+                <input
+                  type="radio"
+                  name="series-pattern"
+                  className="mt-1 h-4 w-4 shrink-0 border-[#C8BFB0] text-[#5D755D] focus:ring-[#5D755D]"
+                  checked={seriesPattern === value}
+                  onChange={() => setSeriesPattern(value as SeriesPattern)}
+                />
+                <span>
+                  <span className="text-sm font-medium text-[#1a1a1a]">{title}</span>
+                  <span className="block text-xs text-[#888] mt-0.5 leading-relaxed">{help}</span>
                 </span>
-              </span>
-            </label>
+              </label>
+            ))}
+          </fieldset>
 
-            {recurringWeekly && (
-              <div className="space-y-4 pt-3 border-t border-[#E8E4DE]">
-                <div>
-                  <label htmlFor="recurring-week-count" className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
-                    Number of weeks
-                  </label>
-                  <select
-                    id="recurring-week-count"
-                    value={recurringWeekCount}
-                    onChange={(e) => setRecurringWeekCount(Number(e.target.value))}
-                    className="w-full max-w-xs px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-                  >
-                    {RECURRING_WEEK_OPTIONS.map((n) => (
-                      <option key={n} value={n}>
-                        {n} weekly sessions — one workshop listing
-                      </option>
-                    ))}
-                  </select>
-                </div>
+          {seriesPattern === 'weekly_same' && (
+            <div className="pt-2 border-t border-[#E8E4DE] space-y-2">
+              <label htmlFor="recurring-week-count" className="block text-sm font-medium text-[#1a1a1a]">
+                Number of weeks
+              </label>
+              <select
+                id="recurring-week-count"
+                value={recurringWeekCount}
+                onChange={(e) => setRecurringWeekCount(Number(e.target.value))}
+                className="w-full max-w-xs px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+              >
+                {RECURRING_WEEK_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n} sessions — one workshop listing
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-                <fieldset>
-                  <legend className="text-sm font-medium text-[#1a1a1a] mb-2">Date & time for follow-up workshops</legend>
-                  <div className="space-y-3">
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="recurring-week-mode"
-                        className="mt-1 h-4 w-4 shrink-0 border-[#C8BFB0] text-[#5D755D] focus:ring-[#5D755D]"
-                        checked={multiWeekMode === 'same_day_time'}
-                        onChange={() => setMultiWeekMode('same_day_time')}
-                      />
-                      <span className="text-sm text-[#555] leading-relaxed">
-                        Same weekday and time each week — we save one workshop with multiple session dates at the same
-                        clock time and duration. Your calendar shows each week when connected.
-                      </span>
-                    </label>
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="recurring-week-mode"
-                        className="mt-1 h-4 w-4 shrink-0 border-[#C8BFB0] text-[#5D755D] focus:ring-[#5D755D]"
-                        checked={multiWeekMode === 'custom_times'}
-                        onChange={() => setMultiWeekMode('custom_times')}
-                      />
-                      <span className="text-sm text-[#555] leading-relaxed">
-                        Different date and time for each week — set the first workshop above, then enter each
-                        additional occurrence below.
-                      </span>
-                    </label>
-                  </div>
-                </fieldset>
-
-                {multiWeekMode === 'custom_times' && (
-                  <div className="space-y-3">
-                    <p className="text-xs text-[#888] leading-relaxed">
-                      Workshop 1 is the date & time at the top of this form. Fill in workshops 2–{recurringWeekCount}.
-                    </p>
-                    {multiWeekExtraDates.map((val, idx) => (
-                      <div key={idx}>
-                        <label
-                          htmlFor={`recurring-extra-${idx}`}
-                          className="block text-xs font-medium text-[#555] mb-1"
-                        >
-                          Workshop {idx + 2}
-                        </label>
-                        <input
-                          id={`recurring-extra-${idx}`}
-                          type="datetime-local"
-                          value={val}
-                          onChange={(e) => {
-                            const next = [...multiWeekExtraDates]
-                            next[idx] = e.target.value
-                            setMultiWeekExtraDates(next)
-                          }}
-                          className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D] focus:border-transparent"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
+          {seriesPattern === 'weekly_custom' && (
+            <div className="space-y-4 pt-2 border-t border-[#E8E4DE]">
+              <div>
+                <label htmlFor="recurring-week-count-custom" className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+                  Number of sessions
+                </label>
+                <select
+                  id="recurring-week-count-custom"
+                  value={recurringWeekCount}
+                  onChange={(e) => setRecurringWeekCount(Number(e.target.value))}
+                  className="w-full max-w-xs px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                >
+                  {RECURRING_WEEK_OPTIONS.map((n) => (
+                    <option key={n} value={n}>
+                      {n} workshops — enter each date below
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
-          </div>
+              <div className="space-y-3">
+                <p className="text-xs text-[#888] leading-relaxed">
+                  Workshop 1 is the date &amp; time at the top of this form. Fill in workshops 2–{recurringWeekCount}.
+                </p>
+                {multiWeekExtraDates.map((val, idx) => (
+                  <div key={idx}>
+                    <label htmlFor={`recurring-extra-${idx}`} className="block text-xs font-medium text-[#555] mb-1">
+                      Workshop {idx + 2}
+                    </label>
+                    <input
+                      id={`recurring-extra-${idx}`}
+                      type="datetime-local"
+                      value={val}
+                      onChange={(e) => {
+                        const next = [...multiWeekExtraDates]
+                        next[idx] = e.target.value
+                        setMultiWeekExtraDates(next)
+                      }}
+                      className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D] focus:border-transparent"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {seriesPattern === 'daily_weekdays' && (
+            <div className="space-y-3 pt-2 border-t border-[#E8E4DE]">
+              <p className="text-xs font-medium text-[#1a1a1a]">Repeat on these days</p>
+              <div className="flex flex-wrap gap-2">
+                {PARTNER_WEEKDAY_TOGGLE_ORDER.map(({ jsDay, label }) => {
+                  const on = dailyWeekdays.has(jsDay)
+                  return (
+                    <button
+                      key={jsDay}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() =>
+                        setDailyWeekdays((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(jsDay)) next.delete(jsDay)
+                          else next.add(jsDay)
+                          return next
+                        })
+                      }
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-w-[2.75rem] border ${
+                        on
+                          ? 'bg-[#5D755D] text-white border-[#5D755D]'
+                          : 'bg-white text-[#555] border-[#E8E4DE] hover:bg-[#F0EDE8]'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-[#888] leading-relaxed">
+                All days selected = every calendar day in the window. Tap to exclude — no session on deselected
+                weekdays. Same time of day as the first date above.
+              </p>
+              {dailyPreviewCount != null && (
+                <p className="text-xs text-[#5D755D] font-medium">
+                  {dailyPreviewCount} session{dailyPreviewCount === 1 ? '' : 's'} in the next {RENEW_INSTANCES_WEEKS}{' '}
+                  weeks (one workshop listing).
+                </p>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Location */}
         <div>
@@ -625,12 +747,12 @@ export function SessionForm({
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             {isEdit
-              ? recurringWeekly
-                ? `Save changes (${recurringWeekCount} sessions)`
-                : 'Save changes'
-              : recurringWeekly
-                ? `Create multi-week workshop (${recurringWeekCount} sessions)`
-                : 'Create workshop'}
+              ? seriesPattern === 'single'
+                ? 'Save changes'
+                : `Save changes (${listingSessionCount} session${listingSessionCount === 1 ? '' : 's'})`
+              : seriesPattern === 'single'
+                ? 'Create workshop'
+                : `Create workshop (${listingSessionCount} session${listingSessionCount === 1 ? '' : 's'})`}
           </button>
           <button
             type="button"
