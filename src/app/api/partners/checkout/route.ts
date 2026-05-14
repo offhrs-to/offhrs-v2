@@ -124,6 +124,24 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url })
   } catch (err) {
+    if (err instanceof Stripe.errors.StripeInvalidRequestError) {
+      console.error('Partner checkout Stripe error:', err.message, err.param, err.code)
+      return NextResponse.json(
+        {
+          error:
+            err.message ||
+            'Stripe rejected this checkout request. Check that STRIPE_PRO_PRICE_ID / STRIPE_LITE_PRICE_ID are recurring subscription prices for the same mode (test/live) as STRIPE_SECRET_KEY.',
+        },
+        { status: 400 }
+      )
+    }
+    if (err instanceof Stripe.errors.StripeError) {
+      console.error('Partner checkout Stripe error:', err.type, err.message)
+      return NextResponse.json(
+        { error: err.message || 'Stripe error while creating checkout session.' },
+        { status: 502 }
+      )
+    }
     console.error('Partner checkout error:', err)
     return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 })
   }
