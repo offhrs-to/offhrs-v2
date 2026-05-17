@@ -9,12 +9,19 @@ export type WorkshopEventRow = {
   location: string;
   image_url: string | null;
   price: number | string | null;
+  /** SaaS price in CAD when `vendor_profile_id` is set. */
+  price_cad: number | null;
   external_link: string;
   lat: number | null;
   lng: number | null;
   vendor_id: string | null;
+  /** When set, workshop is bookable in-app via Stripe (SaaS). */
+  vendor_profile_id: string | null;
   recurrence: string | null;
   category: string | null;
+  description: string | null;
+  booking_status: string | null;
+  available_slots: number | null;
 };
 
 function formatDateToronto(isoString: string): string {
@@ -33,6 +40,49 @@ function formatDateToronto(isoString: string): string {
   }
 }
 
+export type WorkshopEventDbRow = {
+  id: number;
+  title: string | null;
+  date: string | null;
+  location: string | null;
+  image_url: string | null;
+  price: number | string | null;
+  price_cad: number | string | null;
+  external_link: string | null;
+  category: string | null;
+  lat: number | null;
+  lng: number | null;
+  vendor_id: string | null;
+  vendor_profile_id: string | null;
+  recurrence: string | null;
+  description: string | null;
+  booking_status: string | null;
+  available_slots: number | null;
+};
+
+export function mapDbRowToWorkshopEvent(row: WorkshopEventDbRow): WorkshopEventRow {
+  return {
+    id: row.id,
+    title: row.title ?? '',
+    date: formatDateToronto(row.date ?? ''),
+    date_iso: row.date ?? null,
+    location: row.location ?? '',
+    image_url: row.image_url ?? null,
+    price: row.price ?? null,
+    price_cad: row.price_cad != null ? Number(row.price_cad) : null,
+    external_link: row.external_link ?? '',
+    lat: row.lat ?? null,
+    lng: row.lng ?? null,
+    vendor_id: row.vendor_id ?? null,
+    vendor_profile_id: row.vendor_profile_id ?? null,
+    recurrence: row.recurrence ?? null,
+    category: row.category ?? null,
+    description: row.description ?? null,
+    booking_status: row.booking_status ?? null,
+    available_slots: row.available_slots ?? null,
+  };
+}
+
 export type FetchWorkshopEventsOptions = {
   searchTerm: string;
   /** Empty = all categories */
@@ -41,6 +91,9 @@ export type FetchWorkshopEventsOptions = {
   dateRangeEnd: string | null;
   limit?: number;
 };
+
+export const WORKSHOP_EVENT_LIST_SELECT =
+  'id, title, date, location, image_url, price, price_cad, external_link, category, lat, lng, vendor_id, vendor_profile_id, recurrence, description, booking_status, available_slots';
 
 /**
  * Shared Supabase fetch for workshop list/map flows (matches workshops tab logic).
@@ -77,10 +130,9 @@ export async function fetchWorkshopEvents(
   }
 
   const makeOrderedQuery = () => {
-    let q = supabase
-      .from('events')
-      .select('id, title, date, location, image_url, price, external_link, category, lat, lng, vendor_id, recurrence');
+    let q = supabase.from('events').select(WORKSHOP_EVENT_LIST_SELECT);
     q = q.or(`recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso}`);
+    q = q.or('booking_status.eq.published,booking_status.eq.fully_booked,booking_status.is.null');
     if (searchOrClause) {
       q = q.or(searchOrClause);
     }
@@ -92,20 +144,7 @@ export async function fetchWorkshopEvents(
 
   const cap = Math.min(limit, 15000);
   const batch = WORKSHOP_EVENTS_FETCH_BATCH;
-  const combined: {
-    id: number;
-    title: string | null;
-    date: string | null;
-    location: string | null;
-    image_url: string | null;
-    price: number | string | null;
-    external_link: string | null;
-    category: string | null;
-    lat: number | null;
-    lng: number | null;
-    vendor_id: string | null;
-    recurrence: string | null;
-  }[] = [];
+  const combined: WorkshopEventDbRow[] = [];
 
   for (let offset = 0; offset < cap; offset += batch) {
     const take = Math.min(batch, cap - offset);
@@ -116,21 +155,7 @@ export async function fetchWorkshopEvents(
     if (data.length < take) break;
   }
 
-  const list = combined.map((row) => ({
-    id: row.id,
-    title: row.title ?? '',
-    date: formatDateToronto(row.date ?? ''),
-    date_iso: row.date ?? null,
-    location: row.location ?? '',
-    image_url: row.image_url ?? null,
-    price: row.price ?? null,
-    external_link: row.external_link ?? '',
-    lat: row.lat ?? null,
-    lng: row.lng ?? null,
-    vendor_id: row.vendor_id ?? null,
-    recurrence: row.recurrence ?? null,
-    category: row.category ?? null,
-  }));
+  const list = combined.map(mapDbRowToWorkshopEvent);
 
   const filteredByDate = list.filter((e) => {
     if (!e.date_iso) return !dateRangeStart && !dateRangeEnd;
@@ -160,4 +185,3 @@ export async function fetchWorkshopEvents(
 
   return sorted;
 }
-

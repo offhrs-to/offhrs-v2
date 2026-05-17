@@ -6,7 +6,9 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import Constants from 'expo-constants';
+import { StripeProvider } from '@stripe/stripe-react-native';
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { Modal, Platform } from 'react-native';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -20,6 +22,33 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 const HAS_SEEN_APP_INTRO_KEY = '@offhrs/hasSeenAppIntro';
 
 const ROOT_BG = '#ECEFE5';
+
+function resolveStripePublishableKey(): string {
+  const extra = (
+    Constants.expoConfig?.extra as { stripePublishableKey?: string } | undefined
+  )?.stripePublishableKey;
+  return (extra ?? process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').trim();
+}
+
+/** Native only: Payment Sheet + Apple Pay / Google Pay need a configured publishable key. */
+function StripeRoot({ children }: { children: ReactNode }) {
+  if (Platform.OS === 'web') {
+    return <>{children}</>;
+  }
+  const pk = resolveStripePublishableKey();
+  if (!pk.startsWith('pk_')) {
+    return <>{children}</>;
+  }
+  return (
+    <StripeProvider
+      publishableKey={pk}
+      merchantIdentifier="merchant.com.offhrs.app"
+      urlScheme="offhrsmobile"
+    >
+      {children as ReactElement}
+    </StripeProvider>
+  );
+}
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -83,13 +112,6 @@ export default function RootLayout() {
         return;
       }
 
-      // Android: if SignInForm.onSignInSuccess already navigated (via openAuthSessionAsync
-      // return value), the user is already inside (tabs). Skip the redundant replace so we
-      // don't disturb the navigation stack while the onboarding modal may be open.
-      if (Platform.OS === 'android' && segmentsRef.current[0] === '(tabs)') {
-        return;
-      }
-
       authNavDoneRef.current = true;
       router.replace('/(tabs)/profile');
     };
@@ -144,34 +166,36 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <ThemeProvider value={DefaultTheme}>
-            <Stack
-              screenOptions={{
-                contentStyle: { backgroundColor: ROOT_BG },
-              }}
-            >
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="login" options={{ headerShown: false }} />
-              <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
-              <Stack.Screen name="vendors/[id]" options={{ headerShown: false }} />
-              <Stack.Screen name="workshop-search" options={{ headerShown: false }} />
-              <Stack.Screen name="workshop-map" options={{ headerShown: false }} />
-              <Stack.Screen name="workshop-browse" options={{ headerShown: false }} />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-            </Stack>
-            {/* Always mount Modal; drive with `visible` so the native layer dismisses cleanly (avoids touch-eating ghost on Android after first-launch intro). */}
-            <Modal
-              visible={showAppIntro}
-              transparent={false}
-              animationType="fade"
-              onRequestClose={handleAppIntroDone}
-            >
-              {showAppIntro ? <AppIntroScreen onDone={handleAppIntroDone} /> : null}
-            </Modal>
-            <StatusBar style="dark" />
-          </ThemeProvider>
-        </AuthProvider>
+        <StripeRoot>
+          <AuthProvider>
+            <ThemeProvider value={DefaultTheme}>
+              <Stack
+                screenOptions={{
+                  contentStyle: { backgroundColor: ROOT_BG },
+                }}
+              >
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="login" options={{ headerShown: false }} />
+                <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+                <Stack.Screen name="vendors/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="workshop-search" options={{ headerShown: false }} />
+                <Stack.Screen name="workshop-map" options={{ headerShown: false }} />
+                <Stack.Screen name="workshop-browse" options={{ headerShown: false }} />
+                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+              </Stack>
+              {/* Always mount Modal; drive with `visible` so the native layer dismisses cleanly (avoids touch-eating ghost on Android after first-launch intro). */}
+              <Modal
+                visible={showAppIntro}
+                transparent={false}
+                animationType="fade"
+                onRequestClose={handleAppIntroDone}
+              >
+                {showAppIntro ? <AppIntroScreen onDone={handleAppIntroDone} /> : null}
+              </Modal>
+              <StatusBar style="dark" />
+            </ThemeProvider>
+          </AuthProvider>
+        </StripeRoot>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

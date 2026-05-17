@@ -16,6 +16,7 @@ import { DesignColors, isIOSPad } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { emitProfileUpdated } from '@/lib/profile-events';
 import { supabase } from '@/lib/supabase';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /** Android-only: persistent per-user onboarding completion cache. Survives any remount, auth
@@ -355,7 +356,8 @@ export default function TabLayout() {
       }
 
       if (error || !data) {
-        const isMissingProfileRow = !data || error?.code === 'PGRST116';
+        const pgError = error as PostgrestError | null;
+        const isMissingProfileRow = !data || pgError?.code === 'PGRST116';
         if (isMissingProfileRow) {
           setOnboardingStatus('needs_onboarding');
         } else {
@@ -444,13 +446,14 @@ export default function TabLayout() {
 
     setOnboardingStatus('complete');
 
-    // iOS path — unchanged: verify the DB write then emit.
-    supabase
-      .from('profiles')
-      .select('onboarding_completed')
-      .eq('id', uid)
-      .single()
-      .then(({ data, error }) => {
+    // iOS path — verify the DB write then emit.
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', uid)
+          .single();
         if (error || !data) {
           emitProfileUpdated();
           return;
@@ -461,10 +464,10 @@ export default function TabLayout() {
           setOnboardingStatus('complete');
         }
         emitProfileUpdated();
-      })
-      .catch(() => {
+      } catch {
         emitProfileUpdated();
-      });
+      }
+    })();
   }, []);
 
   const showOnboarding = !!user?.id && onboardingStatus === 'needs_onboarding';
@@ -496,7 +499,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: INACTIVE_TINT,
         headerShown: false,
         tabBarShowLabel: false,
-        sceneContainerStyle: {
+        sceneStyle: {
           paddingBottom:
             Platform.OS === 'ios'
               ? isIPad

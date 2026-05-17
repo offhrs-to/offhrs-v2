@@ -2,17 +2,26 @@ import * as Linking from 'expo-linking';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
-import { BOOK_API_BASE } from '@/constants/api';
 import { DesignColors } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { haversineKm } from '@/lib/distance';
+import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mobile';
 import { shareWorkshopEvent } from '@/lib/share-workshop';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import { supabase } from '@/lib/supabase';
+import { workshopDisplayPrice, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
 
 /** Compact square thumbnail (top-right of card), Classpass-style — does not span full card height. */
 const THUMB_SIZE = 96;
@@ -98,21 +107,30 @@ export default function WorkshopBrowseGroupedCard({ group, profileLocation, save
 
   const [selectedId, setSelectedId] = useState<number | null>(() => sorted[0]?.id ?? null);
   const [saving, setSaving] = useState(false);
+  const [bookingBusy, setBookingBusy] = useState(false);
 
   useEffect(() => {
     const ids = sessionKey
       .split(',')
       .map((s) => Number(s))
       .filter((n) => Number.isInteger(n));
-    setSelectedId((prev) => (prev != null && ids.includes(prev) ? prev : ids[0] ?? null));
-  }, [sessionKey]);
+    const rows = sorted.filter((r) => ids.includes(r.id));
+    const firstOpen = rows.find((r) => !workshopEventIsFull(r))?.id ?? rows[0]?.id ?? null;
+    setSelectedId((prev) => {
+      if (prev != null && ids.includes(prev)) {
+        const prevRow = sorted.find((s) => s.id === prev);
+        if (prevRow && !workshopEventIsFull(prevRow)) return prev;
+      }
+      return firstOpen;
+    });
+  }, [sessionKey, sorted]);
 
   const selected = useMemo(
     () => sorted.find((r) => r.id === selectedId) ?? sorted[0],
     [sorted, selectedId]
   );
 
-  const displayPrice = formatPrice(selected?.price);
+  const displayPrice = workshopDisplayPrice(selected) ?? formatPrice(selected?.price);
   const displaySaved = selected != null && savedEventIds.has(selected.id);
   const vendorId = selected?.vendor_id ?? sorted[0]?.vendor_id;
 
@@ -164,22 +182,41 @@ export default function WorkshopBrowseGroupedCard({ group, profileLocation, save
 
   const handleBook = async () => {
     if (selected == null) return;
-    try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (user?.id) {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          headers.Authorization = `Bearer ${session.access_token}`;
-        }
+    if (workshopEventIsFull(selected)) return;
+
+    if (workshopIsSaasVendorEvent(selected)) {
+      if (!user?.id) {
+        router.push('/login');
+        return;
       }
-      await fetch(`${BOOK_API_BASE}/api/book`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ event_id: selected.id, event_title: selected.title }),
-      });
-    } catch {}
+      if (!user.email?.trim()) {
+        Alert.alert('Email required', 'Add an email to your account before booking.');
+        return;
+      }
+      const name =
+        (user.user_metadata?.full_name as string | undefined)?.trim() ||
+        user.email.split('@')[0] ||
+        'Guest';
+      setBookingBusy(true);
+      try {
+        const result = await runPaidWorkshopBooking({
+          eventId: selected.id,
+          attendeeName: name,
+          attendeeEmail: user.email,
+          startTimeIso: selected.date_iso,
+        });
+        if (result.ok) {
+          Alert.alert('Booked', "You're signed up. Check your email for details.");
+        } else if (!result.cancelled) {
+          Alert.alert('Booking', result.message);
+        }
+      } finally {
+        setBookingBusy(false);
+      }
+      return;
+    }
+
+    await postLegacyBookTap(selected.id, selected.title);
     const url = selected.external_link?.trim();
     if (url) Linking.openURL(url);
   };
@@ -386,13 +423,15 @@ export default function WorkshopBrowseGroupedCard({ group, profileLocation, save
         >
           {sorted.map((slot) => {
             const active = slot.id === selectedId;
+            const slotFull = workshopEventIsFull(slot);
             return (
               <Pressable
                 key={slot.id}
-                onPress={() => setSelectedId(slot.id)}
+                onPress={() => !slotFull && setSelectedId(slot.id)}
+                disabled={slotFull}
                 accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={`${formatTimePill(slot)}${active ? ', selected' : ''}`}
+                accessibilityState={{ selected: active, disabled: slotFull }}
+                accessibilityLabel={`${formatTimePill(slot)}${slotFull ? ', full' : active ? ', selected' : ''}`}
                 style={{
                   paddingHorizontal: 14,
                   paddingVertical: 8,
@@ -400,16 +439,17 @@ export default function WorkshopBrowseGroupedCard({ group, profileLocation, save
                   backgroundColor: active ? DesignColors.heroBg : '#FFF',
                   borderWidth: 1,
                   borderColor: active ? DesignColors.primary : DesignColors.lightGreenBorder,
+                  opacity: slotFull ? 0.45 : 1,
                 }}
               >
                 <Text
                   style={{
                     fontSize: 12,
                     fontWeight: '600',
-                    color: active ? DesignColors.primary : DesignColors.charcoal,
+                    color: slotFull ? DesignColors.mediumGray : active ? DesignColors.primary : DesignColors.charcoal,
                   }}
                 >
-                  {formatTimePill(slot)}
+                  {slotFull ? `${formatTimePill(slot)} · Full` : formatTimePill(slot)}
                 </Text>
               </Pressable>
             );
@@ -434,18 +474,26 @@ export default function WorkshopBrowseGroupedCard({ group, profileLocation, save
             </Pressable>
           ) : null}
           <Pressable
-            onPress={handleBook}
+            onPress={() => void handleBook()}
+            disabled={bookingBusy || (selected != null && workshopEventIsFull(selected))}
             style={{
               flex: 1,
               minWidth: 0,
               paddingVertical: 8,
               borderRadius: 10,
-              backgroundColor: DesignColors.primary,
+              backgroundColor:
+                selected != null && workshopEventIsFull(selected) ? '#B8C4B8' : DesignColors.primary,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}>Book</Text>
+            {bookingBusy ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}>
+                {selected != null && workshopEventIsFull(selected) ? 'Full' : 'Book'}
+              </Text>
+            )}
           </Pressable>
         </View>
       </View>

@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button'
 import { LogOut, Trash2 } from 'lucide-react'
 import OnboardingModal from '@/components/onboarding-modal'
 
+const APP_STORE_URL = process.env.NEXT_PUBLIC_APP_STORE_URL || '#'
+const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL || '#'
+
 export default function ProfilePage() {
   const { user, loading: authLoading, signOut } = useAuth()
   const [profile, setProfile] = useState<{
@@ -251,12 +254,17 @@ export default function ProfilePage() {
             <Link href="/privacy" className="text-xs text-gray-500 hover:text-gray-700">
               Privacy Policy
             </Link>
-            <div className="flex gap-3">
-              <Link href="/" className="flex-1">
-                <Button variant="outline" className="w-full">
-                  Browse Workshops
-                </Button>
-              </Link>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button variant="outline" className="w-full sm:flex-1" asChild>
+                <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+                  App Store
+                </a>
+              </Button>
+              <Button variant="outline" className="w-full sm:flex-1" asChild>
+                <a href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer">
+                  Google Play
+                </a>
+              </Button>
             </div>
             <Button
               variant="outline"

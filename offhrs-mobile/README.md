@@ -62,7 +62,10 @@ cd offhrs-mobile
 eas secret:create --name EXPO_PUBLIC_SUPABASE_URL --value "https://YOUR_PROJECT.supabase.co" --type string
 eas secret:create --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "YOUR_ANON_KEY" --type string
 eas secret:create --name EXPO_PUBLIC_APP_URL --value "https://YOUR_NEXTJS_APP_URL" --type string
+eas secret:create --name EXPO_PUBLIC_BOOK_API_BASE --value "https://YOUR_VERCEL_PREVIEW_URL" --type string
 ```
+
+Preview builds use `EXPO_PUBLIC_BOOK_API_BASE` from `eas.json` (branch URL). If your Vercel branch URL differs, set an EAS secret with the same name to override. Booking API calls default to `https://offhrs.app` when unset.
 
 EAS injects these into production builds automatically.
 

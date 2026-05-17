@@ -10,11 +10,10 @@ import {
 import MapView, { Callout, Marker } from 'react-native-maps';
 
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
-import { BOOK_API_BASE } from '@/constants/api';
 import { DesignColors } from '@/constants/design-template';
 import { canMountNativeMapView } from '@/lib/android-google-maps';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { workshopDisplayPrice } from '@/lib/workshop-event-utils';
+import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 
 const DEFAULT_REGION = {
   latitude: 43.6532,
@@ -23,32 +22,11 @@ const DEFAULT_REGION = {
   longitudeDelta: 0.1,
 };
 
-function formatPrice(price: number | string | null | undefined): string | null {
-  if (price == null) return null;
-  const s = typeof price === 'string' ? String(price).replace(/^\$/, '').trim() : String(price);
-  if (s === '' || isNaN(Number(s))) return null;
-  return `$${s}`;
-}
-
-type EventWithCoords = {
-  id: number;
-  title: string;
-  date?: string;
-  location?: string;
-  image_url?: string | null;
-  price?: number | string | null;
-  external_link: string;
-  vendor_id?: string | null;
-  lat?: number | null;
-  lng?: number | null;
-  category?: string | null;
-};
-
 type Props = {
-  events: EventWithCoords[];
+  events: WorkshopEventRow[];
   loading: boolean;
   /** When provided, tapping a marker opens this (e.g. quick-view modal); avoids broken touches inside callout. */
-  onEventPress?: (event: EventWithCoords) => void;
+  onEventPress?: (event: WorkshopEventRow) => void;
   /** Fires when the user taps the map background (not a marker). */
   onMapPress?: () => void;
   /** Max markers to mount (native maps choke on 500+). */
@@ -57,26 +35,15 @@ type Props = {
 
 const DEFAULT_MAX_MARKERS = 280;
 
-function MapCalloutCard({ event }: { event: EventWithCoords }) {
+function MapCalloutCard({ event, onOpenSheet }: { event: WorkshopEventRow; onOpenSheet?: (e: WorkshopEventRow) => void }) {
   const router = useRouter();
-  const { user } = useAuth();
-  const displayPrice = formatPrice(event.price);
+  const displayPrice = workshopDisplayPrice(event);
 
-  const handleBook = async () => {
-    try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (user?.id) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          headers.Authorization = `Bearer ${session.access_token}`;
-        }
-      }
-      await fetch(`${BOOK_API_BASE}/api/book`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ event_id: event.id, event_title: event.title }),
-      });
-    } catch {}
+  const handleBook = () => {
+    if (onOpenSheet) {
+      onOpenSheet(event);
+      return;
+    }
     const url = event.external_link?.trim();
     if (url) Linking.openURL(url);
   };

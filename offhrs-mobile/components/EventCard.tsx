@@ -5,11 +5,12 @@ import type { ViewStyle } from 'react-native';
 import { ActivityIndicator, Alert, Platform, Pressable, View, Text } from 'react-native';
 
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
-import { BOOK_API_BASE } from '@/constants/api';
 import { DesignColors } from '@/constants/design-template';
 import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
 import { useAuth } from '@/contexts/AuthContext';
+import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mobile';
 import { supabase } from '@/lib/supabase';
+import { workshopDisplayPrice, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
 
 export interface Event {
   id: number;
@@ -18,8 +19,15 @@ export interface Event {
   location: string;
   image_url: string | null;
   price?: number | string | null;
+  /** SaaS listing price (CAD) when `vendor_profile_id` is set. */
+  price_cad?: number | null;
   external_link: string;
   vendor_id?: string | null;
+  vendor_profile_id?: string | null;
+  booking_status?: string | null;
+  available_slots?: number | null;
+  /** ISO start time for SaaS slot (optional). */
+  date_iso?: string | null;
   /** Used for Master-tier placeholder when image is missing or fails to load. */
   category?: string | null;
 }
@@ -70,7 +78,10 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
   const router = useRouter();
   const [internalSaved, setInternalSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const displayPrice = formatPrice(event.price);
+  const [bookingBusy, setBookingBusy] = useState(false);
+  const displayPrice =
+    workshopIsSaasVendorEvent(event) ? workshopDisplayPrice(event) : formatPrice(event.price);
+  const isFull = workshopEventIsFull(event);
   const isControlled = savedProp !== undefined;
   const displaySaved = isControlled ? savedProp : internalSaved;
 
@@ -126,20 +137,39 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
   };
 
   const handleBook = async () => {
-    try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (user?.id) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          headers.Authorization = `Bearer ${session.access_token}`;
-        }
+    if (isFull) return;
+    if (workshopIsSaasVendorEvent(event)) {
+      if (!user?.id) {
+        router.push('/login');
+        return;
       }
-      await fetch(`${BOOK_API_BASE}/api/book`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ event_id: event.id, event_title: event.title }),
-      });
-    } catch {}
+      if (!user.email?.trim()) {
+        Alert.alert('Email required', 'Add an email to your account before booking.');
+        return;
+      }
+      const name =
+        (user.user_metadata?.full_name as string | undefined)?.trim() ||
+        user.email.split('@')[0] ||
+        'Guest';
+      setBookingBusy(true);
+      try {
+        const result = await runPaidWorkshopBooking({
+          eventId: event.id,
+          attendeeName: name,
+          attendeeEmail: user.email,
+          startTimeIso: event.date_iso,
+        });
+        if (result.ok) {
+          Alert.alert('Booked', "You're signed up. Check your email for details.");
+        } else if (!result.cancelled) {
+          Alert.alert('Booking', result.message);
+        }
+      } finally {
+        setBookingBusy(false);
+      }
+      return;
+    }
+    await postLegacyBookTap(event.id, event.title);
     const url = event.external_link?.trim();
     if (url) Linking.openURL(url);
   };
@@ -225,16 +255,22 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
       )}
       <Pressable
         onPress={handleBook}
+        disabled={bookingBusy || isFull}
+        accessibilityState={{ disabled: bookingBusy || isFull }}
         style={{
           flex: 1,
           paddingVertical: 8,
           borderRadius: 10,
-          backgroundColor: DesignColors.primary,
+          backgroundColor: isFull ? '#B8C4B8' : DesignColors.primary,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}>Book</Text>
+        {bookingBusy ? (
+          <ActivityIndicator size="small" color="#FFF" />
+        ) : (
+          <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}>{isFull ? 'Full' : 'Book'}</Text>
+        )}
       </Pressable>
     </>
   );
@@ -243,13 +279,23 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
 
   const wrapperStyle: ViewStyle[] = [
     softShadow,
-    { overflow: 'hidden', borderRadius: 20, backgroundColor: '#FFF', height: cardTotalHeight },
+    {
+      overflow: 'hidden',
+      borderRadius: 20,
+      backgroundColor: '#FFF',
+      height: cardTotalHeight,
+      opacity: isFull ? 0.55 : 1,
+    },
   ];
 
   if (onPress) {
     return (
       <View style={wrapperStyle}>
-        <Pressable onPress={onPress} style={{ height: CARD_IMAGE_HEIGHT + tappableBodyHeight, width: '100%' }}>
+        <Pressable
+          onPress={isFull ? undefined : onPress}
+          disabled={isFull}
+          style={{ height: CARD_IMAGE_HEIGHT + tappableBodyHeight, width: '100%' }}
+        >
           {imageBlock}
           <View
             style={{

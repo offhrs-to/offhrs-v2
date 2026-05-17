@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto'
 import Stripe from 'stripe'
 import { z } from 'zod'
 import { computeSlotDecrementForEvent } from '@/lib/workshop-series'
+import { getOrCreateStripeCustomerId } from '@/lib/stripe-consumer-customer'
 
 const BOOK_RATE_LIMIT = 15 // per minute per IP
 
@@ -115,6 +116,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ free: true, message: 'Free session — confirm on the next step' })
       }
 
+      let stripeCustomerId: string | undefined
+      if (user?.id && user.email) {
+        try {
+          stripeCustomerId = await getOrCreateStripeCustomerId(admin, stripe, user.id, user.email)
+        } catch (e) {
+          console.error('Stripe customer for consumer:', e)
+          return NextResponse.json(
+            { error: 'Could not start checkout. Please try again.' },
+            { status: 500 }
+          )
+        }
+      }
+
       // Create Stripe PaymentIntent with destination charge to vendor Connect account
       const amountCents = Math.round(priceCad * 100)
 
@@ -125,6 +139,13 @@ export async function POST(request: NextRequest) {
         transfer_data: {
           destination: vendor.stripe_account_id,
         },
+        ...(stripeCustomerId
+          ? {
+              customer: stripeCustomerId,
+              // Attach PM to Customer for later in-app charges (not only this session).
+              setup_future_usage: 'off_session' as const,
+            }
+          : {}),
         metadata: {
           event_id: String(event.id),
           vendor_id: event.vendor_profile_id,
@@ -132,6 +153,7 @@ export async function POST(request: NextRequest) {
           attendee_email,
           start_time: start_time ?? (event.date ? String(event.date) : ''),
           price_cad: String(priceCad),
+          ...(user?.id ? { app_user_id: user.id } : {}),
         },
         description: `${vendor.business_name} — ${event.title}`,
         receipt_email: attendee_email,

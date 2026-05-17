@@ -10,7 +10,6 @@ import {
   ClipboardList,
   DollarSign,
   Settings,
-  HelpCircle,
   LogOut,
   Menu,
   X,
@@ -85,14 +84,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </nav>
 
       {/* Bottom */}
-      <div className="px-3 pb-4 space-y-1 border-t border-[#E8E4DE] pt-3">
-        <Link
-          href="/partners/dashboard/help"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#555] hover:bg-[#F0EDE8] hover:text-[#1a1a1a] transition-colors"
-        >
-          <HelpCircle className="w-4 h-4" />
-          Help
-        </Link>
+      <div className="px-3 pb-4 border-t border-[#E8E4DE] pt-3">
         <button
           onClick={handleSignOut}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#555] hover:bg-[#F0EDE8] hover:text-[#1a1a1a] transition-colors"

@@ -301,12 +301,6 @@ function Section1Hero() {
             Google Play
           </Link>
         </div>
-        <Link
-          href="/workshops"
-          className="inline-flex items-center justify-center rounded-lg border-2 border-heading-dark text-heading-dark bg-transparent px-5 py-2.5 text-sm font-medium hover:bg-heading-dark/5 transition-colors"
-        >
-          Browse Workshops
-        </Link>
       </motion.div>
     </motion.div>
   )
@@ -567,12 +561,6 @@ function Section7Join() {
             Google Play
           </Link>
         </div>
-        <Link
-          href="/workshops"
-          className="inline-flex items-center justify-center rounded-lg border-2 border-heading-dark text-heading-dark bg-transparent px-5 py-2.5 text-sm font-medium hover:bg-heading-dark/5 transition-colors"
-        >
-          Browse Workshops
-        </Link>
       </motion.div>
     </motion.div>
   )
