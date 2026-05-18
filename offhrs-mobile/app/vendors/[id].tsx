@@ -13,6 +13,7 @@ import {
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import VendorBioCollapsible from '@/components/VendorBioCollapsible';
 import WorkshopQuickViewModal from '@/components/WorkshopQuickViewModal';
+import { resolveVendorProfileBio } from '@/lib/vendor-profile-bio';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
@@ -57,7 +58,8 @@ function formatDate(iso: string | null): string {
 }
 
 export default function VendorProfileScreen() {
-  const { id, eventId: eventIdParam } = useLocalSearchParams<{ id: string; eventId?: string }>();
+  const { id, eventId: eventIdParam, vendorProfileId: vendorProfileIdParam } =
+    useLocalSearchParams<{ id: string; eventId?: string; vendorProfileId?: string }>();
   const router = useRouter();
   const { user } = useAuth();
   const [vendor, setVendor] = useState<Vendor | null>(null);
@@ -79,10 +81,10 @@ export default function VendorProfileScreen() {
   const loadData = () => {
     if (!id) return;
     Promise.all([
-      supabase.from('vendors').select('id, name').eq('id', id).single(),
+      supabase.from('vendors').select('id, name, slug').eq('id', id).single(),
       supabase
         .from('events')
-        .select(`${WORKSHOP_EVENT_LIST_SELECT}, vendor_profile_id`)
+        .select(`${WORKSHOP_EVENT_LIST_SELECT}, vendor_profile_id, organizer`)
         .eq('vendor_id', id)
         .or(CONSUMER_BOOKING_STATUS_OR)
         .order('date', { ascending: true }),
@@ -109,35 +111,15 @@ export default function VendorProfileScreen() {
       setReviews(revs);
       setAvgRating(revs.length > 0 ? Math.round((revs.reduce((s, r) => s + r.rating, 0) / revs.length) * 10) / 10 : null);
 
-      const vendorName = vendorRes.data?.name?.trim();
-      let vendorProfileId: string | null = null;
-      for (const row of eventsRes.data ?? []) {
-        const pid = (row as { vendor_profile_id?: string | null }).vendor_profile_id?.trim();
-        if (pid) {
-          vendorProfileId = pid;
-          break;
-        }
-      }
-
-      let bio: string | null = null;
-      if (vendorProfileId) {
-        const { data: vp } = await supabase
-          .from('vendor_profiles')
-          .select('bio')
-          .eq('id', vendorProfileId)
-          .maybeSingle();
-        bio = vp?.bio?.trim() || null;
-      }
-      if (!bio && vendorName) {
-        const { data: vpByName } = await supabase
-          .from('vendor_profiles')
-          .select('bio')
-          .eq('business_name', vendorName)
-          .in('status', ['trialing', 'active', 'past_due'])
-          .limit(1)
-          .maybeSingle();
-        bio = vpByName?.bio?.trim() || null;
-      }
+      const { data: sessionData } = await supabase.auth.getSession();
+      const bio = await resolveVendorProfileBio({
+        legacyVendorId: id,
+        vendorProfileIdParam: vendorProfileIdParam ?? null,
+        vendorName: vendorRes.data?.name ?? null,
+        vendorSlug: (vendorRes.data as { slug?: string | null })?.slug ?? null,
+        events: (eventsRes.data ?? []) as { vendor_profile_id?: string | null; organizer?: string | null }[],
+        accessToken: sessionData.session?.access_token ?? null,
+      });
       setVendorBio(bio);
     }).finally(() => setLoading(false));
 
@@ -165,7 +147,7 @@ export default function VendorProfileScreen() {
 
   useEffect(() => {
     loadData();
-  }, [id, user?.id]);
+  }, [id, user?.id, vendorProfileIdParam]);
 
   useFocusEffect(
     useCallback(() => {
@@ -297,7 +279,9 @@ export default function VendorProfileScreen() {
         <Text style={{ fontSize: 15, color: DesignColors.mediumGray, marginTop: 4 }}>
           Workshop host
         </Text>
-        <VendorBioCollapsible bio={vendorBio} />
+        {vendorBio ? (
+          <VendorBioCollapsible bio={vendorBio} style={{ marginTop: 10 }} />
+        ) : null}
         {avgRating != null && (
           <Text style={{ fontSize: 14, color: DesignColors.mediumGray, marginTop: 8 }}>
             {avgRating} stars ({reviews.length} reviews)

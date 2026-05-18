@@ -175,7 +175,10 @@ export async function runPaidWorkshopBooking(params: {
       startTime: params.startTimeIso?.trim() || undefined,
     }),
   });
-  const confData = (await confRes.json().catch(() => ({}))) as { error?: string };
+  const confData = (await confRes.json().catch(() => ({}))) as {
+    error?: string;
+    duplicate?: boolean;
+  };
   if (!confRes.ok) {
     const msg = bookingApiErrorMessage(confRes.status, confData.error);
     logBookingAnalytics('confirm_error', { eventId: params.eventId, detail: msg });
@@ -189,6 +192,9 @@ export async function runPaidWorkshopBooking(params: {
     };
   }
 
-  logBookingAnalytics('confirm_success', { eventId: params.eventId });
+  logBookingAnalytics('confirm_success', {
+    eventId: params.eventId,
+    detail: confData.duplicate ? 'duplicate' : 'created',
+  });
   return { ok: true };
 }

@@ -10,6 +10,7 @@ import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mobile';
 import { supabase } from '@/lib/supabase';
+import { vendorPagePath } from '@/lib/workshop-vendor-display';
 import { workshopDisplayPrice, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
 
 export interface Event {
@@ -237,7 +238,10 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
       </Pressable>
       {event.vendor_id && (
         <Pressable
-          onPress={() => router.push(`/vendors/${event.vendor_id}`)}
+          onPress={() => {
+            const path = vendorPagePath(event);
+            if (path) router.push(path);
+          }}
           style={{
             paddingVertical: 8,
             paddingHorizontal: 10,

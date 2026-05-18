@@ -151,11 +151,11 @@ export default function BookingsScreen() {
       setLoading(false);
       return;
     }
-    const list = await fetchUserBookings(user.id);
+    const list = await fetchUserBookings(user.id, user.email);
     setItems(list);
     setLoading(false);
     setRefreshing(false);
-  }, [user?.id]);
+  }, [user?.id, user?.email]);
 
   useFocusEffect(
     useCallback(() => {

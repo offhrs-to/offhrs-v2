@@ -4,6 +4,7 @@
  * Inserts the booking row, decrements available slots, and sends confirmation emails.
  */
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
@@ -35,6 +36,23 @@ const freeConfirmSchema = z.object({
   startTime: z.string().optional(),
 })
 
+async function resolveApiUser(request: NextRequest) {
+  const supabase = await createClient()
+  let user = (await supabase.auth.getUser()).data.user
+  const authHeader = request.headers.get('authorization')
+  if (!user && authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7)
+    const { createClient: createSupabase } = await import('@supabase/supabase-js')
+    const client = createSupabase(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    )
+    user = (await client.auth.getUser()).data.user
+  }
+  return user
+}
+
 function resolveSessionDate(
   startTime: string | undefined,
   metaStart: string | undefined,
@@ -56,7 +74,8 @@ export async function POST(request: NextRequest) {
 
     const freeParsed = freeConfirmSchema.safeParse(raw)
     if (freeParsed.success) {
-      return handleFreeConfirm(admin, freeParsed.data)
+      const apiUser = await resolveApiUser(request)
+      return handleFreeConfirm(admin, freeParsed.data, apiUser?.id ?? null)
     }
 
     const paidParsed = paidConfirmSchema.safeParse(raw)
@@ -91,7 +110,16 @@ export async function POST(request: NextRequest) {
       .eq('stripe_payment_intent_id', paymentIntentId)
       .maybeSingle()
 
+    const appUserIdFromMeta = meta.app_user_id?.trim() || null
+
     if (existingBooking) {
+      if (appUserIdFromMeta) {
+        await admin
+          .from('bookings')
+          .update({ user_id: appUserIdFromMeta })
+          .eq('id', existingBooking.id)
+          .is('user_id', null)
+      }
       let emailsSent = false
       let emailRetry = false
       try {
@@ -155,7 +183,7 @@ export async function POST(request: NextRequest) {
 
     const chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : (pi.latest_charge as { id: string } | null)?.id
 
-    const appUserId = meta.app_user_id?.trim() || null
+    const appUserId = appUserIdFromMeta
 
     if (!appUserId) {
       return NextResponse.json(
@@ -251,7 +279,8 @@ export async function POST(request: NextRequest) {
 
 async function handleFreeConfirm(
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
-  data: z.infer<typeof freeConfirmSchema>
+  data: z.infer<typeof freeConfirmSchema>,
+  appUserId: string | null
 ) {
   const { event_id, attendee_name, attendee_email, startTime } = data
 
@@ -264,6 +293,13 @@ async function handleFreeConfirm(
     .maybeSingle()
 
   if (existing) {
+    if (appUserId) {
+      await admin
+        .from('bookings')
+        .update({ user_id: appUserId })
+        .eq('id', existing.id)
+        .is('user_id', null)
+    }
     let emailsSent = false
     let emailRetry = false
     try {
@@ -328,6 +364,7 @@ async function handleFreeConfirm(
     .insert({
       event_id,
       vendor_id: vendorId,
+      user_id: appUserId,
       stripe_payment_intent_id: null,
       stripe_charge_id: null,
       name: attendee_name,

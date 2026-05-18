@@ -110,25 +110,40 @@ function compareByWorkshopStart(a: UserBookingListItem, b: UserBookingListItem):
 
 /**
  * All bookings for the signed-in user (confirmed, past/archived workshops, refunded).
+ * Matches by user_id and by attendee email (SaaS rows may have been created before user_id was set).
  */
-export async function fetchUserBookings(userId: string): Promise<UserBookingListItem[]> {
-  const { data: bookings, error } = await supabase
+export async function fetchUserBookings(
+  userId: string,
+  userEmail?: string | null
+): Promise<UserBookingListItem[]> {
+  const email = userEmail?.trim();
+  let bookingsQuery = supabase
     .from('bookings')
     .select('id, event_id, status, created_at, session_starts_at, refunded_at')
-    .eq('user_id', userId)
     .order('created_at', { ascending: false });
+
+  if (email) {
+    bookingsQuery = bookingsQuery.or(`user_id.eq.${userId},email.eq.${email}`);
+  } else {
+    bookingsQuery = bookingsQuery.eq('user_id', userId);
+  }
+
+  const { data: bookings, error } = await bookingsQuery;
 
   if (error || !bookings?.length) {
     return [];
   }
 
   const eventIds = [...new Set(bookings.map((b) => b.event_id).filter((id) => id != null))];
-  const { data: events } = await supabase
+  const { data: events, error: eventsError } = await supabase
     .from('events')
     .select(WORKSHOP_EVENT_LIST_SELECT)
     .in('id', eventIds);
 
-  if (!events?.length) {
+  if (eventsError || !events?.length) {
+    if (eventsError && __DEV__) {
+      console.warn('fetchUserBookings: events load failed', eventsError.message);
+    }
     return [];
   }
 

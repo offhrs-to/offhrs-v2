@@ -78,7 +78,15 @@ export default function ProfileScreen() {
   const [savedEventsCount, setSavedEventsCount] = useState(0);
   const [reviewsCount, setReviewsCount] = useState(0);
   const [savedModalVisible, setSavedModalVisible] = useState(false);
-  const [savedEvents, setSavedEvents] = useState<{ id: number; title: string; date: string; location: string; vendor_id: string | null; vendor_name: string | null }[]>([]);
+  const [savedEvents, setSavedEvents] = useState<{
+    id: number;
+    title: string;
+    date: string;
+    location: string;
+    vendor_id: string | null;
+    vendor_profile_id: string | null;
+    vendor_name: string | null;
+  }[]>([]);
   const [savedEventsLoading, setSavedEventsLoading] = useState(false);
   const [reviewsModalVisible, setReviewsModalVisible] = useState(false);
   const [myReviews, setMyReviews] = useState<{ id: string; vendor_id: string; vendor_name: string; rating: number; comment: string | null; created_at: string }[]>([]);
@@ -182,7 +190,7 @@ export default function ProfileScreen() {
     const eventIds = saves.map((s) => s.event_id).filter((id): id is number => id != null);
     const { data: events } = await supabase
       .from('events')
-      .select('id, title, date, location, vendor_id')
+      .select('id, title, date, location, vendor_id, vendor_profile_id')
       .in('id', eventIds);
     if (!events?.length) {
       setSavedEvents([]);
@@ -203,6 +211,7 @@ export default function ProfileScreen() {
       date: e.date ?? '',
       location: e.location ?? '',
       vendor_id: e.vendor_id ?? null,
+      vendor_profile_id: (e as { vendor_profile_id?: string | null }).vendor_profile_id ?? null,
       vendor_name: e.vendor_id ? (nameById[e.vendor_id] ?? null) : null,
     }));
     setSavedEvents(list);
@@ -707,7 +716,11 @@ export default function ProfileScreen() {
                     onPress={() => {
                       setSavedModalVisible(false);
                       if (e.vendor_id) {
-                        router.push(`/vendors/${e.vendor_id}?eventId=${e.id}`);
+                        router.push(
+                          e.vendor_profile_id
+                            ? `/vendors/${e.vendor_id}?eventId=${e.id}&vendorProfileId=${encodeURIComponent(e.vendor_profile_id)}`
+                            : `/vendors/${e.vendor_id}?eventId=${e.id}`
+                        );
                       }
                     }}
                     style={{

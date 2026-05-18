@@ -3,12 +3,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { logSecurityEvent } from '@/lib/security-monitor'
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 /**
  * POST /api/account/delete
- * Deletes the authenticated user's account and user-owned data.
- * Cascades remove rows in user-owned tables (profiles, bookings, saves, reviews, category experience).
- * Analytics rows may remain anonymized (e.g. event_redirects.user_id is set to null).
+ * Deletes the authenticated consumer's account and user-owned data.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -26,23 +25,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const bearerToken = request.headers.get('authorization')?.startsWith('Bearer ')
+      ? request.headers.get('authorization')!.slice(7).trim()
+      : null
+
     const supabase = await createClient()
     let user = (await supabase.auth.getUser()).data.user
 
-    const authHeader = request.headers.get('authorization')
-    if (!user && authHeader?.startsWith('Bearer ')) {
-      const jwt = authHeader.slice(7).trim()
-      if (jwt) {
-        const {
-          data: { user: jwtUser },
-        } = await supabase.auth.getUser(jwt)
-        user = jwtUser ?? null
-      }
+    if (!user && bearerToken) {
+      const bearerClient = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { global: { headers: { Authorization: `Bearer ${bearerToken}` } } }
+      )
+      user = (await bearerClient.auth.getUser()).data.user ?? null
     }
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
     const userRl = consumeRateLimit(`account-delete-user:${user.id}`, 3)
     if (!userRl.allowed) {
       logSecurityEvent('warn', {
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     const admin = createAdminClient()
     if (!admin) {
-      console.error('Account delete: admin client unavailable — SUPABASE_SERVICE_ROLE_KEY missing or blank in this environment')
+      console.error('Account delete: admin client unavailable')
       return NextResponse.json(
         { error: 'Account deletion is not available' },
         { status: 503 }
@@ -67,62 +69,43 @@ export async function POST(request: NextRequest) {
 
     const userId = user.id
 
-    // Vendor sessions reference vendor_profiles; deleting the auth user cascades to
-    // vendor_profiles, which fails if events still reference that profile (FK default NO ACTION).
-    // Remove vendor-owned events first so deleteUser succeeds (migration also adds ON DELETE CASCADE).
-    const { data: vendorRows } = await admin
+    // Consumer-owned rows (explicit so SaaS bookings with nullable user_id still clear when matched).
+    const consumerDeletes = await Promise.all([
+      admin.from('bookings').delete().eq('user_id', userId),
+      admin.from('user_event_saves').delete().eq('user_id', userId),
+      admin.from('user_vendor_saves').delete().eq('user_id', userId),
+      admin.from('vendor_reviews').delete().eq('user_id', userId),
+      admin.from('profile_category_experience').delete().eq('user_id', userId),
+    ])
+    const consumerErr = consumerDeletes.find((r) => r.error)?.error
+    if (consumerErr) {
+      console.error('Account delete: consumer data', consumerErr.message)
+      return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
+    }
+
+    // Same login may also own a host profile (e.g. test account); clear blocking FKs before auth delete.
+    const { data: hostProfiles } = await admin
       .from('vendor_profiles')
       .select('id')
       .eq('user_id', userId)
-    const vendorIds = (vendorRows ?? []).map((r: { id: string }) => r.id).filter(Boolean)
-    if (vendorIds.length > 0) {
-      const { error: evErr } = await admin.from('events').delete().in('vendor_profile_id', vendorIds)
-      if (evErr) {
-        console.error('Account delete: failed to remove vendor events', { userId, message: evErr.message })
-        return NextResponse.json(
-          { error: 'Failed to delete account' },
-          { status: 500 }
-        )
+    const hostIds = (hostProfiles ?? []).map((r: { id: string }) => r.id).filter(Boolean)
+    if (hostIds.length > 0) {
+      const { error: hostBookingsErr } = await admin.from('bookings').delete().in('vendor_id', hostIds)
+      if (hostBookingsErr) {
+        console.error('Account delete: host bookings', hostBookingsErr.message)
+        return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
+      }
+      const { error: hostEventsErr } = await admin.from('events').delete().in('vendor_profile_id', hostIds)
+      if (hostEventsErr) {
+        console.error('Account delete: host events', hostEventsErr.message)
+        return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
       }
     }
 
     const { error } = await admin.auth.admin.deleteUser(userId)
     if (error) {
-      console.error('Account delete: admin.deleteUser failed', {
-        message: error.message,
-        status: (error as { status?: number }).status,
-        userId,
-      })
-      return NextResponse.json(
-        { error: 'Failed to delete account' },
-        { status: 500 }
-      )
-    }
-
-    // Verify user-owned tables are empty after auth deletion/cascades.
-    // Keep analytics anonymization behavior (do not delete event_redirects rows).
-    const checks = await Promise.all([
-      admin.from('profiles').select('id', { count: 'exact', head: true }).eq('id', userId),
-      admin.from('bookings').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-      admin.from('user_event_saves').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-      admin.from('user_vendor_saves').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-      admin.from('vendor_reviews').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-      admin
-        .from('profile_category_experience')
-        .select('user_id', { count: 'exact', head: true })
-        .eq('user_id', userId),
-    ])
-    const remaining = checks.map((r) => r.count ?? 0).reduce((sum, n) => sum + n, 0)
-    if (remaining > 0) {
-      console.warn('Account delete verification found remaining rows', {
-        userId,
-        profiles: checks[0].count ?? 0,
-        bookings: checks[1].count ?? 0,
-        user_event_saves: checks[2].count ?? 0,
-        user_vendor_saves: checks[3].count ?? 0,
-        vendor_reviews: checks[4].count ?? 0,
-        profile_category_experience: checks[5].count ?? 0,
-      })
+      console.error('Account delete: deleteUser', error.message, userId)
+      return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
@@ -131,4 +114,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
-

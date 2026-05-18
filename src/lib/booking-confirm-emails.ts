@@ -5,6 +5,7 @@ import {
   sendVendorFullyBooked,
   type BookingEmailParams,
 } from '@/lib/emails'
+import { formatWorkshopDateTimeShort } from '@/lib/workshop-timezone'
 
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
@@ -70,13 +71,7 @@ export async function deliverBookingConfirmationEmails(
     amountCad: options.amountCad,
   }
 
-  const sessionDateLabel = sessionDate.toLocaleDateString('en-CA', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  const sessionDateLabel = formatWorkshopDateTimeShort(sessionDate)
 
   await Promise.all([
     sendConsumerBookingConfirmation(emailParams),

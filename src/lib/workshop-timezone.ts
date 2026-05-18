@@ -47,3 +47,32 @@ export function formatWorkshopDateTimeLocalValue(iso: string | Date): string {
   const tzDate = new TZDate(d.getTime(), WORKSHOP_TIMEZONE)
   return format(tzDate, "yyyy-MM-dd'T'HH:mm")
 }
+
+/** Email/UI display — always America/Toronto (EST/EDT). */
+export function formatWorkshopDateTimeForDisplay(date: Date): string {
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('en-CA', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: WORKSHOP_TIMEZONE,
+    timeZoneName: 'short',
+  })
+}
+
+/** Shorter label for vendor notifications. */
+export function formatWorkshopDateTimeShort(date: Date): string {
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('en-CA', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: WORKSHOP_TIMEZONE,
+    timeZoneName: 'short',
+  })
+}

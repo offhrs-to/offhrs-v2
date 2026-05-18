@@ -128,8 +128,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ free: true, message: 'Free session — confirm on the next step' })
       }
 
+      if (!user?.id) {
+        return NextResponse.json(
+          { error: 'Sign in required to book and pay in the app.' },
+          { status: 401 }
+        )
+      }
+
       let stripeCustomerId: string | undefined
-      if (user?.id && user.email) {
+      if (user.email) {
         try {
           stripeCustomerId = await getOrCreateStripeCustomerId(admin, stripe, user.id, user.email)
         } catch (e) {
@@ -219,7 +226,7 @@ export async function POST(request: NextRequest) {
           total_cad: String(taxBreakdown.totalCad),
           tax_calculation: taxBreakdown.calculationId,
           stripe_account_id: vendor.stripe_account_id,
-          ...(user?.id ? { app_user_id: user.id } : {}),
+          app_user_id: user.id,
         },
         description: `${vendor.business_name} — ${event.title}`,
         receipt_email: attendee_email,

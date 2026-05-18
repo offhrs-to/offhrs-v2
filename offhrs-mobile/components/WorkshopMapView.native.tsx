@@ -12,6 +12,7 @@ import MapView, { Callout, Marker } from 'react-native-maps';
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import { DesignColors } from '@/constants/design-template';
 import { canMountNativeMapView } from '@/lib/android-google-maps';
+import { vendorPagePath } from '@/lib/workshop-vendor-display';
 import { workshopDisplayPrice } from '@/lib/workshop-event-utils';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 
@@ -73,7 +74,10 @@ function MapCalloutCard({ event, onOpenSheet }: { event: WorkshopEventRow; onOpe
         <View style={calloutStyles.actions}>
           {event.vendor_id ? (
             <Pressable
-              onPress={() => router.push(`/vendors/${event.vendor_id}`)}
+              onPress={() => {
+                const path = vendorPagePath(event);
+                if (path) router.push(path);
+              }}
               style={calloutStyles.vendorBtn}
             >
               <Text style={calloutStyles.vendorBtnText}>Vendor</Text>

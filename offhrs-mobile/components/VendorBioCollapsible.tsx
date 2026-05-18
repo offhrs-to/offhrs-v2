@@ -4,9 +4,11 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleProp,
   Text,
   UIManager,
   View,
+  ViewStyle,
 } from 'react-native';
 
 import { DesignColors } from '@/constants/design-template';
@@ -19,9 +21,10 @@ const PREVIEW_CHARS = 200;
 
 type Props = {
   bio: string | null | undefined;
+  style?: StyleProp<ViewStyle>;
 };
 
-export default function VendorBioCollapsible({ bio }: Props) {
+export default function VendorBioCollapsible({ bio, style }: Props) {
   const raw = (bio ?? '').trim();
   if (!raw) return null;
 
@@ -36,14 +39,19 @@ export default function VendorBioCollapsible({ bio }: Props) {
 
   if (!needsExpand) {
     return (
-      <Text style={{ marginTop: 10, fontSize: 14, color: DesignColors.charcoal, lineHeight: 21 }}>
+      <Text
+        style={[
+          { marginTop: 10, fontSize: 14, color: DesignColors.charcoal, lineHeight: 21 },
+          style,
+        ]}
+      >
         {raw}
       </Text>
     );
   }
 
   return (
-    <View style={{ marginTop: 10 }}>
+    <View style={[{ marginTop: 10 }, style]}>
       {expanded ? (
         <ScrollView
           style={{ maxHeight: 200 }}

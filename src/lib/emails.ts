@@ -4,8 +4,12 @@
  */
 import { Resend } from 'resend'
 import { generateIcs } from './ics'
+import { formatWorkshopDateTimeForDisplay, formatWorkshopDateTimeShort } from './workshop-timezone'
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? 'offhrs <noreply@offhrs.app>'
+
+/** Official wordmark — always served from production so preview deploys render correctly in inboxes. */
+const EMAIL_LOGO_URL = 'https://offhrs.app/logo.png'
 
 function wrap(body: string): string {
   return `
@@ -15,7 +19,7 @@ function wrap(body: string): string {
 <body style="margin:0;padding:24px;background:#F5F2EE;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
     <div style="background:#5D755D;padding:20px 24px;">
-      <span style="color:#fff;font-size:20px;font-weight:700;letter-spacing:-0.02em;">offhrs</span>
+      <img src="${EMAIL_LOGO_URL}" alt="offhrs" width="140" height="36" style="display:block;height:36px;width:auto;max-width:160px;border:0;" />
     </div>
     <div style="padding:28px 24px 32px;">${body}</div>
     <div style="padding:14px 24px;border-top:1px solid #E8E4DE;text-align:center;">
@@ -192,10 +196,7 @@ function buildIcs(params: BookingEmailParams, method: 'REQUEST' | 'CANCEL' = 'RE
 
 export async function sendConsumerBookingConfirmation(params: BookingEmailParams) {
   const ics = buildIcs(params)
-  const dateStr = params.sessionDate.toLocaleDateString('en-CA', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
-  })
+  const dateStr = formatWorkshopDateTimeForDisplay(params.sessionDate)
 
   await send(
     params.attendeeEmail,
@@ -235,8 +236,8 @@ export async function sendConsumerBookingRescheduled(
   oldDate: Date
 ) {
   const ics = buildIcs(params)
-  const oldStr = oldDate.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-  const newStr = params.sessionDate.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  const oldStr = formatWorkshopDateTimeShort(oldDate)
+  const newStr = formatWorkshopDateTimeShort(params.sessionDate)
 
   await send(
     params.attendeeEmail,
