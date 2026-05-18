@@ -72,7 +72,7 @@ export async function runPaidWorkshopBooking(params: {
     logBookingAnalytics('book_api_ok', { eventId: params.eventId, detail: 'free' });
     const confRes = await fetch(`${BOOK_API_BASE}/api/book/confirm`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         free: true,
         event_id: String(params.eventId),
@@ -149,7 +149,7 @@ export async function runPaidWorkshopBooking(params: {
 
   const confRes = await fetch(`${BOOK_API_BASE}/api/book/confirm`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       paymentIntentId,
       startTime: params.startTimeIso?.trim() || undefined,
@@ -157,12 +157,15 @@ export async function runPaidWorkshopBooking(params: {
   });
   const confData = (await confRes.json().catch(() => ({}))) as { error?: string };
   if (!confRes.ok) {
-    logBookingAnalytics('confirm_error', { eventId: params.eventId, detail: confData.error });
+    const msg = bookingApiErrorMessage(confRes.status, confData.error);
+    logBookingAnalytics('confirm_error', { eventId: params.eventId, detail: msg });
     return {
       ok: false,
       message:
-        confData.error ??
-        'Payment went through but booking could not be finalized. Contact support with your receipt.',
+        confRes.status === 401
+          ? msg
+          : confData.error ??
+            'Payment went through but booking could not be finalized. Contact support with your receipt.',
     };
   }
 

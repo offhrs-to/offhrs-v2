@@ -1,5 +1,5 @@
 /**
- * Headers for Next.js booking API calls from the mobile app.
+ * Headers for Next.js booking API calls from the mobile app (`/api/book` and `/api/book/confirm`).
  * Preview Vercel deployments with Deployment Protection return 401 unless bypass is sent.
  */
 export async function buildBookingApiHeaders(
