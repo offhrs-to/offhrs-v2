@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/credit-workshop-attendance",
-      "schedule": "0 * * * *"
+      "schedule": "0 9 * * *"
     },
     {
       "path": "/api/cron/renew-recurring-events",
