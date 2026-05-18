@@ -3,7 +3,11 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { resolveCustomerTaxAddress, calculateWorkshopTicketTax } from '@/lib/stripe-workshop-tax'
+import { getEffectiveRefundWindowHours } from '@/lib/booking-refund'
+import {
+  calculateWorkshopTicketTax,
+  resolveWorkshopCustomerTaxAddress,
+} from '@/lib/stripe-workshop-tax'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
@@ -52,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     const { data: event } = await admin
       .from('events')
-      .select('id, vendor_profile_id, price_cad, booking_status')
+      .select('id, vendor_profile_id, price_cad, booking_status, location')
       .eq('id', String(parsed.data.event_id))
       .single()
 
@@ -60,46 +64,55 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
+    const { data: vendor } = await admin
+      .from('vendor_profiles')
+      .select('stripe_account_id, location_address, refund_window_hours')
+      .eq('id', event.vendor_profile_id)
+      .single()
+
+    const refundWindowHours = getEffectiveRefundWindowHours(
+      (vendor?.refund_window_hours as number | null) ?? 48
+    )
+    const refundPolicyLine = `Free cancellation with full refund up to ${refundWindowHours} hours before the session starts.`
+
     const priceCad = Number(event.price_cad ?? 0)
+
     if (priceCad <= 0) {
       return NextResponse.json({
         free: true,
         subtotalCad: 0,
         taxCad: 0,
         totalCad: 0,
+        refundWindowHours,
+        refundPolicyLine,
       })
     }
 
-    let customerAddress = parsed.data.customer_address
-      ? resolveCustomerTaxAddress(parsed.data.customer_address)
-      : null
-
-    if (!customerAddress && user?.id) {
+    let profilePostal: string | null = null
+    if (user?.id) {
       const { data: profile } = await admin
         .from('profiles')
         .select('postal_code')
         .eq('id', user.id)
         .maybeSingle()
-      if (profile?.postal_code) {
-        customerAddress = resolveCustomerTaxAddress({ postal_code: profile.postal_code })
-      }
+      profilePostal = profile?.postal_code?.trim() ?? null
     }
+
+    const customerAddress = resolveWorkshopCustomerTaxAddress({
+      customerAddress: parsed.data.customer_address,
+      profilePostalCode: profilePostal,
+      eventLocation: (event.location as string | null) ?? null,
+    })
 
     if (!customerAddress) {
       return NextResponse.json(
         {
           error:
-            'Add a Canadian postal code in your profile (or pass customer_address) to calculate tax.',
+            'Add a Canadian postal code in your profile, or use a workshop with a Canadian address, to calculate tax.',
         },
         { status: 422 }
       )
     }
-
-    const { data: vendor } = await admin
-      .from('vendor_profiles')
-      .select('stripe_account_id')
-      .eq('id', event.vendor_profile_id)
-      .single()
 
     if (!vendor?.stripe_account_id) {
       return NextResponse.json({ error: 'Vendor payout account not set up yet' }, { status: 422 })
@@ -110,16 +123,24 @@ export async function POST(request: NextRequest) {
       subtotalCad: priceCad,
       customerAddress,
       reference: `event_${event.id}`,
+      vendorLocationAddress: vendor.location_address,
     })
 
     return NextResponse.json({
       subtotalCad: tax.subtotalCad,
       taxCad: tax.taxCad,
       totalCad: tax.totalCad,
+      refundWindowHours,
+      refundPolicyLine,
     })
   } catch (err) {
     console.error('Book quote error:', err)
-    const msg = err instanceof Error ? err.message : 'Could not calculate tax'
+    const msg =
+      err instanceof Stripe.errors.StripeError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : 'Could not calculate tax'
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

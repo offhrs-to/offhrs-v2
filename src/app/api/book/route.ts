@@ -4,14 +4,13 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { NextRequest, NextResponse } from 'next/server'
-import { randomUUID } from 'crypto'
 import Stripe from 'stripe'
 import { z } from 'zod'
 import { computeSlotDecrementForEvent } from '@/lib/workshop-series'
 import { getOrCreateStripeCustomerId } from '@/lib/stripe-consumer-customer'
 import {
   calculateWorkshopTicketTax,
-  resolveCustomerTaxAddress,
+  resolveWorkshopCustomerTaxAddress,
 } from '@/lib/stripe-workshop-tax'
 
 const BOOK_RATE_LIMIT = 15 // per minute per IP
@@ -114,7 +113,7 @@ export async function POST(request: NextRequest) {
 
       const { data: vendor } = await admin
         .from('vendor_profiles')
-        .select('stripe_account_id, business_name')
+        .select('stripe_account_id, business_name, location_address')
         .eq('id', event.vendor_profile_id)
         .single()
 
@@ -142,26 +141,27 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      let customerTaxAddr = customer_address
-        ? resolveCustomerTaxAddress(customer_address)
-        : null
-
-      if (!customerTaxAddr && user?.id) {
+      let profilePostal: string | null = null
+      if (user?.id) {
         const { data: profile } = await admin
           .from('profiles')
           .select('postal_code')
           .eq('id', user.id)
           .maybeSingle()
-        if (profile?.postal_code) {
-          customerTaxAddr = resolveCustomerTaxAddress({ postal_code: profile.postal_code })
-        }
+        profilePostal = profile?.postal_code?.trim() ?? null
       }
+
+      const customerTaxAddr = resolveWorkshopCustomerTaxAddress({
+        customerAddress: customer_address,
+        profilePostalCode: profilePostal,
+        eventLocation: (event.location as string | null) ?? null,
+      })
 
       if (!customerTaxAddr) {
         return NextResponse.json(
           {
             error:
-              'Add a Canadian postal code in your profile to book (Settings → location), or include customer_address with your postal code.',
+              'Add a Canadian postal code in your profile to book (Settings → location), or book a workshop with a Canadian address on the listing.',
           },
           { status: 422 }
         )
@@ -174,12 +174,20 @@ export async function POST(request: NextRequest) {
           subtotalCad: priceCad,
           customerAddress: customerTaxAddr,
           reference: `event_${event.id}`,
+          vendorLocationAddress: vendor.location_address,
         })
       } catch (taxErr) {
         console.error('Stripe Tax calculation error:', taxErr)
+        const detail =
+          taxErr instanceof Stripe.errors.StripeError
+            ? taxErr.message
+            : taxErr instanceof Error
+              ? taxErr.message
+              : undefined
         return NextResponse.json(
           {
             error:
+              detail ??
               'Could not calculate tax for this workshop. The vendor may need to complete tax setup in Stripe.',
           },
           { status: 422 }
@@ -256,13 +264,11 @@ async function handleLegacyBook(raw: Record<string, unknown>, user: { id: string
     return NextResponse.json({ success: true })
   }
 
-  const confirmationToken = randomUUID()
   await supabase.from('bookings').upsert(
     {
       user_id: user.id,
       event_id,
       status: 'booked',
-      confirmation_token: confirmationToken,
     },
     { onConflict: 'user_id,event_id' }
   )

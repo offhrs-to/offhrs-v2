@@ -10,12 +10,14 @@ import { WORKSHOP_FETCH_LIMIT_HUB_PREVIEW } from '@/constants/workshops-list';
 import { useAuth } from '@/contexts/AuthContext';
 import { openWebAppPath } from '@/lib/web-app-links';
 import { supabase } from '@/lib/supabase';
+import { isEventVisibleToConsumers } from '@/lib/consumer-event-visibility';
 import {
   fetchWorkshopEvents,
   mapDbRowToWorkshopEvent,
   WORKSHOP_EVENT_LIST_SELECT,
   type WorkshopEventRow,
 } from '@/lib/workshops-events-query';
+import { enrichWorkshopEventsWithVendorNames } from '@/lib/workshop-vendor-display';
 import { getCategoryMasterImageSource } from '@/lib/category-master-images';
 import { Image } from 'expo-image';
 import { useFocusEffect } from '@react-navigation/native';
@@ -172,9 +174,13 @@ export default function WorkshopsScreen() {
       .select(WORKSHOP_EVENT_LIST_SELECT)
       .eq('id', openEventId)
       .single()
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         if (cancelled || error || !data) return;
-        setQuickViewEvent(mapDbRowToWorkshopEvent(data));
+        if (!isEventVisibleToConsumers(data)) return;
+        const [enriched] = await enrichWorkshopEventsWithVendorNames([
+          mapDbRowToWorkshopEvent(data),
+        ]);
+        if (!cancelled) setQuickViewEvent(enriched);
       });
     return () => {
       cancelled = true;

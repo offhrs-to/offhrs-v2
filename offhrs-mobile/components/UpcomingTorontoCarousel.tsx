@@ -5,6 +5,7 @@ import HomeWorkshopCarouselCards, { type HomeCarouselEventItem } from '@/compone
 import { useAuth } from '@/contexts/AuthContext';
 import { haversineKm } from '@/lib/distance';
 import { pickFirstNUniqueCategory } from '@/lib/home-carousel-events';
+import { CONSUMER_BOOKING_STATUS_OR, isEventVisibleToConsumers } from '@/lib/consumer-event-visibility';
 import { supabase } from '@/lib/supabase';
 
 const FETCH_LIMIT = 500;
@@ -18,6 +19,8 @@ interface DbEventRow {
   price: number | string | null;
   category: string | null;
   recurrence: string | null;
+  vendor_profile_id?: string | null;
+  booking_status?: string | null;
   lat?: number | null;
   lng?: number | null;
 }
@@ -146,12 +149,16 @@ export default function UpcomingTorontoCarousel({
       const nowIso = new Date().toISOString();
       const { data, error } = await supabase
         .from('events')
-        .select('id, title, date, location, image_url, price, category, recurrence, lat, lng')
+        .select(
+          'id, title, date, location, image_url, price, category, recurrence, lat, lng, vendor_profile_id, booking_status'
+        )
         .or(`recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso}`)
+        .or(CONSUMER_BOOKING_STATUS_OR)
         .order('date', { ascending: true })
         .limit(FETCH_LIMIT);
       if (error) throw error;
-      const picked = pickNextFiveToronto((data ?? []) as DbEventRow[], userLocationAnchor ?? null);
+      const visible = ((data ?? []) as DbEventRow[]).filter(isEventVisibleToConsumers);
+      const picked = pickNextFiveToronto(visible, userLocationAnchor ?? null);
       setItems(picked);
     } catch (e) {
       console.warn('UpcomingTorontoCarousel fetch', e);

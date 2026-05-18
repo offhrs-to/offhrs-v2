@@ -19,7 +19,8 @@ import WorkshopDescriptionCollapsible from '@/components/WorkshopDescriptionColl
 import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
 import { DesignColors } from '@/constants/design-template';
 import { haversineKm } from '@/lib/distance';
-import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
+import { extractCanadianPostalFromAddress, parseCanadianPostalCode } from '@/lib/canadianPostalCode';
+import { fetchRefundPolicyForEvent } from '@/lib/booking-cancel';
 import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mobile';
 import {
   fetchWorkshopTaxQuote,
@@ -35,6 +36,7 @@ import {
   workshopEventIsFull,
   workshopIsSaasVendorEvent,
 } from '@/lib/workshop-event-utils';
+import { vendorPagePath, workshopVendorDisplayName } from '@/lib/workshop-vendor-display';
 
 export type WorkshopQuickViewModalProps = {
   visible: boolean;
@@ -71,6 +73,23 @@ export default function WorkshopQuickViewModal({
   const [taxQuote, setTaxQuote] = useState<WorkshopTaxQuote | null>(null);
   const [taxQuoteError, setTaxQuoteError] = useState<string | null>(null);
   const [taxQuoteLoading, setTaxQuoteLoading] = useState(false);
+  const [refundWindowHours, setRefundWindowHours] = useState(48);
+
+  useEffect(() => {
+    if (!visible || !event || !workshopIsSaasVendorEvent(event)) {
+      setRefundWindowHours(48);
+      return;
+    }
+    let cancelled = false;
+    void fetchRefundPolicyForEvent(event.id).then((policy) => {
+      if (!cancelled && policy?.refundWindowHours != null) {
+        setRefundWindowHours(policy.refundWindowHours);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, event?.id]);
 
   useEffect(() => {
     if (!visible || !event || !workshopIsSaasVendorEvent(event)) {
@@ -78,13 +97,12 @@ export default function WorkshopQuickViewModal({
       setTaxQuoteError(null);
       return;
     }
-    if (!userId || !profilePostalCode?.trim()) {
+    const venuePostal = event.location?.trim()
+      ? extractCanadianPostalFromAddress(event.location)
+      : null;
+    if (!userId || (!profilePostalCode?.trim() && !venuePostal)) {
       setTaxQuote(null);
-      setTaxQuoteError(
-        profilePostalCode === undefined || profilePostalCode === null
-          ? null
-          : 'Add a Canadian postal code in Profile to see tax and book.'
-      );
+      setTaxQuoteError(null);
       return;
     }
     let cancelled = false;
@@ -102,6 +120,7 @@ export default function WorkshopQuickViewModal({
         eventId: event.id,
         accessToken: session.access_token,
         postalCode: profilePostalCode,
+        eventLocation: event.location,
       });
       if (cancelled) return;
       setTaxQuoteLoading(false);
@@ -111,12 +130,15 @@ export default function WorkshopQuickViewModal({
       } else {
         setTaxQuote(result);
         setTaxQuoteError(null);
+        if (result.refundWindowHours != null) {
+          setRefundWindowHours(result.refundWindowHours);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [visible, event?.id, userId, profilePostalCode]);
+  }, [visible, event?.id, event?.location, userId, profilePostalCode]);
 
   const handleBook = useCallback(async () => {
     if (!event) return;
@@ -143,13 +165,18 @@ export default function WorkshopQuickViewModal({
         return;
       }
       const name = attendeeName.trim() || userEmail.split('@')[0] || 'Guest';
-      const postal = profilePostalCode?.trim();
-      const normalized = postal ? parseCanadianPostalCode(postal) : null;
+      const fromProfile = profilePostalCode?.trim()
+        ? parseCanadianPostalCode(profilePostalCode)
+        : null;
+      const fromVenue = event.location?.trim()
+        ? extractCanadianPostalFromAddress(event.location)
+        : null;
+      const normalized = fromProfile ?? fromVenue;
       const state = normalized ? provinceFromCanadianPostalCode(normalized) : null;
       if (!normalized || !state) {
         Alert.alert(
           'Postal code required',
-          'Add a valid Canadian postal code in Profile (Settings) so we can calculate tax before you pay.',
+          'Add a valid Canadian postal code in Profile (Settings), or book a workshop that lists a Canadian address, so we can calculate tax before you pay.',
           [{ text: 'OK' }, { text: 'Profile', onPress: () => router.push('/(tabs)/profile') }]
         );
         return;
@@ -186,11 +213,21 @@ export default function WorkshopQuickViewModal({
     onClose();
   }, [attendeeName, event, onBookingComplete, onClose, profilePostalCode, router, userEmail, userId]);
 
+  const openVendorPage = useCallback(() => {
+    if (!event) return;
+    const path = vendorPagePath(event);
+    if (!path) return;
+    onClose();
+    router.push(path);
+  }, [event, onClose, router]);
+
   if (!event) return null;
 
   const priceLine = workshopDisplayPrice(event);
   const full = workshopEventIsFull(event);
   const saas = workshopIsSaasVendorEvent(event);
+  const vendorName = workshopVendorDisplayName(event);
+  const canOpenVendor = vendorPagePath(event) != null;
 
   const distanceKm =
     profileLocation && event.lat != null && event.lng != null
@@ -226,14 +263,28 @@ export default function WorkshopQuickViewModal({
             showsVerticalScrollIndicator
             contentContainerStyle={{ paddingBottom: 8 }}
           >
-            <View style={{ height: 200, width: '100%', backgroundColor: DesignColors.inputBg, position: 'relative' }}>
-              <CategoryFallbackImage
-                imageUrl={event.image_url}
-                category={event.category}
+            <View
+              style={{ height: 200, width: '100%', backgroundColor: DesignColors.inputBg, position: 'relative' }}
+            >
+              <Pressable
+                onPress={canOpenVendor ? openVendorPage : undefined}
+                disabled={!canOpenVendor}
+                accessibilityRole={canOpenVendor ? 'button' : undefined}
+                accessibilityLabel={
+                  canOpenVendor && vendorName
+                    ? `View ${vendorName} profile and reviews`
+                    : undefined
+                }
                 style={{ width: '100%', height: '100%' }}
-                contentFit="cover"
-                recyclingKey={`qv-${event.id}`}
-              />
+              >
+                <CategoryFallbackImage
+                  imageUrl={event.image_url}
+                  category={event.category}
+                  style={{ width: '100%', height: '100%' }}
+                  contentFit="cover"
+                  recyclingKey={`qv-${event.id}`}
+                />
+              </Pressable>
             <View
               pointerEvents="box-none"
               style={{
@@ -298,7 +349,25 @@ export default function WorkshopQuickViewModal({
             </View>
 
             <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
-              <Text style={{ fontSize: 19, fontWeight: '700', color: DesignColors.charcoal }}>{event.title}</Text>
+              <Pressable
+                onPress={canOpenVendor ? openVendorPage : undefined}
+                disabled={!canOpenVendor}
+                accessibilityRole={canOpenVendor ? 'button' : undefined}
+                accessibilityLabel={canOpenVendor ? `View workshop host for ${event.title}` : undefined}
+              >
+                <Text style={{ fontSize: 19, fontWeight: '700', color: DesignColors.charcoal }}>{event.title}</Text>
+              </Pressable>
+              {vendorName ? (
+                <Pressable
+                  onPress={canOpenVendor ? openVendorPage : undefined}
+                  disabled={!canOpenVendor}
+                  accessibilityRole={canOpenVendor ? 'button' : undefined}
+                  accessibilityLabel={canOpenVendor ? `View ${vendorName} profile and reviews` : undefined}
+                  style={{ marginTop: 4, alignSelf: 'flex-start' }}
+                >
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>{vendorName}</Text>
+                </Pressable>
+              ) : null}
               <Text style={{ marginTop: 8, fontSize: 14, color: DesignColors.mediumGray }}>{event.date}</Text>
               {event.location ? (
                 <Text style={{ marginTop: 6, fontSize: 13, color: DesignColors.mediumGray }}>{event.location}</Text>
@@ -364,6 +433,15 @@ export default function WorkshopQuickViewModal({
 
               <WorkshopDescriptionCollapsible description={event.description} />
 
+              {saas ? (
+                <Text style={{ marginTop: 12, fontSize: 12, color: DesignColors.mediumGray, lineHeight: 17 }}>
+                  Free cancellation with full refund up to{' '}
+                  <Text style={{ fontWeight: '600', color: DesignColors.charcoal }}>
+                    {refundWindowHours} hours
+                  </Text>{' '}
+                  before the workshop starts.
+                </Text>
+              ) : null}
               <Text style={{ marginTop: 14, fontSize: 11, color: DesignColors.mediumGray, lineHeight: 16 }}>
                 {saas
                   ? 'Paid bookings are processed securely by Stripe. You may pay with card, Apple Pay, or Google Pay when available on your device.'
@@ -382,12 +460,9 @@ export default function WorkshopQuickViewModal({
               borderTopColor: '#E8E4DE',
             }}
           >
-            {event.vendor_id ? (
+            {canOpenVendor ? (
               <Pressable
-                onPress={() => {
-                  onClose();
-                  router.push(`/vendors/${event.vendor_id}`);
-                }}
+                onPress={openVendorPage}
                 style={{
                   paddingVertical: 12,
                   paddingHorizontal: 14,
@@ -398,7 +473,9 @@ export default function WorkshopQuickViewModal({
                   justifyContent: 'center',
                 }}
               >
-                <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>Vendor</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>
+                  {vendorName ? 'Reviews' : 'Vendor'}
+                </Text>
               </Pressable>
             ) : null}
             <Pressable

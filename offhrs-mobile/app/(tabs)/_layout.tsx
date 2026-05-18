@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import {
+  CalendarDaysIcon,
   DocumentMagnifyingGlassIcon,
   EnvelopeIcon,
   HomeIcon,
@@ -71,6 +72,7 @@ const ICON_WRAP_SIZE = 40;
 const ICON_MAP: Record<string, typeof HomeIcon> = {
   index: HomeIcon,
   workshops: DocumentMagnifyingGlassIcon,
+  bookings: CalendarDaysIcon,
   contact: EnvelopeIcon,
   profile: UserCircleIcon,
 };
@@ -524,6 +526,15 @@ export default function TabLayout() {
           title: 'Workshops',
           tabBarIcon: ({ focused }) => (
             <TabIcon IconComponent={DocumentMagnifyingGlassIcon} focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="bookings"
+        options={{
+          title: 'Bookings',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon IconComponent={CalendarDaysIcon} focused={focused} />
           ),
         }}
       />

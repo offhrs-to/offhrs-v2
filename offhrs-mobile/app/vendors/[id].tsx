@@ -11,10 +11,15 @@ import {
   TextInput,
 } from 'react-native';
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
+import VendorBioCollapsible from '@/components/VendorBioCollapsible';
 import WorkshopQuickViewModal from '@/components/WorkshopQuickViewModal';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
+import {
+  CONSUMER_BOOKING_STATUS_OR,
+  isEventVisibleToConsumers,
+} from '@/lib/consumer-event-visibility';
 import {
   mapDbRowToWorkshopEvent,
   WORKSHOP_EVENT_LIST_SELECT,
@@ -69,6 +74,7 @@ export default function VendorProfileScreen() {
   const [quickViewSaving, setQuickViewSaving] = useState(false);
   const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
   const [profilePostalCode, setProfilePostalCode] = useState<string | null>(null);
+  const [vendorBio, setVendorBio] = useState<string | null>(null);
 
   const loadData = () => {
     if (!id) return;
@@ -76,23 +82,63 @@ export default function VendorProfileScreen() {
       supabase.from('vendors').select('id, name').eq('id', id).single(),
       supabase
         .from('events')
-        .select(WORKSHOP_EVENT_LIST_SELECT)
+        .select(`${WORKSHOP_EVENT_LIST_SELECT}, vendor_profile_id`)
         .eq('vendor_id', id)
+        .or(CONSUMER_BOOKING_STATUS_OR)
         .order('date', { ascending: true }),
       supabase
         .from('vendor_reviews')
         .select('id, rating, comment, author_name, created_at')
         .eq('vendor_id', id)
         .order('created_at', { ascending: false }),
-    ]).then(([vendorRes, eventsRes, reviewsRes]) => {
-      const eventList = (eventsRes.data ?? []).map((e) =>
-        mapDbRowToWorkshopEvent(e as WorkshopEventDbRow)
-      );
+    ]).then(async ([vendorRes, eventsRes, reviewsRes]) => {
+      const nowIso = new Date().toISOString();
+      const eventList = (eventsRes.data ?? [])
+        .filter((e) => isEventVisibleToConsumers(e as WorkshopEventDbRow))
+        .filter((e) => {
+          const row = e as WorkshopEventDbRow;
+          const recurrence = row.recurrence;
+          if (recurrence === 'daily' || recurrence === 'weekly') return true;
+          if (!row.date) return true;
+          return row.date >= nowIso;
+        })
+        .map((e) => mapDbRowToWorkshopEvent(e as WorkshopEventDbRow));
       setVendor(vendorRes.data ?? null);
       setEvents(eventList);
       const revs = (reviewsRes.data ?? []) as Review[];
       setReviews(revs);
       setAvgRating(revs.length > 0 ? Math.round((revs.reduce((s, r) => s + r.rating, 0) / revs.length) * 10) / 10 : null);
+
+      const vendorName = vendorRes.data?.name?.trim();
+      let vendorProfileId: string | null = null;
+      for (const row of eventsRes.data ?? []) {
+        const pid = (row as { vendor_profile_id?: string | null }).vendor_profile_id?.trim();
+        if (pid) {
+          vendorProfileId = pid;
+          break;
+        }
+      }
+
+      let bio: string | null = null;
+      if (vendorProfileId) {
+        const { data: vp } = await supabase
+          .from('vendor_profiles')
+          .select('bio')
+          .eq('id', vendorProfileId)
+          .maybeSingle();
+        bio = vp?.bio?.trim() || null;
+      }
+      if (!bio && vendorName) {
+        const { data: vpByName } = await supabase
+          .from('vendor_profiles')
+          .select('bio')
+          .eq('business_name', vendorName)
+          .in('status', ['trialing', 'active', 'past_due'])
+          .limit(1)
+          .maybeSingle();
+        bio = vpByName?.bio?.trim() || null;
+      }
+      setVendorBio(bio);
     }).finally(() => setLoading(false));
 
     if (user?.id) {
@@ -251,6 +297,7 @@ export default function VendorProfileScreen() {
         <Text style={{ fontSize: 15, color: DesignColors.mediumGray, marginTop: 4 }}>
           Workshop host
         </Text>
+        <VendorBioCollapsible bio={vendorBio} />
         {avgRating != null && (
           <Text style={{ fontSize: 14, color: DesignColors.mediumGray, marginTop: 8 }}>
             {avgRating} stars ({reviews.length} reviews)

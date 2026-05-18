@@ -11,6 +11,7 @@ import { buildActivitySeriesFromBookings, type BookingActivityRow } from '@/lib/
 interface VendorProfile {
   id: string
   business_name: string
+  bio: string | null
   status: string
   email_verified: boolean
   stripe_checkout_completed: boolean
@@ -136,6 +137,8 @@ export default async function DashboardPage() {
   const monthlyBookings = bookingsRes.data?.length ?? 0
   const monthlyRevenue = bookingsRes.data?.reduce((sum: number, b: { amount_cad?: number | null }) => sum + (b.amount_cad ?? 0), 0) ?? 0
 
+  const profileBioComplete = Boolean(vendor.bio?.trim())
+
   const checklistItems = [
     { key: 'email_verified', label: 'Verify your email', done: vendor.email_verified, showStripeCta: false, href: null as string | null },
     { key: 'stripe_checkout_completed', label: 'Start free trial', done: vendor.stripe_checkout_completed, showStripeCta: false, href: null },
@@ -145,6 +148,13 @@ export default async function DashboardPage() {
       done: vendor.stripe_connect_completed,
       showStripeCta: !vendor.stripe_connect_completed,
       href: null,
+    },
+    {
+      key: 'profile_settings_reviewed',
+      label: 'Review Settings & add your bio',
+      done: profileBioComplete,
+      showStripeCta: false,
+      href: profileBioComplete ? null : '/partners/dashboard/settings',
     },
     {
       key: 'first_session_created',

@@ -1,3 +1,4 @@
+import { syncBookingRefundedFromStripe } from '@/lib/booking-refund'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   monthlyAmountLabelForTier,
@@ -406,6 +407,23 @@ async function handleStripeEvent(
         await admin.from('vendor_profiles').update({
           stripe_connect_completed: true,
         }).eq('id', vp.id)
+
+        const { data: vendorRow } = await admin
+          .from('vendor_profiles')
+          .select('location_address')
+          .eq('id', vp.id)
+          .single()
+
+        try {
+          const { ensureConnectedAccountStripeTaxReady } = await import(
+            '@/lib/stripe-vendor-tax-setup'
+          )
+          await ensureConnectedAccountStripeTaxReady(stripe, account.id, {
+            locationAddress: vendorRow?.location_address,
+          })
+        } catch (taxSetupErr) {
+          console.warn('Stripe Tax setup on Connect account.updated:', taxSetupErr)
+        }
       }
       break
     }
@@ -441,6 +459,32 @@ async function handleStripeEvent(
         arrival_date: new Date(payout.arrival_date * 1000).toISOString().slice(0, 10),
         status: statusMap[event.type] ?? 'pending',
       }, { onConflict: 'stripe_payout_id' })
+      break
+    }
+
+    // ── Workshop booking refunds (Connect charges / PaymentIntents) ───────
+    case 'charge.refunded': {
+      const charge = event.data.object as Stripe.Charge
+      const pi =
+        typeof charge.payment_intent === 'string'
+          ? charge.payment_intent
+          : charge.payment_intent?.id ?? null
+      if (pi) {
+        await syncBookingRefundedFromStripe(admin, pi)
+      }
+      break
+    }
+
+    case 'refund.created':
+    case 'refund.updated': {
+      const refund = event.data.object as Stripe.Refund
+      if (refund.status === 'succeeded' && refund.payment_intent) {
+        const pi =
+          typeof refund.payment_intent === 'string'
+            ? refund.payment_intent
+            : refund.payment_intent.id
+        await syncBookingRefundedFromStripe(admin, pi)
+      }
       break
     }
 

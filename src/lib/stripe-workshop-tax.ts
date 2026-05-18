@@ -1,7 +1,12 @@
 import 'server-only'
 
 import type Stripe from 'stripe'
-import { customerTaxAddressFromPostal, type CustomerTaxAddress } from '@/lib/canadian-postal-province'
+import {
+  customerTaxAddressFromPostal,
+  extractCanadianPostalFromFreeformAddress,
+  type CustomerTaxAddress,
+} from '@/lib/canadian-postal-province'
+import { ensureConnectedAccountStripeTaxReady } from '@/lib/stripe-vendor-tax-setup'
 
 /** Stripe product tax code — override via STRIPE_WORKSHOP_TAX_CODE (general services default). */
 export const WORKSHOP_STRIPE_TAX_CODE =
@@ -33,6 +38,29 @@ export function resolveCustomerTaxAddress(input: CustomerAddressInput): Customer
   })
 }
 
+/** Profile postal, explicit body, then workshop venue address. */
+export function resolveWorkshopCustomerTaxAddress(options: {
+  customerAddress?: CustomerAddressInput | null
+  profilePostalCode?: string | null
+  eventLocation?: string | null
+}): CustomerTaxAddress | null {
+  if (options.customerAddress) {
+    const fromBody = resolveCustomerTaxAddress(options.customerAddress)
+    if (fromBody) return fromBody
+  }
+  if (options.profilePostalCode?.trim()) {
+    const fromProfile = resolveCustomerTaxAddress({ postal_code: options.profilePostalCode })
+    if (fromProfile) return fromProfile
+  }
+  if (options.eventLocation?.trim()) {
+    const postal = extractCanadianPostalFromFreeformAddress(options.eventLocation)
+    if (postal) {
+      return resolveCustomerTaxAddress({ postal_code: postal })
+    }
+  }
+  return null
+}
+
 function centsToCad(cents: number): number {
   return Math.round(cents) / 100
 }
@@ -48,12 +76,17 @@ export async function calculateWorkshopTicketTax(
     subtotalCad: number
     customerAddress: CustomerTaxAddress
     reference?: string
+    vendorLocationAddress?: string | null
   }
 ): Promise<WorkshopTaxBreakdown> {
   const subtotalCents = Math.round(params.subtotalCad * 100)
   if (subtotalCents <= 0) {
     throw new Error('Subtotal must be positive for tax calculation')
   }
+
+  await ensureConnectedAccountStripeTaxReady(stripe, params.connectedAccountId, {
+    locationAddress: params.vendorLocationAddress,
+  })
 
   const calculation = await stripe.tax.calculations.create(
     {
@@ -63,6 +96,7 @@ export async function calculateWorkshopTicketTax(
           amount: subtotalCents,
           reference: params.reference ?? 'workshop_ticket',
           tax_code: WORKSHOP_STRIPE_TAX_CODE,
+          tax_behavior: 'exclusive',
         },
       ],
       customer_details: {

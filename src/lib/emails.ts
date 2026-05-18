@@ -43,20 +43,24 @@ function resend() {
 
 async function send(to: string, subject: string, html: string, attachments?: { filename: string; content: string }[]) {
   const client = resend()
-  if (!client) return
-  try {
-    await client.emails.send({
-      from: FROM,
-      to,
-      subject,
-      html,
-      attachments: attachments?.map((a) => ({
-        filename: a.filename,
-        content: Buffer.from(a.content).toString('base64'),
-      })),
-    })
-  } catch (err) {
-    console.error('Resend error:', err)
+  if (!client) {
+    throw new Error('RESEND_API_KEY is not configured')
+  }
+
+  const { error } = await client.emails.send({
+    from: FROM,
+    to,
+    subject,
+    html,
+    attachments: attachments?.map((a) => ({
+      filename: a.filename,
+      content: Buffer.from(a.content).toString('base64'),
+    })),
+  })
+
+  if (error) {
+    console.error('Resend error:', error)
+    throw new Error(error.message ?? 'Failed to send email')
   }
 }
 

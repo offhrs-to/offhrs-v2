@@ -7,18 +7,20 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
-import { sendConsumerBookingConfirmation, sendVendorBookingNotification, sendVendorFullyBooked } from '@/lib/emails'
+import {
+  deliverBookingConfirmationEmails,
+  retryBookingConfirmationEmailsIfNeeded,
+} from '@/lib/booking-confirm-emails'
 import { computeSlotDecrementForEvent } from '@/lib/workshop-series'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 import { commitWorkshopTaxTransaction } from '@/lib/stripe-workshop-tax'
 
+/** Allow time to await Resend before the serverless function exits. */
+export const maxDuration = 60
+
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
 })
-
-const APP_URL =
-  process.env.NEXT_PUBLIC_APP_URL ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
 const paidConfirmSchema = z.object({
   paymentIntentId: z.string().min(1),
@@ -90,7 +92,16 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (existingBooking) {
-      return NextResponse.json({ success: true, duplicate: true })
+      let emailsSent = false
+      let emailRetry = false
+      try {
+        const retry = await retryBookingConfirmationEmailsIfNeeded(admin, existingBooking.id)
+        emailsSent = retry.emailsSent
+        emailRetry = retry.retried
+      } catch (emailErr) {
+        console.error('Duplicate confirm email retry error:', emailErr)
+      }
+      return NextResponse.json({ success: true, duplicate: true, emailsSent, emailRetry })
     }
 
     const { data: event } = await admin
@@ -206,50 +217,31 @@ export async function POST(request: NextRequest) {
 
     void syncVendorSessionToExternalCalendars(admin, vendorId, String(eventId)).catch(() => {})
 
-    const sessionDate = new Date(slot.sessionStartsAtIso)
-    const durationMinutes = (event.duration_minutes ?? 60) as number
-
-    const emailParams = {
-      attendeeName: attendeeName ?? '',
-      attendeeEmail: attendeeEmail ?? '',
-      sessionTitle: event.title,
-      vendorName: vendorProfile?.business_name ?? 'offhrs',
-      sessionDate,
-      durationMinutes,
-      location: event.location,
-      vendorWebsite: vendorProfile?.website_url ?? null,
-      bookingRef: booking.id,
-      amountCad: chargeAmountCad,
+    let emailsSent = false
+    try {
+      await deliverBookingConfirmationEmails(
+        admin,
+        {
+          id: booking.id,
+          email: attendeeEmail ?? '',
+          name: attendeeName ?? '',
+          session_starts_at: slot.sessionStartsAtIso,
+        },
+        event,
+        vendorProfile,
+        vendorEmail,
+        { amountCad: chargeAmountCad, fullyBooked: slot.booking_status === 'fully_booked' }
+      )
+      emailsSent = true
+    } catch (emailErr) {
+      console.error('Booking confirmation email error:', emailErr)
     }
-
-    Promise.all([
-      sendConsumerBookingConfirmation(emailParams),
-      vendorEmail
-        ? sendVendorBookingNotification(vendorEmail, {
-            businessName: vendorProfile?.business_name ?? 'offhrs',
-            attendeeName: attendeeName ?? '',
-            attendeeEmail: attendeeEmail ?? '',
-            sessionTitle: event.title,
-            sessionDate: sessionDate.toLocaleDateString('en-CA', {
-              weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-            }),
-            amountCad: chargeAmountCad,
-            dashboardUrl: `${APP_URL}/partners/dashboard/bookings`,
-          })
-        : Promise.resolve(),
-      slot.booking_status === 'fully_booked' && vendorEmail
-        ? sendVendorFullyBooked(vendorEmail, event.title, `${APP_URL}/partners/dashboard/bookings`)
-        : Promise.resolve(),
-    ])
-      .then(async () => {
-        await admin.from('bookings').update({ ics_sent: true }).eq('id', booking.id)
-      })
-      .catch(console.error)
 
     return NextResponse.json({
       success: true,
       bookingId: booking.id,
       fullyBooked: slot.booking_status === 'fully_booked',
+      emailsSent,
     })
   } catch (err) {
     console.error('Book confirm error:', err)
@@ -272,7 +264,16 @@ async function handleFreeConfirm(
     .maybeSingle()
 
   if (existing) {
-    return NextResponse.json({ success: true, duplicate: true })
+    let emailsSent = false
+    let emailRetry = false
+    try {
+      const retry = await retryBookingConfirmationEmailsIfNeeded(admin, existing.id)
+      emailsSent = retry.emailsSent
+      emailRetry = retry.retried
+    } catch (emailErr) {
+      console.error('Duplicate free confirm email retry error:', emailErr)
+    }
+    return NextResponse.json({ success: true, duplicate: true, emailsSent, emailRetry })
   }
 
   const { data: event } = await admin
@@ -358,49 +359,30 @@ async function handleFreeConfirm(
 
   void syncVendorSessionToExternalCalendars(admin, vendorId, String(event_id)).catch(() => {})
 
-  const sessionDate = new Date(slot.sessionStartsAtIso)
-  const durationMinutes = (event.duration_minutes ?? 60) as number
-
-  const emailParams = {
-    attendeeName: attendee_name,
-    attendeeEmail: attendee_email,
-    sessionTitle: event.title,
-    vendorName: vendorProfile?.business_name ?? 'offhrs',
-    sessionDate,
-    durationMinutes,
-    location: event.location,
-    vendorWebsite: vendorProfile?.website_url ?? null,
-    bookingRef: booking.id,
-    amountCad: 0,
+  let emailsSent = false
+  try {
+    await deliverBookingConfirmationEmails(
+      admin,
+      {
+        id: booking.id,
+        email: attendee_email,
+        name: attendee_name,
+        session_starts_at: slot.sessionStartsAtIso,
+      },
+      event,
+      vendorProfile,
+      vendorEmail,
+      { amountCad: 0, fullyBooked: slot.booking_status === 'fully_booked' }
+    )
+    emailsSent = true
+  } catch (emailErr) {
+    console.error('Booking confirmation email error:', emailErr)
   }
-
-  Promise.all([
-    sendConsumerBookingConfirmation(emailParams),
-    vendorEmail
-      ? sendVendorBookingNotification(vendorEmail, {
-          businessName: vendorProfile?.business_name ?? 'offhrs',
-          attendeeName: attendee_name,
-          attendeeEmail: attendee_email,
-          sessionTitle: event.title,
-          sessionDate: sessionDate.toLocaleDateString('en-CA', {
-            weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-          }),
-          amountCad: 0,
-          dashboardUrl: `${APP_URL}/partners/dashboard/bookings`,
-        })
-      : Promise.resolve(),
-    slot.booking_status === 'fully_booked' && vendorEmail
-      ? sendVendorFullyBooked(vendorEmail, event.title, `${APP_URL}/partners/dashboard/bookings`)
-      : Promise.resolve(),
-  ])
-    .then(async () => {
-      await admin.from('bookings').update({ ics_sent: true }).eq('id', booking.id)
-    })
-    .catch(console.error)
 
   return NextResponse.json({
     success: true,
     bookingId: booking.id,
     fullyBooked: slot.booking_status === 'fully_booked',
+    emailsSent,
   })
 }

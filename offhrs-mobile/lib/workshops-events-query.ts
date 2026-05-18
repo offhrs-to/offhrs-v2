@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { CONSUMER_BOOKING_STATUS_OR, isEventVisibleToConsumers } from '@/lib/consumer-event-visibility';
+import { enrichWorkshopEventsWithVendorNames } from '@/lib/workshop-vendor-display';
 import { WORKSHOP_EVENTS_FETCH_BATCH, WORKSHOP_MAX_UPCOMING_FETCH } from '@/constants/workshops-list';
 
 export type WorkshopEventRow = {
@@ -16,6 +17,10 @@ export type WorkshopEventRow = {
   lat: number | null;
   lng: number | null;
   vendor_id: string | null;
+  /** Host name from `events.organizer` (partner business_name) or `vendors.name`. */
+  vendor_name: string | null;
+  /** Raw organizer column (partner business name). */
+  organizer: string | null;
   /** When set, workshop is bookable in-app via Stripe (SaaS). */
   vendor_profile_id: string | null;
   recurrence: string | null;
@@ -23,6 +28,7 @@ export type WorkshopEventRow = {
   description: string | null;
   booking_status: string | null;
   available_slots: number | null;
+  duration_minutes: number | null;
 };
 
 function formatDateToronto(isoString: string): string {
@@ -54,11 +60,13 @@ export type WorkshopEventDbRow = {
   lat: number | null;
   lng: number | null;
   vendor_id: string | null;
+  organizer: string | null;
   vendor_profile_id: string | null;
   recurrence: string | null;
   description: string | null;
   booking_status: string | null;
   available_slots: number | null;
+  duration_minutes: number | null;
 };
 
 export function mapDbRowToWorkshopEvent(row: WorkshopEventDbRow): WorkshopEventRow {
@@ -75,12 +83,15 @@ export function mapDbRowToWorkshopEvent(row: WorkshopEventDbRow): WorkshopEventR
     lat: row.lat ?? null,
     lng: row.lng ?? null,
     vendor_id: row.vendor_id ?? null,
+    vendor_name: row.organizer?.trim() || null,
+    organizer: row.organizer?.trim() || null,
     vendor_profile_id: row.vendor_profile_id ?? null,
     recurrence: row.recurrence ?? null,
     category: row.category ?? null,
     description: row.description ?? null,
     booking_status: row.booking_status ?? null,
     available_slots: row.available_slots ?? null,
+    duration_minutes: row.duration_minutes != null ? Number(row.duration_minutes) : null,
   };
 }
 
@@ -94,7 +105,7 @@ export type FetchWorkshopEventsOptions = {
 };
 
 export const WORKSHOP_EVENT_LIST_SELECT =
-  'id, title, date, location, image_url, price, price_cad, external_link, category, lat, lng, vendor_id, vendor_profile_id, recurrence, description, booking_status, available_slots';
+  'id, title, date, location, image_url, price, price_cad, external_link, category, lat, lng, vendor_id, vendor_profile_id, organizer, recurrence, description, booking_status, available_slots, duration_minutes';
 
 /**
  * Shared Supabase fetch for workshop list/map flows (matches workshops tab logic).
@@ -125,7 +136,11 @@ export async function fetchWorkshopEvents(
       }
       searchVendorIds = [...intersect];
     }
-    const orParts = escapedWords.flatMap((w) => [`title.ilike.%${w}%`, `category.ilike.%${w}%`]);
+    const orParts = escapedWords.flatMap((w) => [
+      `title.ilike.%${w}%`,
+      `category.ilike.%${w}%`,
+      `organizer.ilike.%${w}%`,
+    ]);
     if (searchVendorIds.length > 0) orParts.push(`vendor_id.in.(${searchVendorIds.join(',')})`);
     searchOrClause = orParts.length > 0 ? orParts.join(',') : 'id.eq.-1';
   }
@@ -174,17 +189,20 @@ export async function fetchWorkshopEvents(
     return aTime - bTime;
   });
 
+  let result = sorted;
   if (searchRawWords.length > 0 || searchVendorIds.length > 0) {
-    return sorted.filter((e) => {
+    result = sorted.filter((e) => {
       if (searchVendorIds.length > 0 && e.vendor_id && searchVendorIds.includes(e.vendor_id)) return true;
       if (searchRawWords.length === 0) return true;
       return searchRawWords.every(
         (w) =>
           (e.title && e.title.toLowerCase().includes(w.toLowerCase())) ||
-          (e.category && e.category.toLowerCase().includes(w.toLowerCase()))
+          (e.category && e.category.toLowerCase().includes(w.toLowerCase())) ||
+          (e.organizer && e.organizer.toLowerCase().includes(w.toLowerCase())) ||
+          (e.vendor_name && e.vendor_name.toLowerCase().includes(w.toLowerCase()))
       );
     });
   }
 
-  return sorted;
+  return enrichWorkshopEventsWithVendorNames(result);
 }

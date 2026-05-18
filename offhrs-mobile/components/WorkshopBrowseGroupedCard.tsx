@@ -22,6 +22,7 @@ import { shareWorkshopEvent } from '@/lib/share-workshop';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import { supabase } from '@/lib/supabase';
 import { workshopDisplayPrice, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
+import { vendorPagePath, workshopVendorDisplayName } from '@/lib/workshop-vendor-display';
 
 /** Compact square thumbnail (top-right of card), Classpass-style — does not span full card height. */
 const THUMB_SIZE = 96;
@@ -168,8 +169,6 @@ export default function WorkshopBrowseGroupedCard({
 
   const displayPrice = workshopDisplayPrice(selected) ?? formatPrice(selected?.price);
   const displaySaved = selected != null && savedEventIds.has(selected.id);
-  const vendorId = selected?.vendor_id ?? sorted[0]?.vendor_id;
-
   const distanceKm = useMemo(() => {
     if (!profileLocation || selected?.lat == null || selected?.lng == null) return undefined;
     return (
@@ -263,6 +262,8 @@ export default function WorkshopBrowseGroupedCard({
   const first = sorted[0]!;
   const dayLine = formatDayLine(selected) || formatDayLine(first);
   const locationLine = neighborhoodLine(selected.location);
+  const vendorName = workshopVendorDisplayName(selected);
+  const vendorPath = vendorPagePath(selected);
 
   return (
     <View
@@ -524,9 +525,9 @@ export default function WorkshopBrowseGroupedCard({
         </ScrollView>
 
         <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 12, width: '100%' }}>
-          {vendorId ? (
+          {vendorPath ? (
             <Pressable
-              onPress={() => router.push(`/vendors/${vendorId}`)}
+              onPress={() => router.push(vendorPath)}
               style={{
                 paddingVertical: 8,
                 paddingHorizontal: 10,

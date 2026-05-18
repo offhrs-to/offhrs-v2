@@ -105,7 +105,7 @@ async function getVendorAndSession(userId: string, sessionId: string) {
 
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('id, default_workshop_image_url')
+    .select('id, business_name, default_workshop_image_url')
     .eq('user_id', userId)
     .single()
 
@@ -270,6 +270,11 @@ export async function PUT(request: NextRequest, { params }: Params) {
       updatePayload.series_occurrences = seriesOcc
       updatePayload.available_slots = sumAvail
       updatePayload.max_attendees = sumMax
+    }
+
+    const businessName = (vendor.business_name as string | null)?.trim()
+    if (businessName) {
+      updatePayload.organizer = businessName
     }
 
     const { data: updated, error } = await admin

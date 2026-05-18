@@ -56,12 +56,16 @@ export default function ProfilePage() {
         setSavedVendors(vendorList ?? [])
       })
 
-    supabase
-      .from('bookings')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('status', 'attended')
-      .then(({ count }) => setWorkshopsAttended(count ?? 0))
+    void fetch('/api/attendance/credit-due', { method: 'POST' })
+      .then(() =>
+        supabase
+          .from('bookings')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('status', 'attended')
+          .then(({ count }) => setWorkshopsAttended(count ?? 0))
+      )
+      .catch(() => {})
 
     supabase
       .from('vendor_reviews')

@@ -328,8 +328,8 @@ const HOW_IT_WORKS = [
   },
   {
     icon: Mail,
-    title: 'Confirm attendance',
-    description: "Check your inbox after your workshop. Confirm your attendance to claim your XP and level up your craft!",
+    title: 'Earn experience',
+    description: 'After your workshop ends, attendance is credited automatically and you earn XP toward your next level.',
   },
 ]
 

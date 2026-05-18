@@ -44,6 +44,26 @@ export type CustomerTaxAddress = {
   line1?: string
 }
 
+/** Pull a Canadian postal code from a freeform address (e.g. "88 Queen St E, Toronto, ON M5C 0B6"). */
+export function extractCanadianPostalFromFreeformAddress(address: string): string | null {
+  const m = address.match(
+    /\b([ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z])[\s-]?(\d[ABCEGHJ-NPRSTV-Z]\d)\b/i
+  )
+  if (!m) return null
+  return normalizeCanadianPostalCode(`${m[1]}${m[2]}`)
+}
+
+const CA_PROVINCE_IN_ADDRESS =
+  /\b(ON|BC|AB|QC|MB|SK|NS|NB|NL|PE|NT|YT|NU)\b/i
+
+/** Infer province code from an address string when postal code is missing. */
+export function provinceFromCanadianAddress(address: string): string | null {
+  const postal = extractCanadianPostalFromFreeformAddress(address)
+  if (postal) return provinceFromCanadianPostalCode(postal)
+  const m = address.match(CA_PROVINCE_IN_ADDRESS)
+  return m ? m[1].toUpperCase() : null
+}
+
 /** Build Stripe Tax `customer_details.address` from postal (and optional overrides). */
 export function customerTaxAddressFromPostal(
   postalCode: string,

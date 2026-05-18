@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
 
     const { data: vendor } = await admin
       .from('vendor_profiles')
-      .select('id, default_workshop_image_url')
+      .select('id, business_name, default_workshop_image_url')
       .eq('user_id', user.id)
       .single()
 
@@ -224,7 +224,7 @@ export async function POST(request: NextRequest) {
       lng,
       booking_status: body.status,
       description: body.description ?? null,
-      organizer: null,
+      organizer: vendor.business_name?.trim() || null,
       image_url: resolvedImageUrl,
       external_booked_count: extRaw,
       partner_series_meta: meta,
