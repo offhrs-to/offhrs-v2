@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { sendConsumerBookingConfirmation, sendVendorBookingNotification, sendVendorFullyBooked } from '@/lib/emails'
 import { computeSlotDecrementForEvent } from '@/lib/workshop-series'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
+import { commitWorkshopTaxTransaction } from '@/lib/stripe-workshop-tax'
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
@@ -74,7 +75,11 @@ export async function POST(request: NextRequest) {
     const vendorId = meta.vendor_id
     const attendeeName = meta.attendee_name
     const attendeeEmail = meta.attendee_email
-    const priceCad = parseFloat(meta.price_cad ?? '0')
+    const subtotalCad = parseFloat(meta.subtotal_cad ?? meta.price_cad ?? '0')
+    const taxCad = parseFloat(meta.tax_cad ?? '0')
+    const totalCad = parseFloat(meta.total_cad ?? meta.price_cad ?? '0')
+    const taxCalculationId = meta.tax_calculation?.trim() || null
+    const connectedAccountId = meta.stripe_account_id?.trim() || null
     const piStartTime = startTime || meta.start_time
 
     // Idempotency — check if booking already exists for this PaymentIntent
@@ -117,22 +122,53 @@ export async function POST(request: NextRequest) {
       return authUser?.user?.email ?? null
     })()
 
-    const stripeFee = Math.round((priceCad * 0.029 + 0.30) * 100) / 100
-    const netVendor = Math.round((priceCad - stripeFee) * 100) / 100
+    if (taxCalculationId && connectedAccountId) {
+      try {
+        await commitWorkshopTaxTransaction(stripe, {
+          connectedAccountId,
+          calculationId: taxCalculationId,
+          reference: paymentIntentId,
+        })
+      } catch (taxTxErr) {
+        console.error('Stripe Tax transaction commit error:', taxTxErr)
+        return NextResponse.json(
+          { error: 'Payment received but tax could not be recorded. Contact support with your receipt.' },
+          { status: 500 }
+        )
+      }
+    }
+
+    const chargeAmountCad = totalCad > 0 ? totalCad : subtotalCad
+    const stripeFee = Math.round((chargeAmountCad * 0.029 + 0.30) * 100) / 100
+    const netVendor = Math.round((chargeAmountCad - stripeFee) * 100) / 100
 
     const chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : (pi.latest_charge as { id: string } | null)?.id
+
+    const appUserId = meta.app_user_id?.trim() || null
+
+    if (!appUserId) {
+      return NextResponse.json(
+        { error: 'Missing booker account on payment. Sign in and try again, or contact support with your receipt.' },
+        { status: 422 }
+      )
+    }
 
     const { data: booking, error: insertError } = await admin
       .from('bookings')
       .insert({
-        event_id: eventId,
+        event_id: Number(eventId),
         vendor_id: vendorId,
+        user_id: appUserId,
         stripe_payment_intent_id: paymentIntentId,
         stripe_charge_id: chargeId ?? null,
         name: attendeeName,
         email: attendeeEmail,
         status: 'confirmed',
-        amount_cad: priceCad,
+        amount_cad: chargeAmountCad,
+        subtotal_cad: subtotalCad,
+        tax_cad: taxCad,
+        total_cad: totalCad > 0 ? totalCad : chargeAmountCad,
+        stripe_tax_calculation_id: taxCalculationId,
         stripe_fee_cad: stripeFee,
         net_vendor_cad: netVendor,
         ics_sent: false,
@@ -142,8 +178,20 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (insertError) {
-      console.error('Booking insert error:', insertError)
-      return NextResponse.json({ error: 'Failed to record booking' }, { status: 500 })
+      console.error('Booking insert error:', insertError.message, insertError.details, insertError.code)
+      const hint =
+        insertError.code === '23514'
+          ? 'Booking status rejected by database. Apply migration 20260518150000_saas_bookings_status_constraints.sql.'
+          : insertError.code === '42703'
+            ? 'Bookings table missing SaaS columns. Apply Supabase migrations for bookings tax and status.'
+            : null
+      return NextResponse.json(
+        {
+          error: hint ?? 'Failed to record booking',
+          detail: process.env.NODE_ENV === 'development' ? insertError.message : undefined,
+        },
+        { status: 500 }
+      )
     }
 
     const eventUpdate: Record<string, unknown> = {
@@ -171,7 +219,7 @@ export async function POST(request: NextRequest) {
       location: event.location,
       vendorWebsite: vendorProfile?.website_url ?? null,
       bookingRef: booking.id,
-      amountCad: priceCad,
+      amountCad: chargeAmountCad,
     }
 
     Promise.all([
@@ -185,7 +233,7 @@ export async function POST(request: NextRequest) {
             sessionDate: sessionDate.toLocaleDateString('en-CA', {
               weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
             }),
-            amountCad: priceCad,
+            amountCad: chargeAmountCad,
             dashboardUrl: `${APP_URL}/partners/dashboard/bookings`,
           })
         : Promise.resolve(),

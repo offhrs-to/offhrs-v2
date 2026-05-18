@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { CONSUMER_BOOKING_STATUS_OR, isEventVisibleToConsumers } from '@/lib/consumer-event-visibility';
 import { WORKSHOP_EVENTS_FETCH_BATCH, WORKSHOP_MAX_UPCOMING_FETCH } from '@/constants/workshops-list';
 
 export type WorkshopEventRow = {
@@ -132,7 +133,7 @@ export async function fetchWorkshopEvents(
   const makeOrderedQuery = () => {
     let q = supabase.from('events').select(WORKSHOP_EVENT_LIST_SELECT);
     q = q.or(`recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso}`);
-    q = q.or('booking_status.eq.published,booking_status.eq.fully_booked,booking_status.is.null');
+    q = q.or(CONSUMER_BOOKING_STATUS_OR);
     if (searchOrClause) {
       q = q.or(searchOrClause);
     }
@@ -155,7 +156,9 @@ export async function fetchWorkshopEvents(
     if (data.length < take) break;
   }
 
-  const list = combined.map(mapDbRowToWorkshopEvent);
+  const list = combined
+    .map(mapDbRowToWorkshopEvent)
+    .filter((e) => isEventVisibleToConsumers(e));
 
   const filteredByDate = list.filter((e) => {
     if (!e.date_iso) return !dateRangeStart && !dateRangeEnd;

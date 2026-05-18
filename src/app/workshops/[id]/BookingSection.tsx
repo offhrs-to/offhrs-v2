@@ -21,7 +21,10 @@ interface AttendeeForm {
   name: string
   email: string
   startTime: string
+  postalCode: string
 }
+
+type TaxQuote = { subtotalCad: number; taxCad: number; totalCad: number }
 
 function PaymentForm({
   attendee,
@@ -112,10 +115,12 @@ export function BookingSection({
   isFullyBooked,
 }: BookingSectionProps) {
   const [step, setStep] = useState<Step>('details')
-  const [attendee, setAttendee] = useState<AttendeeForm>({ name: '', email: '', startTime: '' })
+  const [attendee, setAttendee] = useState<AttendeeForm>({ name: '', email: '', postalCode: '', startTime: '' })
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [loadingIntent, setLoadingIntent] = useState(false)
   const [intentError, setIntentError] = useState('')
+  const [taxQuote, setTaxQuote] = useState<TaxQuote | null>(null)
+  const [taxQuoteLoading, setTaxQuoteLoading] = useState(false)
   const [stripePromise] = useState(() => (stripePk ? loadStripe(stripePk) : null))
 
   const [selectedDateTime, setSelectedDateTime] = useState(defaultStartLocal)
@@ -131,8 +136,45 @@ export function BookingSection({
     setAttendee((f) => ({ ...f, [key]: val }))
   }
 
+  async function refreshTaxQuote(postal: string) {
+    const trimmed = postal.trim()
+    if (!trimmed || priceCad <= 0) {
+      setTaxQuote(null)
+      return
+    }
+    setTaxQuoteLoading(true)
+    try {
+      const res = await fetch('/api/book/quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id: eventId,
+          customer_address: { country: 'CA', postal_code: trimmed },
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.subtotalCad != null) {
+        setTaxQuote({
+          subtotalCad: Number(data.subtotalCad),
+          taxCad: Number(data.taxCad ?? 0),
+          totalCad: Number(data.totalCad ?? data.subtotalCad),
+        })
+      } else {
+        setTaxQuote(null)
+      }
+    } catch {
+      setTaxQuote(null)
+    } finally {
+      setTaxQuoteLoading(false)
+    }
+  }
+
   async function handleProceedToPayment() {
     if (!attendee.name.trim() || !attendee.email.trim()) return
+    if (!attendee.postalCode.trim()) {
+      setIntentError('Enter your Canadian postal code for tax calculation.')
+      return
+    }
     if (priceCad === 0) {
       handleFreeBooking()
       return
@@ -150,6 +192,7 @@ export function BookingSection({
           attendee_name: attendee.name,
           attendee_email: attendee.email,
           start_time: effectiveStartForApi || undefined,
+          customer_address: { country: 'CA', postal_code: attendee.postalCode.trim() },
         }),
       })
 
@@ -158,6 +201,14 @@ export function BookingSection({
       if (!res.ok || !data.clientSecret) {
         setIntentError(data.error ?? 'Failed to initialize payment.')
         return
+      }
+
+      if (data.subtotalCad != null) {
+        setTaxQuote({
+          subtotalCad: Number(data.subtotalCad),
+          taxCad: Number(data.taxCad ?? 0),
+          totalCad: Number(data.totalCad ?? data.amount),
+        })
       }
 
       setClientSecret(data.clientSecret)
@@ -253,6 +304,34 @@ export function BookingSection({
           </div>
           <div>
             <label className="block text-xs font-medium text-[#555] mb-1.5">
+              Postal code <span className="text-red-500">*</span>
+            </label>
+            <input
+              value={attendee.postalCode}
+              onChange={(e) => setField('postalCode', e.target.value)}
+              onBlur={() => void refreshTaxQuote(attendee.postalCode)}
+              placeholder="A1A 1A1"
+              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+            />
+            <p className="text-xs text-[#888] mt-1">Used to calculate HST/GST for your province.</p>
+          </div>
+          {priceCad > 0 && (taxQuoteLoading || taxQuote) ? (
+            <div className="rounded-xl bg-[#F5F3EF] px-4 py-3 text-sm text-[#555]">
+              {taxQuoteLoading ? (
+                <p>Calculating tax…</p>
+              ) : taxQuote ? (
+                <>
+                  <p>Subtotal: ${taxQuote.subtotalCad.toFixed(2)} CAD</p>
+                  <p>Tax: ${taxQuote.taxCad.toFixed(2)} CAD</p>
+                  <p className="font-semibold text-[#1a1a1a] mt-1">
+                    Total: ${taxQuote.totalCad.toFixed(2)} CAD
+                  </p>
+                </>
+              ) : null}
+            </div>
+          ) : null}
+          <div>
+            <label className="block text-xs font-medium text-[#555] mb-1.5">
               {occurrenceOptions?.length ? 'Session date' : 'Session start'}
             </label>
             {occurrenceOptions && occurrenceOptions.length > 0 ? (
@@ -299,7 +378,9 @@ export function BookingSection({
               ? 'Preparing payment…'
               : priceCad === 0
                 ? 'Reserve my spot (free)'
-                : `Continue to payment — $${priceCad.toFixed(2)} CAD`}
+                : taxQuote
+                  ? `Continue to payment — $${taxQuote.totalCad.toFixed(2)} CAD`
+                  : `Continue to payment — $${priceCad.toFixed(2)} CAD`}
           </button>
         </div>
       )}
@@ -327,7 +408,7 @@ export function BookingSection({
           </div>
           <PaymentForm
             attendee={attendee}
-            priceCad={priceCad}
+            priceCad={taxQuote?.totalCad ?? priceCad}
             onSuccess={() => setStep('success')}
           />
         </Elements>

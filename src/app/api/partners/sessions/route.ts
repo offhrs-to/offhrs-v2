@@ -67,6 +67,9 @@ export async function GET(request: NextRequest) {
 
     if (status) {
       query = query.eq('booking_status', status)
+    } else if (excludeArchived) {
+      // Default list (e.g. "All") hides archived; do not combine with status=archived filter.
+      query = query.neq('booking_status', 'archived')
     }
     if (calendarRange && from && to) {
       // Include multi-week series rows even when the first session is before `from`
@@ -82,10 +85,6 @@ export async function GET(request: NextRequest) {
         query = query.lte('date', to)
       }
     }
-    if (excludeArchived) {
-      query = query.neq('booking_status', 'archived')
-    }
-
     query = calendarRange
       ? query.order('date', { ascending: true, nullsFirst: false })
       : query.order('created_at', { ascending: false })

@@ -93,8 +93,18 @@ function SessionsPageInner() {
   }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm('Archive this workshop? It will no longer be visible to consumers.')) return
-    await fetch(`/api/partners/sessions/${id}`, { method: 'DELETE' })
+    if (
+      !confirm(
+        'Archive this workshop? It will be hidden from the app. The row stays in the database for booking history (filter by Archived to view).'
+      )
+    )
+      return
+    const res = await fetch(`/api/partners/sessions/${id}`, { method: 'DELETE' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert((data as { error?: string }).error ?? 'Could not archive workshop.')
+      return
+    }
     await fetchSessions()
   }
 

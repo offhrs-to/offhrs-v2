@@ -9,6 +9,10 @@ import Stripe from 'stripe'
 import { z } from 'zod'
 import { computeSlotDecrementForEvent } from '@/lib/workshop-series'
 import { getOrCreateStripeCustomerId } from '@/lib/stripe-consumer-customer'
+import {
+  calculateWorkshopTicketTax,
+  resolveCustomerTaxAddress,
+} from '@/lib/stripe-workshop-tax'
 
 const BOOK_RATE_LIMIT = 15 // per minute per IP
 
@@ -17,11 +21,20 @@ const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholde
 })
 
 // Extended schema for SaaS bookings
+const customerAddressSchema = z.object({
+  country: z.string().optional(),
+  postal_code: z.string().min(3).max(12),
+  state: z.string().max(3).optional(),
+  city: z.string().max(120).optional(),
+  line1: z.string().max(200).optional(),
+})
+
 const saasBookSchema = z.object({
   event_id: z.union([z.string(), z.number()]),
   attendee_name: z.string().min(1).max(120),
   attendee_email: z.string().email(),
   start_time: z.string().optional(), // ISO start time (optional; defaults to session date on server)
+  customer_address: customerAddressSchema.optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -58,7 +71,7 @@ export async function POST(request: NextRequest) {
     const saasParsed = saasBookSchema.safeParse(raw)
 
     if (saasParsed.success) {
-      const { event_id, attendee_name, attendee_email, start_time } = saasParsed.data
+      const { event_id, attendee_name, attendee_email, start_time, customer_address } = saasParsed.data
 
       const admin = createAdminClient()
       if (!admin) return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
@@ -129,11 +142,52 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Create Stripe PaymentIntent with destination charge to vendor Connect account
-      const amountCents = Math.round(priceCad * 100)
+      let customerTaxAddr = customer_address
+        ? resolveCustomerTaxAddress(customer_address)
+        : null
+
+      if (!customerTaxAddr && user?.id) {
+        const { data: profile } = await admin
+          .from('profiles')
+          .select('postal_code')
+          .eq('id', user.id)
+          .maybeSingle()
+        if (profile?.postal_code) {
+          customerTaxAddr = resolveCustomerTaxAddress({ postal_code: profile.postal_code })
+        }
+      }
+
+      if (!customerTaxAddr) {
+        return NextResponse.json(
+          {
+            error:
+              'Add a Canadian postal code in your profile to book (Settings → location), or include customer_address with your postal code.',
+          },
+          { status: 422 }
+        )
+      }
+
+      let taxBreakdown
+      try {
+        taxBreakdown = await calculateWorkshopTicketTax(stripe, {
+          connectedAccountId: vendor.stripe_account_id,
+          subtotalCad: priceCad,
+          customerAddress: customerTaxAddr,
+          reference: `event_${event.id}`,
+        })
+      } catch (taxErr) {
+        console.error('Stripe Tax calculation error:', taxErr)
+        return NextResponse.json(
+          {
+            error:
+              'Could not calculate tax for this workshop. The vendor may need to complete tax setup in Stripe.',
+          },
+          { status: 422 }
+        )
+      }
 
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: amountCents,
+        amount: taxBreakdown.amountTotalCents,
         currency: 'cad',
         payment_method_types: ['card'],
         transfer_data: {
@@ -142,7 +196,6 @@ export async function POST(request: NextRequest) {
         ...(stripeCustomerId
           ? {
               customer: stripeCustomerId,
-              // Attach PM to Customer for later in-app charges (not only this session).
               setup_future_usage: 'off_session' as const,
             }
           : {}),
@@ -153,6 +206,11 @@ export async function POST(request: NextRequest) {
           attendee_email,
           start_time: start_time ?? (event.date ? String(event.date) : ''),
           price_cad: String(priceCad),
+          subtotal_cad: String(taxBreakdown.subtotalCad),
+          tax_cad: String(taxBreakdown.taxCad),
+          total_cad: String(taxBreakdown.totalCad),
+          tax_calculation: taxBreakdown.calculationId,
+          stripe_account_id: vendor.stripe_account_id,
           ...(user?.id ? { app_user_id: user.id } : {}),
         },
         description: `${vendor.business_name} — ${event.title}`,
@@ -162,7 +220,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
-        amount: priceCad,
+        amount: taxBreakdown.totalCad,
+        subtotalCad: taxBreakdown.subtotalCad,
+        taxCad: taxBreakdown.taxCad,
+        totalCad: taxBreakdown.totalCad,
       })
     }
 

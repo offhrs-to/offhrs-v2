@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,7 +19,15 @@ import WorkshopDescriptionCollapsible from '@/components/WorkshopDescriptionColl
 import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
 import { DesignColors } from '@/constants/design-template';
 import { haversineKm } from '@/lib/distance';
+import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
 import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mobile';
+import {
+  fetchWorkshopTaxQuote,
+  formatCad,
+  provinceFromCanadianPostalCode,
+  type WorkshopTaxQuote,
+} from '@/lib/workshop-booking-tax';
+import { supabase } from '@/lib/supabase';
 import { shareWorkshopEvent } from '@/lib/share-workshop';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import {
@@ -39,6 +47,7 @@ export type WorkshopQuickViewModalProps = {
   saving: boolean;
   onToggleSave: () => void;
   profileLocation: { lat: number; lng: number } | null;
+  profilePostalCode?: string | null;
   onBookingComplete?: () => void;
 };
 
@@ -53,11 +62,61 @@ export default function WorkshopQuickViewModal({
   saving,
   onToggleSave,
   profileLocation,
+  profilePostalCode,
   onBookingComplete,
 }: WorkshopQuickViewModalProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [bookingBusy, setBookingBusy] = useState(false);
+  const [taxQuote, setTaxQuote] = useState<WorkshopTaxQuote | null>(null);
+  const [taxQuoteError, setTaxQuoteError] = useState<string | null>(null);
+  const [taxQuoteLoading, setTaxQuoteLoading] = useState(false);
+
+  useEffect(() => {
+    if (!visible || !event || !workshopIsSaasVendorEvent(event)) {
+      setTaxQuote(null);
+      setTaxQuoteError(null);
+      return;
+    }
+    if (!userId || !profilePostalCode?.trim()) {
+      setTaxQuote(null);
+      setTaxQuoteError(
+        profilePostalCode === undefined || profilePostalCode === null
+          ? null
+          : 'Add a Canadian postal code in Profile to see tax and book.'
+      );
+      return;
+    }
+    let cancelled = false;
+    setTaxQuoteLoading(true);
+    setTaxQuoteError(null);
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        if (!cancelled) setTaxQuoteLoading(false);
+        return;
+      }
+      const result = await fetchWorkshopTaxQuote({
+        eventId: event.id,
+        accessToken: session.access_token,
+        postalCode: profilePostalCode,
+      });
+      if (cancelled) return;
+      setTaxQuoteLoading(false);
+      if ('error' in result) {
+        setTaxQuote(null);
+        setTaxQuoteError(result.error);
+      } else {
+        setTaxQuote(result);
+        setTaxQuoteError(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, event?.id, userId, profilePostalCode]);
 
   const handleBook = useCallback(async () => {
     if (!event) return;
@@ -84,6 +143,17 @@ export default function WorkshopQuickViewModal({
         return;
       }
       const name = attendeeName.trim() || userEmail.split('@')[0] || 'Guest';
+      const postal = profilePostalCode?.trim();
+      const normalized = postal ? parseCanadianPostalCode(postal) : null;
+      const state = normalized ? provinceFromCanadianPostalCode(normalized) : null;
+      if (!normalized || !state) {
+        Alert.alert(
+          'Postal code required',
+          'Add a valid Canadian postal code in Profile (Settings) so we can calculate tax before you pay.',
+          [{ text: 'OK' }, { text: 'Profile', onPress: () => router.push('/(tabs)/profile') }]
+        );
+        return;
+      }
       setBookingBusy(true);
       try {
         const result = await runPaidWorkshopBooking({
@@ -91,6 +161,7 @@ export default function WorkshopQuickViewModal({
           attendeeName: name,
           attendeeEmail: userEmail.trim(),
           startTimeIso: event.date_iso,
+          customerAddress: { country: 'CA', postal_code: normalized, state },
         });
         if (result.ok) {
           Alert.alert('Booked', "You're signed up. Check your email for details.");
@@ -113,7 +184,7 @@ export default function WorkshopQuickViewModal({
       Alert.alert('No booking link', 'This listing does not have an external booking URL yet.');
     }
     onClose();
-  }, [attendeeName, event, onBookingComplete, onClose, router, userEmail, userId]);
+  }, [attendeeName, event, onBookingComplete, onClose, profilePostalCode, router, userEmail, userId]);
 
   if (!event) return null;
 
@@ -243,7 +314,18 @@ export default function WorkshopQuickViewModal({
                   gap: 6,
                 }}
               >
-                {priceLine != null ? (
+                {priceLine != null && !taxQuote ? (
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.charcoal }}>{priceLine}</Text>
+                ) : taxQuote && !taxQuote.free ? (
+                  <View>
+                    <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>
+                      {formatCad(taxQuote.subtotalCad)} + {formatCad(taxQuote.taxCad)} tax
+                    </Text>
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.charcoal, marginTop: 2 }}>
+                      Total {formatCad(taxQuote.totalCad)}
+                    </Text>
+                  </View>
+                ) : priceLine != null ? (
                   <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.charcoal }}>{priceLine}</Text>
                 ) : (
                   <View />
@@ -253,6 +335,12 @@ export default function WorkshopQuickViewModal({
                 ) : null}
               </View>
 
+              {saas && taxQuoteLoading ? (
+                <Text style={{ marginTop: 8, fontSize: 12, color: DesignColors.mediumGray }}>Calculating tax…</Text>
+              ) : null}
+              {saas && taxQuoteError ? (
+                <Text style={{ marginTop: 8, fontSize: 12, color: '#B45309', lineHeight: 17 }}>{taxQuoteError}</Text>
+              ) : null}
               {full ? (
                 <View
                   style={{

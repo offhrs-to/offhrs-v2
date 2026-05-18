@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   let query = admin
     .from('bookings')
     .select(`
-      id, name, email, amount_cad, stripe_fee_cad, net_vendor_cad,
+      id, name, email, amount_cad, subtotal_cad, tax_cad, total_cad, stripe_fee_cad, net_vendor_cad,
       stripe_payment_intent_id, stripe_charge_id,
       status, refunded_at, cancellation_reason, created_at, event_id,
       events ( title )
@@ -46,14 +46,16 @@ export async function GET(request: NextRequest) {
 
   if (format === 'csv') {
     const rows = [
-      ['ID', 'Attendee Name', 'Email', 'Session', 'Booking Date', 'Amount (CAD)', 'Stripe Fee', 'Net', 'Status', 'Charge ID'].join(','),
+      ['ID', 'Attendee Name', 'Email', 'Session', 'Booking Date', 'Subtotal', 'Tax', 'Total', 'Stripe Fee', 'Net', 'Status', 'Charge ID'].join(','),
       ...(bookings ?? []).map((b) => [
         b.id,
         `"${(b.name ?? '').replace(/"/g, '""')}"`,
         b.email ?? '',
         `"${((b.events as { title?: string })?.title ?? '').replace(/"/g, '""')}"`,
         new Date(b.created_at).toISOString().slice(0, 10),
-        b.amount_cad ?? '',
+        b.subtotal_cad ?? b.amount_cad ?? '',
+        b.tax_cad ?? '',
+        b.total_cad ?? b.amount_cad ?? '',
         b.stripe_fee_cad ?? '',
         b.net_vendor_cad ?? '',
         b.status ?? '',

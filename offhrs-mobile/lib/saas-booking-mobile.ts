@@ -28,11 +28,20 @@ export async function postLegacyBookTap(eventId: number, eventTitle: string): Pr
  * SaaS path: `/api/book` → Payment Sheet → `/api/book/confirm`.
  * Requires signed-in user with email (Stripe customer + PaymentIntent).
  */
+export type CustomerAddressForTax = {
+  postal_code: string;
+  state?: string;
+  country?: string;
+  city?: string;
+  line1?: string;
+};
+
 export async function runPaidWorkshopBooking(params: {
   eventId: number;
   attendeeName: string;
   attendeeEmail: string;
   startTimeIso?: string | null;
+  customerAddress?: CustomerAddressForTax | null;
 }): Promise<BookPaidResult> {
   logBookingAnalytics('book_tap', { eventId: params.eventId });
 
@@ -57,6 +66,17 @@ export async function runPaidWorkshopBooking(params: {
       attendee_name: params.attendeeName.trim(),
       attendee_email: params.attendeeEmail.trim(),
       start_time: params.startTimeIso?.trim() || undefined,
+      ...(params.customerAddress
+        ? {
+            customer_address: {
+              country: params.customerAddress.country ?? 'CA',
+              postal_code: params.customerAddress.postal_code,
+              state: params.customerAddress.state,
+              city: params.customerAddress.city,
+              line1: params.customerAddress.line1,
+            },
+          }
+        : {}),
     }),
   });
 

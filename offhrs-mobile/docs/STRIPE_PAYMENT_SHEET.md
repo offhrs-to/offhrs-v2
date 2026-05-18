@@ -9,6 +9,13 @@ End-to-end flow:
 3. App calls `initPaymentSheet` then `presentPaymentSheet` (see `lib/saas-booking-mobile.ts`).
 4. On success, app `POST`s `/api/book/confirm` with `paymentIntentId` so the server inserts the booking after verifying `pi.status === 'succeeded'`.
 
+### Tax (Stripe Tax)
+
+- Workshop `price_cad` is **before tax**. Tax is calculated via Stripe Tax on the **vendor Connect account** (vendor liability) using the buyer’s Canadian postal code (from profile or `customer_address`).
+- `POST /api/book/quote` previews subtotal / tax / total.
+- Partners subscriptions use Stripe Checkout `automatic_tax` on the **platform** account.
+- Vendors must complete **Stripe Tax** setup on their Express account (head office + registrations) or tax may calculate as $0.
+
 ## Configuration in this repo
 
 | Piece | Where |

@@ -440,6 +440,7 @@ export default function WorkshopBrowseScreen() {
         saving={quickViewSaving}
         onToggleSave={handleQuickViewSave}
         profileLocation={profileLocation ? { lat: profileLocation.lat, lng: profileLocation.lng } : null}
+        profilePostalCode={profileLocation?.postal_code ?? null}
         onBookingComplete={reload}
       />
     </>

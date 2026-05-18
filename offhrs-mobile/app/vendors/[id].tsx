@@ -68,6 +68,7 @@ export default function VendorProfileScreen() {
   const [savedEventIds, setSavedEventIds] = useState<Set<number>>(new Set());
   const [quickViewSaving, setQuickViewSaving] = useState(false);
   const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
+  const [profilePostalCode, setProfilePostalCode] = useState<string | null>(null);
 
   const loadData = () => {
     if (!id) return;
@@ -182,14 +183,18 @@ export default function VendorProfileScreen() {
     useCallback(() => {
       if (!user?.id) {
         setProfileDisplayName(null);
+        setProfilePostalCode(null);
         return;
       }
       supabase
         .from('profiles')
-        .select('display_name')
+        .select('display_name, postal_code')
         .eq('id', user.id)
         .single()
-        .then(({ data }) => setProfileDisplayName(data?.display_name?.trim() || null));
+        .then(({ data }) => {
+          setProfileDisplayName(data?.display_name?.trim() || null);
+          setProfilePostalCode(data?.postal_code?.trim() || null);
+        });
     }, [user?.id])
   );
 
@@ -396,6 +401,7 @@ export default function VendorProfileScreen() {
         saving={quickViewSaving}
         onToggleSave={handleQuickViewSave}
         profileLocation={null}
+        profilePostalCode={profilePostalCode}
         onBookingComplete={loadData}
       />
     </>

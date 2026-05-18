@@ -99,6 +99,10 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
+      automatic_tax: { enabled: true },
+      billing_address_collection: 'required',
+      customer_update: { address: 'auto' },
+      tax_id_collection: { enabled: true },
       line_items: [
         {
           price: priceId,

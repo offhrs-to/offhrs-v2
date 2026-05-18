@@ -311,13 +311,32 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
     if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
 
-    await admin.from('events').update({ booking_status: 'archived' }).eq('id', id)
+    const eventId = Number(id)
+    if (!Number.isFinite(eventId)) {
+      return NextResponse.json({ error: 'Invalid session id' }, { status: 400 })
+    }
 
-    void syncVendorSessionToExternalCalendars(admin, vendor.id, id).catch((e) =>
+    const { data: updated, error: updateError } = await admin
+      .from('events')
+      .update({ booking_status: 'archived' })
+      .eq('id', eventId)
+      .eq('vendor_profile_id', vendor.id)
+      .select('id, booking_status')
+      .maybeSingle()
+
+    if (updateError) {
+      console.error('Session archive error:', updateError)
+      return NextResponse.json({ error: updateError.message }, { status: 500 })
+    }
+    if (!updated || updated.booking_status !== 'archived') {
+      return NextResponse.json({ error: 'Could not archive workshop' }, { status: 500 })
+    }
+
+    void syncVendorSessionToExternalCalendars(admin, vendor.id, String(eventId)).catch((e) =>
       console.error('[sessions] calendar sync', e)
     )
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, archived: true })
   } catch (err) {
     console.error('Session delete error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
