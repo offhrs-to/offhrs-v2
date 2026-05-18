@@ -26,5 +26,11 @@ export function bookingApiErrorMessage(status: number, bodyError?: string): stri
       'Booking API returned unauthorized (401). If this is a Vercel Preview build, add EXPO_PUBLIC_VERCEL_PROTECTION_BYPASS from Vercel → Deployment Protection, or disable protection for Preview.'
     );
   }
-  return bodyError?.trim() || `Could not start booking (${status})`;
+  if (status === 404) {
+    return (
+      bodyError?.trim() ||
+      'Booking API not found (404). Redeploy the preview API or confirm EXPO_PUBLIC_BOOK_API_BASE points at the latest deployment.'
+    );
+  }
+  return bodyError?.trim() || `Request failed (${status})`;
 }

@@ -26,6 +26,7 @@ import {
 import { SignInForm } from '@/components/SignInForm';
 import { openWebAppPath } from '@/lib/web-app-links';
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
+import { normalizeProfilePhone } from '@/lib/profile-phone';
 import { geocodeAddress, reverseGeocodeCanadianPostal } from '@/lib/geocode';
 import { deleteAuthenticatedUserAccount } from '@/lib/delete-account';
 import { emitProfileUpdated, PROFILE_UPDATED_EVENT } from '@/lib/profile-events';
@@ -73,6 +74,7 @@ export default function ProfileScreen() {
     postal_code: string | null;
     location_lat: number | null;
     location_lng: number | null;
+    phone: string | null;
   } | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [savedEventsCount, setSavedEventsCount] = useState(0);
@@ -94,6 +96,7 @@ export default function ProfileScreen() {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [settingsName, setSettingsName] = useState('');
   const [settingsEmail, setSettingsEmail] = useState('');
+  const [settingsPhone, setSettingsPhone] = useState('');
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsLocationPostal, setSettingsLocationPostal] = useState('');
@@ -109,7 +112,7 @@ export default function ProfileScreen() {
     supabase
       .from('profiles')
       .select(
-        'display_name, avatar_url, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng'
+        'display_name, avatar_url, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng, phone'
       )
       .eq('id', user.id)
       .single()
@@ -149,7 +152,7 @@ export default function ProfileScreen() {
         supabase
           .from('profiles')
           .select(
-            'display_name, avatar_url, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng'
+            'display_name, avatar_url, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng, phone'
           )
           .eq('id', user.id)
           .single()
@@ -253,7 +256,7 @@ export default function ProfileScreen() {
     supabase
       .from('profiles')
       .select(
-        'display_name, avatar_url, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng'
+        'display_name, avatar_url, expertise_level, experience_points, onboarding_completed, instructor_categories, postal_code, location_lat, location_lng, phone'
       )
       .eq('id', user.id)
       .single()
@@ -353,6 +356,7 @@ export default function ProfileScreen() {
           onPress={() => {
             setSettingsName(displayName === '—' ? '' : displayName);
             setSettingsEmail(email === '—' ? '' : email);
+            setSettingsPhone(profile?.phone?.trim() ?? '');
             setSettingsLocationPostal(profile?.postal_code ?? '');
             setSettingsError(null);
             setSettingsVisible(true);
@@ -831,6 +835,32 @@ export default function ProfileScreen() {
                 marginBottom: 20,
               }}
             />
+            <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 6 }}>
+              Phone number <Text style={{ color: DesignColors.mediumGray }}>(optional)</Text>
+            </Text>
+            <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginBottom: 10 }}>
+              Shared with workshop hosts you book with so they can reach you if needed.
+            </Text>
+            <TextInput
+              value={settingsPhone}
+              onChangeText={setSettingsPhone}
+              placeholder="e.g. (416) 555-0123"
+              placeholderTextColor={DesignColors.mediumGray}
+              keyboardType="phone-pad"
+              textContentType="telephoneNumber"
+              autoComplete="tel"
+              style={{
+                backgroundColor: DesignColors.inputBg,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontSize: 16,
+                color: DesignColors.charcoal,
+                marginBottom: 20,
+              }}
+            />
             <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.charcoal, marginBottom: 8 }}>
               Workshop distance
             </Text>
@@ -999,6 +1029,7 @@ export default function ProfileScreen() {
                   const nameTrim = settingsName.trim();
                   const emailTrim = settingsEmail.trim();
                   const postalRaw = settingsLocationPostal.trim();
+                  const phoneNormalized = normalizeProfilePhone(settingsPhone);
 
                   let locationPatch: ProfileLocationUpsert | null = null;
                   if (postalRaw) {
@@ -1024,6 +1055,7 @@ export default function ProfileScreen() {
                   const upsertBody: Record<string, string | number | null> = {
                     id: user.id,
                     display_name: nameTrim || null,
+                    phone: phoneNormalized,
                     updated_at: new Date().toISOString(),
                   };
                   if (locationPatch) {

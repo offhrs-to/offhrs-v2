@@ -44,6 +44,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     initiatedBy: 'consumer',
     cancellationReason: 'Cancelled by attendee',
     consumerUserId: user.id,
+    consumerEmail: user.email ?? null,
   })
 
   if (!result.ok) {

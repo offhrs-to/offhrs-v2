@@ -134,6 +134,7 @@ export async function processBookingRefund(
     stripeAlreadyRefunded?: boolean
     /** Required for consumer-initiated refunds. */
     consumerUserId?: string
+    consumerEmail?: string | null
     skipRefundWindowCheck?: boolean
   }
 ): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
@@ -163,12 +164,33 @@ export async function processBookingRefund(
   }
 
   if (options.initiatedBy === 'consumer') {
-    if (!options.consumerUserId || row.user_id !== options.consumerUserId) {
-      return { ok: false, error: 'Forbidden', status: 403 }
+    if (!options.consumerUserId) {
+      return { ok: false, error: 'Unauthorized', status: 401 }
+    }
+    const userIdMatch = row.user_id === options.consumerUserId
+    const consumerEmail = options.consumerEmail?.trim().toLowerCase() ?? ''
+    const bookingEmail = row.email?.trim().toLowerCase() ?? ''
+    const emailMatch = Boolean(consumerEmail && bookingEmail && consumerEmail === bookingEmail)
+    if (!userIdMatch && !emailMatch) {
+      return { ok: false, error: 'You can only cancel your own bookings', status: 403 }
+    }
+    if (!row.user_id && emailMatch) {
+      await admin.from('bookings').update({ user_id: options.consumerUserId }).eq('id', bookingId)
+      row.user_id = options.consumerUserId
     }
   }
 
-  const ev = resolveEvent(row)
+  let ev = resolveEvent(row)
+  if (!ev && row.event_id != null) {
+    const { data: eventRow } = await admin
+      .from('events')
+      .select(
+        'title, date, location, duration_minutes, workshop_series, series_occurrences, available_slots, booking_status, max_attendees'
+      )
+      .eq('id', row.event_id)
+      .maybeSingle()
+    ev = (eventRow as EventJoin | null) ?? null
+  }
   if (!ev) {
     return { ok: false, error: 'Workshop not found for this booking', status: 404 }
   }

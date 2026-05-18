@@ -6,13 +6,22 @@ export async function cancelUserBooking(params: {
   accessToken: string;
 }): Promise<{ ok: true } | { ok: false; message: string }> {
   const headers = await buildBookingApiHeaders(params.accessToken);
-  const res = await fetch(`${BOOK_API_BASE}/api/bookings/${params.bookingId}/cancel`, {
+  const res = await fetch(`${BOOK_API_BASE}/api/bookings/${encodeURIComponent(params.bookingId)}/cancel`, {
     method: 'POST',
     headers,
   });
-  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  const raw = await res.text().catch(() => '');
+  let data: { error?: string } = {};
+  try {
+    data = raw ? (JSON.parse(raw) as { error?: string }) : {};
+  } catch {
+    /* HTML from Vercel protection or missing route */
+  }
   if (!res.ok) {
-    return { ok: false, message: data.error?.trim() || `Could not cancel booking (${res.status})` };
+    return {
+      ok: false,
+      message: bookingApiErrorMessage(res.status, data.error) || `Could not cancel booking (${res.status})`,
+    };
   }
   return { ok: true };
 }
