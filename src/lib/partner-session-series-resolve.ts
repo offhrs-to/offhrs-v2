@@ -1,5 +1,6 @@
 import { addWeeks } from 'date-fns'
 import { getMaterializedInstanceDates } from '@/lib/recurring-event-instances'
+import { parseWorkshopDateTimeInput } from '@/lib/workshop-timezone'
 
 /** Partner multi-date schedules (stored as one `events` row + `series_occurrences`). */
 export type PartnerMultiWeekSchedule = 'same_day_time' | 'custom_times' | 'daily_weekdays'
@@ -15,9 +16,9 @@ export type PartnerSessionSeriesBody = {
   multi_week_daily_js_weekdays?: number[]
 }
 
+/** @deprecated Use parseWorkshopDateTimeInput — kept as alias for existing imports. */
 export function parseUserDateTime(s: string): Date | null {
-  const d = new Date(s)
-  return Number.isNaN(d.getTime()) ? null : d
+  return parseWorkshopDateTimeInput(s)
 }
 
 /**

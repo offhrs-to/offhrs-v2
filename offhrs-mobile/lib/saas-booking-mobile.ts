@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
 
 import { BOOK_API_BASE } from '@/constants/api';
+import { bookingApiErrorMessage, buildBookingApiHeaders } from '@/lib/booking-api-headers';
 import { logBookingAnalytics } from '@/lib/booking-analytics';
 import { supabase } from '@/lib/supabase';
 
@@ -15,10 +16,7 @@ export async function postLegacyBookTap(eventId: number, eventTitle: string): Pr
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (session?.access_token) {
-    headers.Authorization = `Bearer ${session.access_token}`;
-  }
+  const headers = await buildBookingApiHeaders(session?.access_token);
   await fetch(`${BOOK_API_BASE}/api/book`, {
     method: 'POST',
     headers,
@@ -49,10 +47,7 @@ export async function runPaidWorkshopBooking(params: {
     return { ok: false, message: 'Your account needs an email address to book.' };
   }
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${session.access_token}`,
-  };
+  const headers = await buildBookingApiHeaders(session.access_token);
 
   const bookRes = await fetch(`${BOOK_API_BASE}/api/book`, {
     method: 'POST',
@@ -68,7 +63,7 @@ export async function runPaidWorkshopBooking(params: {
   const bookData = (await bookRes.json().catch(() => ({}))) as Record<string, unknown>;
 
   if (!bookRes.ok) {
-    const msg = (bookData.error as string) || `Could not start booking (${bookRes.status})`;
+    const msg = bookingApiErrorMessage(bookRes.status, bookData.error as string | undefined);
     logBookingAnalytics('book_api_error', { eventId: params.eventId, detail: msg });
     return { ok: false, message: msg };
   }

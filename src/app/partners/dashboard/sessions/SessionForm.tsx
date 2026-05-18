@@ -7,6 +7,7 @@ import { GooglePlacesField } from '@/app/partners/signup/GooglePlacesField'
 import { parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
 import { ALL_JS_WEEKDAYS, countDailyInstancesInWindow, RENEW_INSTANCES_WEEKS } from '@/lib/recurring-event-instances'
 import { PARTNER_WEEKDAY_TOGGLE_ORDER } from '@/constants/partner-workshop-schedule'
+import { formatWorkshopDateTimeLocalValue } from '@/lib/workshop-timezone'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -26,6 +27,8 @@ interface SessionFormProps {
     duration_minutes: number | null
     date: string | null
     location: string | null
+    lat?: number | null
+    lng?: number | null
     status: string
     description?: string | null
     image_url?: string | null
@@ -52,6 +55,12 @@ export function SessionForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [mapsAuthError, setMapsAuthError] = useState<string | null>(null)
+  const [locationLat, setLocationLat] = useState<number | null>(() =>
+    session?.lat != null && Number.isFinite(Number(session.lat)) ? Number(session.lat) : null
+  )
+  const [locationLng, setLocationLng] = useState<number | null>(() =>
+    session?.lng != null && Number.isFinite(Number(session.lng)) ? Number(session.lng) : null
+  )
 
   const [form, setForm] = useState({
     title: session?.title ?? '',
@@ -59,7 +68,7 @@ export function SessionForm({
     price_cad: session?.price_cad?.toString() ?? '0',
     max_attendees: session?.max_attendees?.toString() ?? '10',
     duration_minutes: session?.duration_minutes?.toString() ?? '90',
-    date: session?.date ? new Date(session.date).toISOString().slice(0, 16) : '',
+    date: session?.date ? formatWorkshopDateTimeLocalValue(session.date) : '',
     location_type: 'in_person' as 'in_person' | 'virtual',
     location_address: (session?.location ?? '').trim() || vendorDefaultAddress.trim(),
     location_link: '',
@@ -137,7 +146,7 @@ export function SessionForm({
           setMultiWeekExtraDates([])
         } else {
           setSeriesPattern('weekly_custom')
-          setMultiWeekExtraDates(occ.slice(1).map((o) => new Date(o.start).toISOString().slice(0, 16)))
+          setMultiWeekExtraDates(occ.slice(1).map((o) => formatWorkshopDateTimeLocalValue(o.start)))
         }
       }
     } else {
@@ -190,13 +199,16 @@ export function SessionForm({
 
   const handlePlaceResolved = useCallback(
     (payload: { lat: number; lng: number; formattedAddress: string }) => {
+      setLocationLat(payload.lat)
+      setLocationLng(payload.lng)
       setForm((f) => ({ ...f, location_address: payload.formattedAddress }))
     },
     []
   )
 
   const handleClearGeocode = useCallback(() => {
-    /* Workshops only persist address text; no lat/lng state to clear. */
+    setLocationLat(null)
+    setLocationLng(null)
   }, [])
 
   function set(key: keyof typeof form, value: string) {
@@ -277,6 +289,8 @@ export function SessionForm({
         date: form.date || undefined,
         location_type: form.location_type,
         location_address: form.location_type === 'in_person' ? form.location_address : undefined,
+        location_lat: form.location_type === 'in_person' ? locationLat : null,
+        location_lng: form.location_type === 'in_person' ? locationLng : null,
         location_link: form.location_type === 'virtual' ? form.location_link : undefined,
         description: form.description || undefined,
         status: form.status,
@@ -689,7 +703,9 @@ export function SessionForm({
                 <GooglePlacesField
                   key={isEdit ? `edit-${session!.id}` : 'create-workshop-location'}
                   initialValue={form.location_address}
-                  onAddressChange={(address) => setForm((f) => ({ ...f, location_address: address }))}
+                  onAddressChange={(address) => {
+                    setForm((f) => ({ ...f, location_address: address }))
+                  }}
                   onPlaceResolved={handlePlaceResolved}
                   onClearGeocode={handleClearGeocode}
                   onAuthFailure={handleMapsAuthFailure}
@@ -708,7 +724,11 @@ export function SessionForm({
                   <input
                     id="workshop-location-fallback"
                     value={form.location_address}
-                    onChange={(e) => set('location_address', e.target.value)}
+                    onChange={(e) => {
+                      setLocationLat(null)
+                      setLocationLng(null)
+                      set('location_address', e.target.value)
+                    }}
                     placeholder="123 Main St, Toronto, ON"
                     className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
                   />

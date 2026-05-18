@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -97,9 +97,45 @@ type Props = {
   profileLocation: { lat: number; lng: number } | null;
   savedEventIds: Set<number>;
   onSaveChange: (eventId: number, saved: boolean) => void;
+  /** Opens workshop quick view for the given session row (title, address, date, price, time). */
+  onOpenQuickView?: (event: WorkshopEventRow) => void;
 };
 
-export default function WorkshopBrowseGroupedCard({ group, profileLocation, savedEventIds, onSaveChange }: Props) {
+function QuickViewTap({
+  onOpenQuickView,
+  event,
+  label,
+  children,
+  style,
+}: {
+  onOpenQuickView?: (event: WorkshopEventRow) => void;
+  event: WorkshopEventRow;
+  label: string;
+  children: React.ReactNode;
+  style?: object;
+}) {
+  if (!onOpenQuickView) {
+    return <View style={style}>{children}</View>;
+  }
+  return (
+    <Pressable
+      onPress={() => onOpenQuickView(event)}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [style, pressed ? { opacity: 0.72 } : null]}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
+export default function WorkshopBrowseGroupedCard({
+  group,
+  profileLocation,
+  savedEventIds,
+  onSaveChange,
+  onOpenQuickView,
+}: Props) {
   const { user } = useAuth();
   const router = useRouter();
   const sorted = useMemo(() => [...group].sort((a, b) => eventSortMs(a) - eventSortMs(b)), [group]);
@@ -243,41 +279,60 @@ export default function WorkshopBrowseGroupedCard({ group, profileLocation, save
       <View style={{ paddingHorizontal: 12, paddingVertical: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
           <View style={{ flex: 1, minWidth: 0, paddingRight: 10, alignItems: 'flex-start' }}>
-            <Text
-              style={{ fontSize: 13, fontWeight: '700', color: DesignColors.charcoal, textAlign: 'left', width: '100%' }}
-              numberOfLines={3}
+            <QuickViewTap
+              onOpenQuickView={onOpenQuickView}
+              event={selected}
+              label={`View details for ${title}`}
+              style={{ width: '100%' }}
             >
-              {title}
-            </Text>
+              <Text
+                style={{ fontSize: 13, fontWeight: '700', color: DesignColors.charcoal, textAlign: 'left', width: '100%' }}
+                numberOfLines={3}
+              >
+                {title}
+              </Text>
+            </QuickViewTap>
 
             {locationLine ? (
-              <Text
-                style={{
-                  marginTop: 4,
-                  fontSize: 11,
-                  color: DesignColors.mediumGray,
-                  textAlign: 'left',
-                  width: '100%',
-                }}
-                numberOfLines={1}
+              <QuickViewTap
+                onOpenQuickView={onOpenQuickView}
+                event={selected}
+                label={`View location for ${title}`}
+                style={{ marginTop: 4, width: '100%' }}
               >
-                {locationLine}
-              </Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: DesignColors.mediumGray,
+                    textAlign: 'left',
+                    width: '100%',
+                  }}
+                  numberOfLines={1}
+                >
+                  {locationLine}
+                </Text>
+              </QuickViewTap>
             ) : null}
 
             {dayLine ? (
-              <Text
-                style={{
-                  marginTop: 4,
-                  fontSize: 11,
-                  fontWeight: '600',
-                  color: DesignColors.charcoal,
-                  textAlign: 'left',
-                  width: '100%',
-                }}
+              <QuickViewTap
+                onOpenQuickView={onOpenQuickView}
+                event={selected}
+                label={`View date for ${title}`}
+                style={{ marginTop: 4, width: '100%' }}
               >
-                {dayLine}
-              </Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '600',
+                    color: DesignColors.charcoal,
+                    textAlign: 'left',
+                    width: '100%',
+                  }}
+                >
+                  {dayLine}
+                </Text>
+              </QuickViewTap>
             ) : null}
 
             <View
@@ -291,9 +346,15 @@ export default function WorkshopBrowseGroupedCard({ group, profileLocation, save
               }}
             >
               {displayPrice != null ? (
-                <Text style={{ fontSize: 12, fontWeight: '600', color: DesignColors.charcoal, textAlign: 'left' }}>
-                  {displayPrice}
-                </Text>
+                <QuickViewTap
+                  onOpenQuickView={onOpenQuickView}
+                  event={selected}
+                  label={`View price for ${title}`}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: DesignColors.charcoal, textAlign: 'left' }}>
+                    {displayPrice}
+                  </Text>
+                </QuickViewTap>
               ) : (
                 <View />
               )}
@@ -427,7 +488,13 @@ export default function WorkshopBrowseGroupedCard({ group, profileLocation, save
             return (
               <Pressable
                 key={slot.id}
-                onPress={() => !slotFull && setSelectedId(slot.id)}
+                onPress={() => {
+                  if (slotFull) return;
+                  if (onOpenQuickView) {
+                    onOpenQuickView(slot);
+                  }
+                  setSelectedId(slot.id);
+                }}
                 disabled={slotFull}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active, disabled: slotFull }}

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { supabase } from '@/lib/supabase'
+import { parseWorkshopDateTimeInput } from '@/lib/workshop-timezone'
 
 export async function deleteEvent(id: string) {
   try {
@@ -78,9 +79,8 @@ export async function updateEvent(id: string, data: {
       if (trimmedDate) {
         // If it's in datetime-local format (YYYY-MM-DDTHH:mm), convert to ISO
         if (trimmedDate.includes('T') && !trimmedDate.includes('Z') && trimmedDate.length === 16) {
-          // datetime-local format: add seconds and timezone if needed
-          const date = new Date(trimmedDate)
-          if (!isNaN(date.getTime())) {
+          const date = parseWorkshopDateTimeInput(trimmedDate)
+          if (date) {
             formattedDate = date.toISOString()
           } else {
             formattedDate = trimmedDate

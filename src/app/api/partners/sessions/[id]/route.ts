@@ -13,6 +13,7 @@ import {
   parseSeriesOccurrences,
   type EventSeriesFields,
 } from '@/lib/workshop-series'
+import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 
@@ -26,6 +27,8 @@ const updateSchema = z.object({
   date: z.string().optional(),
   location_type: z.enum(['in_person', 'virtual']).optional(),
   location_address: z.string().max(500).optional(),
+  location_lat: z.number().finite().optional().nullable(),
+  location_lng: z.number().finite().optional().nullable(),
   location_link: z.string().url().optional(),
   status: z.enum(['published', 'draft', 'archived']).optional(),
   cover_image_url: z.string().url().nullable().optional(),
@@ -154,8 +157,44 @@ export async function PUT(request: NextRequest, { params }: Params) {
       updatePayload.price = body.price_cad > 0 ? `$${body.price_cad} CAD` : 'Free'
     }
     if (body.duration_minutes !== undefined) updatePayload.duration_minutes = body.duration_minutes
-    if (body.location_address !== undefined) updatePayload.location = body.location_address
-    if (body.location_link !== undefined) updatePayload.location = body.location_link
+
+    const isVirtual =
+      body.location_type === 'virtual' ||
+      (body.location_link !== undefined && body.location_address === undefined)
+
+    if (isVirtual) {
+      if (body.location_link !== undefined) updatePayload.location = body.location_link
+      updatePayload.lat = null
+      updatePayload.lng = null
+    } else {
+      if (body.location_address !== undefined) {
+        updatePayload.location = body.location_address
+      }
+      const locationText =
+        (body.location_address !== undefined
+          ? body.location_address
+          : (session.location as string | null)) ?? ''
+      const sessionLat = session.lat as number | null | undefined
+      const sessionLng = session.lng as number | null | undefined
+      const missingCoords = sessionLat == null || sessionLng == null
+
+      if (
+        locationText.trim() &&
+        (missingCoords ||
+          body.location_address !== undefined ||
+          body.location_lat !== undefined ||
+          body.location_lng !== undefined)
+      ) {
+        const { lat, lng } = await resolveEventCoordinates({
+          location: locationText,
+          locationType: 'in_person',
+          clientLat: body.location_lat,
+          clientLng: body.location_lng,
+        })
+        updatePayload.lat = lat
+        updatePayload.lng = lng
+      }
+    }
     if (body.cover_image_url !== undefined) {
       if (body.cover_image_url === null) {
         updatePayload.image_url = vendor.default_workshop_image_url ?? null

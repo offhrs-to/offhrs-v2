@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { fetchUrlMetadata } from '@/app/actions/fetch-metadata'
 import { updateEvent } from '@/app/actions/events'
 import { geocodeAddress } from '@/lib/geocode'
+import { parseWorkshopDateTimeInput } from '@/lib/workshop-timezone'
 import {
   ALL_JS_WEEKDAYS,
   buildMaterializedEventRows,
@@ -281,8 +282,8 @@ export default function AdminEditPage() {
         if (trimmedDate) {
           // If it's in datetime-local format (YYYY-MM-DDTHH:mm), convert to ISO
           if (trimmedDate.includes('T') && !trimmedDate.includes('Z') && trimmedDate.length === 16) {
-            const date = new Date(trimmedDate)
-            if (!isNaN(date.getTime())) {
+            const date = parseWorkshopDateTimeInput(trimmedDate)
+            if (date) {
               formattedDate = date.toISOString()
             } else {
               formattedDate = trimmedDate

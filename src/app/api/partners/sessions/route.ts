@@ -11,6 +11,7 @@ import {
 import { LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD } from '@/lib/stripe-partner-plans'
 import { buildPartnerSeriesMeta, resolveWorkshopSeriesDates } from '@/lib/partner-session-series-resolve'
 import { setSeriesAvailabilityFromRules } from '@/lib/partner-event-availability'
+import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 
@@ -24,6 +25,8 @@ const sessionSchema = z.object({
   date: z.string().optional(),
   location_type: z.enum(['in_person', 'virtual']),
   location_address: z.string().max(500).optional(),
+  location_lat: z.number().finite().optional().nullable(),
+  location_lng: z.number().finite().optional().nullable(),
   location_link: z.string().url().optional(),
   status: z.enum(['published', 'draft']).default('published'),
   cover_image_url: z.string().url().optional().nullable(),
@@ -197,6 +200,18 @@ export async function POST(request: NextRequest) {
         ? body.cover_image_url
         : (vendor.default_workshop_image_url as string | null) ?? null
 
+    const locationText =
+      body.location_type === 'virtual'
+        ? (body.location_link ?? null)
+        : (body.location_address ?? null)
+
+    const { lat, lng } = await resolveEventCoordinates({
+      location: locationText,
+      locationType: body.location_type,
+      clientLat: body.location_lat,
+      clientLng: body.location_lng,
+    })
+
     const baseRow = {
       title: body.title,
       vendor_profile_id: vendor.id,
@@ -205,7 +220,9 @@ export async function POST(request: NextRequest) {
       price_cad: body.price_cad,
       max_attendees: body.max_attendees,
       duration_minutes: body.duration_minutes,
-      location: body.location_address ?? body.location_link ?? null,
+      location: locationText,
+      lat,
+      lng,
       booking_status: body.status,
       description: body.description ?? null,
       organizer: null,
