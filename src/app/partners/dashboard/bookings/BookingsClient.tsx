@@ -161,8 +161,10 @@ export function BookingsClient({ sessions }: { sessions: Session[] }) {
             <span>Action</span>
           </div>
           {bookings.map((b) => {
-            const badge = STATUS_BADGE[b.status ?? ''] ?? { label: b.status ?? '—', className: 'bg-[#F0EDE8] text-[#888]' }
-            const canRefund = b.status === 'confirmed' && !b.refunded_at
+            const effectiveStatus =
+              b.refunded_at || (b.status ?? '').toLowerCase() === 'refunded' ? 'refunded' : (b.status ?? '')
+            const badge = STATUS_BADGE[effectiveStatus] ?? { label: effectiveStatus || '—', className: 'bg-[#F0EDE8] text-[#888]' }
+            const canRefund = effectiveStatus === 'confirmed' && !b.refunded_at
             return (
               <div
                 key={b.id}

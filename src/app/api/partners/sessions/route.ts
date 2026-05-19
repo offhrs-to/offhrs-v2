@@ -1,3 +1,4 @@
+import { repairOrphanedStripeRefundsForVendor } from '@/lib/booking-refund'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
@@ -55,6 +56,8 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
+
+    await repairOrphanedStripeRefundsForVendor(admin, vendor.id)
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
+import { PARTNER_TRIAL_DAYS } from '@/lib/partner-pricing'
 import {
   stripePriceIdForCheckoutPlan,
   type PartnerCheckoutPlan,
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
         },
       ],
       subscription_data: {
-        trial_period_days: 30,
+        trial_period_days: PARTNER_TRIAL_DAYS,
         metadata: {
           vendor_id: vendor.id,
           user_id: user.id,

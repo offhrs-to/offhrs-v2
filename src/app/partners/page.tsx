@@ -1,19 +1,25 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { OffhrsLogoLink } from '@/components/offhrs-logo'
+import {
+  formatPartnerMonthlyAmount,
+  formatPartnerMonthlyPriceLabel,
+  formatPartnerPlansFromLine,
+  PARTNER_PLAN_MONTHLY_CAD,
+  PARTNER_TRIAL_LABEL,
+  PARTNER_TRIAL_LABEL_LONG,
+} from '@/lib/partner-pricing'
 import { getSiteUrl } from '@/lib/site'
 
 const site = getSiteUrl()
 
 export const metadata: Metadata = {
   title: 'offhrs Partners — Run your workshop business the easy way',
-  description:
-    'offhrs Partners gives Toronto workshop vendors instant booking, Stripe payouts, and Google/Outlook calendar sync — from $49 CAD/mo (Lite) or $79 CAD/mo (Pro). Start your free 1-month trial.',
+  description: `offhrs Partners gives Toronto workshop vendors instant booking, Stripe payouts, and Google/Outlook calendar sync — from ${formatPartnerMonthlyPriceLabel('lite')} (Lite) or ${formatPartnerMonthlyPriceLabel('pro')} (Pro). Start your free ${PARTNER_TRIAL_LABEL}.`,
   alternates: { canonical: `${site}/partners` },
   openGraph: {
     title: 'offhrs Partners — Run your workshop business the easy way',
-    description:
-      'Booking, payouts, and calendar sync for Toronto workshop vendors — Lite from $49/mo or Pro from $79/mo after a 1-month free trial.',
+    description: `Booking, payouts, and calendar sync for Toronto workshop vendors — Lite from $${PARTNER_PLAN_MONTHLY_CAD.lite}/mo or Pro from $${PARTNER_PLAN_MONTHLY_CAD.pro}/mo after a ${PARTNER_TRIAL_LABEL}.`,
     url: `${site}/partners`,
     siteName: 'offhrs',
     type: 'website',
@@ -69,7 +75,7 @@ const features = [
 
 const faqs = [
   {
-    q: 'What happens after my 1-month trial?',
+    q: `What happens after my ${PARTNER_TRIAL_LABEL}?`,
     a: 'Your subscription automatically starts at the end of the trial at the Lite or Pro rate you chose. You can cancel anytime before the trial ends with no charge.',
   },
   {
@@ -110,16 +116,16 @@ export default function PartnersLandingPage() {
           {
             '@type': 'Offer',
             name: 'Lite',
-            price: '49',
+            price: String(PARTNER_PLAN_MONTHLY_CAD.lite),
             priceCurrency: 'CAD',
-            description: 'Lite plan — up to 4 new workshop sessions per billing period, after 1-month free trial',
+            description: `Lite plan — up to 4 new workshop sessions per billing period, after ${PARTNER_TRIAL_LABEL}`,
           },
           {
             '@type': 'Offer',
             name: 'Pro',
-            price: '79',
+            price: String(PARTNER_PLAN_MONTHLY_CAD.pro),
             priceCurrency: 'CAD',
-            description: 'Pro plan — unlimited workshop sessions, after 1-month free trial',
+            description: `Pro plan — unlimited workshop sessions, after ${PARTNER_TRIAL_LABEL}`,
           },
         ],
         publisher: {
@@ -176,16 +182,16 @@ export default function PartnersLandingPage() {
           Run your workshop business the easy way — all in one platform.
         </h1>
         <p className="mt-6 text-lg text-[#555] max-w-xl mx-auto leading-relaxed">
-          Bookings, payouts, and calendar sync — handled for you. Start your free 1-month trial; plans from{' '}
-          <span className="font-semibold text-[#1a1a1a]">$49 CAD/month (Lite)</span> or{' '}
-          <span className="font-semibold text-[#1a1a1a]">$79 CAD/month (Pro)</span> after the trial.
+          Bookings, payouts, and calendar sync — handled for you. Start your free {PARTNER_TRIAL_LABEL}; plans from{' '}
+          <span className="font-semibold text-[#1a1a1a]">{formatPartnerMonthlyPriceLabel('lite')} (Lite)</span> or{' '}
+          <span className="font-semibold text-[#1a1a1a]">{formatPartnerMonthlyPriceLabel('pro')} (Pro)</span> after the trial.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
             href="/partners/signup"
             className="rounded-full bg-[#5D755D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-sm"
           >
-            Start free 1-month trial
+            Start free {PARTNER_TRIAL_LABEL}
           </Link>
           <Link
             href="/partners/login"
@@ -205,7 +211,7 @@ export default function PartnersLandingPage() {
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             {[
-              { step: '01', title: 'Sign up', body: 'Create your account and start your free 1-month trial. No upfront payment needed.' },
+              { step: '01', title: 'Sign up', body: `Create your account and start your free ${PARTNER_TRIAL_LABEL}. No upfront payment needed.` },
               { step: '02', title: 'Connect your calendar', body: 'Link Google or Outlook in one click. Your availability syncs automatically.' },
               { step: '03', title: 'Get bookings', body: 'Attendees discover and book your sessions on offhrs. Payments go straight to you.' },
             ].map((item) => (
@@ -253,10 +259,10 @@ export default function PartnersLandingPage() {
             <div className="rounded-3xl border-2 border-[#E8E6E0] bg-[#FAFAF8] p-8 shadow-sm">
               <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Lite</p>
               <div className="flex items-end gap-1 mb-1">
-                <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">$49</span>
+                <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">{formatPartnerMonthlyAmount('lite')}</span>
                 <span className="text-[#555] text-sm mb-2">CAD / month</span>
               </div>
-              <p className="text-xs text-[#5D755D] font-medium mb-6">1-month free trial included</p>
+              <p className="text-xs text-[#5D755D] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
               <ul className="space-y-3 text-sm text-[#333] mb-8">
                 {[
                   'Up to 4 new workshop sessions per billing period',
@@ -283,10 +289,10 @@ export default function PartnersLandingPage() {
             <div className="rounded-3xl border-2 border-[#5D755D] bg-[#FAFAF8] p-8 shadow-sm">
               <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Pro</p>
               <div className="flex items-end gap-1 mb-1">
-                <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">$79</span>
+                <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">{formatPartnerMonthlyAmount('pro')}</span>
                 <span className="text-[#555] text-sm mb-2">CAD / month</span>
               </div>
-              <p className="text-xs text-[#5D755D] font-medium mb-6">1-month free trial included</p>
+              <p className="text-xs text-[#5D755D] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
               <ul className="space-y-3 text-sm text-[#333] mb-8">
                 {[
                   'Unlimited workshop sessions',
@@ -337,13 +343,13 @@ export default function PartnersLandingPage() {
           Ready to fill your workshops?
         </h2>
         <p className="text-[#555] text-sm max-w-md mx-auto mb-10 leading-relaxed">
-          Join offhrs Partners today. 1 month free, then from $49 CAD/mo (Lite) or $79 CAD/mo (Pro). No commission. Cancel anytime.
+          Join offhrs Partners today. {PARTNER_TRIAL_LABEL}, then {formatPartnerPlansFromLine()}. No commission. Cancel anytime.
         </p>
         <Link
           href="/partners/signup"
           className="inline-block rounded-full bg-[#5D755D] px-10 py-4 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-md"
         >
-          Start free 1-month trial
+          Start free {PARTNER_TRIAL_LABEL}
         </Link>
       </section>
 

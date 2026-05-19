@@ -76,7 +76,7 @@ export async function sendVendorWelcome(to: string, businessName: string, dashbo
     `Welcome to offhrs Partners, ${businessName}!`,
     wrap(`
       ${h2('You\'re in! 🎉')}
-      ${p(`Your 1-month free trial has started, <strong>${businessName}</strong>. Next: connect your calendar and create your first session.`)}
+      ${p(`Your 30-day free trial has started, <strong>${businessName}</strong>. Next: connect your calendar and create your first session.`)}
       ${btn(dashboardUrl, 'Go to dashboard')}
     `)
   )

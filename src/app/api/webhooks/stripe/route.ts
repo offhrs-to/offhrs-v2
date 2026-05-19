@@ -197,7 +197,7 @@ async function handleStripeEvent(
           emailHtml(`
             <h2 style="font-size:22px;font-weight:700;margin-bottom:8px;">You're in! 🎉</h2>
             <p style="color:#555;font-size:14px;line-height:1.6;">
-              Your 1-month free trial has started on the <strong>${planLabel}</strong> plan.
+              Your 30-day free trial has started on the <strong>${planLabel}</strong> plan.
               After the trial, you&apos;ll be billed ${monthlyAmountLabelForTier(subscription_tier)} unless you cancel before then.
               Next step: set up payouts and publish your first workshop session.
             </p>

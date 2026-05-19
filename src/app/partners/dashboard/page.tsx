@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ConnectStripeButton } from './components/ConnectStripeButton'
 import { PartnerDashboardHeaderActions } from './components/PartnerDashboardHeaderActions'
 import { DashboardActivityChart } from './components/DashboardActivityChart'
+import { repairOrphanedStripeRefundsForVendor } from '@/lib/booking-refund'
 import { buildActivitySeriesFromBookings, type BookingActivityRow } from '@/lib/partner-dashboard-activity'
 
 interface VendorProfile {
@@ -78,6 +79,8 @@ export default async function DashboardPage() {
 
   if (!vendor) redirect('/partners/signup')
 
+  await repairOrphanedStripeRefundsForVendor(admin, vendor.id)
+
   // KPI data
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
@@ -99,15 +102,16 @@ export default async function DashboardPage() {
       .in('booking_status', ['published', 'fully_booked']),
     admin
       .from('bookings')
-      .select('amount_cad')
+      .select('amount_cad, status, refunded_at')
       .eq('vendor_id', vendor.id)
-      .gte('created_at', monthStart),
+      .gte('created_at', monthStart)
+      .in('status', ['confirmed', 'pending', 'booked', 'pending_confirmation']),
     admin
       .from('bookings')
-      .select('id, name, session_title:event_id(title), created_at, amount_cad, status')
+      .select('id, name, session_title:event_id(title), created_at, amount_cad, status, refunded_at')
       .eq('vendor_id', vendor.id)
       .order('created_at', { ascending: false })
-      .limit(5),
+      .limit(8),
     admin
       .from('events')
       .select('id, title, date, max_attendees, available_slots, duration_minutes, booking_status')
@@ -135,7 +139,16 @@ export default async function DashboardPage() {
 
   const activeSessions = sessionsRes.count ?? 0
   const monthlyBookings = bookingsRes.data?.length ?? 0
-  const monthlyRevenue = bookingsRes.data?.reduce((sum: number, b: { amount_cad?: number | null }) => sum + (b.amount_cad ?? 0), 0) ?? 0
+  const monthlyRevenue =
+    bookingsRes.data?.reduce(
+      (sum: number, b: { amount_cad?: number | null }) => sum + (b.amount_cad ?? 0),
+      0
+    ) ?? 0
+
+  function bookingDisplayStatus(booking: { status?: string | null; refunded_at?: string | null }): string {
+    if (booking.refunded_at || (booking.status ?? '').toLowerCase() === 'refunded') return 'refunded'
+    return (booking.status ?? 'confirmed').toLowerCase()
+  }
 
   const profileBioComplete = Boolean(vendor.bio?.trim())
 
@@ -363,7 +376,13 @@ export default async function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {recentBookingsRes.data.map((booking: Record<string, unknown>) => (
+              {recentBookingsRes.data.map((booking: Record<string, unknown>) => {
+                const displayStatus = bookingDisplayStatus({
+                  status: booking.status as string | null,
+                  refunded_at: booking.refunded_at as string | null,
+                })
+                const isRefunded = displayStatus === 'refunded'
+                return (
                 <div key={booking.id as string} className="flex items-center justify-between py-2 border-b border-[#F5F2EE] last:border-0">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-[#1a1a1a] truncate">
@@ -374,15 +393,22 @@ export default async function DashboardPage() {
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0 ml-3">
-                    <p className="text-sm font-medium text-[#1a1a1a]">
+                    <p className={`text-sm font-medium ${isRefunded ? 'text-[#888] line-through' : 'text-[#1a1a1a]'}`}>
                       {booking.amount_cad ? formatCad(booking.amount_cad as number) : '—'}
                     </p>
                     <p className="text-xs text-[#888]">
-                      {new Date(booking.created_at as string).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+                      {isRefunded && booking.refunded_at
+                        ? `Refunded ${new Date(booking.refunded_at as string).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}`
+                        : new Date(booking.created_at as string).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
                     </p>
+                    {isRefunded && (
+                      <span className="inline-block mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#888] bg-[#F0EDE8] px-1.5 py-0.5 rounded">
+                        Refunded
+                      </span>
+                    )}
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </div>

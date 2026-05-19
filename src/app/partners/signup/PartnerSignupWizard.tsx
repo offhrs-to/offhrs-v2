@@ -19,6 +19,10 @@ import type { Category } from '@/constants/categories'
 import { CATEGORIES } from '@/constants/categories'
 import { GooglePlacesField } from './GooglePlacesField'
 import { createClient as createBrowserSupabaseClient } from '@/lib/supabase/browser'
+import {
+  formatPartnerMonthlyAmount,
+  PARTNER_TRIAL_LABEL,
+} from '@/lib/partner-pricing'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -587,7 +591,7 @@ export function PartnerSignupWizard() {
             <h1 className="font-playfair text-3xl font-bold text-[#1a1a1a] leading-tight">Create your login</h1>
             <p className="text-sm text-[#555] leading-relaxed">
               Use a work email you can access. We&apos;ll send a verification link — you&apos;ll need to confirm it
-              before you can add a card for your 1-month free trial and monthly subscription.
+              before you can add a card for your {PARTNER_TRIAL_LABEL} and monthly subscription.
             </p>
             <div className="space-y-1">
               <label htmlFor="acct-email" className="block text-sm font-medium text-[#1a1a1a]">
@@ -645,7 +649,7 @@ export function PartnerSignupWizard() {
             </h1>
             <p className="text-sm text-[#555] leading-relaxed text-center">
               Choose a plan, then add a payment method to start your{' '}
-              <strong className="font-semibold text-[#1a1a1a]">1-month free trial</strong>. After the trial, your
+              <strong className="font-semibold text-[#1a1a1a]">{PARTNER_TRIAL_LABEL}</strong>. After the trial, your
               subscription renews monthly unless you cancel before the trial ends (see our Terms for details).
             </p>
             {emailVerifiedForBilling && (
@@ -661,7 +665,8 @@ export function PartnerSignupWizard() {
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#5D755D]">Lite</p>
                   <p className="mt-1 font-playfair text-2xl font-bold text-[#1a1a1a]">
-                    $49 <span className="text-sm font-normal text-[#555]">CAD / month</span>
+                    {formatPartnerMonthlyAmount('lite')}{' '}
+                    <span className="text-sm font-normal text-[#555]">CAD / month</span>
                   </p>
                   <p className="mt-2 text-xs text-[#555] leading-relaxed">
                     Up to 4 new workshop sessions per billing period. Same booking, payouts, and calendar sync as Pro.
@@ -678,7 +683,8 @@ export function PartnerSignupWizard() {
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#5D755D]">Pro</p>
                   <p className="mt-1 font-playfair text-2xl font-bold text-[#1a1a1a]">
-                    $79 <span className="text-sm font-normal text-[#555]">CAD / month</span>
+                    {formatPartnerMonthlyAmount('pro')}{' '}
+                    <span className="text-sm font-normal text-[#555]">CAD / month</span>
                   </p>
                   <p className="mt-2 text-xs text-[#555] leading-relaxed">
                     Unlimited workshop sessions. Full platform access.

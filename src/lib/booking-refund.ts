@@ -5,7 +5,11 @@ import {
   sendConsumerRefundConfirmation,
   type BookingEmailParams,
 } from '@/lib/emails'
-import { computeSlotIncrementForEvent } from '@/lib/workshop-series'
+import {
+  computeSlotIncrementForEvent,
+  parseSeriesOccurrences,
+  type EventSeriesFields,
+} from '@/lib/workshop-series'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
@@ -14,7 +18,65 @@ const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholde
 
 const PLATFORM_MIN_REFUND_HOURS = 24
 
+const ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending', 'booked', 'pending_confirmation'] as const
+
 export type RefundInitiator = 'consumer' | 'vendor' | 'stripe_webhook'
+
+function isStripeChargeAlreadyRefunded(err: unknown): boolean {
+  if (err instanceof Stripe.errors.StripeError) {
+    return err.code === 'charge_already_refunded'
+  }
+  const msg = err instanceof Error ? err.message : String(err)
+  return /already been refunded/i.test(msg)
+}
+
+async function paymentIntentHasSuccessfulRefund(paymentIntentId: string): Promise<boolean> {
+  try {
+    const refunds = await stripe.refunds.list({ payment_intent: paymentIntentId, limit: 5 })
+    return refunds.data.some((r) => r.status === 'succeeded' || r.status === 'pending')
+  } catch {
+    return false
+  }
+}
+
+/** Reconcile top-level available_slots from active booking count (single-session workshops). */
+async function reconcileEventSlotsFromBookings(
+  admin: SupabaseClient,
+  eventId: string | number,
+  eventRow: EventSeriesFields
+): Promise<void> {
+  if (parseSeriesOccurrences(eventRow).length > 0) return
+
+  const max = eventRow.max_attendees ?? 0
+  if (max <= 0) return
+
+  const { count, error: countError } = await admin
+    .from('bookings')
+    .select('*', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .in('status', [...ACTIVE_BOOKING_STATUSES])
+
+  if (countError) {
+    console.error('reconcileEventSlotsFromBookings count error:', countError)
+    return
+  }
+
+  const filled = count ?? 0
+  const available_slots = Math.max(0, max - filled)
+  const nextStatus =
+    available_slots > 0 && eventRow.booking_status === 'fully_booked'
+      ? 'published'
+      : eventRow.booking_status
+
+  const { error: updateError } = await admin
+    .from('events')
+    .update({ available_slots, booking_status: nextStatus })
+    .eq('id', eventId)
+
+  if (updateError) {
+    console.error('reconcileEventSlotsFromBookings update error:', updateError)
+  }
+}
 
 export function getEffectiveRefundWindowHours(vendorRefundWindowHours: number | null | undefined): number {
   return Math.max(vendorRefundWindowHours ?? 48, PLATFORM_MIN_REFUND_HOURS)
@@ -232,27 +294,49 @@ export async function processBookingRefund(
       ? Number(row.total_cad)
       : Number(row.amount_cad ?? 0)
 
-  if (!options.stripeAlreadyRefunded && row.stripe_payment_intent_id) {
+  let stripeAlreadyRefunded = options.stripeAlreadyRefunded ?? false
+  if (!stripeAlreadyRefunded && row.stripe_payment_intent_id) {
+    stripeAlreadyRefunded = await paymentIntentHasSuccessfulRefund(row.stripe_payment_intent_id)
+  }
+
+  const repairingStripeOnlyRefund =
+    stripeAlreadyRefunded && row.status !== 'refunded' && !row.refunded_at
+
+  if (!stripeAlreadyRefunded && row.stripe_payment_intent_id) {
     try {
       await stripe.refunds.create({
         payment_intent: row.stripe_payment_intent_id,
       })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Stripe refund failed'
-      return { ok: false, error: msg, status: 502 }
+      if (isStripeChargeAlreadyRefunded(err)) {
+        stripeAlreadyRefunded = true
+      } else {
+        const msg = err instanceof Error ? err.message : 'Stripe refund failed'
+        return { ok: false, error: msg, status: 502 }
+      }
     }
   }
 
-  await admin
+  const refundedAt = new Date().toISOString()
+  const { error: bookingUpdateError } = await admin
     .from('bookings')
     .update({
       status: 'refunded',
-      refunded_at: new Date().toISOString(),
+      refunded_at: refundedAt,
       cancellation_reason: options.cancellationReason,
     })
     .eq('id', bookingId)
 
-  const eventRow = {
+  if (bookingUpdateError) {
+    console.error('Booking refund status update failed:', bookingUpdateError)
+    return {
+      ok: false,
+      error: 'Could not update booking after refund. Please contact support.',
+      status: 500,
+    }
+  }
+
+  const eventRow: EventSeriesFields = {
     workshop_series: ev.workshop_series,
     series_occurrences: ev.series_occurrences,
     date: ev.date ?? null,
@@ -270,23 +354,74 @@ export async function processBookingRefund(
       booking_status: inc.booking_status,
     }
     if (inc.series_occurrences) eventUpdate.series_occurrences = inc.series_occurrences
-    await admin.from('events').update(eventUpdate).eq('id', row.event_id)
-    if (row.vendor_id) {
+    const { error: eventUpdateError } = await admin
+      .from('events')
+      .update(eventUpdate)
+      .eq('id', row.event_id)
+    if (eventUpdateError) {
+      console.error('Event slot increment after refund failed:', eventUpdateError)
+      await reconcileEventSlotsFromBookings(admin, row.event_id, eventRow)
+    } else if (row.vendor_id) {
       void syncVendorSessionToExternalCalendars(admin, row.vendor_id, String(row.event_id)).catch(
         () => {}
       )
     }
   } else if (row.event_id != null) {
-    await admin.rpc('increment_available_slots', { booking_event_id: row.event_id }).maybeSingle()
+    const { error: rpcError } = await admin
+      .rpc('increment_available_slots', { booking_event_id: row.event_id })
+      .maybeSingle()
+    if (rpcError) {
+      console.error('increment_available_slots RPC failed:', rpcError)
+    }
+    await reconcileEventSlotsFromBookings(admin, row.event_id, eventRow)
   }
 
-  try {
-    await sendRefundEmails(row, ev, vendorBusinessName, vendorWebsite, chargeAmountCad)
-  } catch (emailErr) {
-    console.error('Refund confirmation email error:', emailErr)
+  if (!repairingStripeOnlyRefund) {
+    try {
+      await sendRefundEmails(row, ev, vendorBusinessName, vendorWebsite, chargeAmountCad)
+    } catch (emailErr) {
+      console.error('Refund confirmation email error:', emailErr)
+    }
   }
 
   return { ok: true }
+}
+
+/**
+ * Fix bookings where Stripe issued a refund but DB status was never updated
+ * (e.g. before `refunded` was allowed in bookings_status_check).
+ */
+export async function repairOrphanedStripeRefundsForVendor(
+  admin: SupabaseClient,
+  vendorId: string
+): Promise<void> {
+  const { data: orphans, error } = await admin
+    .from('bookings')
+    .select('id, stripe_payment_intent_id')
+    .eq('vendor_id', vendorId)
+    .in('status', ['confirmed', 'pending', 'booked'])
+    .is('refunded_at', null)
+    .not('stripe_payment_intent_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(25)
+
+  if (error || !orphans?.length) return
+
+  for (const row of orphans) {
+    const pi = row.stripe_payment_intent_id as string | null
+    if (!pi) continue
+    const hasRefund = await paymentIntentHasSuccessfulRefund(pi)
+    if (!hasRefund) continue
+    const result = await processBookingRefund(admin, row.id as string, {
+      initiatedBy: 'stripe_webhook',
+      cancellationReason: 'Synced from Stripe refund',
+      stripeAlreadyRefunded: true,
+      skipRefundWindowCheck: true,
+    })
+    if (!result.ok) {
+      console.error('repairOrphanedStripeRefundsForVendor:', row.id, result.error)
+    }
+  }
 }
 
 /** Mark booking refunded when Stripe already issued refund (webhook / Dashboard). */

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { PARTNER_TRIAL_LABEL } from '@/lib/partner-pricing'
 
 export default function PartnersCheckoutPage() {
   const [loading, setLoading] = useState(false)
@@ -48,7 +49,7 @@ export default function PartnersCheckoutPage() {
         </h1>
         <p className="text-sm text-[#555] leading-relaxed">
           {canceled
-            ? 'Checkout was canceled. You can restart your 1-month trial below.'
+            ? `Checkout was canceled. You can restart your ${PARTNER_TRIAL_LABEL} below.`
             : 'You need to complete billing setup to activate your vendor account.'}
         </p>
 
@@ -68,7 +69,7 @@ export default function PartnersCheckoutPage() {
           disabled={loading}
           className="w-full rounded-lg bg-[#5D755D] px-4 py-3 text-sm font-semibold text-white hover:bg-[#4d634d] disabled:opacity-60 transition-colors"
         >
-          {loading ? 'Starting checkout…' : 'Start 1-month trial'}
+          {loading ? 'Starting checkout…' : `Start ${PARTNER_TRIAL_LABEL}`}
         </button>
 
         <p className="text-xs text-[#999]">

@@ -94,7 +94,7 @@ export default function SaasAdminPage() {
 
   const m = metrics!
   const kpis = [
-    { label: 'MRR', value: formatCad(m.mrr), sub: `${m.statusCounts['active'] ?? 0} active vendors × $79`, icon: TrendingUp, color: 'text-[#5D755D]' },
+    { label: 'MRR', value: formatCad(m.mrr), sub: `${m.statusCounts['active'] ?? 0} paying vendors (Lite $29 / Pro $49)`, icon: TrendingUp, color: 'text-[#5D755D]' },
     { label: 'Active + Trialing', value: String(m.activeCount), sub: `${m.statusCounts['trialing'] ?? 0} trialing, ${m.statusCounts['active'] ?? 0} active`, icon: Users, color: 'text-blue-600' },
     { label: 'Bookings (MTD)', value: String(m.bookingsMtd), sub: `${m.bookingsAllTime} all time`, icon: ShoppingBag, color: 'text-amber-600' },
     { label: 'GMV (MTD)', value: formatCad(m.gmvMtd), sub: `${formatCad(m.gmv)} all time`, icon: DollarSign, color: 'text-purple-600' },

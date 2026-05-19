@@ -48,7 +48,8 @@ export function buildActivitySeriesFromBookings(
 
   for (const b of rows) {
     const st = (b.status ?? '').toLowerCase()
-    if (st === 'refunded') {
+    const isRefunded = st === 'refunded' || Boolean(b.refunded_at)
+    if (isRefunded) {
       const raw = b.refunded_at ?? b.created_at
       const d = typeof raw === 'string' ? raw.slice(0, 10) : ''
       if (d && set.has(d)) counts.get(d)!.churn += 1

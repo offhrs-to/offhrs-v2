@@ -1,9 +1,18 @@
 import 'server-only'
 
+import {
+  formatPartnerMonthlyPriceLabel,
+  PARTNER_PLAN_MONTHLY_CAD,
+  PARTNER_TRIAL_DAYS,
+  type PartnerPlanTier,
+} from '@/lib/partner-pricing'
+
+export { PARTNER_TRIAL_DAYS }
+
 /** Max new workshop rows (`events` inserts) per Stripe billing period for Lite. */
 export const LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD = 4
 
-export type PartnerSubscriptionTier = 'lite' | 'pro'
+export type PartnerSubscriptionTier = PartnerPlanTier
 
 export type PartnerCheckoutPlan = PartnerSubscriptionTier
 
@@ -39,5 +48,9 @@ export function subscriptionTierFromStripePriceId(priceId: string | null | undef
 }
 
 export function monthlyAmountLabelForTier(tier: PartnerSubscriptionTier): string {
-  return tier === 'lite' ? '$49 CAD/month' : '$79 CAD/month'
+  return formatPartnerMonthlyPriceLabel(tier)
+}
+
+export function monthlyCadForTier(tier: PartnerSubscriptionTier): number {
+  return PARTNER_PLAN_MONTHLY_CAD[tier]
 }

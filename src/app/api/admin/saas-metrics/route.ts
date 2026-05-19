@@ -1,4 +1,5 @@
 import { verifyAdmin } from '@/app/api/admin/login/route'
+import { monthlyCadForTier } from '@/lib/stripe-partner-plans'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -14,6 +15,7 @@ export async function GET(request: NextRequest) {
     { data: vendorsByStatus },
     { data: bookingStats },
     { data: recentVendors },
+    { data: activeSubscriptions },
   ] = await Promise.all([
     admin
       .from('vendor_profiles')
@@ -27,6 +29,7 @@ export async function GET(request: NextRequest) {
       .select('id, business_name, slug, status, trial_ends_at, subscription_current_period_end, stripe_connect_completed, first_session_created, created_at')
       .order('created_at', { ascending: false })
       .limit(50),
+    admin.from('vendor_subscriptions').select('subscription_tier').eq('status', 'active'),
   ])
 
   const vendors = vendorsByStatus ?? []
@@ -39,7 +42,10 @@ export async function GET(request: NextRequest) {
   }, {})
 
   const activeCount = (statusCounts['active'] ?? 0) + (statusCounts['trialing'] ?? 0)
-  const mrr = (statusCounts['active'] ?? 0) * 79
+  const mrr = (activeSubscriptions ?? []).reduce((sum, sub) => {
+    const tier = sub.subscription_tier === 'lite' ? 'lite' : 'pro'
+    return sum + monthlyCadForTier(tier)
+  }, 0)
 
   // 30-day churn
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
