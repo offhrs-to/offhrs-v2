@@ -102,6 +102,30 @@ function isAlreadyRegisteredError(error: { message?: string } | null | undefined
   return /already.*registered/.test(message) || /already.*exists/.test(message)
 }
 
+/**
+ * Look up an existing Supabase auth user by email using the admin recovery-link
+ * API. We discard the resulting recovery token; the call is only used to fetch
+ * the user record (including their identity providers) without paginating
+ * listUsers. Returns null if no such user exists.
+ */
+async function lookupExistingUserByEmail(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  email: string
+) {
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+  })
+  if (error || !data?.user) return null
+  return data.user
+}
+
+function hasPasswordIdentity(user: {
+  identities?: Array<{ provider?: string }> | null
+}): boolean {
+  return (user.identities ?? []).some((i) => i?.provider === 'email')
+}
+
 export async function POST(request: NextRequest) {
   try {
     const appUrl = getAppUrl(request)
@@ -169,16 +193,52 @@ export async function POST(request: NextRequest) {
       // Dual-role path: same person, second role.
       const verified = await verifyExistingCredentials(email, password)
       if ('error' in verified) {
-        return NextResponse.json(
-          {
-            error:
-              'An account with this email already exists. The password you entered doesn\u2019t match. Sign in with your existing password (or reset it) and we\u2019ll add a vendor profile to that account.',
-          },
-          { status: 409 }
-        )
+        // Password did not match. Distinguish OAuth-only accounts (e.g. Google
+        // consumer signup with no password identity) from real password
+        // mismatches so the OAuth case can still progress.
+        const existing = await lookupExistingUserByEmail(admin, email)
+        if (!existing) {
+          return NextResponse.json(
+            { error: 'Failed to verify existing account' },
+            { status: 500 }
+          )
+        }
+        if (hasPasswordIdentity(existing)) {
+          return NextResponse.json(
+            {
+              error:
+                'An account with this email already exists. The password you entered doesn\u2019t match. Sign in with your existing password (or reset it) and we\u2019ll add a vendor profile to that account.',
+            },
+            { status: 409 }
+          )
+        }
+        // OAuth-only account: attach a password identity using the one supplied
+        // in the signup form, so the partner dashboard (currently password-
+        // only) is usable. Intent is still gated by the verification email
+        // sent below — the vendor profile stays unverified, blocking checkout,
+        // until the actual inbox owner clicks the link.
+        const { error: setPwError } = await admin.auth.admin.updateUserById(existing.id, {
+          password,
+        })
+        if (setPwError) {
+          console.error('Failed to set password on OAuth-only user:', setPwError.message)
+          return NextResponse.json(
+            {
+              error:
+                'Could not link a vendor profile to this account. Please try again or contact support.',
+            },
+            { status: 500 }
+          )
+        }
+        userId = existing.id
+        // Force the verification-email step even though the OAuth provider
+        // already confirmed the address, so the vendor profile cannot be used
+        // until the actual inbox owner consents to adding a vendor role.
+        existingUserEmailConfirmed = false
+      } else {
+        userId = verified.user.id
+        existingUserEmailConfirmed = Boolean(verified.user.email_confirmed_at)
       }
-      userId = verified.user.id
-      existingUserEmailConfirmed = Boolean(verified.user.email_confirmed_at)
 
       // Refuse if a vendor profile already exists for this user.
       const { data: existingVendor } = await admin
