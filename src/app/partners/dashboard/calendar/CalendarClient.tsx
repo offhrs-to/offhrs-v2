@@ -96,8 +96,8 @@ export function CalendarClient() {
   }, [loadStatus])
 
   useEffect(() => {
-    const err = searchParams.get('cal_error')
-    const ok = searchParams.get('cal_connected')
+    const err = searchParams.get('calendar_error')
+    const ok = searchParams.get('calendar_connected')
     if (!err && !ok) return
     if (err) setBanner(`Calendar: ${decodeURIComponent(err)}`)
     else if (ok) {

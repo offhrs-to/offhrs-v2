@@ -84,8 +84,8 @@ export async function POST(request: NextRequest) {
       )
     )
 
-    // PostgREST "table not found in schema cache" — tolerate so dropped legacy tables
-    // (e.g. Cal.com era) can't block account deletion.
+    // PostgREST "table not found in schema cache" — tolerate so legacy tables that
+    // have since been dropped can't block account deletion.
     const isMissingTableError = (err: { code?: string | null; message?: string | null } | null): boolean => {
       if (!err) return false
       if (err.code === 'PGRST205') return true

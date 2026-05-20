@@ -3,10 +3,10 @@
  */
 
 const GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token'
-const CAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
+const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
 
 export function googleCalendarScopes(): string {
-  return [CAL_SCOPE, 'openid', 'email'].join(' ')
+  return [GOOGLE_CALENDAR_SCOPE, 'openid', 'email'].join(' ')
 }
 
 export function googleAuthorizeUrl(params: {

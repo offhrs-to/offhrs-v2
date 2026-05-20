@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const clientId = process.env.MICROSOFT_CALENDAR_CLIENT_ID
   const clientSecret = process.env.MICROSOFT_CALENDAR_CLIENT_SECRET
   if (!clientId || !clientSecret) {
-    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?cal_error=microsoft_not_configured`)
+    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?calendar_error=microsoft_not_configured`)
   }
 
   const url = new URL(request.url)
@@ -19,15 +19,15 @@ export async function GET(request: NextRequest) {
   const err = url.searchParams.get('error')
 
   if (err) {
-    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?cal_error=${encodeURIComponent(err)}`)
+    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?calendar_error=${encodeURIComponent(err)}`)
   }
   if (!code || !state) {
-    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?cal_error=missing_code`)
+    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?calendar_error=missing_code`)
   }
 
   const payload = verifyOAuthState(state)
   if (!payload || payload.provider !== 'microsoft') {
-    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?cal_error=invalid_state`)
+    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?calendar_error=invalid_state`)
   }
 
   const supabase = await createClient()
@@ -38,12 +38,12 @@ export async function GET(request: NextRequest) {
 
   const admin = createAdminClient()
   if (!admin) {
-    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?cal_error=server`)
+    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?calendar_error=server`)
   }
 
   const { data: vendor } = await admin.from('vendor_profiles').select('id').eq('user_id', user.id).single()
   if (!vendor || vendor.id !== payload.vendorId) {
-    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?cal_error=vendor_mismatch`)
+    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?calendar_error=vendor_mismatch`)
   }
 
   const redirectUri = `${calendarOAuthAppBase(request)}/api/partners/calendar/oauth/microsoft/callback`
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     const refresh = tokens.refresh_token
     if (!refresh) {
       return NextResponse.redirect(
-        `${calendarOAuthAppBase(request)}/partners/dashboard/calendar?cal_error=` +
+        `${calendarOAuthAppBase(request)}/partners/dashboard/calendar?calendar_error=` +
           encodeURIComponent('No refresh token — try again and accept all permissions.')
       )
     }
@@ -67,8 +67,8 @@ export async function GET(request: NextRequest) {
     await resyncAllPublishedSessionsForVendor(admin, vendor.id).catch((e) => console.error('[calendar] resync', e))
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'oauth_failed'
-    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?cal_error=${encodeURIComponent(msg)}`)
+    return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?calendar_error=${encodeURIComponent(msg)}`)
   }
 
-  return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?cal_connected=microsoft`)
+  return NextResponse.redirect(`${calendarOAuthAppBase(request)}/partners/dashboard/calendar?calendar_connected=microsoft`)
 }

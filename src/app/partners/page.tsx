@@ -110,7 +110,7 @@ export default function PartnersLandingPage() {
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'Web',
         description:
-          'SaaS booking engine for workshop vendors: instant booking, Stripe Connect payouts, and Cal.com calendar sync.',
+          'SaaS booking engine for workshop vendors: instant booking, Stripe Connect payouts, and Google / Outlook calendar sync.',
         url: `${site}/partners`,
         offers: [
           {
