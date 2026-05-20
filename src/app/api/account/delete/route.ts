@@ -62,55 +62,92 @@ export async function POST(request: NextRequest) {
     if (!admin) {
       console.error('Account delete: admin client unavailable')
       return NextResponse.json(
-        { error: 'Account deletion is not available' },
+        { error: 'Account deletion is not available', stage: 'admin_client' },
         { status: 503 }
       )
     }
 
     const userId = user.id
 
-    // Consumer-owned rows (explicit so SaaS bookings with nullable user_id still clear when matched).
-    const consumerDeletes = await Promise.all([
-      admin.from('bookings').delete().eq('user_id', userId),
-      admin.from('user_event_saves').delete().eq('user_id', userId),
-      admin.from('user_vendor_saves').delete().eq('user_id', userId),
-      admin.from('vendor_reviews').delete().eq('user_id', userId),
-      admin.from('profile_category_experience').delete().eq('user_id', userId),
-    ])
-    const consumerErr = consumerDeletes.find((r) => r.error)?.error
-    if (consumerErr) {
-      console.error('Account delete: consumer data', consumerErr.message)
-      return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
+    // Consumer-owned rows: explicit cleanup per table so a single FK error names the table.
+    const consumerSteps: Array<{ table: string; run: () => Promise<{ error: { message: string } | null }> }> = [
+      { table: 'bookings', run: () => admin.from('bookings').delete().eq('user_id', userId) },
+      { table: 'user_event_saves', run: () => admin.from('user_event_saves').delete().eq('user_id', userId) },
+      { table: 'user_vendor_saves', run: () => admin.from('user_vendor_saves').delete().eq('user_id', userId) },
+      { table: 'vendor_reviews', run: () => admin.from('vendor_reviews').delete().eq('user_id', userId) },
+      { table: 'profile_category_experience', run: () => admin.from('profile_category_experience').delete().eq('user_id', userId) },
+    ]
+    for (const step of consumerSteps) {
+      const { error } = await step.run()
+      if (error) {
+        console.error('Account delete: consumer data failed', step.table, error.message, userId)
+        return NextResponse.json(
+          { error: `Failed to delete ${step.table}: ${error.message}`, stage: step.table },
+          { status: 500 }
+        )
+      }
     }
 
     // Same login may also own a host profile (e.g. test account); clear blocking FKs before auth delete.
-    const { data: hostProfiles } = await admin
+    const { data: hostProfiles, error: hostLookupErr } = await admin
       .from('vendor_profiles')
       .select('id')
       .eq('user_id', userId)
+    if (hostLookupErr) {
+      console.error('Account delete: host lookup', hostLookupErr.message, userId)
+      return NextResponse.json(
+        { error: `Failed to look up host profile: ${hostLookupErr.message}`, stage: 'vendor_profiles_lookup' },
+        { status: 500 }
+      )
+    }
+
     const hostIds = (hostProfiles ?? []).map((r: { id: string }) => r.id).filter(Boolean)
     if (hostIds.length > 0) {
-      const { error: hostBookingsErr } = await admin.from('bookings').delete().in('vendor_id', hostIds)
-      if (hostBookingsErr) {
-        console.error('Account delete: host bookings', hostBookingsErr.message)
-        return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
+      const hostSteps: Array<{ table: string; run: () => Promise<{ error: { message: string } | null }> }> = [
+        { table: 'bookings (host)', run: () => admin.from('bookings').delete().in('vendor_id', hostIds) },
+        { table: 'vendor_reviews (host)', run: () => admin.from('vendor_reviews').delete().in('vendor_profile_id', hostIds) },
+        { table: 'vendor_calendar_connections', run: () => admin.from('vendor_calendar_connections').delete().in('vendor_id', hostIds) },
+        { table: 'vendor_cal_tokens', run: () => admin.from('vendor_cal_tokens').delete().in('vendor_id', hostIds) },
+        { table: 'vendor_payouts', run: () => admin.from('vendor_payouts').delete().in('vendor_id', hostIds) },
+        { table: 'vendor_subscriptions', run: () => admin.from('vendor_subscriptions').delete().in('vendor_id', hostIds) },
+        { table: 'events', run: () => admin.from('events').delete().in('vendor_profile_id', hostIds) },
+        { table: 'vendor_profiles', run: () => admin.from('vendor_profiles').delete().in('id', hostIds) },
+      ]
+      for (const step of hostSteps) {
+        const { error } = await step.run()
+        if (error) {
+          console.error('Account delete: host data failed', step.table, error.message, userId)
+          return NextResponse.json(
+            { error: `Failed to delete ${step.table}: ${error.message}`, stage: step.table },
+            { status: 500 }
+          )
+        }
       }
-      const { error: hostEventsErr } = await admin.from('events').delete().in('vendor_profile_id', hostIds)
-      if (hostEventsErr) {
-        console.error('Account delete: host events', hostEventsErr.message)
-        return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
-      }
+    }
+
+    // Profiles row uses id = auth.users.id (CASCADE on delete), but delete explicitly so a stale FK can't block deleteUser.
+    const { error: profileErr } = await admin.from('profiles').delete().eq('id', userId)
+    if (profileErr) {
+      console.error('Account delete: profiles', profileErr.message, userId)
+      return NextResponse.json(
+        { error: `Failed to delete profile: ${profileErr.message}`, stage: 'profiles' },
+        { status: 500 }
+      )
     }
 
     const { error } = await admin.auth.admin.deleteUser(userId)
     if (error) {
       console.error('Account delete: deleteUser', error.message, userId)
-      return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 })
+      return NextResponse.json(
+        { error: `Failed to delete auth user: ${error.message}`, stage: 'auth_user' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ success: true })
   } catch (err) {
-    console.error('Account delete error:', err)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('Account delete error:', message, err)
+    return NextResponse.json({ error: `Internal error: ${message}`, stage: 'exception' }, { status: 500 })
   }
 }

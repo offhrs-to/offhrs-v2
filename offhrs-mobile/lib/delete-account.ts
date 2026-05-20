@@ -25,7 +25,7 @@ export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountRes
       headers,
     });
 
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    const body = (await res.json().catch(() => ({}))) as { error?: string; stage?: string };
 
     if (res.ok) {
       return { ok: true };
@@ -40,7 +40,11 @@ export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountRes
       };
     }
 
-    return { ok: false, error: body.error?.trim() || 'Failed to delete account' };
+    const suffix = body.stage ? ` [${body.stage}]` : '';
+    return {
+      ok: false,
+      error: `${body.error?.trim() || `Failed to delete account (HTTP ${res.status})`}${suffix}`,
+    };
   } catch (error) {
     return {
       ok: false,
