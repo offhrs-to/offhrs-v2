@@ -121,28 +121,40 @@ export function SettingsClient({ vendor, email }: SettingsClientProps) {
   }
 
   async function deleteAccount() {
-    if (!confirm('Delete your account? This is permanent and cannot be undone.')) return
+    const confirmed = confirm(
+      'Delete your vendor account?\n\n' +
+        'This is permanent and cannot be undone. We will:\n' +
+        '  • Cancel your offhrs Partners subscription immediately\n' +
+        '  • Delete your business profile, workshops, bookings, payouts, and calendar connections\n\n' +
+        'If you also use the offhrs mobile app as a consumer with the same email, ' +
+        'that consumer account is kept and you will still be able to log in there.'
+    )
+    if (!confirmed) return
     setDeleteLoading(true)
     setDeleteMsg(null)
     try {
-      const res = await fetch('/api/account/delete', {
+      const res = await fetch('/api/partners/account/delete', {
         method: 'POST',
         credentials: 'include',
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        throw new Error(data.error ?? 'Failed to delete account.')
+        throw new Error(data.error ?? 'Failed to delete vendor account.')
       }
 
-      // Clear local session and return to partner login.
       const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       )
-      await supabase.auth.signOut()
+      // Only sign the browser out if the auth user is actually gone. When the
+      // same login still has a consumer profile we keep auth.users intact and
+      // the session is still valid, but the vendor dashboard data is gone.
+      if (!data.preservedConsumerAccount) {
+        await supabase.auth.signOut()
+      }
       router.push('/partners/login')
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete account.'
+      const message = err instanceof Error ? err.message : 'Failed to delete vendor account.'
       setDeleteMsg({ type: 'error', text: message })
     } finally {
       setDeleteLoading(false)
@@ -336,12 +348,17 @@ export function SettingsClient({ vendor, email }: SettingsClientProps) {
         </button>
 
         <div className="mt-4 border-t border-red-100 pt-4">
+          <p className="text-xs text-[#888] mb-3">
+            Deleting your vendor account cancels your subscription right away and permanently removes
+            your business profile, workshops, bookings, payouts, and calendar connections. If you also
+            use the offhrs mobile app with the same email, your consumer account is kept.
+          </p>
           <button
             onClick={deleteAccount}
             disabled={deleteLoading}
             className="w-full text-sm font-semibold text-red-700 border border-red-200 px-4 py-2 rounded-xl hover:bg-red-50 disabled:opacity-50 transition-colors"
           >
-            {deleteLoading ? 'Deleting…' : 'Delete account'}
+            {deleteLoading ? 'Deleting…' : 'Delete vendor account'}
           </button>
           {deleteMsg && (
             <p
