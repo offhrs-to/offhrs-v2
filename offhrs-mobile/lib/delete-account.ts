@@ -10,20 +10,39 @@ export type DeleteAccountResult =
  * Permanently deletes the signed-in consumer account via the deployed Next.js API.
  */
 export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountResult> {
-  const {
+  let {
     data: { session },
   } = await supabase.auth.getSession();
   if (!session?.access_token) {
     return { ok: false, error: 'Not signed in' };
   }
 
-  const headers = await buildBookingApiHeaders(session.access_token);
+  const expiresAtMs = session.expires_at ? session.expires_at * 1000 : 0;
+  if (expiresAtMs > 0 && expiresAtMs <= Date.now() + 60_000) {
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.error || !refreshed.data.session?.access_token) {
+      return { ok: false, error: 'Session expired. Please sign in again.' };
+    }
+    session = refreshed.data.session;
+  }
 
   try {
-    const res = await fetch(`${BOOK_API_BASE}/api/account/delete`, {
+    let res = await fetch(`${BOOK_API_BASE}/api/account/delete`, {
       method: 'POST',
-      headers,
+      headers: await buildBookingApiHeaders(session.access_token),
     });
+
+    if (res.status === 401) {
+      const refreshed = await supabase.auth.refreshSession();
+      if (refreshed.error || !refreshed.data.session?.access_token) {
+        return { ok: false, error: 'Session expired. Please sign in again.' };
+      }
+      session = refreshed.data.session;
+      res = await fetch(`${BOOK_API_BASE}/api/account/delete`, {
+        method: 'POST',
+        headers: await buildBookingApiHeaders(session.access_token),
+      });
+    }
 
     const body = (await res.json().catch(() => ({}))) as { error?: string; stage?: string };
 
