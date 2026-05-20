@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { z } from 'zod'
 import { uploadVendorWorkshopImage } from '@/lib/vendor-workshop-image-storage'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024
 
@@ -66,10 +67,34 @@ function getAppUrl(request: NextRequest): string {
   )
 }
 
-async function rollbackSignup(admin: NonNullable<ReturnType<typeof createAdminClient>>, userId: string) {
-  // Remove profile first, then auth user, so retries are clean.
+async function rollbackSignup(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  userId: string,
+  options: { deleteAuthUser: boolean }
+) {
+  // Always remove the vendor row we just inserted.
   await admin.from('vendor_profiles').delete().eq('user_id', userId)
-  await admin.auth.admin.deleteUser(userId)
+  // Only delete the auth.users row if THIS request created it. Otherwise we'd
+  // wipe out an existing consumer account that shares the same email.
+  if (options.deleteAuthUser) {
+    await admin.auth.admin.deleteUser(userId)
+  }
+}
+
+/**
+ * Verify a (email, password) pair against an existing Supabase auth user without
+ * mutating server-side cookies/session. Returns the matching user on success.
+ */
+async function verifyExistingCredentials(email: string, password: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !anonKey) return { error: 'auth-not-configured' as const }
+  const ephemeral = createSupabaseClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const { data, error } = await ephemeral.auth.signInWithPassword({ email, password })
+  if (error || !data?.user) return { error: 'invalid-credentials' as const }
+  return { user: data.user }
 }
 
 export async function POST(request: NextRequest) {
@@ -118,25 +143,59 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
-    // Create Supabase auth user (email + password, not OAuth)
-    // createUser returns an error if the email is already registered
+    // Try to create a new Supabase auth user (email + password, not OAuth).
+    // If the email is already registered (e.g. as a consumer on mobile), we'll
+    // fall back to attaching a vendor profile to the existing user — provided
+    // the supplied password matches.
     const { data: authData, error: createError } = await admin.auth.admin.createUser({
       email,
       password,
       email_confirm: false,
     })
 
-    if (createError || !authData.user) {
-      if (createError?.message?.includes('already registered')) {
+    let userId: string
+    let createdNewAuthUser = false
+    let existingUserEmailConfirmed = false
+
+    if (!createError && authData?.user) {
+      userId = authData.user.id
+      createdNewAuthUser = true
+    } else if (createError?.message?.toLowerCase().includes('already registered')) {
+      // Dual-role path: same person, second role.
+      const verified = await verifyExistingCredentials(email, password)
+      if ('error' in verified) {
         return NextResponse.json(
-          { error: 'An account with this email already exists. Please sign in.' },
+          {
+            error:
+              'An account with this email already exists. The password you entered doesn\u2019t match. Sign in with your existing password (or reset it) and we\u2019ll add a vendor profile to that account.',
+          },
           { status: 409 }
         )
       }
-      return NextResponse.json({ error: createError?.message ?? 'Failed to create user' }, { status: 500 })
-    }
+      userId = verified.user.id
+      existingUserEmailConfirmed = Boolean(verified.user.email_confirmed_at)
 
-    const userId = authData.user.id
+      // Refuse if a vendor profile already exists for this user.
+      const { data: existingVendor } = await admin
+        .from('vendor_profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (existingVendor) {
+        return NextResponse.json(
+          {
+            error:
+              'A vendor account already exists for this email. Sign in to your offhrs Partners dashboard instead.',
+          },
+          { status: 409 }
+        )
+      }
+    } else {
+      return NextResponse.json(
+        { error: createError?.message ?? 'Failed to create user' },
+        { status: 500 }
+      )
+    }
 
     // Generate unique slug from business name
     const baseSlug = slugify(business_name)
@@ -153,7 +212,9 @@ export async function POST(request: NextRequest) {
       slug = `${baseSlug}-${attempt}`
     }
 
-    // Create vendor profile
+    // Create vendor profile. If the user already confirmed their email as a
+    // consumer, the vendor row inherits that verified state so the wizard can
+    // jump straight to billing.
     const websiteTrim = website_url?.trim()
     const { data: insertedProfile, error: profileError } = await admin
       .from('vendor_profiles')
@@ -169,12 +230,13 @@ export async function POST(request: NextRequest) {
         location_lng: location_lng ?? null,
         bio: bioTrim,
         status: 'pending',
+        email_verified: existingUserEmailConfirmed,
       })
       .select('id')
       .single()
 
     if (profileError || !insertedProfile) {
-      await admin.auth.admin.deleteUser(userId)
+      await rollbackSignup(admin, userId, { deleteAuthUser: createdNewAuthUser })
       return NextResponse.json({ error: 'Failed to create vendor profile' }, { status: 500 })
     }
 
@@ -185,7 +247,7 @@ export async function POST(request: NextRequest) {
         contentType: workshop_logo.mime_type,
       })
       if ('error' in uploaded) {
-        await rollbackSignup(admin, userId)
+        await rollbackSignup(admin, userId, { deleteAuthUser: createdNewAuthUser })
         return NextResponse.json({ error: uploaded.error }, { status: 400 })
       }
       const { error: logoUpdateErr } = await admin
@@ -193,15 +255,24 @@ export async function POST(request: NextRequest) {
         .update({ default_workshop_image_url: uploaded.publicUrl })
         .eq('id', insertedProfile.id)
       if (logoUpdateErr) {
-        await rollbackSignup(admin, userId)
+        await rollbackSignup(admin, userId, { deleteAuthUser: createdNewAuthUser })
         return NextResponse.json({ error: 'Failed to save workshop logo' }, { status: 500 })
       }
     }
 
-    // Verification email is mandatory before checkout.
+    // Skip the verification email when we attached to an already-verified
+    // consumer account — they own the inbox, no need to re-prove it.
+    if (existingUserEmailConfirmed) {
+      return NextResponse.json(
+        { success: true, attachedToExistingAccount: true },
+        { status: 201 }
+      )
+    }
+
+    // Verification email is mandatory before checkout for brand-new auth users.
     const resendKey = process.env.RESEND_API_KEY
     if (!resendKey) {
-      await rollbackSignup(admin, userId)
+      await rollbackSignup(admin, userId, { deleteAuthUser: createdNewAuthUser })
       return NextResponse.json(
         { error: 'Email service is not configured. Please contact support.' },
         { status: 503 }
@@ -223,7 +294,7 @@ export async function POST(request: NextRequest) {
 
     if (linkError || !linkData?.properties?.action_link) {
       console.error('Signup generateLink failed:', linkError?.message ?? 'Missing action link')
-      await rollbackSignup(admin, userId)
+      await rollbackSignup(admin, userId, { deleteAuthUser: createdNewAuthUser })
       return NextResponse.json(
         { error: 'Failed to create verification link. Please try again.' },
         { status: 502 }
@@ -238,7 +309,7 @@ export async function POST(request: NextRequest) {
 
     if (!otpToken) {
       console.error('Signup generateLink failed: Missing token/token_hash')
-      await rollbackSignup(admin, userId)
+      await rollbackSignup(admin, userId, { deleteAuthUser: createdNewAuthUser })
       return NextResponse.json(
         { error: 'Failed to create verification link. Please try again.' },
         { status: 502 }
@@ -273,7 +344,7 @@ export async function POST(request: NextRequest) {
 
     if (sendError) {
       console.error('Signup verification email failed:', sendError.message)
-      await rollbackSignup(admin, userId)
+      await rollbackSignup(admin, userId, { deleteAuthUser: createdNewAuthUser })
       return NextResponse.json(
         { error: 'Could not send verification email. Please try again in a minute.' },
         { status: 502 }
