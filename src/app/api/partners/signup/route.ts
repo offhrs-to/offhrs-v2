@@ -97,6 +97,11 @@ async function verifyExistingCredentials(email: string, password: string) {
   return { user: data.user }
 }
 
+function isAlreadyRegisteredError(error: { message?: string } | null | undefined): boolean {
+  const message = error?.message?.toLowerCase() ?? ''
+  return /already.*registered/.test(message) || /already.*exists/.test(message)
+}
+
 export async function POST(request: NextRequest) {
   try {
     const appUrl = getAppUrl(request)
@@ -160,7 +165,7 @@ export async function POST(request: NextRequest) {
     if (!createError && authData?.user) {
       userId = authData.user.id
       createdNewAuthUser = true
-    } else if (createError?.message?.toLowerCase().includes('already registered')) {
+    } else if (isAlreadyRegisteredError(createError)) {
       // Dual-role path: same person, second role.
       const verified = await verifyExistingCredentials(email, password)
       if ('error' in verified) {
