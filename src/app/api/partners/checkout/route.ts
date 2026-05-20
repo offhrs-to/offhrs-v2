@@ -102,7 +102,9 @@ export async function POST(request: NextRequest) {
       payment_method_types: ['card'],
       automatic_tax: { enabled: true },
       billing_address_collection: 'required',
-      customer_update: { address: 'auto' },
+      // tax_id_collection requires Stripe to be able to update the customer's
+      // business name; otherwise Checkout 400s for any existing customer.
+      customer_update: { address: 'auto', name: 'auto' },
       tax_id_collection: { enabled: true },
       line_items: [
         {

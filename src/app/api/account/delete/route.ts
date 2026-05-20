@@ -121,7 +121,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Same login may also own a host profile (e.g. test account); clear blocking FKs before auth delete.
+    // A Supabase auth user can own both account roles:
+    // - consumer account: profiles + bookings/saves/reviews
+    // - vendor account: vendor_profiles + partner dashboard data
+    //
+    // Mobile "Delete my account" only deletes the consumer role. If the same
+    // login also has a vendor profile, keep auth.users intact so the partner
+    // dashboard account is preserved.
     const { data: hostProfiles, error: hostLookupErr } = await admin
       .from('vendor_profiles')
       .select('id')
@@ -135,33 +141,10 @@ export async function POST(request: NextRequest) {
     }
 
     const hostIds = (hostProfiles ?? []).map((r: { id: string }) => r.id).filter(Boolean)
-    if (hostIds.length > 0) {
-      const hostSteps: DeleteStep[] = [
-        { table: 'bookings (host)', run: async () => admin.from('bookings').delete().in('vendor_id', hostIds) },
-        { table: 'vendor_reviews (host)', run: async () => admin.from('vendor_reviews').delete().in('vendor_profile_id', hostIds) },
-        { table: 'vendor_calendar_connections', run: async () => admin.from('vendor_calendar_connections').delete().in('vendor_id', hostIds) },
-        { table: 'vendor_payouts', run: async () => admin.from('vendor_payouts').delete().in('vendor_id', hostIds) },
-        { table: 'vendor_subscriptions', run: async () => admin.from('vendor_subscriptions').delete().in('vendor_id', hostIds) },
-        { table: 'events', run: async () => admin.from('events').delete().in('vendor_profile_id', hostIds) },
-        { table: 'vendor_profiles', run: async () => admin.from('vendor_profiles').delete().in('id', hostIds) },
-      ]
-      for (const step of hostSteps) {
-        const { error } = await step.run()
-        if (error) {
-          if (isMissingTableError(error)) {
-            console.warn('Account delete: skipping missing host table', step.table, error.message)
-            continue
-          }
-          console.error('Account delete: host data failed', step.table, error.message, userId)
-          return NextResponse.json(
-            { error: `Failed to delete ${step.table}: ${error.message}`, stage: step.table },
-            { status: 500 }
-          )
-        }
-      }
-    }
+    const hasVendorAccount = hostIds.length > 0
 
-    // Profiles row uses id = auth.users.id (CASCADE on delete), but delete explicitly so a stale FK can't block deleteUser.
+    // Delete only the consumer profile row. Vendor profile rows are separate and
+    // must survive when the same login is also a partner account.
     const { error: profileErr } = await admin.from('profiles').delete().eq('id', userId)
     if (profileErr) {
       console.error('Account delete: profiles', profileErr.message, userId)
@@ -169,6 +152,16 @@ export async function POST(request: NextRequest) {
         { error: `Failed to delete profile: ${profileErr.message}`, stage: 'profiles' },
         { status: 500 }
       )
+    }
+
+    if (hasVendorAccount) {
+      try {
+        await reconcileEventsByIds(admin, affectedEventIds)
+      } catch (reconcileErr) {
+        console.error('Account delete: slot reconcile failed', reconcileErr)
+      }
+
+      return NextResponse.json({ success: true, preservedVendorAccount: true })
     }
 
     const { error } = await admin.auth.admin.deleteUser(userId)
