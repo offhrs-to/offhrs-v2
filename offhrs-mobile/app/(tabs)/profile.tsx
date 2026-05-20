@@ -500,12 +500,11 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Policy links: RN TouchableOpacity (not gesture-handler) so taps work inside ScrollView */}
+      {/* Policy link: leads to the consolidated Terms overview on the web app. */}
       <View
         style={{
           marginTop: 16,
           flexDirection: 'row',
-          flexWrap: 'wrap',
           justifyContent: 'center',
           alignItems: 'center',
           paddingVertical: 8,
@@ -515,34 +514,12 @@ export default function ProfileScreen() {
         <RNTouchableOpacity
           activeOpacity={0.7}
           accessibilityRole="link"
-          accessibilityLabel="Privacy Policy"
-          onPress={() => void openWebAppPath('/privacy')}
-          style={{ paddingVertical: 10, paddingHorizontal: 8 }}
-          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-        >
-          <Text style={{ fontSize: 11, color: DesignColors.primary, fontWeight: '600' }}>Privacy Policy</Text>
-        </RNTouchableOpacity>
-        <Text style={{ fontSize: 11, color: DesignColors.mediumGray, marginHorizontal: 2 }}>·</Text>
-        <RNTouchableOpacity
-          activeOpacity={0.7}
-          accessibilityRole="link"
-          accessibilityLabel="Terms of Service"
+          accessibilityLabel="Terms and policies"
           onPress={() => void openWebAppPath('/terms')}
           style={{ paddingVertical: 10, paddingHorizontal: 8 }}
           hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
         >
-          <Text style={{ fontSize: 11, color: DesignColors.primary, fontWeight: '600' }}>Terms of Service</Text>
-        </RNTouchableOpacity>
-        <Text style={{ fontSize: 11, color: DesignColors.mediumGray, marginHorizontal: 2 }}>·</Text>
-        <RNTouchableOpacity
-          activeOpacity={0.7}
-          accessibilityRole="link"
-          accessibilityLabel="Listing disclaimer"
-          onPress={() => void openWebAppPath('/disclaimer')}
-          style={{ paddingVertical: 10, paddingHorizontal: 8 }}
-          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-        >
-          <Text style={{ fontSize: 11, color: DesignColors.primary, fontWeight: '600' }}>Listing disclaimer</Text>
+          <Text style={{ fontSize: 11, color: DesignColors.primary, fontWeight: '600' }}>Terms &amp; policies</Text>
         </RNTouchableOpacity>
       </View>
 

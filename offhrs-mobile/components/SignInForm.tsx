@@ -238,18 +238,7 @@ export function SignInForm({
                 fontSize: 11,
               }}
             >
-              Terms of Use
-            </Text>
-            {' '}and{' '}
-            <Text
-              onPress={() => void openWebAppPath('/privacy')}
-              style={{
-                color: DesignColors.primary,
-                textDecorationLine: 'underline',
-                fontSize: 11,
-              }}
-            >
-              Privacy Notice
+              Terms &amp; policies
             </Text>
             .
           </Text>

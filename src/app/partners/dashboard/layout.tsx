@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   UserCircle2,
+  FileText,
 } from 'lucide-react'
 import { useState } from 'react'
 import { OffhrsLogo } from '@/components/offhrs-logo'
@@ -84,7 +85,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </nav>
 
       {/* Bottom */}
-      <div className="px-3 pb-4 border-t border-[#E8E4DE] pt-3">
+      <div className="px-3 pb-4 border-t border-[#E8E4DE] pt-3 space-y-1">
+        <Link
+          href="/terms"
+          target="_blank"
+          rel="noreferrer"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#555] hover:bg-[#F0EDE8] hover:text-[#1a1a1a] transition-colors"
+        >
+          <FileText className="w-4 h-4" />
+          Terms &amp; policies
+        </Link>
         <button
           onClick={handleSignOut}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#555] hover:bg-[#F0EDE8] hover:text-[#1a1a1a] transition-colors"

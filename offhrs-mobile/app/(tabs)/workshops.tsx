@@ -410,29 +410,11 @@ export default function WorkshopsScreen() {
           <View
             style={{
               flexDirection: 'row',
-              flexWrap: 'wrap',
               alignItems: 'center',
               justifyContent: 'center',
               marginTop: 10,
             }}
           >
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => void openWebAppPath('/privacy')}
-              style={{ paddingVertical: 8, paddingHorizontal: 6 }}
-            >
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: '600',
-                  color: DesignColors.primary,
-                  textDecorationLine: 'underline',
-                }}
-              >
-                Privacy Policy
-              </Text>
-            </TouchableOpacity>
-            <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginHorizontal: 4 }}>·</Text>
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => void openWebAppPath('/terms')}
@@ -446,24 +428,7 @@ export default function WorkshopsScreen() {
                   textDecorationLine: 'underline',
                 }}
               >
-                Terms of Service
-              </Text>
-            </TouchableOpacity>
-            <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginHorizontal: 4 }}>·</Text>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => void openWebAppPath('/disclaimer')}
-              style={{ paddingVertical: 8, paddingHorizontal: 6 }}
-            >
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: '600',
-                  color: DesignColors.primary,
-                  textDecorationLine: 'underline',
-                }}
-              >
-                Listing disclaimer
+                Terms &amp; policies
               </Text>
             </TouchableOpacity>
           </View>
