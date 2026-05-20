@@ -7,6 +7,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { Modal, Platform } from 'react-native';
@@ -69,6 +70,27 @@ export default function RootLayout() {
 
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(ROOT_BG);
+  }, []);
+
+  // EAS OTA: fetch and apply pending update on cold start so preview testers
+  // do not need a second relaunch to pick up the latest mobile JS bundle.
+  useEffect(() => {
+    if (Platform.OS === 'web' || __DEV__) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await Updates.checkForUpdateAsync();
+        if (cancelled || !result.isAvailable) return;
+        await Updates.fetchUpdateAsync();
+        if (cancelled) return;
+        await Updates.reloadAsync();
+      } catch {
+        // Offline / no updates / dev client without Updates configured: ignore.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // OAuth (Android Custom Tabs + iOS ASWebAuthenticationSession): complete session when returning to the app.
