@@ -71,11 +71,11 @@ export async function POST(request: NextRequest) {
 
     // Consumer-owned rows: explicit cleanup per table so a single FK error names the table.
     const consumerSteps: Array<{ table: string; run: () => Promise<{ error: { message: string } | null }> }> = [
-      { table: 'bookings', run: () => admin.from('bookings').delete().eq('user_id', userId) },
-      { table: 'user_event_saves', run: () => admin.from('user_event_saves').delete().eq('user_id', userId) },
-      { table: 'user_vendor_saves', run: () => admin.from('user_vendor_saves').delete().eq('user_id', userId) },
-      { table: 'vendor_reviews', run: () => admin.from('vendor_reviews').delete().eq('user_id', userId) },
-      { table: 'profile_category_experience', run: () => admin.from('profile_category_experience').delete().eq('user_id', userId) },
+      { table: 'bookings', run: async () => admin.from('bookings').delete().eq('user_id', userId) },
+      { table: 'user_event_saves', run: async () => admin.from('user_event_saves').delete().eq('user_id', userId) },
+      { table: 'user_vendor_saves', run: async () => admin.from('user_vendor_saves').delete().eq('user_id', userId) },
+      { table: 'vendor_reviews', run: async () => admin.from('vendor_reviews').delete().eq('user_id', userId) },
+      { table: 'profile_category_experience', run: async () => admin.from('profile_category_experience').delete().eq('user_id', userId) },
     ]
     for (const step of consumerSteps) {
       const { error } = await step.run()
@@ -104,14 +104,14 @@ export async function POST(request: NextRequest) {
     const hostIds = (hostProfiles ?? []).map((r: { id: string }) => r.id).filter(Boolean)
     if (hostIds.length > 0) {
       const hostSteps: Array<{ table: string; run: () => Promise<{ error: { message: string } | null }> }> = [
-        { table: 'bookings (host)', run: () => admin.from('bookings').delete().in('vendor_id', hostIds) },
-        { table: 'vendor_reviews (host)', run: () => admin.from('vendor_reviews').delete().in('vendor_profile_id', hostIds) },
-        { table: 'vendor_calendar_connections', run: () => admin.from('vendor_calendar_connections').delete().in('vendor_id', hostIds) },
-        { table: 'vendor_cal_tokens', run: () => admin.from('vendor_cal_tokens').delete().in('vendor_id', hostIds) },
-        { table: 'vendor_payouts', run: () => admin.from('vendor_payouts').delete().in('vendor_id', hostIds) },
-        { table: 'vendor_subscriptions', run: () => admin.from('vendor_subscriptions').delete().in('vendor_id', hostIds) },
-        { table: 'events', run: () => admin.from('events').delete().in('vendor_profile_id', hostIds) },
-        { table: 'vendor_profiles', run: () => admin.from('vendor_profiles').delete().in('id', hostIds) },
+        { table: 'bookings (host)', run: async () => admin.from('bookings').delete().in('vendor_id', hostIds) },
+        { table: 'vendor_reviews (host)', run: async () => admin.from('vendor_reviews').delete().in('vendor_profile_id', hostIds) },
+        { table: 'vendor_calendar_connections', run: async () => admin.from('vendor_calendar_connections').delete().in('vendor_id', hostIds) },
+        { table: 'vendor_cal_tokens', run: async () => admin.from('vendor_cal_tokens').delete().in('vendor_id', hostIds) },
+        { table: 'vendor_payouts', run: async () => admin.from('vendor_payouts').delete().in('vendor_id', hostIds) },
+        { table: 'vendor_subscriptions', run: async () => admin.from('vendor_subscriptions').delete().in('vendor_id', hostIds) },
+        { table: 'events', run: async () => admin.from('events').delete().in('vendor_profile_id', hostIds) },
+        { table: 'vendor_profiles', run: async () => admin.from('vendor_profiles').delete().in('id', hostIds) },
       ]
       for (const step of hostSteps) {
         const { error } = await step.run()
