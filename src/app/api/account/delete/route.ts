@@ -1,3 +1,4 @@
+import { reconcileEventsByIds } from '@/lib/event-slot-reconcile'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
@@ -68,6 +69,20 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = user.id
+
+    // Capture this consumer's booking event_ids BEFORE deletion so we can restore
+    // available_slots on those events after the rows are gone.
+    const { data: priorBookings } = await admin
+      .from('bookings')
+      .select('event_id')
+      .eq('user_id', userId)
+    const affectedEventIds = Array.from(
+      new Set(
+        (priorBookings ?? [])
+          .map((b: { event_id: string | number | null }) => b.event_id)
+          .filter((id): id is string | number => id != null)
+      )
+    )
 
     // Consumer-owned rows: explicit cleanup per table so a single FK error names the table.
     const consumerSteps: Array<{ table: string; run: () => Promise<{ error: { message: string } | null }> }> = [
@@ -142,6 +157,15 @@ export async function POST(request: NextRequest) {
         { error: `Failed to delete auth user: ${error.message}`, stage: 'auth_user' },
         { status: 500 }
       )
+    }
+
+    // Slot reconciliation: bookings the user owned (now hard-deleted) may have left
+    // events.available_slots out of sync. Recompute from active booking counts so the
+    // partner dashboard shows the correct number of spots remaining.
+    try {
+      await reconcileEventsByIds(admin, affectedEventIds)
+    } catch (reconcileErr) {
+      console.error('Account delete: slot reconcile failed', reconcileErr)
     }
 
     return NextResponse.json({ success: true })

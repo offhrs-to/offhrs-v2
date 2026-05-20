@@ -7,6 +7,7 @@ import { ConnectStripeButton } from './components/ConnectStripeButton'
 import { PartnerDashboardHeaderActions } from './components/PartnerDashboardHeaderActions'
 import { DashboardActivityChart } from './components/DashboardActivityChart'
 import { repairOrphanedStripeRefundsForVendor } from '@/lib/booking-refund'
+import { reconcileVendorEventSlots } from '@/lib/event-slot-reconcile'
 import { buildActivitySeriesFromBookings, type BookingActivityRow } from '@/lib/partner-dashboard-activity'
 
 interface VendorProfile {
@@ -80,6 +81,7 @@ export default async function DashboardPage() {
   if (!vendor) redirect('/partners/signup')
 
   await repairOrphanedStripeRefundsForVendor(admin, vendor.id)
+  await reconcileVendorEventSlots(admin, vendor.id)
 
   // KPI data
   const now = new Date()
