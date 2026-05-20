@@ -336,33 +336,32 @@ export default function WorkshopBrowseGroupedCard({
               </QuickViewTap>
             ) : null}
 
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginTop: 8,
-                minHeight: 18,
-                width: '100%',
-              }}
-            >
-              {displayPrice != null ? (
-                <QuickViewTap
-                  onOpenQuickView={onOpenQuickView}
-                  event={selected}
-                  label={`View price for ${title}`}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: DesignColors.charcoal, textAlign: 'left' }}>
-                    {displayPrice}
-                  </Text>
-                </QuickViewTap>
-              ) : (
-                <View />
-              )}
-              {distanceKm != null ? (
-                <Text style={{ fontSize: 11, color: DesignColors.mediumGray, textAlign: 'right' }}>{distanceKm} km</Text>
-              ) : null}
-            </View>
+            {distanceKm != null ? (
+              <Text
+                style={{
+                  marginTop: 2,
+                  fontSize: 11,
+                  color: DesignColors.mediumGray,
+                  textAlign: 'left',
+                  width: '100%',
+                }}
+              >
+                {distanceKm} km
+              </Text>
+            ) : null}
+
+            {displayPrice != null ? (
+              <QuickViewTap
+                onOpenQuickView={onOpenQuickView}
+                event={selected}
+                label={`View price for ${title}`}
+                style={{ marginTop: 4 }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '600', color: DesignColors.charcoal, textAlign: 'left' }}>
+                  {displayPrice}
+                </Text>
+              </QuickViewTap>
+            ) : null}
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, flexShrink: 0 }}>
@@ -480,7 +479,7 @@ export default function WorkshopBrowseGroupedCard({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={{ marginTop: 12, maxWidth: '100%' }}
+          style={{ marginTop: 6, maxWidth: '100%' }}
           contentContainerStyle={{ flexDirection: 'row', gap: 8, alignItems: 'center', paddingRight: 4 }}
         >
           {sorted.map((slot) => {
