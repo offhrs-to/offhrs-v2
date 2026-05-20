@@ -47,13 +47,23 @@ export function SignInForm({
     setLoading(true);
     setError(null);
     try {
+      // Defensive: clear any stale Supabase session so the new OAuth flow starts clean.
+      await supabase.auth.signOut().catch(() => {});
+
       __DEV__ && console.log(`[SignIn] Starting ${provider} OAuth with redirectUrl:`, redirectUrl);
+
+      // Force Google's account chooser; otherwise the cached Google session
+      // (e.g. another email signed into the browser/system) is reused silently.
+      const queryParams =
+        provider === 'google' ? { prompt: 'select_account', access_type: 'offline' } : undefined;
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: redirectUrl,
           skipBrowserRedirect:
             Platform.OS === 'ios' || Platform.OS === 'android',
+          queryParams,
         },
       });
       if (error) throw error;
@@ -65,7 +75,11 @@ export function SignInForm({
 
       if (Platform.OS === 'ios' || Platform.OS === 'android') {
         try {
-          const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+          // preferEphemeralSession: ASWebAuthenticationSession does NOT share Safari cookies,
+          // so the user is never silently signed in with whichever Google account Safari remembers.
+          const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl, {
+            preferEphemeralSession: true,
+          });
           if (result.type === 'success' && result.url) {
             const handled = await processAuthCallbackUrl(result.url);
             if (handled) onSignInSuccess?.();
