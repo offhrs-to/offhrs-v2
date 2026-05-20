@@ -84,8 +84,22 @@ export async function POST(request: NextRequest) {
       )
     )
 
+    // PostgREST "table not found in schema cache" — tolerate so dropped legacy tables
+    // (e.g. Cal.com era) can't block account deletion.
+    const isMissingTableError = (err: { code?: string | null; message?: string | null } | null): boolean => {
+      if (!err) return false
+      if (err.code === 'PGRST205') return true
+      const msg = (err.message ?? '').toLowerCase()
+      return msg.includes('could not find the table') || msg.includes('does not exist')
+    }
+
+    type DeleteStep = {
+      table: string
+      run: () => Promise<{ error: { code?: string | null; message: string } | null }>
+    }
+
     // Consumer-owned rows: explicit cleanup per table so a single FK error names the table.
-    const consumerSteps: Array<{ table: string; run: () => Promise<{ error: { message: string } | null }> }> = [
+    const consumerSteps: DeleteStep[] = [
       { table: 'bookings', run: async () => admin.from('bookings').delete().eq('user_id', userId) },
       { table: 'user_event_saves', run: async () => admin.from('user_event_saves').delete().eq('user_id', userId) },
       { table: 'user_vendor_saves', run: async () => admin.from('user_vendor_saves').delete().eq('user_id', userId) },
@@ -95,6 +109,10 @@ export async function POST(request: NextRequest) {
     for (const step of consumerSteps) {
       const { error } = await step.run()
       if (error) {
+        if (isMissingTableError(error)) {
+          console.warn('Account delete: skipping missing table', step.table, error.message)
+          continue
+        }
         console.error('Account delete: consumer data failed', step.table, error.message, userId)
         return NextResponse.json(
           { error: `Failed to delete ${step.table}: ${error.message}`, stage: step.table },
@@ -118,11 +136,10 @@ export async function POST(request: NextRequest) {
 
     const hostIds = (hostProfiles ?? []).map((r: { id: string }) => r.id).filter(Boolean)
     if (hostIds.length > 0) {
-      const hostSteps: Array<{ table: string; run: () => Promise<{ error: { message: string } | null }> }> = [
+      const hostSteps: DeleteStep[] = [
         { table: 'bookings (host)', run: async () => admin.from('bookings').delete().in('vendor_id', hostIds) },
         { table: 'vendor_reviews (host)', run: async () => admin.from('vendor_reviews').delete().in('vendor_profile_id', hostIds) },
         { table: 'vendor_calendar_connections', run: async () => admin.from('vendor_calendar_connections').delete().in('vendor_id', hostIds) },
-        { table: 'vendor_cal_tokens', run: async () => admin.from('vendor_cal_tokens').delete().in('vendor_id', hostIds) },
         { table: 'vendor_payouts', run: async () => admin.from('vendor_payouts').delete().in('vendor_id', hostIds) },
         { table: 'vendor_subscriptions', run: async () => admin.from('vendor_subscriptions').delete().in('vendor_id', hostIds) },
         { table: 'events', run: async () => admin.from('events').delete().in('vendor_profile_id', hostIds) },
@@ -131,6 +148,10 @@ export async function POST(request: NextRequest) {
       for (const step of hostSteps) {
         const { error } = await step.run()
         if (error) {
+          if (isMissingTableError(error)) {
+            console.warn('Account delete: skipping missing host table', step.table, error.message)
+            continue
+          }
           console.error('Account delete: host data failed', step.table, error.message, userId)
           return NextResponse.json(
             { error: `Failed to delete ${step.table}: ${error.message}`, stage: step.table },

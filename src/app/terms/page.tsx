@@ -20,7 +20,6 @@ export default function TermsOverviewPage() {
             <OffhrsLogo className="h-8 w-auto" width={120} height={36} />
           </Link>
           <nav className="hidden md:flex items-center gap-5 text-sm text-gray-600">
-            <Link href="/workshops" className="hover:text-gray-900">Workshops</Link>
             <Link href="/partners" className="hover:text-gray-900">For Partners</Link>
             <Link href="/contact" className="hover:text-gray-900">Contact us</Link>
           </nav>
