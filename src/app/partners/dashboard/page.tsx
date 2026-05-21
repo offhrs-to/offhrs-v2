@@ -8,6 +8,7 @@ import { PartnerDashboardHeaderActions } from './components/PartnerDashboardHead
 import { DashboardActivityChart } from './components/DashboardActivityChart'
 import { repairOrphanedStripeRefundsForVendor } from '@/lib/booking-refund'
 import { reconcileVendorEventSlots } from '@/lib/event-slot-reconcile'
+import { reconcileStripeConnectStatus } from '@/lib/stripe-connect-reconcile'
 import { buildActivitySeriesFromBookings, type BookingActivityRow } from '@/lib/partner-dashboard-activity'
 
 interface VendorProfile {
@@ -18,6 +19,8 @@ interface VendorProfile {
   email_verified: boolean
   stripe_checkout_completed: boolean
   stripe_connect_completed: boolean
+  stripe_account_id: string | null
+  location_address: string | null
   first_session_created: boolean
   trial_ends_at: string | null
   subscription_current_period_end: string | null
@@ -83,6 +86,16 @@ export default async function DashboardPage() {
   await repairOrphanedStripeRefundsForVendor(admin, vendor.id)
   await reconcileVendorEventSlots(admin, vendor.id)
 
+  const connectReconciled = await reconcileStripeConnectStatus(admin, {
+    id: vendor.id,
+    stripe_account_id: vendor.stripe_account_id,
+    stripe_connect_completed: vendor.stripe_connect_completed,
+    location_address: vendor.location_address,
+  })
+  if (connectReconciled?.stripe_connect_completed) {
+    vendor.stripe_connect_completed = true
+  }
+
   // KPI data
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
@@ -96,6 +109,7 @@ export default async function DashboardPage() {
     activityCreatedRes,
     activityRefundRes,
     capacityRes,
+    calendarConnectionsRes,
   ] = await Promise.all([
     admin
       .from('events')
@@ -137,6 +151,11 @@ export default async function DashboardPage() {
       .select('available_slots')
       .eq('vendor_profile_id', vendor.id)
       .in('booking_status', ['published', 'fully_booked']),
+    admin
+      .from('vendor_calendar_connections')
+      .select('provider')
+      .eq('vendor_id', vendor.id)
+      .limit(1),
   ])
 
   const activeSessions = sessionsRes.count ?? 0
@@ -153,6 +172,7 @@ export default async function DashboardPage() {
   }
 
   const profileBioComplete = Boolean(vendor.bio?.trim())
+  const calendarConnected = (calendarConnectionsRes.data ?? []).length > 0
 
   const checklistItems = [
     { key: 'email_verified', label: 'Verify your email', done: vendor.email_verified, showStripeCta: false, href: null as string | null },
@@ -170,6 +190,13 @@ export default async function DashboardPage() {
       done: profileBioComplete,
       showStripeCta: false,
       href: profileBioComplete ? null : '/partners/dashboard/settings',
+    },
+    {
+      key: 'calendar_connected',
+      label: 'Connect your calendar (Google or Outlook)',
+      done: calendarConnected,
+      showStripeCta: false,
+      href: calendarConnected ? null : '/partners/dashboard/calendar',
     },
     {
       key: 'first_session_created',

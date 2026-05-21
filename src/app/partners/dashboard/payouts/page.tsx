@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { ExternalLink, DollarSign } from 'lucide-react'
 import { OpenStripeExpressButton } from './OpenStripeExpressButton'
 import { ConnectStripeButton } from '../components/ConnectStripeButton'
+import { reconcileStripeConnectStatus } from '@/lib/stripe-connect-reconcile'
 
 interface Payout {
   id: string
@@ -35,11 +36,23 @@ export default async function PayoutsPage() {
 
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('id, stripe_account_id, stripe_connect_completed')
+    .select('id, stripe_account_id, stripe_connect_completed, location_address')
     .eq('user_id', user.id)
-    .single()
+    .single() as {
+      data: {
+        id: string
+        stripe_account_id: string | null
+        stripe_connect_completed: boolean
+        location_address: string | null
+      } | null
+    }
 
   if (!vendor) redirect('/partners/signup')
+
+  const reconciled = await reconcileStripeConnectStatus(admin, vendor)
+  if (reconciled?.stripe_connect_completed) {
+    vendor.stripe_connect_completed = true
+  }
 
   const { data: payouts } = await admin
     .from('vendor_payouts')
