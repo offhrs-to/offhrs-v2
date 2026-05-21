@@ -255,9 +255,13 @@ export default function ProfilePage() {
           </div>
 
           <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col gap-3">
-            <Link href="/privacy" className="text-xs text-gray-500 hover:text-gray-700">
-              Privacy Policy
-            </Link>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              By continuing you agree to our{' '}
+              <Link href="/terms" className="font-medium text-[#5D755D] underline underline-offset-2 hover:text-[#4a634a]">
+                Terms &amp; policies
+              </Link>
+              .
+            </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <Button variant="outline" className="w-full sm:flex-1" asChild>
                 <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">

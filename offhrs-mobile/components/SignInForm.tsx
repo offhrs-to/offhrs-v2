@@ -75,11 +75,13 @@ export function SignInForm({
 
       if (Platform.OS === 'ios' || Platform.OS === 'android') {
         try {
-          // preferEphemeralSession: ASWebAuthenticationSession does NOT share Safari cookies,
-          // so the user is never silently signed in with whichever Google account Safari remembers.
-          const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl, {
-            preferEphemeralSession: true,
-          });
+          // Share the system browser session so Google can repopulate its
+          // account chooser with previously-used emails. We do NOT pass
+          // preferEphemeralSession here - that flag would wipe the chooser
+          // every time. Silent auto-login is already prevented by passing
+          // `prompt: 'select_account'` in queryParams above, which forces
+          // Google to render the chooser even when a session exists.
+          const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
           if (result.type === 'success' && result.url) {
             const handled = await processAuthCallbackUrl(result.url);
             if (handled) onSignInSuccess?.();

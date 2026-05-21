@@ -1,12 +1,17 @@
 import { syncBookingRefundedFromStripe } from '@/lib/booking-refund'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
+  getStripeLitePriceId,
+  getStripeProPriceId,
   monthlyAmountLabelForTier,
   subscriptionTierFromStripePriceId,
 } from '@/lib/stripe-partner-plans'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { Resend } from 'resend'
+
+type PartnerSubscriptionTier = 'lite' | 'pro'
+
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
 })
@@ -26,6 +31,74 @@ async function sendEmail(to: string, subject: string, html: string) {
 
 function emailHtml(body: string): string {
   return `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#1a1a1a;">${body}</div>`
+}
+
+function parsePartnerSubscriptionTier(value: unknown): PartnerSubscriptionTier | null {
+  return value === 'lite' || value === 'pro' ? value : null
+}
+
+function tierFromConfiguredPriceId(priceId: string | null | undefined): PartnerSubscriptionTier | null {
+  if (!priceId) return null
+  if (priceId === getStripeLitePriceId()) return 'lite'
+  if (priceId === getStripeProPriceId()) return 'pro'
+  return null
+}
+
+function tierFromStripePriceObject(price: Stripe.Price | null | undefined): PartnerSubscriptionTier | null {
+  if (!price) return null
+
+  const textParts = [
+    price.lookup_key,
+    price.nickname,
+    typeof price.product === 'object' && price.product ? price.product.name : null,
+  ]
+    .filter(Boolean)
+    .map((part) => String(part).toLowerCase())
+
+  if (textParts.some((part) => /\blite\b/.test(part))) return 'lite'
+  if (textParts.some((part) => /\bpro\b/.test(part))) return 'pro'
+
+  return null
+}
+
+async function tierFromStripePriceId(priceId: string | null | undefined): Promise<PartnerSubscriptionTier | null> {
+  const fromConfiguredId = tierFromConfiguredPriceId(priceId)
+  if (fromConfiguredId) return fromConfiguredId
+  if (!priceId) return null
+
+  try {
+    const price = await stripe.prices.retrieve(priceId, { expand: ['product'] })
+    return tierFromStripePriceObject(price)
+  } catch (err) {
+    console.warn('Could not resolve Stripe partner tier from price:', priceId, err)
+    return null
+  }
+}
+
+async function resolveInitialPartnerSubscriptionTier(params: {
+  subscription: Stripe.Subscription
+  session?: Stripe.Checkout.Session
+  existingTier?: unknown
+}): Promise<PartnerSubscriptionTier> {
+  return (
+    parsePartnerSubscriptionTier(params.session?.metadata?.plan) ??
+    parsePartnerSubscriptionTier(params.subscription.metadata?.plan) ??
+    parsePartnerSubscriptionTier(params.existingTier) ??
+    await tierFromStripePriceId(params.subscription.items.data[0]?.price.id ?? '') ??
+    subscriptionTierFromStripePriceId(params.subscription.items.data[0]?.price.id ?? '')
+  )
+}
+
+async function resolveCurrentPartnerSubscriptionTier(params: {
+  subscription: Stripe.Subscription
+  existingTier?: unknown
+}): Promise<PartnerSubscriptionTier> {
+  return (
+    await tierFromStripePriceId(params.subscription.items.data[0]?.price.id ?? '') ??
+    parsePartnerSubscriptionTier(params.existingTier) ??
+    parsePartnerSubscriptionTier(params.subscription.metadata?.plan) ??
+    subscriptionTierFromStripePriceId(params.subscription.items.data[0]?.price.id ?? '')
+  )
 }
 
 async function resolveVendorIdFromStripeSubscription(
@@ -142,7 +215,7 @@ async function handleStripeEvent(
       const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 
       const stripePriceId = subscription.items.data[0]?.price.id ?? ''
-      const subscription_tier = subscriptionTierFromStripePriceId(stripePriceId)
+      const subscription_tier = await resolveInitialPartnerSubscriptionTier({ subscription, session })
       const planLabel = subscription_tier === 'lite' ? 'Lite' : 'Pro'
 
       // Update vendor to trialing
@@ -217,15 +290,16 @@ async function handleStripeEvent(
       const vendorId = await resolveVendorIdFromStripeSubscription(admin, subscription)
       if (!vendorId) break
 
-      const stripePriceId = subscription.items.data[0]?.price.id ?? ''
       const { data: subRow } = await admin
         .from('vendor_subscriptions')
         .select('subscription_tier')
         .eq('stripe_subscription_id', subscription.id)
         .maybeSingle()
 
-      const tierFromRow = subRow?.subscription_tier as 'lite' | 'pro' | undefined
-      const subscription_tier = tierFromRow ?? subscriptionTierFromStripePriceId(stripePriceId)
+      const subscription_tier = await resolveCurrentPartnerSubscriptionTier({
+        subscription,
+        existingTier: subRow?.subscription_tier,
+      })
       const amountLine = monthlyAmountLabelForTier(subscription_tier)
 
       const { data: vp } = await admin
@@ -265,7 +339,15 @@ async function handleStripeEvent(
 
       const newStatus = stripeStatusToVendorStatus(subscription.status)
       const stripePriceId = subscription.items.data[0]?.price.id ?? ''
-      const subscription_tier = subscriptionTierFromStripePriceId(stripePriceId)
+      const { data: subRow } = await admin
+        .from('vendor_subscriptions')
+        .select('subscription_tier')
+        .eq('stripe_subscription_id', subscription.id)
+        .maybeSingle()
+      const subscription_tier = await resolveCurrentPartnerSubscriptionTier({
+        subscription,
+        existingTier: subRow?.subscription_tier,
+      })
 
       await admin.from('vendor_profiles').update({
         status: newStatus,

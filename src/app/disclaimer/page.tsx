@@ -9,7 +9,7 @@ export default function DisclaimerPage() {
           ← Back
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Listing &amp; third-party disclaimer</h1>
-        <p className="text-sm text-gray-500 mb-8">Summary for users. The legally binding terms are in our Terms of Service.</p>
+        <p className="text-sm text-gray-500 mb-8">Summary for users. The legally binding terms are in our Terms &amp; policies.</p>
 
         <div className="prose prose-gray max-w-none space-y-5 text-gray-700 text-sm">
           <p>
@@ -50,16 +50,16 @@ export default function DisclaimerPage() {
             This page is a plain-language summary. For warranties, liability limits, and your legal relationship with Offhrs,
             see our{' '}
             <Link href="/terms" className="text-[#5D755D] font-medium underline underline-offset-2">
-              Terms of Service
+              Terms &amp; policies
             </Link>
-            . Nothing here changes those Terms unless they explicitly say so.
+            . Nothing here changes those terms unless they explicitly say so.
           </p>
         </div>
 
         <div className="mt-8 pt-6 border-t border-gray-200 flex flex-wrap gap-3">
           <Link href="/terms">
             <Button variant="default" className="bg-[#5D755D] hover:bg-[#4a634a]">
-              Terms of Service
+              Terms &amp; policies
             </Button>
           </Link>
           <Link href="/workshops">

@@ -583,9 +583,6 @@ function LandingFooter() {
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 text-sm text-primary">
         <div className="flex items-center gap-3 flex-wrap justify-center">
           <p>© {new Date().getFullYear()} Offhrs. All rights reserved.</p>
-          <Link href="/privacy" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
-            Privacy Policy
-          </Link>
           <Link href="/disclaimer" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
             Disclaimer
           </Link>
@@ -593,7 +590,7 @@ function LandingFooter() {
             Contact us
           </Link>
           <Link href="/terms" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
-            Terms of Service
+            Terms &amp; policies
           </Link>
         </div>
         <Link href="/admin" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">

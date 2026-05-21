@@ -500,27 +500,39 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Policy link: leads to the consolidated Terms overview on the web app. */}
+      {/* Consent footer: same wording as the signed-out sign-in form so users
+          always see how to reach the consolidated Terms overview. */}
       <View
         style={{
           marginTop: 16,
-          flexDirection: 'row',
-          justifyContent: 'center',
-          alignItems: 'center',
           paddingVertical: 8,
           paddingHorizontal: 4,
         }}
       >
-        <RNTouchableOpacity
-          activeOpacity={0.7}
-          accessibilityRole="link"
-          accessibilityLabel="Terms and policies"
-          onPress={() => void openWebAppPath('/terms')}
-          style={{ paddingVertical: 10, paddingHorizontal: 8 }}
-          hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+        <Text
+          style={{
+            fontSize: 11,
+            color: DesignColors.mediumGray,
+            textAlign: 'center',
+            lineHeight: 16,
+          }}
         >
-          <Text style={{ fontSize: 11, color: DesignColors.primary, fontWeight: '600' }}>Terms &amp; policies</Text>
-        </RNTouchableOpacity>
+          By continuing you agree to our{' '}
+          <Text
+            accessibilityRole="link"
+            accessibilityLabel="Terms and policies"
+            onPress={() => void openWebAppPath('/terms')}
+            style={{
+              color: DesignColors.primary,
+              textDecorationLine: 'underline',
+              fontSize: 11,
+              fontWeight: '600',
+            }}
+          >
+            Terms &amp; policies
+          </Text>
+          .
+        </Text>
       </View>
 
       <Pressable
