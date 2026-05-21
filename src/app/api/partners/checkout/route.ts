@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
           plan,
         },
       },
-      success_url: `${appUrl}/partners/dashboard?onboarding=1`,
+      success_url: `${appUrl}/api/partners/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/partners/signup?billing=1&canceled=1`,
       metadata: {
         vendor_id: vendor.id,
