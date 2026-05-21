@@ -10,6 +10,7 @@ import { repairOrphanedStripeRefundsForVendor } from '@/lib/booking-refund'
 import { reconcileVendorEventSlots } from '@/lib/event-slot-reconcile'
 import { reconcileStripeConnectStatus } from '@/lib/stripe-connect-reconcile'
 import { buildActivitySeriesFromBookings, type BookingActivityRow } from '@/lib/partner-dashboard-activity'
+import { spotsFilledLabel } from '@/lib/workshop-spots-label'
 
 interface VendorProfile {
   id: string
@@ -57,14 +58,6 @@ function formatDurationMinutes(minutes: number | null): string {
   if (h === 0) return `${m} min`
   if (m === 0) return h === 1 ? '1 hr' : `${h} hr`
   return `${h} hr ${m} min`
-}
-
-function spotsFilledLabel(maxAttendees: number | null, availableSlots: number | null): string {
-  const cap = maxAttendees ?? 0
-  if (cap <= 0) return 'Capacity not set'
-  const remaining = availableSlots ?? cap
-  const filled = Math.max(0, Math.min(cap, cap - remaining))
-  return `${filled} of ${cap} spots filled`
 }
 
 export default async function DashboardPage() {

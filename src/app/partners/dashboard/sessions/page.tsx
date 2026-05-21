@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, Eye, EyeOff, CalendarDays, Users, Clock, DollarSign } from 'lucide-react'
 import { SessionForm } from './SessionForm'
 import { formatSeriesDateRangeLabel, parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
+import { spotsFilledLabel } from '@/lib/workshop-spots-label'
 
 interface Session {
   id: string
@@ -228,7 +229,7 @@ function SessionsPageInner() {
                     {session.max_attendees !== null && (
                       <span className="flex items-center gap-1">
                         <Users className="w-3 h-3" />
-                        {session.available_slots ?? session.max_attendees}/{session.max_attendees} spots
+                        {spotsFilledLabel(session.max_attendees, session.available_slots)}
                       </span>
                     )}
                     {session.duration_minutes !== null && (
