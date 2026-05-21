@@ -2,7 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyOAuthState } from '@/lib/oauth-state'
-import { microsoftExchangeCode, microsoftFetchEmail } from '@/lib/microsoft-calendar-api'
+import {
+  microsoftEmailFromIdToken,
+  microsoftExchangeCode,
+  microsoftFetchEmail,
+} from '@/lib/microsoft-calendar-api'
 import { upsertVendorCalendarConnection, resyncAllPublishedSessionsForVendor } from '@/lib/vendor-calendar-sync'
 import { calendarOAuthAppBase } from '@/lib/calendar-oauth-app-base'
 
@@ -57,7 +61,8 @@ export async function GET(request: NextRequest) {
           encodeURIComponent('No refresh token — try again and accept all permissions.')
       )
     }
-    const email = await microsoftFetchEmail(tokens.access_token)
+    const emailFromGraph = await microsoftFetchEmail(tokens.access_token)
+    const email = emailFromGraph ?? microsoftEmailFromIdToken(tokens.id_token)
     await upsertVendorCalendarConnection(admin, {
       vendorId: vendor.id,
       provider: 'microsoft',
