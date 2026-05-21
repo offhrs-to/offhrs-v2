@@ -6,8 +6,13 @@ import { z } from 'zod'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 import type { PartnerSessionSeriesBody } from '@/lib/partner-session-series-resolve'
 import { buildPartnerSeriesMeta, resolveWorkshopSeriesDates } from '@/lib/partner-session-series-resolve'
-import { countBookingsPerOccurrence, setSeriesAvailabilityFromRules } from '@/lib/partner-event-availability'
 import {
+  countActiveCohortBookings,
+  countBookingsPerOccurrence,
+  setSeriesAvailabilityFromRules,
+} from '@/lib/partner-event-availability'
+import {
+  applyCohortAvailability,
   inferScheduleFromOccurrences,
   mergeSeriesOccurrencesPreservingSlots,
   parseSeriesOccurrences,
@@ -257,19 +262,32 @@ export async function PUT(request: NextRequest, { params }: Params) {
       const bookedPer = countBookingsPerOccurrence(bookings, dateIsos)
       updatePayload.available_slots = Math.max(0, maxAtt - extRaw - (bookedPer[0] ?? 0))
     } else {
+      const isCohort = metaOut?.pattern === 'weekly_same' || metaOut?.pattern === 'weekly_custom'
       let seriesOcc = mergeSeriesOccurrencesPreservingSlots(dateIsos, maxAtt, prevOcc)
-      const bookedPer = countBookingsPerOccurrence(
-        bookings,
-        seriesOcc.map((o) => o.start)
-      )
-      seriesOcc = setSeriesAvailabilityFromRules(seriesOcc, extRaw, bookedPer)
-      const sumAvail = seriesOcc.reduce((a, o) => a + o.available_slots, 0)
-      const sumMax = seriesOcc.reduce((a, o) => a + o.max_attendees, 0)
-      updatePayload.date = dateIsos[0]
-      updatePayload.workshop_series = 'multi_week'
-      updatePayload.series_occurrences = seriesOcc
-      updatePayload.available_slots = sumAvail
-      updatePayload.max_attendees = sumMax
+
+      if (isCohort) {
+        const cohortBooked = countActiveCohortBookings(bookings)
+        const cohortAvail = Math.max(0, maxAtt - extRaw - cohortBooked)
+        seriesOcc = applyCohortAvailability(seriesOcc, maxAtt, cohortAvail)
+        updatePayload.date = dateIsos[0]
+        updatePayload.workshop_series = 'multi_week'
+        updatePayload.series_occurrences = seriesOcc
+        updatePayload.available_slots = cohortAvail
+        updatePayload.max_attendees = maxAtt
+      } else {
+        const bookedPer = countBookingsPerOccurrence(
+          bookings,
+          seriesOcc.map((o) => o.start)
+        )
+        seriesOcc = setSeriesAvailabilityFromRules(seriesOcc, extRaw, bookedPer)
+        const sumAvail = seriesOcc.reduce((a, o) => a + o.available_slots, 0)
+        const sumMax = seriesOcc.reduce((a, o) => a + o.max_attendees, 0)
+        updatePayload.date = dateIsos[0]
+        updatePayload.workshop_series = 'multi_week'
+        updatePayload.series_occurrences = seriesOcc
+        updatePayload.available_slots = sumAvail
+        updatePayload.max_attendees = sumMax
+      }
     }
 
     const businessName = (vendor.business_name as string | null)?.trim()

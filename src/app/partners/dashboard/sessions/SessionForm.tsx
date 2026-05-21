@@ -544,8 +544,16 @@ export function SessionForm({
             {(
               [
                 ['single', 'Single date', 'One workshop on the date above (or leave date blank).'],
-                ['weekly_same', 'Weekly — same weekday', 'Same weekday and time each week (pick how many weeks).'],
-                ['weekly_custom', 'Weekly — custom dates', 'Pick a different date and time for each week.'],
+                [
+                  'weekly_same',
+                  'Weekly — same date & time',
+                  'Same group attends every week at the same time. Pick how many weeks — max spots is the cohort size (not per session).',
+                ],
+                [
+                  'weekly_custom',
+                  'Weekly — custom dates',
+                  'Same group attends each session. Pick a different date and time for each week — max spots is the cohort size.',
+                ],
                 [
                   'daily_weekdays',
                   'Repeating weekdays',

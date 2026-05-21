@@ -5,6 +5,11 @@ export type BookingRowForAvailability = {
   refunded_at?: string | null
 }
 
+/** Cohort series share a single capacity across all sessions: count active bookings once. */
+export function countActiveCohortBookings(bookings: BookingRowForAvailability[]): number {
+  return bookings.filter((b) => !b.refunded_at).length
+}
+
 /** Count active (non-refunded) offhrs bookings per occurrence start time. */
 export function countBookingsPerOccurrence(
   bookings: BookingRowForAvailability[],

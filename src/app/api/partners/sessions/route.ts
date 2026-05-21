@@ -7,6 +7,7 @@ import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 import {
+  applyCohortAvailability,
   buildSeriesOccurrencesFromDateIsos,
   expandSessionsForCalendarRange,
 } from '@/lib/workshop-series'
@@ -237,15 +238,24 @@ export async function POST(request: NextRequest) {
 
     const dateIsos = resolvedDates.dates
     const isMultiWeek = dateIsos.length > 1
+    const isCohort =
+      isMultiWeek && (meta?.pattern === 'weekly_same' || meta?.pattern === 'weekly_custom')
     let seriesOcc = isMultiWeek ? buildSeriesOccurrencesFromDateIsos(dateIsos, body.max_attendees) : null
+
+    let topMax = body.max_attendees
+    let topAvail = Math.max(0, body.max_attendees - extRaw)
+
     if (seriesOcc) {
-      const bookedZeros = seriesOcc.map(() => 0)
-      seriesOcc = setSeriesAvailabilityFromRules(seriesOcc, extRaw, bookedZeros)
+      if (isCohort) {
+        seriesOcc = applyCohortAvailability(seriesOcc, body.max_attendees, topAvail)
+        topMax = body.max_attendees
+      } else {
+        const bookedZeros = seriesOcc.map(() => 0)
+        seriesOcc = setSeriesAvailabilityFromRules(seriesOcc, extRaw, bookedZeros)
+        topAvail = seriesOcc.reduce((a, o) => a + o.available_slots, 0)
+        topMax = seriesOcc.reduce((a, o) => a + o.max_attendees, 0)
+      }
     }
-    const sumAvail = seriesOcc
-      ? seriesOcc.reduce((a, o) => a + o.available_slots, 0)
-      : Math.max(0, body.max_attendees - extRaw)
-    const sumMax = seriesOcc ? seriesOcc.reduce((a, o) => a + o.max_attendees, 0) : body.max_attendees
 
     const insertRow =
       dateIsos.length === 0
@@ -261,8 +271,8 @@ export async function POST(request: NextRequest) {
             date: dateIsos[0],
             workshop_series: isMultiWeek ? ('multi_week' as const) : ('one_day' as const),
             series_occurrences: seriesOcc,
-            available_slots: sumAvail,
-            max_attendees: sumMax,
+            available_slots: topAvail,
+            max_attendees: topMax,
           }
 
     const { data: created, error: insertError } = await admin.from('events').insert(insertRow).select().single()

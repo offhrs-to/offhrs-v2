@@ -1,5 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { parseSeriesOccurrences, type SeriesOccurrence } from '@/lib/workshop-series'
+import {
+  applyCohortAvailability,
+  getSeriesMode,
+  parseSeriesOccurrences,
+  type SeriesOccurrence,
+} from '@/lib/workshop-series'
 
 /**
  * Reconcile events.available_slots (and multi-week series_occurrences) from the
@@ -21,6 +26,8 @@ type EventRow = {
   booking_status: string | null
   workshop_series: string | null
   series_occurrences: unknown
+  partner_series_meta: unknown
+  external_booked_count: number | null
 }
 
 type BookingRow = {
@@ -43,7 +50,9 @@ export async function reconcileVendorEventSlots(
 ): Promise<{ reconciled: number }> {
   const { data: events, error: eventsError } = await admin
     .from('events')
-    .select('id, max_attendees, available_slots, booking_status, workshop_series, series_occurrences')
+    .select(
+      'id, max_attendees, available_slots, booking_status, workshop_series, series_occurrences, partner_series_meta, external_booked_count'
+    )
     .eq('vendor_profile_id', vendorId)
     .neq('booking_status', 'archived')
 
@@ -83,6 +92,52 @@ export async function reconcileVendorEventSlots(
     })
 
     if (series.length > 0) {
+      const seriesMode = getSeriesMode({
+        workshop_series: ev.workshop_series,
+        series_occurrences: ev.series_occurrences,
+        partner_series_meta: ev.partner_series_meta,
+      })
+
+      if (seriesMode === 'cohort') {
+        const cohortCap = series[0].max_attendees ?? ev.max_attendees ?? 0
+        const ext = Math.max(0, ev.external_booked_count ?? 0)
+        const cohortBooked = eventBookings.length
+        const cohortAvail = Math.max(0, cohortCap - ext - cohortBooked)
+        const nextSeries = applyCohortAvailability(series, cohortCap, cohortAvail)
+        const allFull = cohortAvail <= 0
+        const nextStatus = allFull
+          ? ev.booking_status === 'published' || ev.booking_status === 'fully_booked'
+            ? 'fully_booked'
+            : ev.booking_status
+          : ev.booking_status === 'fully_booked'
+            ? 'published'
+            : ev.booking_status
+
+        const changed =
+          JSON.stringify(nextSeries) !== JSON.stringify(series) ||
+          ev.max_attendees !== cohortCap ||
+          ev.available_slots !== cohortAvail ||
+          ev.booking_status !== nextStatus
+
+        if (changed) {
+          const { error: updateError } = await admin
+            .from('events')
+            .update({
+              series_occurrences: nextSeries,
+              max_attendees: cohortCap,
+              available_slots: cohortAvail,
+              booking_status: nextStatus,
+            })
+            .eq('id', ev.id)
+          if (updateError) {
+            console.error('reconcileVendorEventSlots cohort update error:', ev.id, updateError)
+            continue
+          }
+          reconciled += 1
+        }
+        continue
+      }
+
       const bookingsByStart = new Map<string, number>()
       for (const b of eventBookings) {
         const minuteKey = isoMinute(b.session_starts_at)

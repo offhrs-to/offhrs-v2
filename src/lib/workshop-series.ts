@@ -15,10 +15,44 @@ export type EventSeriesFields = {
   booking_status?: string | null
   max_attendees?: number | null
   available_slots?: number | null
+  partner_series_meta?: unknown
 }
 
 export function isMultiWeekEvent(row: EventSeriesFields): boolean {
   return row.workshop_series === 'multi_week' && parseSeriesOccurrences(row).length > 0
+}
+
+/**
+ * Cohort vs per-occurrence semantics for multi-week series.
+ *
+ * - `cohort`: same group attends every session (e.g. weekly pottery course).
+ *   Capacity is a single cohort number; one booking holds a seat across all
+ *   weeks. `weekly_same` and `weekly_custom` patterns use this mode.
+ * - `per_occurrence`: each session is independently bookable (e.g. drop-in
+ *   classes). `daily_weekdays` uses this mode.
+ *
+ * Defaults to `per_occurrence` when meta is missing/unknown so legacy rows
+ * without a pattern marker preserve the original behavior.
+ */
+export type SeriesMode = 'cohort' | 'per_occurrence'
+
+export function getSeriesMode(row: EventSeriesFields): SeriesMode {
+  const meta = row.partner_series_meta as { pattern?: string } | null | undefined
+  const pattern = meta?.pattern
+  if (pattern === 'weekly_same' || pattern === 'weekly_custom') return 'cohort'
+  return 'per_occurrence'
+}
+
+export function applyCohortAvailability(
+  occ: SeriesOccurrence[],
+  maxAttendees: number,
+  availableSlots: number
+): SeriesOccurrence[] {
+  return occ.map((o) => ({
+    ...o,
+    max_attendees: maxAttendees,
+    available_slots: availableSlots,
+  }))
 }
 
 export function parseSeriesOccurrences(row: EventSeriesFields): SeriesOccurrence[] {
@@ -160,6 +194,29 @@ export function computeSlotDecrementForEvent(
   if (series.length > 0) {
     const idx = findOccurrenceIndexByStart(series, candidate)
     if (idx < 0) return { ok: false, error: 'Pick a valid session time for this workshop.' }
+
+    if (getSeriesMode(row) === 'cohort') {
+      const cohortMax = series[0].max_attendees ?? row.max_attendees ?? 0
+      const cohortAvail = Math.min(
+        ...series.map((o) => (Number.isFinite(o.available_slots) ? o.available_slots : 0))
+      )
+      if (cohortAvail <= 0) return { ok: false, error: 'No spots left in this cohort.' }
+      const nextAvail = Math.max(0, cohortAvail - 1)
+      const next = applyCohortAvailability(series, cohortMax, nextAvail)
+      const allFull = nextAvail <= 0
+      const nextStatus =
+        allFull && (row.booking_status === 'published' || row.booking_status === 'fully_booked')
+          ? 'fully_booked'
+          : row.booking_status
+      return {
+        ok: true,
+        series_occurrences: next,
+        available_slots: nextAvail,
+        booking_status: nextStatus,
+        sessionStartsAtIso: series[idx].start,
+      }
+    }
+
     const next = withDecrementedOccurrence(series, idx)
     if (!next) return { ok: false, error: 'No spots left for that session time.' }
     const sumAvail = next.reduce((a, o) => a + o.available_slots, 0)
@@ -203,6 +260,17 @@ export function computeSlotIncrementForEvent(
 ): { series_occurrences: SeriesOccurrence[] | null; available_slots: number; booking_status: string | null | undefined } | null {
   const series = parseSeriesOccurrences(row)
   if (series.length > 0) {
+    if (getSeriesMode(row) === 'cohort') {
+      const cohortMax = series[0].max_attendees ?? row.max_attendees ?? 0
+      const cohortAvail = Math.min(
+        ...series.map((o) => (Number.isFinite(o.available_slots) ? o.available_slots : 0))
+      )
+      const nextAvail = Math.min(cohortMax, cohortAvail + 1)
+      const next = applyCohortAvailability(series, cohortMax, nextAvail)
+      const nextStatus =
+        row.booking_status === 'fully_booked' && nextAvail > 0 ? 'published' : row.booking_status
+      return { series_occurrences: next, available_slots: nextAvail, booking_status: nextStatus }
+    }
     const idx = findOccurrenceIndexByStart(series, sessionStartsAtIso ?? '')
     if (idx < 0) return null
     const next = withIncrementedOccurrence(series, idx)
