@@ -9,7 +9,10 @@ import {
 
 export { PARTNER_TRIAL_DAYS }
 
-/** Max new workshop rows (`events` inserts) per Stripe billing period for Lite. */
+/**
+ * Max concurrently active (non-archived) workshops for Lite vendors.
+ * Archived workshops do not count, so vendors can free a slot by archiving.
+ */
 export const LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD = 4
 
 export type PartnerSubscriptionTier = PartnerPlanTier

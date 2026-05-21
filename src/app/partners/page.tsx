@@ -118,7 +118,7 @@ export default function PartnersLandingPage() {
             name: 'Lite',
             price: String(PARTNER_PLAN_MONTHLY_CAD.lite),
             priceCurrency: 'CAD',
-            description: `Lite plan — up to 4 new workshop sessions per billing period, after ${PARTNER_TRIAL_LABEL}`,
+            description: `Lite plan — up to 4 active workshops at a time, after ${PARTNER_TRIAL_LABEL}`,
           },
           {
             '@type': 'Offer',
@@ -265,7 +265,7 @@ export default function PartnersLandingPage() {
               <p className="text-xs text-[#5D755D] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
               <ul className="space-y-3 text-sm text-[#333] mb-8">
                 {[
-                  'Up to 4 new workshop sessions per billing period',
+                  'Up to 4 active workshops at a time (archive to free a slot)',
                   '0% commission on ticket sales',
                   'Stripe Connect payouts',
                   'Google & Outlook calendar sync',

@@ -151,17 +151,14 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .maybeSingle()
 
-    if (
-      activeSub?.subscription_tier === 'lite' &&
-      activeSub.current_period_start &&
-      activeSub.current_period_end
-    ) {
+    if (activeSub?.subscription_tier === 'lite') {
+      // Lite is capped at N concurrently active workshops. Archived rows do
+      // not count, so vendors can free a slot by archiving and try again.
       const { count, error: countError } = await admin
         .from('events')
         .select('*', { count: 'exact', head: true })
         .eq('vendor_profile_id', vendor.id)
-        .gte('created_at', activeSub.current_period_start)
-        .lte('created_at', activeSub.current_period_end)
+        .neq('booking_status', 'archived')
 
       if (countError) {
         console.error('[sessions] Lite quota count', countError)
@@ -171,7 +168,7 @@ export async function POST(request: NextRequest) {
       ) {
         return NextResponse.json(
           {
-            error: `Lite plan allows up to ${LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD} new workshop sessions per billing period. Upgrade to Pro in billing settings, or wait until the next period.`,
+            error: `Lite plan supports up to ${LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD} active workshops at a time. Archive one you no longer need, or upgrade to Pro for unlimited workshops.`,
           },
           { status: 403 }
         )

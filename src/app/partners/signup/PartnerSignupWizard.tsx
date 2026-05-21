@@ -674,7 +674,7 @@ export function PartnerSignupWizard() {
                     <span className="text-sm font-normal text-[#555]">CAD / month</span>
                   </p>
                   <p className="mt-2 text-xs text-[#555] leading-relaxed">
-                    Up to 4 new workshop sessions per billing period. Same booking, payouts, and calendar sync as Pro.
+                    Up to 4 active workshops at a time — archive any you no longer need to free a slot. Same booking, payouts, and calendar sync as Pro.
                   </p>
                 </button>
                 <button
