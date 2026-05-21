@@ -66,11 +66,21 @@ export function SessionForm({
     session?.lng != null && Number.isFinite(Number(session.lng)) ? Number(session.lng) : null
   )
 
+  const initialSeriesOccurrences = parseSeriesOccurrences({
+    workshop_series: session?.workshop_series ?? null,
+    series_occurrences: session?.series_occurrences,
+  })
+  const initialSeriesPattern = session?.partner_series_meta?.pattern
+  const initialMaxAttendees =
+    initialSeriesPattern === 'daily_weekdays' && initialSeriesOccurrences[0]?.max_attendees != null
+      ? initialSeriesOccurrences[0].max_attendees
+      : session?.max_attendees
+
   const [form, setForm] = useState({
     title: session?.title ?? '',
     category: normalizePartnerSessionCategory(session?.category),
     price_cad: session?.price_cad?.toString() ?? '0',
-    max_attendees: session?.max_attendees?.toString() ?? '10',
+    max_attendees: initialMaxAttendees?.toString() ?? '10',
     duration_minutes: session?.duration_minutes?.toString() ?? '90',
     date: session?.date ? formatWorkshopDateTimeLocalValue(session.date) : '',
     location_type: 'in_person' as 'in_person' | 'virtual',
