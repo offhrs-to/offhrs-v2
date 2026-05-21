@@ -9,7 +9,6 @@ import {
   endOfMonth,
   endOfWeek,
   format,
-  isSameDay,
   isSameMonth,
   startOfMonth,
   startOfWeek,
@@ -36,11 +35,26 @@ type CalendarStatus = {
   microsoft: { connected: boolean; email: string | null }
 }
 
+function workshopDateKey(date: Date): string | null {
+  if (Number.isNaN(date.getTime())) return null
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const year = parts.find((p) => p.type === 'year')?.value
+  const month = parts.find((p) => p.type === 'month')?.value
+  const day = parts.find((p) => p.type === 'day')?.value
+  return year && month && day ? `${year}-${month}-${day}` : null
+}
+
 function sessionsOnDay(sessions: Session[], day: Date): Session[] {
+  const dayKey = format(day, 'yyyy-MM-dd')
   return sessions.filter((s) => {
     if (!s.date) return false
     const d = new Date(s.date)
-    return !Number.isNaN(d.getTime()) && isSameDay(d, day)
+    return workshopDateKey(d) === dayKey
   })
 }
 

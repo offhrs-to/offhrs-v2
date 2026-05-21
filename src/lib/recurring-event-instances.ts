@@ -1,5 +1,5 @@
-const ONE_DAY_MS = 24 * 60 * 60 * 1000
-const ONE_WEEK_MS = 7 * ONE_DAY_MS
+import { TZDate } from '@date-fns/tz'
+import { WORKSHOP_TIMEZONE } from '@/lib/workshop-timezone'
 
 /** Default calendar window (weeks) for repeating workshops when the vendor doesn't override it. */
 export const RENEW_INSTANCES_WEEKS = 4
@@ -16,6 +16,19 @@ const READ_ONLY_INSERT_KEYS = new Set(['id', 'created_at', 'updated_at'])
 function clampWeeks(weeks: number | undefined): number {
   if (!Number.isFinite(weeks ?? NaN)) return RENEW_INSTANCES_WEEKS
   return Math.max(REPEATING_WEEKS_MIN, Math.min(REPEATING_WEEKS_MAX, Math.floor(weeks!)))
+}
+
+function addWorkshopCalendarDays(base: Date, days: number): Date {
+  const local = new TZDate(base.getTime(), WORKSHOP_TIMEZONE)
+  return new TZDate(
+    local.getFullYear(),
+    local.getMonth(),
+    local.getDate() + days,
+    local.getHours(),
+    local.getMinutes(),
+    local.getSeconds(),
+    WORKSHOP_TIMEZONE
+  )
 }
 
 export type MaterializeDateOptions = {
@@ -41,7 +54,7 @@ export function getMaterializedInstanceDates(
   const out: string[] = []
   if (recurrence === 'weekly') {
     for (let i = 0; i < weeks; i++) {
-      const d = new Date(base.getTime() + i * ONE_WEEK_MS)
+      const d = addWorkshopCalendarDays(base, i * 7)
       out.push(d.toISOString())
     }
   } else {
@@ -49,7 +62,7 @@ export function getMaterializedInstanceDates(
     const allowed = options?.dailyWeekdays ?? ALL_JS_WEEKDAYS
     if (allowed.size === 0) return []
     for (let i = 0; i < days; i++) {
-      const d = new Date(base.getTime() + i * ONE_DAY_MS)
+      const d = addWorkshopCalendarDays(base, i)
       if (allowed.has(d.getDay())) {
         out.push(d.toISOString())
       }
@@ -67,7 +80,7 @@ export function countDailyInstancesInWindow(
   if (Number.isNaN(base.getTime()) || weekdays.size === 0) return 0
   let c = 0
   for (let i = 0; i < windowDays; i++) {
-    const d = new Date(base.getTime() + i * ONE_DAY_MS)
+    const d = addWorkshopCalendarDays(base, i)
     if (weekdays.has(d.getDay())) c++
   }
   return c
