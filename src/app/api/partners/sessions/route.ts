@@ -38,6 +38,7 @@ const sessionSchema = z.object({
   multi_week_schedule: z.enum(['same_day_time', 'custom_times', 'daily_weekdays']).optional(),
   multi_week_additional_datetimes: z.array(z.string()).max(11).optional(),
   multi_week_daily_js_weekdays: z.array(z.number().int().min(0).max(6)).max(7).optional(),
+  multi_week_daily_weeks: z.number().int().min(2).max(12).optional(),
   external_booked_count: z.number().int().min(0).max(500).optional().default(0),
 })
 
@@ -195,6 +196,7 @@ export async function POST(request: NextRequest) {
       multi_week_schedule: body.multi_week_schedule,
       multi_week_additional_datetimes: body.multi_week_additional_datetimes,
       multi_week_daily_js_weekdays: body.multi_week_daily_js_weekdays,
+      multi_week_daily_weeks: body.multi_week_daily_weeks,
     })
 
     const resolvedImageUrl =

@@ -5,7 +5,11 @@ import { ArrowLeft, Loader2, ImagePlus } from 'lucide-react'
 import { CATEGORIES, normalizePartnerSessionCategory } from '@/constants/categories'
 import { GooglePlacesField } from '@/app/partners/signup/GooglePlacesField'
 import { parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
-import { ALL_JS_WEEKDAYS, countDailyInstancesInWindow, RENEW_INSTANCES_WEEKS } from '@/lib/recurring-event-instances'
+import {
+  ALL_JS_WEEKDAYS,
+  countDailyInstancesInWindow,
+  RENEW_INSTANCES_WEEKS,
+} from '@/lib/recurring-event-instances'
 import { PARTNER_WEEKDAY_TOGGLE_ORDER } from '@/constants/partner-workshop-schedule'
 import { formatWorkshopDateTimeLocalValue } from '@/lib/workshop-timezone'
 
@@ -89,6 +93,7 @@ export function SessionForm({
   const [recurringWeekCount, setRecurringWeekCount] = useState(4)
   const [multiWeekExtraDates, setMultiWeekExtraDates] = useState<string[]>([])
   const [dailyWeekdays, setDailyWeekdays] = useState<Set<number>>(() => new Set(ALL_JS_WEEKDAYS))
+  const [dailyWeeks, setDailyWeeks] = useState<number>(RENEW_INSTANCES_WEEKS)
 
   useEffect(() => {
     if (!coverFile) {
@@ -110,7 +115,7 @@ export function SessionForm({
     const ext = (session as { external_booked_count?: number }).external_booked_count ?? 0
     setExternalBooked(String(ext))
     const meta = session.partner_series_meta as
-      | { pattern?: string; daily_js_weekdays?: number[] }
+      | { pattern?: string; daily_js_weekdays?: number[]; weeks?: number }
       | null
       | undefined
     const row: EventSeriesFields = {
@@ -127,6 +132,11 @@ export function SessionForm({
               ? meta.daily_js_weekdays
               : [...ALL_JS_WEEKDAYS]
           )
+        )
+        setDailyWeeks(
+          typeof meta.weeks === 'number' && meta.weeks >= 2 && meta.weeks <= 12
+            ? meta.weeks
+            : RENEW_INSTANCES_WEEKS
         )
         setRecurringWeekCount(4)
         setMultiWeekExtraDates([])
@@ -161,8 +171,8 @@ export function SessionForm({
     if (seriesPattern !== 'daily_weekdays' || !form.date?.trim()) return null
     const d = new Date(form.date)
     if (Number.isNaN(d.getTime())) return null
-    return countDailyInstancesInWindow(d, dailyWeekdays)
-  }, [seriesPattern, form.date, dailyWeekdays])
+    return countDailyInstancesInWindow(d, dailyWeekdays, dailyWeeks * 7)
+  }, [seriesPattern, form.date, dailyWeekdays, dailyWeeks])
 
   const listingSessionCount = useMemo(() => {
     if (seriesPattern === 'single') return 1
@@ -314,6 +324,7 @@ export function SessionForm({
         } else {
           payload.multi_week_schedule = 'daily_weekdays'
           payload.multi_week_daily_js_weekdays = [...dailyWeekdays].sort((a, b) => a - b)
+          payload.multi_week_daily_weeks = dailyWeeks
         }
       }
 
@@ -556,8 +567,8 @@ export function SessionForm({
                 ],
                 [
                   'daily_weekdays',
-                  'Repeating weekdays',
-                  `Same time on selected days over the next ${RENEW_INSTANCES_WEEKS} weeks (same idea as admin daily renewals).`,
+                  'Repeating days',
+                  'Same time on selected days over the next several weeks (drop-in style — each session is independent).',
                 ],
               ] as const
             ).map(([value, title, help]) => (
@@ -674,12 +685,29 @@ export function SessionForm({
               </div>
               <p className="text-xs text-[#888] leading-relaxed">
                 All days selected = every calendar day in the window. Tap to exclude — no session on deselected
-                weekdays. Same time of day as the first date above.
+                days. Same time of day as the first date above.
               </p>
+              <div>
+                <label htmlFor="daily-weeks" className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+                  Repeat for how many weeks?
+                </label>
+                <select
+                  id="daily-weeks"
+                  value={dailyWeeks}
+                  onChange={(e) => setDailyWeeks(Number(e.target.value))}
+                  className="w-full max-w-xs px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                >
+                  {RECURRING_WEEK_OPTIONS.map((n) => (
+                    <option key={n} value={n}>
+                      {n} week{n === 1 ? '' : 's'}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {dailyPreviewCount != null && (
                 <p className="text-xs text-[#5D755D] font-medium">
-                  {dailyPreviewCount} session{dailyPreviewCount === 1 ? '' : 's'} in the next {RENEW_INSTANCES_WEEKS}{' '}
-                  weeks (one workshop listing).
+                  {dailyPreviewCount} session{dailyPreviewCount === 1 ? '' : 's'} over the next {dailyWeeks}{' '}
+                  week{dailyWeeks === 1 ? '' : 's'} (one workshop listing).
                 </p>
               )}
             </div>

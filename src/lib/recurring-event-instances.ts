@@ -1,23 +1,34 @@
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
 const ONE_WEEK_MS = 7 * ONE_DAY_MS
 
-/** How many calendar weeks of concrete instances we create when saving a renewing event */
+/** Default calendar window (weeks) for repeating workshops when the vendor doesn't override it. */
 export const RENEW_INSTANCES_WEEKS = 4
+
+/** Min/max weeks vendors can select for repeating workshops. */
+export const REPEATING_WEEKS_MIN = 2
+export const REPEATING_WEEKS_MAX = 12
 
 /** JavaScript weekday indices (Date#getDay): 0 = Sun … 6 = Sat */
 export const ALL_JS_WEEKDAYS = new Set<number>([0, 1, 2, 3, 4, 5, 6])
 
 const READ_ONLY_INSERT_KEYS = new Set(['id', 'created_at', 'updated_at'])
 
+function clampWeeks(weeks: number | undefined): number {
+  if (!Number.isFinite(weeks ?? NaN)) return RENEW_INSTANCES_WEEKS
+  return Math.max(REPEATING_WEEKS_MIN, Math.min(REPEATING_WEEKS_MAX, Math.floor(weeks!)))
+}
+
 export type MaterializeDateOptions = {
-  /** For daily recurrence: which weekdays (0–6) get an instance in the 28-day window */
+  /** For daily recurrence: which weekdays (0–6) get an instance in the window */
   dailyWeekdays?: Set<number>
+  /** Override the window length in weeks (defaults to RENEW_INSTANCES_WEEKS). */
+  weeks?: number
 }
 
 /**
  * ISO date strings for each concrete event row to insert.
- * - Weekly: 4 occurrences (same weekday/time), spanning 4 weeks from the base date.
- * - Daily: each calendar day in a 28-day window from the base date whose weekday is in `dailyWeekdays` (default: all 7 days).
+ * - Weekly: one occurrence per week (same weekday/time), spanning `weeks` weeks from the base date.
+ * - Daily: each calendar day in a `weeks * 7`-day window from the base date whose weekday is in `dailyWeekdays`.
  */
 export function getMaterializedInstanceDates(
   base: Date,
@@ -26,14 +37,15 @@ export function getMaterializedInstanceDates(
 ): string[] {
   if (Number.isNaN(base.getTime())) return []
 
+  const weeks = clampWeeks(options?.weeks)
   const out: string[] = []
   if (recurrence === 'weekly') {
-    for (let i = 0; i < RENEW_INSTANCES_WEEKS; i++) {
+    for (let i = 0; i < weeks; i++) {
       const d = new Date(base.getTime() + i * ONE_WEEK_MS)
       out.push(d.toISOString())
     }
   } else {
-    const days = RENEW_INSTANCES_WEEKS * 7
+    const days = weeks * 7
     const allowed = options?.dailyWeekdays ?? ALL_JS_WEEKDAYS
     if (allowed.size === 0) return []
     for (let i = 0; i < days; i++) {
@@ -46,7 +58,7 @@ export function getMaterializedInstanceDates(
   return out
 }
 
-/** How many daily instances fall in the standard window for the given start date and weekday filter. */
+/** How many daily instances fall in the window for the given start date, weekday filter, and weeks span. */
 export function countDailyInstancesInWindow(
   base: Date,
   weekdays: Set<number>,

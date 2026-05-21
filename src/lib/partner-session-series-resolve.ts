@@ -14,6 +14,8 @@ export type PartnerSessionSeriesBody = {
   multi_week_additional_datetimes?: string[]
   /** JS weekday indices 0–6 (Sun–Sat); for `daily_weekdays` only. */
   multi_week_daily_js_weekdays?: number[]
+  /** Window length in weeks for `daily_weekdays`; defaults to RENEW_INSTANCES_WEEKS. */
+  multi_week_daily_weeks?: number
 }
 
 /** @deprecated Use parseWorkshopDateTimeInput — kept as alias for existing imports. */
@@ -71,12 +73,15 @@ export function resolveWorkshopSeriesDates(
     if (set.size === 0) {
       return { ok: false, error: 'Select at least one day of the week for repeating sessions.' }
     }
-    const dates = getMaterializedInstanceDates(first, 'daily', { dailyWeekdays: set })
+    const dates = getMaterializedInstanceDates(first, 'daily', {
+      dailyWeekdays: set,
+      weeks: body.multi_week_daily_weeks,
+    })
     if (dates.length < 2) {
       return {
         ok: false,
         error:
-          'With these weekdays, not enough session dates fall in the next scheduling window. Pick another start date or add more weekdays.',
+          'With these days, not enough session dates fall in the chosen window. Pick another start date, add more days, or extend the number of weeks.',
       }
     }
     return { ok: true, dates }
@@ -118,9 +123,12 @@ export function buildPartnerSeriesMeta(merged: PartnerSessionSeriesBody): Partne
   if (sch === 'daily_weekdays') {
     const w =
       merged.multi_week_daily_js_weekdays?.filter((n) => n >= 0 && n <= 6) ?? [0, 1, 2, 3, 4, 5, 6]
+    const weeksRaw = merged.multi_week_daily_weeks
+    const weeks = Number.isFinite(weeksRaw ?? NaN) ? Math.floor(weeksRaw as number) : undefined
     return {
       pattern: 'daily_weekdays',
       daily_js_weekdays: [...new Set(w)].sort((a, b) => a - b),
+      ...(weeks ? { weeks } : {}),
     }
   }
   if (sch === 'same_day_time' && merged.multi_week_occurrence_count) {
