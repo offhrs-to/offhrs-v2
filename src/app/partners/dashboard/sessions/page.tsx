@@ -222,7 +222,7 @@ function SessionsPageInner() {
                     {session.price_cad !== null && (
                       <span className="flex items-center gap-1">
                         <DollarSign className="w-3 h-3" />
-                        {session.price_cad === 0 ? 'Free' : `$${session.price_cad} CAD`}
+                        {session.price_cad === 0 ? 'Free' : `${session.price_cad} CAD`}
                       </span>
                     )}
                     {session.max_attendees !== null && (
