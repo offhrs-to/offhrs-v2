@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeft,
   ArrowRight,
@@ -38,6 +38,13 @@ const CATEGORY_ICON: Record<Category, React.ElementType> = {
 const STEPS = ['business', 'categories', 'logo', 'location', 'account', 'billing'] as const
 type StepId = (typeof STEPS)[number]
 
+type BillingStatusResponse = {
+  authenticated?: boolean
+  email_verified?: boolean
+  vendor_status?: string | null
+  stripe_checkout_completed?: boolean
+}
+
 const LOGO_MIME = ['image/jpeg', 'image/png', 'image/webp'] as const
 
 async function workshopLogoPayloadFromFile(
@@ -63,6 +70,7 @@ async function workshopLogoPayloadFromFile(
 }
 
 export function PartnerSignupWizard() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [step, setStep] = useState<StepId>('business')
   const stepIndex = STEPS.indexOf(step)
@@ -154,19 +162,23 @@ export function PartnerSignupWizard() {
   const refreshBillingStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/partners/onboarding-billing-status')
-      const data = (await res.json()) as {
-        authenticated?: boolean
-        email_verified?: boolean
-        vendor_status?: string | null
-        stripe_checkout_completed?: boolean
-      }
+      const data = (await res.json()) as BillingStatusResponse
       if (data.authenticated && data.email_verified) {
         setEmailVerifiedForBilling(true)
       }
+      if (
+        data.authenticated &&
+        data.email_verified &&
+        (data.stripe_checkout_completed || (data.vendor_status && data.vendor_status !== 'pending'))
+      ) {
+        router.replace('/partners/dashboard?onboarding=1')
+      }
+      return data
     } catch {
       /* ignore */
+      return null
     }
-  }, [])
+  }, [router])
 
   useEffect(() => {
     setBillingCanceled(searchParams.get('canceled') === '1')
@@ -175,16 +187,9 @@ export function PartnerSignupWizard() {
   useEffect(() => {
     if (searchParams.get('billing') !== '1') return
     void (async () => {
-      await refreshBillingStatus()
-      const res = await fetch('/api/partners/onboarding-billing-status')
-      const data = (await res.json()) as {
-        authenticated?: boolean
-        email_verified?: boolean
-        vendor_status?: string | null
-        stripe_checkout_completed?: boolean
-      }
+      const data = await refreshBillingStatus()
       if (
-        data.authenticated &&
+        data?.authenticated &&
         data.email_verified &&
         data.vendor_status === 'pending' &&
         !data.stripe_checkout_completed
