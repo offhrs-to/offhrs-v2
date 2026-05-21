@@ -46,11 +46,15 @@ function tierFromConfiguredPriceId(priceId: string | null | undefined): PartnerS
 
 function tierFromStripePriceObject(price: Stripe.Price | null | undefined): PartnerSubscriptionTier | null {
   if (!price) return null
+  const productName =
+    typeof price.product === 'object' && price.product && 'name' in price.product
+      ? price.product.name
+      : null
 
   const textParts = [
     price.lookup_key,
     price.nickname,
-    typeof price.product === 'object' && price.product ? price.product.name : null,
+    productName,
   ]
     .filter(Boolean)
     .map((part) => String(part).toLowerCase())
