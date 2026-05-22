@@ -4,7 +4,6 @@ import { enrichWorkshopEventsWithMapCoordinates } from '@/lib/workshop-map-coord
 import { enrichWorkshopEventsWithVendorNames } from '@/lib/workshop-vendor-display';
 import { WORKSHOP_EVENTS_FETCH_BATCH, WORKSHOP_MAX_UPCOMING_FETCH } from '@/constants/workshops-list';
 import {
-  applyCohortAvailability,
   getSeriesMode,
   isMultiWeekEvent,
   parseSeriesOccurrences,
@@ -128,8 +127,11 @@ export function mapDbRowToWorkshopEvent(row: WorkshopEventDbRow): WorkshopEventR
 const BOOKABLE_START_GRACE_MS = 60_000;
 
 /**
- * Expand `multi_week` workshops into one consumer row per upcoming occurrence
- * (matches web workshops list / detail session picker).
+ * Expand `multi_week` workshops for the consumer list.
+ *
+ * - per_occurrence (daily_weekdays): one row per upcoming, available session — each pill is independently bookable.
+ * - cohort (weekly_same, weekly_custom): a single bookable unit (same participants attend every session); emit one
+ *   row anchored at the first upcoming session so the card surfaces once with cohort-wide availability.
  */
 export function expandWorkshopEventsForConsumers(rows: WorkshopEventRow[]): WorkshopEventRow[] {
   const nowMs = Date.now() - BOOKABLE_START_GRACE_MS;
@@ -143,16 +145,28 @@ export function expandWorkshopEventsForConsumers(rows: WorkshopEventRow[]): Work
 
     const series = parseSeriesOccurrences(row as EventSeriesFields);
     const mode = getSeriesMode(row as EventSeriesFields);
-    const maxAttendees =
-      row.max_attendees ?? series[0]?.max_attendees ?? 0;
-    const cohortSlots = row.available_slots ?? series[0]?.available_slots ?? 0;
-    const occs =
-      mode === 'cohort'
-        ? applyCohortAvailability(series, maxAttendees, cohortSlots)
-        : series;
 
-    let added = 0;
-    for (const o of occs) {
+    if (mode === 'cohort') {
+      const cohortMax = row.max_attendees ?? series[0]?.max_attendees ?? 0;
+      const cohortSlots = row.available_slots ?? series[0]?.available_slots ?? 0;
+      const firstUpcoming = series.find((o) => {
+        const startMs = new Date(o.start).getTime();
+        return Number.isFinite(startMs) && startMs >= nowMs;
+      });
+      if (!firstUpcoming) continue;
+      if (cohortSlots <= 0) continue;
+      out.push({
+        ...row,
+        date_iso: firstUpcoming.start,
+        date: formatDateToronto(firstUpcoming.start),
+        available_slots: cohortSlots,
+        max_attendees: cohortMax,
+        workshop_series: 'multi_week',
+      });
+      continue;
+    }
+
+    for (const o of series) {
       const startMs = new Date(o.start).getTime();
       if (!Number.isFinite(startMs) || startMs < nowMs) continue;
       if (o.available_slots <= 0) continue;
@@ -163,7 +177,6 @@ export function expandWorkshopEventsForConsumers(rows: WorkshopEventRow[]): Work
         available_slots: o.available_slots,
         workshop_series: 'multi_week',
       });
-      added += 1;
     }
   }
 
