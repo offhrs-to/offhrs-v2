@@ -235,9 +235,16 @@ export default function WorkshopQuickViewModal({
         10
       : null;
 
+  // Android draws this transparent modal edge-to-edge (see `edgeToEdgeEnabled: true`
+  // in app.json), so the sheet's top edge can graze the system status bar. Reserve
+  // the status-bar height plus a little breathing room above the sheet on Android
+  // only; iOS layout must stay exactly as-is.
+  const androidTopInset = Platform.OS === 'android' ? insets.top : 0;
+  const sheetTopPadding = Platform.OS === 'android' ? insets.top + 12 : 0;
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+      <View style={{ flex: 1, justifyContent: 'flex-end', paddingTop: sheetTopPadding }}>
         <Pressable
           style={{
             position: 'absolute',
@@ -299,7 +306,7 @@ export default function WorkshopQuickViewModal({
                 flexDirection: 'row',
                 justifyContent: 'flex-end',
                 alignItems: 'flex-start',
-                paddingTop: 12,
+                paddingTop: 12 + androidTopInset,
                 paddingRight: 12,
                 gap: 8,
               }}
