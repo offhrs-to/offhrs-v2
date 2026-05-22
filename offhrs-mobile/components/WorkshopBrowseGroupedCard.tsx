@@ -26,11 +26,11 @@ import { workshopDisplayPrice, workshopEventIsFull, workshopIsSaasVendorEvent } 
 import { vendorPagePath, workshopVendorDisplayName } from '@/lib/workshop-vendor-display';
 
 /** Compact square thumbnail (top-right of card), Classpass-style — does not span full card height. */
-const THUMB_SIZE = 96;
+const THUMB_SIZE = 88;
 const THUMB_RADIUS = 12;
 /** Share control + gap + thumbnail — reserved so title text never runs under these. */
-const SHARE_BTN_SIZE = 36;
-const SIDE_RAIL_GAP = 8;
+const SHARE_BTN_SIZE = 32;
+const SIDE_RAIL_GAP = 6;
 const SIDE_RAIL_WIDTH = SHARE_BTN_SIZE + SIDE_RAIL_GAP + THUMB_SIZE;
 
 function formatPrice(price: number | string | null | undefined): string | null {
@@ -316,9 +316,8 @@ export default function WorkshopBrowseGroupedCard({
             style={{
               flex: 1,
               minWidth: 0,
-              flexShrink: 1,
+              flexBasis: 0,
               marginRight: 8,
-              alignItems: 'flex-start',
               overflow: 'hidden',
             }}
           >
@@ -326,23 +325,21 @@ export default function WorkshopBrowseGroupedCard({
               onOpenQuickView={onOpenQuickView}
               event={selected}
               label={`View details for ${title}`}
-              style={{ alignSelf: 'stretch', maxWidth: '100%' }}
+              style={{ width: '100%', marginBottom: 6 }}
             >
-              <View style={{ marginBottom: 6, overflow: 'hidden', alignSelf: 'stretch' }}>
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: '700',
-                    color: DesignColors.charcoal,
-                    textAlign: 'left',
-                    flexShrink: 1,
-                  }}
-                  numberOfLines={2}
-                  ellipsizeMode="tail"
-                >
-                  {title}
-                </Text>
-              </View>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '700',
+                  color: DesignColors.charcoal,
+                  textAlign: 'left',
+                  width: '100%',
+                }}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
+                {title}
+              </Text>
             </QuickViewTap>
 
             {locationLine ? (
@@ -350,7 +347,7 @@ export default function WorkshopBrowseGroupedCard({
                 onOpenQuickView={onOpenQuickView}
                 event={selected}
                 label={`View location for ${title}`}
-                style={{ alignSelf: 'stretch', maxWidth: '100%' }}
+                style={{ width: '100%' }}
               >
                 <Text
                   style={{
@@ -360,6 +357,7 @@ export default function WorkshopBrowseGroupedCard({
                     width: '100%',
                   }}
                   numberOfLines={1}
+                  ellipsizeMode="tail"
                 >
                   {locationLine}
                 </Text>
@@ -381,6 +379,8 @@ export default function WorkshopBrowseGroupedCard({
                     textAlign: 'left',
                     width: '100%',
                   }}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
                 >
                   {dayLine}
                 </Text>
