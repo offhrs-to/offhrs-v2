@@ -201,10 +201,26 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Destination charge with `on_behalf_of` set to the connected (vendor) account.
+      //
+      // This makes the vendor's connected account the *settlement merchant*, which means:
+      //   1. Stripe processing fees (2.9% + $0.30 for CA cards, plus cross-border surcharges)
+      //      are debited from the connected account's balance — NOT the platform's. This
+      //      enforces our policy that vendors absorb Stripe fees.
+      //   2. Pricing/interchange follows the connected account's country (CA Express).
+      //   3. The connected account is liable for chargebacks/disputes.
+      //   4. The vendor's statement descriptor appears on the cardholder's statement.
+      //
+      // Funds still settle through the platform first (because of `transfer_data.destination`),
+      // then transfer to the connected account; the Stripe fee is netted from their balance
+      // at settlement. To collect a platform commission later, add `application_fee_amount`.
+      //
+      // Docs: https://docs.stripe.com/connect/destination-charges#settlement-merchant
       const paymentIntent = await stripe.paymentIntents.create({
         amount: taxBreakdown.amountTotalCents,
         currency: 'cad',
         payment_method_types: ['card'],
+        on_behalf_of: vendor.stripe_account_id,
         transfer_data: {
           destination: vendor.stripe_account_id,
         },

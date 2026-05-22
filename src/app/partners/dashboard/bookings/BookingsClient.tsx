@@ -156,7 +156,9 @@ export function BookingsClient({ sessions }: { sessions: Session[] }) {
             <span>Attendee</span>
             <span>Workshop</span>
             <span>Date</span>
-            <span>Amount</span>
+            <span title="Customer paid total, minus the Stripe processing fee. This is what's deposited to your bank.">
+              Payout
+            </span>
             <span>Status</span>
             <span>Action</span>
           </div>
@@ -184,13 +186,26 @@ export function BookingsClient({ sessions }: { sessions: Session[] }) {
                   {new Date(b.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
                 </p>
 
-                {/* Amount */}
+                {/* Payout (net of Stripe fee — what's deposited to vendor) */}
                 <div>
-                  <p className="text-sm font-medium text-[#1a1a1a]">
-                    {b.amount_cad ? formatCad(b.amount_cad) : '—'}
+                  <p
+                    className="text-sm font-semibold text-[#1a1a1a]"
+                    title={
+                      b.amount_cad != null && b.stripe_fee_cad != null
+                        ? `Customer paid ${formatCad(b.amount_cad)} (incl. tax). Stripe fee ${formatCad(b.stripe_fee_cad)} deducted per policy.`
+                        : undefined
+                    }
+                  >
+                    {b.net_vendor_cad != null
+                      ? formatCad(b.net_vendor_cad)
+                      : b.amount_cad != null
+                        ? formatCad(b.amount_cad)
+                        : '—'}
                   </p>
-                  {b.net_vendor_cad && (
-                    <p className="text-xs text-[#888]">net {formatCad(b.net_vendor_cad)}</p>
+                  {b.amount_cad != null && (b.stripe_fee_cad ?? 0) > 0 && (
+                    <p className="text-[11px] text-[#888] leading-tight mt-0.5">
+                      {formatCad(b.amount_cad)} paid · −{formatCad(b.stripe_fee_cad ?? 0)} fee
+                    </p>
                   )}
                 </div>
 

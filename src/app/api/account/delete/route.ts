@@ -1,10 +1,18 @@
 import { reconcileEventsByIds } from '@/lib/event-slot-reconcile'
+import { processBookingRefund } from '@/lib/booking-refund'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { logSecurityEvent } from '@/lib/security-monitor'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+
+const ACTIVE_BOOKING_STATUSES = new Set([
+  'confirmed',
+  'pending',
+  'booked',
+  'pending_confirmation',
+])
 
 /**
  * POST /api/account/delete
@@ -70,11 +78,11 @@ export async function POST(request: NextRequest) {
 
     const userId = user.id
 
-    // Capture this consumer's booking event_ids BEFORE deletion so we can restore
-    // available_slots on those events after the rows are gone.
+    // Capture this consumer's booking event_ids BEFORE deletion so we can reconcile
+    // available_slots on those events as a safety net.
     const { data: priorBookings } = await admin
       .from('bookings')
-      .select('event_id')
+      .select('id, event_id, status, refunded_at, stripe_payment_intent_id')
       .eq('user_id', userId)
     const affectedEventIds = Array.from(
       new Set(
@@ -83,6 +91,80 @@ export async function POST(request: NextRequest) {
           .filter((id): id is string | number => id != null)
       )
     )
+
+    // 1) Refund any active bookings via Stripe BEFORE the booking row is touched.
+    //    Account deletion must not strand customer funds in our platform balance.
+    //    `processBookingRefund` handles:
+    //      - Issuing the Stripe refund (skipped if no PI / already refunded)
+    //      - Marking the row status='refunded' + refunded_at
+    //      - Restoring event/series slot counts on the vendor side
+    //      - Sending the refund confirmation + cancellation emails
+    //    We pass skipRefundWindowCheck so the platform's 24h window doesn't block
+    //    a refund triggered by account deletion.
+    const refundFailures: { bookingId: string; error: string }[] = []
+    for (const b of priorBookings ?? []) {
+      const status = (b.status as string | null)?.toLowerCase() ?? ''
+      const isActive = ACTIVE_BOOKING_STATUSES.has(status) && !b.refunded_at
+      if (!isActive) continue
+
+      const result = await processBookingRefund(admin, b.id as string, {
+        initiatedBy: 'consumer',
+        consumerUserId: userId,
+        consumerEmail: user.email ?? null,
+        cancellationReason: 'Account deleted by user',
+        skipRefundWindowCheck: true,
+      })
+
+      if (!result.ok) {
+        console.error(
+          'Account delete: refund failed for booking',
+          b.id,
+          result.error,
+          userId
+        )
+        refundFailures.push({ bookingId: b.id as string, error: result.error })
+      }
+    }
+
+    if (refundFailures.length > 0) {
+      // Stop deletion if any refund failed — leave the booking rows intact (with
+      // original PII) so support can manually refund via Stripe and try again.
+      return NextResponse.json(
+        {
+          error:
+            'We could not refund one or more of your bookings automatically. Please contact support to complete account deletion.',
+          failedBookings: refundFailures,
+          stage: 'booking_refund',
+        },
+        { status: 502 }
+      )
+    }
+
+    // 2) Anonymize PII on this user's bookings instead of hard-deleting them.
+    //    Keeps the row for vendor records, refund history, Stripe reconciliation,
+    //    and the "Refunded" badge on the partner dashboard. Setting user_id=NULL
+    //    also detaches the booking from auth.users so it survives the cascade
+    //    when admin.auth.admin.deleteUser() runs below.
+    if ((priorBookings ?? []).length > 0) {
+      const { error: anonymizeErr } = await admin
+        .from('bookings')
+        .update({
+          user_id: null,
+          name: 'Deleted user',
+          email: null,
+        })
+        .eq('user_id', userId)
+      if (anonymizeErr) {
+        console.error('Account delete: anonymize bookings failed', anonymizeErr.message, userId)
+        return NextResponse.json(
+          {
+            error: `Failed to anonymize bookings: ${anonymizeErr.message}`,
+            stage: 'bookings_anonymize',
+          },
+          { status: 500 }
+        )
+      }
+    }
 
     // PostgREST "table not found in schema cache" — tolerate so legacy tables that
     // have since been dropped can't block account deletion.
@@ -99,8 +181,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Consumer-owned rows: explicit cleanup per table so a single FK error names the table.
+    // Note: bookings are intentionally NOT hard-deleted (they're refunded + anonymized above).
     const consumerSteps: DeleteStep[] = [
-      { table: 'bookings', run: async () => admin.from('bookings').delete().eq('user_id', userId) },
       { table: 'user_event_saves', run: async () => admin.from('user_event_saves').delete().eq('user_id', userId) },
       { table: 'user_vendor_saves', run: async () => admin.from('user_vendor_saves').delete().eq('user_id', userId) },
       { table: 'vendor_reviews', run: async () => admin.from('vendor_reviews').delete().eq('user_id', userId) },
@@ -173,9 +255,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Slot reconciliation: bookings the user owned (now hard-deleted) may have left
-    // events.available_slots out of sync. Recompute from active booking counts so the
-    // partner dashboard shows the correct number of spots remaining.
+    // Slot reconciliation: belt-and-suspenders. processBookingRefund already
+    // restores series_occurrences / available_slots; this just recomputes from
+    // active-booking counts in case any prior row was stuck out of sync.
     try {
       await reconcileEventsByIds(admin, affectedEventIds)
     } catch (reconcileErr) {

@@ -44,7 +44,7 @@ export async function GET() {
     const [bookingsRes, publishedRes, reminderRes] = await Promise.all([
       admin
         .from('bookings')
-        .select('id, name, status, created_at, refunded_at, amount_cad, event_id, events ( title )')
+        .select('id, name, status, created_at, refunded_at, amount_cad, net_vendor_cad, event_id, events ( title )')
         .eq('vendor_id', vendorId)
         .order('created_at', { ascending: false })
         .limit(120),
@@ -83,9 +83,11 @@ export async function GET() {
         continue
       }
       if ((b.status === 'confirmed' || b.status === 'pending') && new Date(b.created_at) >= sinceDate) {
+        // Surface the vendor's net payout (post-Stripe-fee) — vendors absorb the fee per policy.
+        const payoutAmount = b.net_vendor_cad ?? b.amount_cad
         const amt =
-          b.amount_cad != null
-            ? new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(b.amount_cad)
+          payoutAmount != null
+            ? new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(payoutAmount)
             : ''
         notifications.push({
           id: `booking:new:${b.id}`,

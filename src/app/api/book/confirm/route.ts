@@ -15,6 +15,7 @@ import {
 import { computeSlotDecrementForEvent } from '@/lib/workshop-series'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 import { commitWorkshopTaxTransaction } from '@/lib/stripe-workshop-tax'
+import { estimateCanadianStripeFee, fetchRealChargeFee } from '@/lib/stripe-charge-fees'
 
 /** Allow time to await Resend before the serverless function exits. */
 export const maxDuration = 60
@@ -178,10 +179,30 @@ export async function POST(request: NextRequest) {
     }
 
     const chargeAmountCad = totalCad > 0 ? totalCad : subtotalCad
-    const stripeFee = Math.round((chargeAmountCad * 0.029 + 0.30) * 100) / 100
-    const netVendor = Math.round((chargeAmountCad - stripeFee) * 100) / 100
-
     const chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : (pi.latest_charge as { id: string } | null)?.id
+
+    // Resolve the real Stripe processing fee from the charge's balance_transaction.
+    // With `on_behalf_of` set on the PaymentIntent, the connected account is the
+    // settlement merchant and the BT lives on its ledger. We fall back to the
+    // CA-domestic estimate (2.9% + $0.30) only when Stripe hasn't published the
+    // BT yet — the `charge.updated` webhook will reconcile asynchronously.
+    let stripeFee: number
+    let netVendor: number
+    if (chargeId && connectedAccountId) {
+      const real = await fetchRealChargeFee(stripe, chargeId, connectedAccountId)
+      if (real) {
+        stripeFee = real.feeCad
+        netVendor = real.netCad
+      } else {
+        const est = estimateCanadianStripeFee(chargeAmountCad)
+        stripeFee = est.feeCad
+        netVendor = est.netCad
+      }
+    } else {
+      const est = estimateCanadianStripeFee(chargeAmountCad)
+      stripeFee = est.feeCad
+      netVendor = est.netCad
+    }
 
     const appUserId = appUserIdFromMeta
 

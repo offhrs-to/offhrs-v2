@@ -111,13 +111,13 @@ export default async function DashboardPage() {
       .in('booking_status', ['published', 'fully_booked']),
     admin
       .from('bookings')
-      .select('amount_cad, status, refunded_at')
+      .select('amount_cad, net_vendor_cad, status, refunded_at')
       .eq('vendor_id', vendor.id)
       .gte('created_at', monthStart)
       .in('status', ['confirmed', 'pending', 'booked', 'pending_confirmation']),
     admin
       .from('bookings')
-      .select('id, name, session_title:event_id(title), created_at, amount_cad, status, refunded_at')
+      .select('id, name, session_title:event_id(title), created_at, amount_cad, net_vendor_cad, status, refunded_at')
       .eq('vendor_id', vendor.id)
       .order('created_at', { ascending: false })
       .limit(8),
@@ -153,9 +153,12 @@ export default async function DashboardPage() {
 
   const activeSessions = sessionsRes.count ?? 0
   const monthlyBookings = bookingsRes.data?.length ?? 0
+  // Show vendor payouts net of Stripe fees (per policy, fees are absorbed by the vendor).
+  // Falls back to the gross charge if a row is missing net_vendor_cad (e.g. legacy bookings).
   const monthlyRevenue =
     bookingsRes.data?.reduce(
-      (sum: number, b: { amount_cad?: number | null }) => sum + (b.amount_cad ?? 0),
+      (sum: number, b: { amount_cad?: number | null; net_vendor_cad?: number | null }) =>
+        sum + (b.net_vendor_cad ?? b.amount_cad ?? 0),
       0
     ) ?? 0
 
@@ -284,7 +287,7 @@ export default async function DashboardPage() {
             href: '/partners/dashboard/bookings',
           },
           {
-            label: 'Revenue this month',
+            label: 'Payouts this month',
             value: formatCad(monthlyRevenue),
             icon: DollarSign,
             href: '/partners/dashboard/payouts',
@@ -415,8 +418,19 @@ export default async function DashboardPage() {
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0 ml-3">
-                    <p className={`text-sm font-medium ${isRefunded ? 'text-[#888] line-through' : 'text-[#1a1a1a]'}`}>
-                      {booking.amount_cad ? formatCad(booking.amount_cad as number) : '—'}
+                    <p
+                      className={`text-sm font-medium ${isRefunded ? 'text-[#888] line-through' : 'text-[#1a1a1a]'}`}
+                      title={
+                        booking.amount_cad != null
+                          ? `Customer paid ${formatCad(booking.amount_cad as number)} (incl. tax). Showing payout after Stripe fee.`
+                          : undefined
+                      }
+                    >
+                      {booking.net_vendor_cad != null
+                        ? formatCad(booking.net_vendor_cad as number)
+                        : booking.amount_cad != null
+                          ? formatCad(booking.amount_cad as number)
+                          : '—'}
                     </p>
                     <p className="text-xs text-[#888]">
                       {isRefunded && booking.refunded_at
