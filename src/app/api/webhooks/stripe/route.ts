@@ -353,6 +353,13 @@ async function handleStripeEvent(
         subscription,
         existingTier: subRow?.subscription_tier,
       })
+      const cancellationRequested =
+        subscription.cancel_at_period_end ||
+        Boolean(
+          subscription.cancel_at &&
+          subscription.cancellation_details?.reason === 'cancellation_requested' &&
+          !subscription.ended_at
+        )
 
       await admin.from('vendor_profiles').update({
         status: newStatus,
@@ -374,7 +381,7 @@ async function handleStripeEvent(
         current_period_end: subscription.items.data[0]?.current_period_end
           ? new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
           : null,
-        cancel_at_period_end: subscription.cancel_at_period_end,
+        cancel_at_period_end: cancellationRequested,
         updated_at: new Date().toISOString(),
       }).eq('stripe_subscription_id', subscription.id)
       break
