@@ -147,17 +147,48 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Decide whether to also delete the auth user.
-    //    Keep auth.users if the same login still has a consumer profile,
-    //    otherwise it's a pure-vendor login and the auth user goes too.
-    const { data: consumerProfile } = await admin
-      .from('profiles')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle()
+    //
+    //    The `on_auth_user_created` trigger auto-creates a `profiles` row for
+    //    every signup, so a profiles row alone does NOT prove the email was
+    //    used as a consumer. To preserve auth.users only when there is real
+    //    consumer activity, look for bookings / saves / reviews / completed
+    //    consumer onboarding tied to this auth user.
+    let hasConsumerActivity = false
 
-    const preservedConsumerAccount = !!consumerProfile
+    const consumerChecks = await Promise.all([
+      admin.from('bookings').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      admin.from('user_event_saves').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      admin.from('vendor_reviews').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      admin
+        .from('profiles')
+        .select('onboarding_completed, category_of_interest')
+        .eq('id', userId)
+        .maybeSingle(),
+    ])
+
+    for (const r of consumerChecks.slice(0, 3) as Array<{ count: number | null }>) {
+      if ((r.count ?? 0) > 0) {
+        hasConsumerActivity = true
+        break
+      }
+    }
+
+    if (!hasConsumerActivity) {
+      const profileRow = (consumerChecks[3] as { data?: { onboarding_completed?: boolean | null; category_of_interest?: string[] | null } | null }).data
+      if (
+        profileRow?.onboarding_completed === true ||
+        (Array.isArray(profileRow?.category_of_interest) && profileRow!.category_of_interest!.length > 0)
+      ) {
+        hasConsumerActivity = true
+      }
+    }
+
+    const preservedConsumerAccount = hasConsumerActivity
 
     if (!preservedConsumerAccount) {
+      // Deleting auth.users cascades to public.profiles via the FK
+      // `profiles.id REFERENCES auth.users(id) ON DELETE CASCADE`, freeing the
+      // email for a fresh signup.
       const { error: authErr } = await admin.auth.admin.deleteUser(userId)
       if (authErr) {
         console.error('Partner account delete: auth deleteUser failed', authErr.message, userId)
