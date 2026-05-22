@@ -4,20 +4,31 @@ import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { logSecurityEvent } from '@/lib/security-monitor'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { processBookingRefund } from '@/lib/booking-refund'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder', {
   apiVersion: '2026-04-22.dahlia',
 })
 
+const ACTIVE_BOOKING_STATUSES = new Set([
+  'confirmed',
+  'pending',
+  'booked',
+  'pending_confirmation',
+])
+
 /**
  * POST /api/partners/account/delete
  *
  * Deletes the vendor (partner) account for the authenticated user:
  *   - cancels any active Stripe subscription immediately
+ *   - refunds any active customer bookings tied to this vendor
+ *   - clears `bookings` rows that reference the vendor (the FK
+ *     `bookings.vendor_id → vendor_profiles.id` is NO ACTION, so it
+ *     must be cleared explicitly before deleting `vendor_profiles`)
  *   - deletes vendor_profiles row (FK cascade clears events, vendor_subscriptions,
- *     vendor_payouts, vendor_calendar_connections, vendor_reviews(vendor_profile_id),
- *     and events.bookings)
+ *     vendor_payouts, vendor_calendar_connections, vendor_reviews(vendor_profile_id))
  *
  * If the same auth user also has a consumer `profiles` row, the auth.users row
  * is kept so the consumer login (mobile app) keeps working. Otherwise the auth
@@ -129,10 +140,90 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 2. Delete vendor_profiles. FK cascade rules wipe:
+    // 2. Refund + clear customer bookings tied to this vendor.
+    //
+    // `bookings.vendor_id` references `vendor_profiles(id)` with NO ACTION, so
+    // deleting the vendor profile while bookings still point at it fails
+    // before any `events` cascade can fire. Pull every booking for this
+    // vendor, refund the still-active paid ones via Stripe, then delete the
+    // rows so the vendor_profiles delete proceeds cleanly.
+    const { data: vendorBookings, error: bookingsLookupErr } = await admin
+      .from('bookings')
+      .select('id, status, refunded_at, stripe_payment_intent_id')
+      .eq('vendor_id', vendor.id)
+
+    if (bookingsLookupErr) {
+      console.error(
+        'Partner account delete: vendor bookings lookup failed',
+        bookingsLookupErr.message,
+        userId
+      )
+      return NextResponse.json(
+        {
+          error: `Failed to look up vendor bookings: ${bookingsLookupErr.message}`,
+          stage: 'bookings_lookup',
+        },
+        { status: 500 }
+      )
+    }
+
+    const refundFailures: { bookingId: string; error: string }[] = []
+    for (const b of vendorBookings ?? []) {
+      const status = ((b as { status?: string | null }).status ?? '').toLowerCase()
+      const refundedAt = (b as { refunded_at?: string | null }).refunded_at ?? null
+      const piId = (b as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id
+      const isActivePaid =
+        ACTIVE_BOOKING_STATUSES.has(status) && !refundedAt && Boolean(piId)
+      if (!isActivePaid) continue
+
+      const result = await processBookingRefund(admin, b.id as string, {
+        initiatedBy: 'vendor',
+        cancellationReason: 'Vendor account deleted',
+        skipRefundWindowCheck: true,
+      })
+      if (!result.ok) {
+        refundFailures.push({ bookingId: b.id as string, error: result.error })
+      }
+    }
+
+    if (refundFailures.length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            'Could not refund all active bookings before deleting the account. ' +
+            'Resolve the refunds in Stripe and retry.',
+          stage: 'refund_active_bookings',
+          details: refundFailures,
+        },
+        { status: 500 }
+      )
+    }
+
+    if ((vendorBookings ?? []).length > 0) {
+      const { error: bookingsDeleteErr } = await admin
+        .from('bookings')
+        .delete()
+        .eq('vendor_id', vendor.id)
+      if (bookingsDeleteErr) {
+        console.error(
+          'Partner account delete: bookings delete failed',
+          bookingsDeleteErr.message,
+          userId
+        )
+        return NextResponse.json(
+          {
+            error: `Failed to clear vendor bookings: ${bookingsDeleteErr.message}`,
+            stage: 'bookings_delete',
+          },
+          { status: 500 }
+        )
+      }
+    }
+
+    // 3. Delete vendor_profiles. FK cascade rules wipe:
     //      vendor_subscriptions, vendor_payouts, vendor_calendar_connections,
-    //      vendor_reviews(vendor_profile_id), events(vendor_profile_id),
-    //      bookings(event_id cascade)
+    //      vendor_reviews(vendor_profile_id), events(vendor_profile_id).
+    //      Remaining bookings (cleared above) cascade through events anyway.
     const { error: deleteErr } = await admin
       .from('vendor_profiles')
       .delete()
@@ -146,7 +237,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 3. Decide whether to also delete the auth user.
+    // 4. Decide whether to also delete the auth user.
     //
     //    The `on_auth_user_created` trigger auto-creates a `profiles` row for
     //    every signup, so a profiles row alone does NOT prove the email was
