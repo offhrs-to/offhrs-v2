@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
-import { Loader2, AlertTriangle } from 'lucide-react'
+import { Loader2, AlertTriangle, CalendarX } from 'lucide-react'
 
 interface Vendor {
   id: string
@@ -17,12 +17,31 @@ interface Vendor {
   subscription_current_period_end: string | null
 }
 
+interface SubscriptionState {
+  /** True if Stripe has the subscription set to cancel at the end of the period. */
+  cancelAtPeriodEnd: boolean
+  /** Raw Stripe subscription status (e.g. 'active', 'trialing', 'canceled'). */
+  status: string | null
+  /** ISO timestamp the vendor retains access until. Prefer this over
+   *  vendor_profiles.subscription_current_period_end so the date matches the
+   *  most recent webhook update. */
+  currentPeriodEnd: string | null
+}
+
 interface SettingsClientProps {
   vendor: Vendor
   email: string
+  subscription: SubscriptionState
 }
 
-export function SettingsClient({ vendor, email }: SettingsClientProps) {
+function formatLongDate(iso: string | null): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })
+}
+
+export function SettingsClient({ vendor, email, subscription }: SettingsClientProps) {
   const router = useRouter()
 
   // Profile form
@@ -161,11 +180,24 @@ export function SettingsClient({ vendor, email }: SettingsClientProps) {
     }
   }
 
-  const periodEnd = vendor.subscription_current_period_end
-    ? new Date(vendor.subscription_current_period_end).toLocaleDateString('en-CA', {
-        year: 'numeric', month: 'long', day: 'numeric',
-      })
-    : null
+  const periodEnd = formatLongDate(
+    subscription.currentPeriodEnd ?? vendor.subscription_current_period_end
+  )
+
+  // Derived subscription UI states:
+  //   - `subscriptionEnded` covers the case where Stripe has fully ended the
+  //     subscription (customer.subscription.deleted webhook flipped vendor
+  //     status to 'canceled').
+  //   - `cancellationScheduled` covers the in-between state: vendor clicked
+  //     "Cancel" in Stripe billing portal so `cancel_at_period_end=true`, but
+  //     they still have paid access until `currentPeriodEnd`.
+  //   - `subscriptionActive` is the default healthy / trialing state.
+  const subscriptionEnded =
+    vendor.status === 'canceled' ||
+    vendor.status === 'cancelled' ||
+    subscription.status === 'canceled'
+  const cancellationScheduled = !subscriptionEnded && subscription.cancelAtPeriodEnd
+  const subscriptionActive = !subscriptionEnded && !cancellationScheduled
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-8">
@@ -268,11 +300,24 @@ export function SettingsClient({ vendor, email }: SettingsClientProps) {
       <section className="bg-white border border-[#E8E4DE] rounded-xl p-5">
         <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Subscription</h2>
         <p className="text-xs text-[#888] mb-4">Manage your billing, invoices, and payment method.</p>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div className="text-sm text-[#555]">
-            <span className="capitalize font-medium text-[#1a1a1a]">{vendor.status}</span>
-            {periodEnd && (
-              <span className="text-[#888]"> · renews {periodEnd}</span>
+            {subscriptionEnded ? (
+              <span className="font-medium text-red-700">Subscription ended</span>
+            ) : cancellationScheduled ? (
+              <>
+                <span className="font-medium text-amber-700">Cancellation scheduled</span>
+                {periodEnd && (
+                  <span className="text-[#888]"> · access until {periodEnd}</span>
+                )}
+              </>
+            ) : (
+              <>
+                <span className="capitalize font-medium text-[#1a1a1a]">{vendor.status}</span>
+                {periodEnd && (
+                  <span className="text-[#888]"> · renews {periodEnd}</span>
+                )}
+              </>
             )}
           </div>
           <button
@@ -335,17 +380,58 @@ export function SettingsClient({ vendor, email }: SettingsClientProps) {
           <AlertTriangle className="w-4 h-4 text-red-500" />
           <h2 className="text-sm font-semibold text-red-700">Danger zone</h2>
         </div>
-        <p className="text-xs text-[#888] mb-4">
-          Canceling your subscription retains access until the end of your current billing period.
-          Your data is kept for 30 days after cancellation.
-        </p>
-        <button
-          onClick={openBillingPortal}
-          disabled={portalLoading}
-          className="text-sm font-semibold text-red-600 border border-red-200 px-4 py-2 rounded-xl hover:bg-red-50 disabled:opacity-50 transition-colors"
-        >
-          Cancel subscription
-        </button>
+
+        {cancellationScheduled && (
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <CalendarX className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="text-xs text-amber-800 leading-relaxed">
+              <p className="font-semibold mb-0.5">Subscription cancellation scheduled</p>
+              <p>
+                Your offhrs Partners subscription is set to cancel
+                {periodEnd ? <> at the end of your current billing period on <strong>{periodEnd}</strong>.</> : '.'}{' '}
+                You&apos;ll keep full access until then. To resume billing, open <strong>Manage billing</strong> above
+                and choose <em>Renew plan</em>.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {subscriptionEnded && (
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <CalendarX className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="text-xs text-red-800 leading-relaxed">
+              <p className="font-semibold mb-0.5">Subscription ended</p>
+              <p>
+                Your offhrs Partners subscription has ended. Your data is retained for 30 days; reactivate any
+                time from the partners signup page to restore your dashboard.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {subscriptionActive ? (
+          <>
+            <p className="text-xs text-[#888] mb-4">
+              Canceling your subscription retains access until the end of your current billing period.
+              Your data is kept for 30 days after cancellation.
+            </p>
+            <button
+              onClick={openBillingPortal}
+              disabled={portalLoading}
+              className="text-sm font-semibold text-red-600 border border-red-200 px-4 py-2 rounded-xl hover:bg-red-50 disabled:opacity-50 transition-colors"
+            >
+              Cancel subscription
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={openBillingPortal}
+            disabled={portalLoading}
+            className="text-sm font-semibold text-[#5D755D] border border-[#5D755D] px-4 py-2 rounded-xl hover:bg-[#EDF2ED] disabled:opacity-50 transition-colors"
+          >
+            {portalLoading ? 'Opening…' : 'Manage subscription'}
+          </button>
+        )}
 
         <div className="mt-4 border-t border-red-100 pt-4">
           <p className="text-xs text-[#888] mb-3">

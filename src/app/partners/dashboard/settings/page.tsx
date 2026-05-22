@@ -19,5 +19,31 @@ export default async function SettingsPage() {
 
   if (!vendor) redirect('/partners/signup')
 
-  return <SettingsClient vendor={vendor} email={user.email ?? ''} />
+  // Pull the latest Stripe subscription mirror so the page can reflect a
+  // pending cancellation (cancel_at_period_end) before Stripe's
+  // customer.subscription.deleted event flips vendor_profiles.status to
+  // 'canceled'. Without this the Settings UI claims the plan still renews
+  // even after the vendor cancels in the billing portal.
+  const { data: subscription } = await admin
+    .from('vendor_subscriptions')
+    .select('cancel_at_period_end, status, current_period_end')
+    .eq('vendor_id', vendor.id)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return (
+    <SettingsClient
+      vendor={vendor}
+      email={user.email ?? ''}
+      subscription={{
+        cancelAtPeriodEnd: Boolean(subscription?.cancel_at_period_end),
+        status: (subscription?.status as string | null) ?? null,
+        currentPeriodEnd:
+          (subscription?.current_period_end as string | null) ??
+          vendor.subscription_current_period_end ??
+          null,
+      }}
+    />
+  )
 }
