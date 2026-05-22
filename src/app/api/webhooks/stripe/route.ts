@@ -570,17 +570,16 @@ async function handleStripeEvent(
     }
 
     // ── Reconcile real Stripe processing fee once it's published ──────────
-    // `charge.updated` fires when Stripe finalizes the balance_transaction for
-    // a charge (and on a few other state transitions). Because the PaymentIntent
-    // was created with `on_behalf_of` pointing at the connected account, the BT
-    // lives on the connected account's ledger and `event.account` identifies
-    // which connected account this charge belongs to.
+    // `charge.succeeded` can arrive before Stripe exposes the connected
+    // account's balance transaction, while `charge.updated` often fires once
+    // that ledger entry is ready. Handle both and ask the connected account
+    // ledger for the source-of-truth fee/net values.
     //
     // We only touch bookings whose stored `stripe_fee_cad` is still the estimate
     // (i.e. differs from the freshly-pulled real fee) to avoid no-op writes.
+    case 'charge.succeeded':
     case 'charge.updated': {
       const charge = event.data.object as Stripe.Charge
-      if (!charge.balance_transaction) break
 
       const piId =
         typeof charge.payment_intent === 'string'
@@ -598,7 +597,10 @@ async function handleStripeEvent(
         .maybeSingle()
       if (!booking) break
 
-      const real = await fetchRealChargeFee(stripe, charge.id, connectedAccountId)
+      const real = await fetchRealChargeFee(stripe, charge.id, connectedAccountId, {
+        attempts: 2,
+        delayMs: 500,
+      })
       if (!real) break
 
       const storedFee = Number(booking.stripe_fee_cad ?? 0)

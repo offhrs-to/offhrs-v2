@@ -12,6 +12,7 @@ import {
   calculateWorkshopTicketTax,
   resolveWorkshopCustomerTaxAddress,
 } from '@/lib/stripe-workshop-tax'
+import { estimateCanadianStripeFee } from '@/lib/stripe-charge-fees'
 
 const BOOK_RATE_LIMIT = 15 // per minute per IP
 
@@ -201,19 +202,40 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      const estimatedStripeFeeCents = Math.min(
+        taxBreakdown.amountTotalCents,
+        Math.max(0, Math.round(estimateCanadianStripeFee(taxBreakdown.totalCad).feeCad * 100))
+      )
+
+      let applicationFeeAmount: number | undefined
+      try {
+        const connectedAccount = await stripe.accounts.retrieve(vendor.stripe_account_id)
+        const feePayer = connectedAccount.controller?.fees?.payer
+        if (feePayer !== 'account' && estimatedStripeFeeCents > 0) {
+          applicationFeeAmount = estimatedStripeFeeCents
+        }
+      } catch (accountErr) {
+        console.warn(
+          'Could not inspect connected account fee payer; applying fee recoup fallback',
+          vendor.stripe_account_id,
+          accountErr instanceof Error ? accountErr.message : accountErr
+        )
+        if (estimatedStripeFeeCents > 0) {
+          applicationFeeAmount = estimatedStripeFeeCents
+        }
+      }
+
       // Destination charge with `on_behalf_of` set to the connected (vendor) account.
       //
       // This makes the vendor's connected account the *settlement merchant*, which means:
-      //   1. Stripe processing fees (2.9% + $0.30 for CA cards, plus cross-border surcharges)
-      //      are debited from the connected account's balance — NOT the platform's. This
-      //      enforces our policy that vendors absorb Stripe fees.
-      //   2. Pricing/interchange follows the connected account's country (CA Express).
-      //   3. The connected account is liable for chargebacks/disputes.
-      //   4. The vendor's statement descriptor appears on the cardholder's statement.
+      //   1. Pricing/interchange follows the connected account's country (CA Express).
+      //   2. The vendor's statement descriptor appears on the cardholder's statement.
       //
-      // Funds still settle through the platform first (because of `transfer_data.destination`),
-      // then transfer to the connected account; the Stripe fee is netted from their balance
-      // at settlement. To collect a platform commission later, add `application_fee_amount`.
+      // New Connect accounts are created with `controller.fees.payer = account`, so Stripe
+      // processing fees are debited directly from the vendor. Older test accounts may still
+      // have `fees.payer = application`; for those we set an application fee equal to the
+      // estimated Stripe processing fee so the platform is reimbursed and the vendor's payout
+      // still reflects the policy that vendors absorb card processing fees.
       //
       // Docs: https://docs.stripe.com/connect/destination-charges#settlement-merchant
       const paymentIntent = await stripe.paymentIntents.create({
@@ -221,6 +243,7 @@ export async function POST(request: NextRequest) {
         currency: 'cad',
         payment_method_types: ['card'],
         on_behalf_of: vendor.stripe_account_id,
+        ...(applicationFeeAmount ? { application_fee_amount: applicationFeeAmount } : {}),
         transfer_data: {
           destination: vendor.stripe_account_id,
         },
@@ -241,6 +264,8 @@ export async function POST(request: NextRequest) {
           tax_cad: String(taxBreakdown.taxCad),
           total_cad: String(taxBreakdown.totalCad),
           tax_calculation: taxBreakdown.calculationId,
+          application_fee_cents: String(applicationFeeAmount ?? 0),
+          estimated_stripe_fee_cents: String(estimatedStripeFeeCents),
           stripe_account_id: vendor.stripe_account_id,
           app_user_id: user.id,
         },

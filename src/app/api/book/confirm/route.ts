@@ -54,19 +54,6 @@ async function resolveApiUser(request: NextRequest) {
   return user
 }
 
-function resolveSessionDate(
-  startTime: string | undefined,
-  metaStart: string | undefined,
-  eventDateIso: string | null | undefined
-): Date {
-  const raw = startTime || metaStart || eventDateIso
-  if (raw) {
-    const d = new Date(raw)
-    if (!Number.isNaN(d.getTime())) return d
-  }
-  return new Date()
-}
-
 export async function POST(request: NextRequest) {
   try {
     const raw = await request.json()
@@ -181,15 +168,17 @@ export async function POST(request: NextRequest) {
     const chargeAmountCad = totalCad > 0 ? totalCad : subtotalCad
     const chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : (pi.latest_charge as { id: string } | null)?.id
 
-    // Resolve the real Stripe processing fee from the charge's balance_transaction.
-    // With `on_behalf_of` set on the PaymentIntent, the connected account is the
-    // settlement merchant and the BT lives on its ledger. We fall back to the
-    // CA-domestic estimate (2.9% + $0.30) only when Stripe hasn't published the
-    // BT yet — the `charge.updated` webhook will reconcile asynchronously.
+    // Resolve the real Stripe processing fee from the connected account's
+    // balance ledger. Stripe can publish the BT a moment after the PI succeeds,
+    // so we retry briefly before falling back to an estimate; webhooks still
+    // reconcile later if the BT lands after this request returns.
     let stripeFee: number
     let netVendor: number
     if (chargeId && connectedAccountId) {
-      const real = await fetchRealChargeFee(stripe, chargeId, connectedAccountId)
+      const real = await fetchRealChargeFee(stripe, chargeId, connectedAccountId, {
+        attempts: 4,
+        delayMs: 750,
+      })
       if (real) {
         stripeFee = real.feeCad
         netVendor = real.netCad

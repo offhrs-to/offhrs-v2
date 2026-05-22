@@ -11,6 +11,26 @@ export type ChargeFeeBreakdown = {
   balanceTransactionId: string | null
 }
 
+export type FetchRealChargeFeeOptions = {
+  /** Number of attempts before giving up. Stripe can publish BTs asynchronously. */
+  attempts?: number
+  /** Delay between attempts, in milliseconds. */
+  delayMs?: number
+}
+
+function fromBalanceTransaction(bt: Stripe.BalanceTransaction): ChargeFeeBreakdown | null {
+  if (bt.fee == null || bt.net == null) return null
+  return {
+    feeCad: bt.fee / 100,
+    netCad: bt.net / 100,
+    balanceTransactionId: bt.id,
+  }
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 /**
  * Estimate Stripe processing fee for a CA-domestic card. Used as a fallback
  * when the balance_transaction isn't available yet (e.g., immediately after
@@ -44,28 +64,59 @@ export function estimateCanadianStripeFee(amountCad: number): ChargeFeeBreakdown
 export async function fetchRealChargeFee(
   stripe: Stripe,
   chargeId: string,
-  connectedAccountId: string
+  connectedAccountId: string,
+  options: FetchRealChargeFeeOptions = {}
 ): Promise<ChargeFeeBreakdown | null> {
-  try {
-    const charge = await stripe.charges.retrieve(
-      chargeId,
-      { expand: ['balance_transaction'] },
-      { stripeAccount: connectedAccountId }
-    )
-    const bt = charge.balance_transaction
-    if (!bt || typeof bt === 'string') return null
-    if (bt.fee == null || bt.net == null) return null
-    return {
-      feeCad: bt.fee / 100,
-      netCad: bt.net / 100,
-      balanceTransactionId: bt.id,
+  const attempts = Math.max(1, Math.floor(options.attempts ?? 1))
+  const delayMs = Math.max(0, Math.floor(options.delayMs ?? 0))
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      // The connected account's balance ledger is the source of truth for the
+      // amount the vendor can actually pay out. Listing by `source` is more
+      // reliable for Connect destination charges than depending only on
+      // `charge.balance_transaction` expansion.
+      const listed = await stripe.balanceTransactions.list(
+        { source: chargeId, limit: 1 },
+        { stripeAccount: connectedAccountId }
+      )
+      const listedBt = listed.data[0]
+      if (listedBt) {
+        const breakdown = fromBalanceTransaction(listedBt)
+        if (breakdown) return breakdown
+      }
+
+      const charge = await stripe.charges.retrieve(
+        chargeId,
+        { expand: ['balance_transaction'] },
+        { stripeAccount: connectedAccountId }
+      )
+      const bt = charge.balance_transaction
+      if (bt && typeof bt !== 'string') {
+        const breakdown = fromBalanceTransaction(bt)
+        if (breakdown) return breakdown
+      }
+    } catch (err) {
+      if (attempt === attempts) {
+        console.warn(
+          'fetchRealChargeFee: could not retrieve balance_transaction',
+          chargeId,
+          err instanceof Error ? err.message : err
+        )
+      }
     }
-  } catch (err) {
-    console.warn(
-      'fetchRealChargeFee: could not retrieve balance_transaction',
-      chargeId,
-      err instanceof Error ? err.message : err
-    )
-    return null
+
+    if (attempt < attempts && delayMs > 0) {
+      await wait(delayMs)
+    }
   }
+
+  if (attempts > 1) {
+    console.warn(
+      'fetchRealChargeFee: balance_transaction not available after retries',
+      chargeId
+    )
+  }
+
+  return null
 }
