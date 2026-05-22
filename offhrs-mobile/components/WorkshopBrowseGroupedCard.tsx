@@ -21,6 +21,12 @@ import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mo
 import { shareWorkshopEvent } from '@/lib/share-workshop';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import { workshopSessionKey } from '@/lib/workshops-events-query';
+import {
+  getSeriesMode,
+  isMultiWeekEvent,
+  parseSeriesOccurrences,
+  type EventSeriesFields,
+} from '@/lib/workshop-series';
 import { supabase } from '@/lib/supabase';
 import { workshopDisplayPrice, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
 import { vendorPagePath, workshopVendorDisplayName } from '@/lib/workshop-vendor-display';
@@ -289,6 +295,21 @@ export default function WorkshopBrowseGroupedCard({
     if (url) Linking.openURL(url);
   };
 
+  // Cohort multi_week series (weekly_same / weekly_custom): one bookable unit.
+  // Surface the commitment with a "{N}-week series" / "{N}-session series" label
+  // instead of fanning the time pill row.
+  const seriesInfo = useMemo(() => {
+    if (selected == null) return null;
+    const fields = selected as EventSeriesFields;
+    if (!isMultiWeekEvent(fields)) return null;
+    if (getSeriesMode(fields) !== 'cohort') return null;
+    const occs = parseSeriesOccurrences(fields);
+    if (occs.length < 2) return null;
+    const pattern = (selected.partner_series_meta as { pattern?: string } | null | undefined)?.pattern;
+    const unit = pattern === 'weekly_same' ? 'week' : 'session';
+    return { count: occs.length, label: `${occs.length}-${unit} series` };
+  }, [selected]);
+
   if (sorted.length === 0 || selected == null) return null;
 
   const title = selected.title;
@@ -535,54 +556,75 @@ export default function WorkshopBrowseGroupedCard({
           </View>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginTop: 6, maxWidth: '100%' }}
-          contentContainerStyle={{ flexDirection: 'row', gap: 8, alignItems: 'center', paddingRight: 4 }}
-        >
-          {sorted.map((slot) => {
-            const slotKey = workshopSessionKey(slot);
-            const active = slotKey === selectedSessionKey;
-            const slotFull = workshopEventIsFull(slot);
-            const pillLabel = formatSessionPill(slot, showDateOnPills);
-            return (
-              <Pressable
-                key={slotKey}
-                onPress={() => {
-                  if (slotFull) return;
-                  if (onOpenQuickView) {
-                    onOpenQuickView(slot);
-                  }
-                  setSelectedSessionKey(slotKey);
-                }}
-                disabled={slotFull}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active, disabled: slotFull }}
-                accessibilityLabel={`${pillLabel}${slotFull ? ', full' : active ? ', selected' : ''}`}
-                style={{
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                  borderRadius: 10,
-                  backgroundColor: active ? DesignColors.heroBg : '#FFF',
-                  borderWidth: 1,
-                  borderColor: active ? DesignColors.primary : DesignColors.lightGreenBorder,
-                  opacity: slotFull ? 0.45 : 1,
-                }}
-              >
-                <Text
+        {seriesInfo ? (
+          <View style={{ flexDirection: 'row', marginTop: 6 }}>
+            <View
+              accessibilityRole="text"
+              accessibilityLabel={seriesInfo.label}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 10,
+                backgroundColor: DesignColors.heroBg,
+                borderWidth: 1,
+                borderColor: DesignColors.primary,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '700', color: DesignColors.primary }}>
+                {seriesInfo.label}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginTop: 6, maxWidth: '100%' }}
+            contentContainerStyle={{ flexDirection: 'row', gap: 8, alignItems: 'center', paddingRight: 4 }}
+          >
+            {sorted.map((slot) => {
+              const slotKey = workshopSessionKey(slot);
+              const active = slotKey === selectedSessionKey;
+              const slotFull = workshopEventIsFull(slot);
+              const pillLabel = formatSessionPill(slot, showDateOnPills);
+              return (
+                <Pressable
+                  key={slotKey}
+                  onPress={() => {
+                    if (slotFull) return;
+                    if (onOpenQuickView) {
+                      onOpenQuickView(slot);
+                    }
+                    setSelectedSessionKey(slotKey);
+                  }}
+                  disabled={slotFull}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active, disabled: slotFull }}
+                  accessibilityLabel={`${pillLabel}${slotFull ? ', full' : active ? ', selected' : ''}`}
                   style={{
-                    fontSize: 12,
-                    fontWeight: '600',
-                    color: slotFull ? DesignColors.mediumGray : active ? DesignColors.primary : DesignColors.charcoal,
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 10,
+                    backgroundColor: active ? DesignColors.heroBg : '#FFF',
+                    borderWidth: 1,
+                    borderColor: active ? DesignColors.primary : DesignColors.lightGreenBorder,
+                    opacity: slotFull ? 0.45 : 1,
                   }}
                 >
-                  {slotFull ? `${pillLabel} · Full` : pillLabel}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: '600',
+                      color: slotFull ? DesignColors.mediumGray : active ? DesignColors.primary : DesignColors.charcoal,
+                    }}
+                  >
+                    {slotFull ? `${pillLabel} · Full` : pillLabel}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
 
         <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 12, width: '100%' }}>
           {vendorPath ? (
