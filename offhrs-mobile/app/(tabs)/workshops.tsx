@@ -12,6 +12,7 @@ import { openWebAppPath } from '@/lib/web-app-links';
 import { supabase } from '@/lib/supabase';
 import { isEventVisibleToConsumers } from '@/lib/consumer-event-visibility';
 import {
+  expandWorkshopEventsForConsumers,
   fetchWorkshopEvents,
   mapDbRowToWorkshopEvent,
   WORKSHOP_EVENT_LIST_SELECT,
@@ -163,7 +164,12 @@ export default function WorkshopsScreen() {
 
   useEffect(() => {
     if (openEventId == null || openTs === '') return;
-    const fromList = previewEvents.find((e) => Number(e.id) === openEventId);
+    const fromList = previewEvents.find((e) => {
+      if (Number(e.id) !== openEventId) return false;
+      if (!openTs) return true;
+      const ts = e.date_iso ?? '';
+      return ts === openTs || ts.startsWith(openTs) || openTs.startsWith(ts);
+    });
     if (fromList) {
       setQuickViewEvent(fromList);
       return;
@@ -177,10 +183,19 @@ export default function WorkshopsScreen() {
       .then(async ({ data, error }) => {
         if (cancelled || error || !data) return;
         if (!isEventVisibleToConsumers(data)) return;
-        const [enriched] = await enrichWorkshopEventsWithVendorNames([
-          mapDbRowToWorkshopEvent(data),
-        ]);
-        if (!cancelled) setQuickViewEvent(enriched);
+        const [enriched] = await enrichWorkshopEventsWithVendorNames(
+          expandWorkshopEventsForConsumers([mapDbRowToWorkshopEvent(data)])
+        );
+        if (!cancelled) {
+          const match =
+            openTs && enriched.length > 1
+              ? enriched.find((e) => {
+                  const ts = e.date_iso ?? '';
+                  return ts === openTs || ts.startsWith(openTs) || openTs.startsWith(ts);
+                })
+              : enriched[0];
+          setQuickViewEvent(match ?? enriched[0] ?? null);
+        }
       });
     return () => {
       cancelled = true;

@@ -137,7 +137,9 @@ export async function POST(request: NextRequest) {
 
     const { data: vendor } = await admin
       .from('vendor_profiles')
-      .select('id, business_name, default_workshop_image_url')
+      .select(
+        'id, business_name, default_workshop_image_url, location_address, location_lat, location_lng'
+      )
       .eq('user_id', user.id)
       .single()
 
@@ -214,6 +216,9 @@ export async function POST(request: NextRequest) {
       locationType: body.location_type,
       clientLat: body.location_lat,
       clientLng: body.location_lng,
+      vendorProfileAddress: vendor.location_address as string | null,
+      vendorProfileLat: vendor.location_lat as number | null,
+      vendorProfileLng: vendor.location_lng as number | null,
     })
 
     const baseRow = {

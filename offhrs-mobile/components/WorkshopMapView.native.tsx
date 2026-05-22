@@ -14,6 +14,11 @@ import { DesignColors } from '@/constants/design-template';
 import { canMountNativeMapView } from '@/lib/android-google-maps';
 import { vendorPagePath } from '@/lib/workshop-vendor-display';
 import { workshopDisplayPrice } from '@/lib/workshop-event-utils';
+import {
+  dedupeWorkshopMapMarkerEvents,
+  workshopHasMapCoordinates,
+  workshopMapMarkerKey,
+} from '@/lib/workshop-map-coordinates';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 
 const DEFAULT_REGION = {
@@ -176,13 +181,7 @@ export default function WorkshopMapView({
   maxMarkers = DEFAULT_MAX_MARKERS,
 }: Props) {
   const withCoords = useMemo(() => {
-    const filtered = events.filter(
-      (e) =>
-        e.lat != null &&
-        e.lng != null &&
-        !Number.isNaN(Number(e.lat)) &&
-        !Number.isNaN(Number(e.lng))
-    );
+    const filtered = dedupeWorkshopMapMarkerEvents(events.filter(workshopHasMapCoordinates));
     if (filtered.length <= maxMarkers) return filtered;
     return filtered.slice(0, maxMarkers);
   }, [events, maxMarkers]);
@@ -208,7 +207,7 @@ export default function WorkshopMapView({
       >
         {withCoords.map((event) => (
           <Marker
-            key={event.id}
+            key={workshopMapMarkerKey(event)}
             coordinate={{
               latitude: Number(event.lat),
               longitude: Number(event.lng),

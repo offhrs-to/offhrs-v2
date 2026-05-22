@@ -17,6 +17,7 @@ import {
   Users,
 } from 'lucide-react'
 import { SessionForm } from './SessionForm'
+import { OccurrenceEditModal, type OccurrenceEditTarget } from './OccurrenceEditModal'
 import { formatSeriesDateRangeLabel, parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
 import { spotsFilledLabel } from '@/lib/workshop-spots-label'
 
@@ -53,11 +54,14 @@ function SessionsPageInner() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [vendorDefaultAddress, setVendorDefaultAddress] = useState('')
+  const [vendorDefaultLat, setVendorDefaultLat] = useState<number | null>(null)
+  const [vendorDefaultLng, setVendorDefaultLng] = useState<number | null>(null)
   const [vendorDefaultWorkshopImageUrl, setVendorDefaultWorkshopImageUrl] = useState('')
   const [showForm, setShowForm] = useState(searchParams.get('new') === '1')
   const [editingSession, setEditingSession] = useState<Session | null>(null)
   const [statusFilter, setStatusFilter] = useState('all')
   const [expandedSessionIds, setExpandedSessionIds] = useState<Set<string>>(() => new Set())
+  const [occurrenceEdit, setOccurrenceEdit] = useState<OccurrenceEditTarget | null>(null)
 
   function toggleExpanded(id: string) {
     setExpandedSessionIds((prev) => {
@@ -100,12 +104,22 @@ function SessionsPageInner() {
         const data = await res.json()
         if (cancelled || !res.ok) return
         setVendorDefaultAddress(typeof data.location_address === 'string' ? data.location_address : '')
+        const lat = data.location_lat
+        const lng = data.location_lng
+        setVendorDefaultLat(
+          typeof lat === 'number' && Number.isFinite(lat) ? lat : null
+        )
+        setVendorDefaultLng(
+          typeof lng === 'number' && Number.isFinite(lng) ? lng : null
+        )
         setVendorDefaultWorkshopImageUrl(
           typeof data.default_workshop_image_url === 'string' ? data.default_workshop_image_url : ''
         )
       } catch {
         if (!cancelled) {
           setVendorDefaultAddress('')
+          setVendorDefaultLat(null)
+          setVendorDefaultLng(null)
           setVendorDefaultWorkshopImageUrl('')
         }
       }
@@ -118,7 +132,7 @@ function SessionsPageInner() {
   async function handleDelete(id: string) {
     if (
       !confirm(
-        'Archive this workshop? It will be hidden from the app. The row stays in the database for booking history (filter by Archived to view).'
+        'Archive this workshop? It will be hidden from the app and all active Offhrs bookings for this workshop will be fully refunded. The row stays in the database for booking history (filter by Archived to view).'
       )
     )
       return
@@ -159,6 +173,8 @@ function SessionsPageInner() {
         key={editingSession?.id ?? 'new'}
         session={editingSession}
         vendorDefaultAddress={vendorDefaultAddress}
+        vendorDefaultLat={vendorDefaultLat}
+        vendorDefaultLng={vendorDefaultLng}
         vendorDefaultWorkshopImageUrl={vendorDefaultWorkshopImageUrl}
         onClose={handleFormClose}
       />
@@ -357,9 +373,25 @@ function SessionsPageInner() {
                             className="flex items-center justify-between gap-3 py-1.5 text-xs"
                           >
                             <span className="text-[#1a1a1a] truncate">{label}</span>
-                            <span className="text-[#555] flex-shrink-0">
-                              {spotsFilledLabel(occ.max_attendees, occ.available_slots)}
-                            </span>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-[#555]">
+                                {spotsFilledLabel(occ.max_attendees, occ.available_slots)}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOccurrenceEdit({
+                                    sessionId: session.id,
+                                    sessionTitle: session.title,
+                                    occurrence: occ,
+                                  })
+                                }
+                                title="Edit this session"
+                                className="p-1.5 rounded-md text-[#888] hover:bg-[#F0EDE8] hover:text-[#1a1a1a]"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </li>
                         )
                       })}
@@ -371,6 +403,11 @@ function SessionsPageInner() {
           })}
         </div>
       )}
+      <OccurrenceEditModal
+        target={occurrenceEdit}
+        onClose={() => setOccurrenceEdit(null)}
+        onSaved={() => void fetchSessions()}
+      />
     </div>
   )
 }

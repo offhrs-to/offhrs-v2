@@ -1,7 +1,15 @@
 import { supabase } from '@/lib/supabase';
 import { CONSUMER_BOOKING_STATUS_OR, isEventVisibleToConsumers } from '@/lib/consumer-event-visibility';
+import { enrichWorkshopEventsWithMapCoordinates } from '@/lib/workshop-map-coordinates';
 import { enrichWorkshopEventsWithVendorNames } from '@/lib/workshop-vendor-display';
 import { WORKSHOP_EVENTS_FETCH_BATCH, WORKSHOP_MAX_UPCOMING_FETCH } from '@/constants/workshops-list';
+import {
+  applyCohortAvailability,
+  getSeriesMode,
+  isMultiWeekEvent,
+  parseSeriesOccurrences,
+  type EventSeriesFields,
+} from '@/lib/workshop-series';
 
 export type WorkshopEventRow = {
   id: number;
@@ -29,7 +37,21 @@ export type WorkshopEventRow = {
   booking_status: string | null;
   available_slots: number | null;
   duration_minutes: number | null;
+  /** `multi_week` when this listing uses `series_occurrences` (repeating days, etc.). */
+  workshop_series?: string | null;
+  series_occurrences?: unknown;
+  partner_series_meta?: unknown;
+  max_attendees?: number | null;
 };
+
+/** Unique key per bookable session (same event id can have many occurrence rows). */
+export function workshopSessionKey(e: {
+  id: number;
+  date_iso?: string | null;
+  date?: string;
+}): string {
+  return `${e.id}\u0001${e.date_iso ?? e.date ?? ''}`;
+}
 
 function formatDateToronto(isoString: string): string {
   try {
@@ -67,6 +89,10 @@ export type WorkshopEventDbRow = {
   booking_status: string | null;
   available_slots: number | null;
   duration_minutes: number | null;
+  workshop_series?: string | null;
+  series_occurrences?: unknown;
+  partner_series_meta?: unknown;
+  max_attendees?: number | null;
 };
 
 export function mapDbRowToWorkshopEvent(row: WorkshopEventDbRow): WorkshopEventRow {
@@ -92,7 +118,96 @@ export function mapDbRowToWorkshopEvent(row: WorkshopEventDbRow): WorkshopEventR
     booking_status: row.booking_status ?? null,
     available_slots: row.available_slots ?? null,
     duration_minutes: row.duration_minutes != null ? Number(row.duration_minutes) : null,
+    workshop_series: row.workshop_series ?? null,
+    series_occurrences: row.series_occurrences,
+    partner_series_meta: row.partner_series_meta,
+    max_attendees: row.max_attendees != null ? Number(row.max_attendees) : null,
   };
+}
+
+const BOOKABLE_START_GRACE_MS = 60_000;
+
+/**
+ * Expand `multi_week` workshops into one consumer row per upcoming occurrence
+ * (matches web workshops list / detail session picker).
+ */
+export function expandWorkshopEventsForConsumers(rows: WorkshopEventRow[]): WorkshopEventRow[] {
+  const nowMs = Date.now() - BOOKABLE_START_GRACE_MS;
+  const out: WorkshopEventRow[] = [];
+
+  for (const row of rows) {
+    if (!isMultiWeekEvent(row as EventSeriesFields)) {
+      out.push(row);
+      continue;
+    }
+
+    const series = parseSeriesOccurrences(row as EventSeriesFields);
+    const mode = getSeriesMode(row as EventSeriesFields);
+    const maxAttendees =
+      row.max_attendees ?? series[0]?.max_attendees ?? 0;
+    const cohortSlots = row.available_slots ?? series[0]?.available_slots ?? 0;
+    const occs =
+      mode === 'cohort'
+        ? applyCohortAvailability(series, maxAttendees, cohortSlots)
+        : series;
+
+    let added = 0;
+    for (const o of occs) {
+      const startMs = new Date(o.start).getTime();
+      if (!Number.isFinite(startMs) || startMs < nowMs) continue;
+      if (o.available_slots <= 0) continue;
+      out.push({
+        ...row,
+        date_iso: o.start,
+        date: formatDateToronto(o.start),
+        available_slots: o.available_slots,
+        workshop_series: 'multi_week',
+      });
+      added += 1;
+    }
+  }
+
+  return out;
+}
+
+function eventMatchesDateRange(
+  e: WorkshopEventRow,
+  dateRangeStart: string | null,
+  dateRangeEnd: string | null
+): boolean {
+  if (!dateRangeStart && !dateRangeEnd) return true;
+
+  const series = parseSeriesOccurrences(e as EventSeriesFields);
+  if (series.length > 1) {
+    const today = new Date().toISOString().slice(0, 10);
+    const occs = series.filter((o) => o.start.slice(0, 10) >= today && o.available_slots > 0);
+    if (occs.length === 0) return false;
+    return occs.some((o) => {
+      const eventDate = o.start.slice(0, 10);
+      if (dateRangeStart && eventDate < dateRangeStart) return false;
+      if (dateRangeEnd && eventDate > dateRangeEnd) return false;
+      return true;
+    });
+  }
+
+  if (!e.date_iso) return !dateRangeStart && !dateRangeEnd;
+  const eventDate = e.date_iso.slice(0, 10);
+  if (dateRangeStart && eventDate < dateRangeStart) return false;
+  if (dateRangeEnd && eventDate > dateRangeEnd) return false;
+  return true;
+}
+
+function occurrenceMatchesDateRange(
+  e: WorkshopEventRow,
+  dateRangeStart: string | null,
+  dateRangeEnd: string | null
+): boolean {
+  if (!dateRangeStart && !dateRangeEnd) return true;
+  if (!e.date_iso) return false;
+  const eventDate = e.date_iso.slice(0, 10);
+  if (dateRangeStart && eventDate < dateRangeStart) return false;
+  if (dateRangeEnd && eventDate > dateRangeEnd) return false;
+  return true;
 }
 
 export type FetchWorkshopEventsOptions = {
@@ -105,7 +220,10 @@ export type FetchWorkshopEventsOptions = {
 };
 
 export const WORKSHOP_EVENT_LIST_SELECT =
-  'id, title, date, location, image_url, price, price_cad, external_link, category, lat, lng, vendor_id, vendor_profile_id, organizer, recurrence, description, booking_status, available_slots, duration_minutes';
+  'id, title, date, location, image_url, price, price_cad, external_link, category, lat, lng, vendor_id, vendor_profile_id, organizer, recurrence, description, booking_status, available_slots, duration_minutes, workshop_series, series_occurrences, partner_series_meta, max_attendees';
+
+export const WORKSHOP_EVENTS_UPCOMING_OR = (nowIso: string) =>
+  `recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso},workshop_series.eq.multi_week`;
 
 /**
  * Shared Supabase fetch for workshop list/map flows (matches workshops tab logic).
@@ -147,7 +265,7 @@ export async function fetchWorkshopEvents(
 
   const makeOrderedQuery = () => {
     let q = supabase.from('events').select(WORKSHOP_EVENT_LIST_SELECT);
-    q = q.or(`recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso}`);
+    q = q.or(WORKSHOP_EVENTS_UPCOMING_OR(nowIso));
     q = q.or(CONSUMER_BOOKING_STATUS_OR);
     if (searchOrClause) {
       q = q.or(searchOrClause);
@@ -173,17 +291,14 @@ export async function fetchWorkshopEvents(
 
   const list = combined
     .map(mapDbRowToWorkshopEvent)
-    .filter((e) => isEventVisibleToConsumers(e));
+    .filter((e) => isEventVisibleToConsumers(e))
+    .filter((e) => eventMatchesDateRange(e, dateRangeStart, dateRangeEnd));
 
-  const filteredByDate = list.filter((e) => {
-    if (!e.date_iso) return !dateRangeStart && !dateRangeEnd;
-    const eventDate = e.date_iso.slice(0, 10);
-    if (dateRangeStart && eventDate < dateRangeStart) return false;
-    if (dateRangeEnd && eventDate > dateRangeEnd) return false;
-    return true;
-  });
+  const expanded = expandWorkshopEventsForConsumers(list).filter((e) =>
+    occurrenceMatchesDateRange(e, dateRangeStart, dateRangeEnd)
+  );
 
-  const sorted = filteredByDate.sort((a, b) => {
+  const sorted = expanded.sort((a, b) => {
     const aTime = a.date_iso ? new Date(a.date_iso).getTime() : Infinity;
     const bTime = b.date_iso ? new Date(b.date_iso).getTime() : Infinity;
     return aTime - bTime;
@@ -204,5 +319,6 @@ export async function fetchWorkshopEvents(
     });
   }
 
-  return enrichWorkshopEventsWithVendorNames(result);
+  const named = await enrichWorkshopEventsWithVendorNames(result);
+  return enrichWorkshopEventsWithMapCoordinates(named);
 }

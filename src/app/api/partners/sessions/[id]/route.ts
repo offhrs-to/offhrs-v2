@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
+import { processBookingRefund } from '@/lib/booking-refund'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 import type { PartnerSessionSeriesBody } from '@/lib/partner-session-series-resolve'
 import { buildPartnerSeriesMeta, resolveWorkshopSeriesDates } from '@/lib/partner-session-series-resolve'
@@ -21,6 +22,7 @@ import {
 import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
+const ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending', 'booked', 'pending_confirmation'] as const
 
 const updateSchema = z.object({
   title: z.string().min(2).max(120).optional(),
@@ -118,7 +120,9 @@ async function getVendorAndSession(userId: string, sessionId: string) {
 
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('id, business_name, default_workshop_image_url')
+    .select(
+      'id, business_name, default_workshop_image_url, location_address, location_lat, location_lng'
+    )
     .eq('user_id', userId)
     .single()
 
@@ -203,6 +207,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
           locationType: 'in_person',
           clientLat: body.location_lat,
           clientLng: body.location_lng,
+          vendorProfileAddress: vendor.location_address as string | null,
+          vendorProfileLat: vendor.location_lat as number | null,
+          vendorProfileLng: vendor.location_lng as number | null,
         })
         updatePayload.lat = lat
         updatePayload.lng = lng
@@ -347,6 +354,43 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Invalid session id' }, { status: 400 })
     }
 
+    const { data: activeBookings, error: bookingFetchError } = await admin
+      .from('bookings')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('vendor_id', vendor.id)
+      .in('status', [...ACTIVE_BOOKING_STATUSES])
+      .is('refunded_at', null)
+
+    if (bookingFetchError) {
+      console.error('Session archive booking fetch error:', bookingFetchError)
+      return NextResponse.json({ error: bookingFetchError.message }, { status: 500 })
+    }
+
+    let refundedCount = 0
+    for (const booking of activeBookings ?? []) {
+      const bookingId = String(booking.id)
+      const refund = await processBookingRefund(admin, bookingId, {
+        initiatedBy: 'vendor',
+        cancellationReason: 'Workshop archived by vendor',
+        skipRefundWindowCheck: true,
+      })
+
+      if (!refund.ok) {
+        return NextResponse.json(
+          {
+            error:
+              refundedCount > 0
+                ? `Archiving was stopped after ${refundedCount} refund${refundedCount === 1 ? '' : 's'} because one booking could not be refunded: ${refund.error}`
+                : `Could not archive workshop because a booking could not be refunded: ${refund.error}`,
+            refunded: refundedCount,
+          },
+          { status: refund.status }
+        )
+      }
+      refundedCount++
+    }
+
     const { data: updated, error: updateError } = await admin
       .from('events')
       .update({ booking_status: 'archived' })
@@ -367,7 +411,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
       console.error('[sessions] calendar sync', e)
     )
 
-    return NextResponse.json({ success: true, archived: true })
+    return NextResponse.json({ success: true, archived: true, refunded: refundedCount })
   } catch (err) {
     console.error('Session delete error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

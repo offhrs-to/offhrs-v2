@@ -17,7 +17,9 @@ export async function GET() {
 
     const { data: vendor, error } = await admin
       .from('vendor_profiles')
-      .select('location_address, default_workshop_image_url')
+      .select(
+        'location_address, location_lat, location_lng, default_workshop_image_url'
+      )
       .eq('user_id', user.id)
       .single()
 
@@ -27,6 +29,8 @@ export async function GET() {
 
     return NextResponse.json({
       location_address: vendor.location_address ?? '',
+      location_lat: vendor.location_lat ?? null,
+      location_lng: vendor.location_lng ?? null,
       default_workshop_image_url: vendor.default_workshop_image_url ?? '',
     })
   } catch (err) {

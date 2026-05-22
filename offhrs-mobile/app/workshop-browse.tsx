@@ -48,6 +48,7 @@ function eventIsUpcomingToronto(e: WorkshopEventRow): boolean {
 function browseGroupKey(e: WorkshopEventRow, mode: 'single-day' | 'all-dates'): string {
   if (mode === 'single-day') return workshopGroupKey(e);
   if (e.recurrence === 'daily' || e.recurrence === 'weekly') return `rec:${e.id}`;
+  if (e.workshop_series === 'multi_week') return `series:${e.id}`;
   const ymd = e.date_iso ? e.date_iso.slice(0, 10) : '';
   return `${ymd}\u0001${workshopGroupKey(e)}`;
 }

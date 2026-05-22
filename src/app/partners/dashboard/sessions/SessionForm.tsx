@@ -43,6 +43,8 @@ interface SessionFormProps {
   } | null
   /** Vendor onboarding address — prefills in-person location for new workshops. */
   vendorDefaultAddress?: string
+  vendorDefaultLat?: number | null
+  vendorDefaultLng?: number | null
   /** Default workshop listing image from vendor profile (shown when the workshop has no custom cover). */
   vendorDefaultWorkshopImageUrl?: string
   onClose: () => void
@@ -51,6 +53,8 @@ interface SessionFormProps {
 export function SessionForm({
   session,
   vendorDefaultAddress = '',
+  vendorDefaultLat = null,
+  vendorDefaultLng = null,
   vendorDefaultWorkshopImageUrl = '',
   onClose,
 }: SessionFormProps) {
@@ -209,7 +213,16 @@ export function SessionForm({
       if (f.location_address.trim()) return f
       return { ...f, location_address: v }
     })
-  }, [isEdit, vendorDefaultAddress])
+    if (
+      vendorDefaultLat != null &&
+      vendorDefaultLng != null &&
+      Number.isFinite(vendorDefaultLat) &&
+      Number.isFinite(vendorDefaultLng)
+    ) {
+      setLocationLat(vendorDefaultLat)
+      setLocationLng(vendorDefaultLng)
+    }
+  }, [isEdit, vendorDefaultAddress, vendorDefaultLat, vendorDefaultLng])
 
   const handleMapsAuthFailure = useCallback(() => {
     setMapsAuthError(

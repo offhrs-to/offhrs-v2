@@ -20,6 +20,7 @@ import { haversineKm } from '@/lib/distance';
 import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mobile';
 import { shareWorkshopEvent } from '@/lib/share-workshop';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
+import { workshopSessionKey } from '@/lib/workshops-events-query';
 import { supabase } from '@/lib/supabase';
 import { workshopDisplayPrice, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
 import { vendorPagePath, workshopVendorDisplayName } from '@/lib/workshop-vendor-display';
@@ -27,6 +28,10 @@ import { vendorPagePath, workshopVendorDisplayName } from '@/lib/workshop-vendor
 /** Compact square thumbnail (top-right of card), Classpass-style — does not span full card height. */
 const THUMB_SIZE = 96;
 const THUMB_RADIUS = 12;
+/** Share control + gap + thumbnail — reserved so title text never runs under these. */
+const SHARE_BTN_SIZE = 36;
+const SIDE_RAIL_GAP = 8;
+const SIDE_RAIL_WIDTH = SHARE_BTN_SIZE + SIDE_RAIL_GAP + THUMB_SIZE;
 
 function formatPrice(price: number | string | null | undefined): string | null {
   if (price == null) return null;
@@ -56,6 +61,24 @@ function formatTimePill(r: WorkshopEventRow): string {
     });
   } catch {
     return '—';
+  }
+}
+
+function formatSessionPill(r: WorkshopEventRow, showDate: boolean): string {
+  if (!showDate) return formatTimePill(r);
+  const raw = r.date_iso ?? r.date;
+  try {
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return formatTimePill(r);
+    const day = d.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'America/Toronto',
+    });
+    return `${day} · ${formatTimePill(r)}`;
+  } catch {
+    return formatTimePill(r);
   }
 }
 
@@ -140,31 +163,41 @@ export default function WorkshopBrowseGroupedCard({
   const { user } = useAuth();
   const router = useRouter();
   const sorted = useMemo(() => [...group].sort((a, b) => eventSortMs(a) - eventSortMs(b)), [group]);
-  const sessionKey = sorted.map((r) => r.id).join(',');
+  const sessionKeys = sorted.map((r) => workshopSessionKey(r)).join(',');
+  const showDateOnPills = useMemo(() => {
+    const ymds = new Set(
+      sorted.map((r) => (r.date_iso ? r.date_iso.slice(0, 10) : '')).filter(Boolean)
+    );
+    return ymds.size > 1;
+  }, [sorted]);
 
-  const [selectedId, setSelectedId] = useState<number | null>(() => sorted[0]?.id ?? null);
+  const [selectedSessionKey, setSelectedSessionKey] = useState<string | null>(() =>
+    sorted[0] ? workshopSessionKey(sorted[0]) : null
+  );
   const [saving, setSaving] = useState(false);
   const [bookingBusy, setBookingBusy] = useState(false);
 
   useEffect(() => {
-    const ids = sessionKey
-      .split(',')
-      .map((s) => Number(s))
-      .filter((n) => Number.isInteger(n));
-    const rows = sorted.filter((r) => ids.includes(r.id));
-    const firstOpen = rows.find((r) => !workshopEventIsFull(r))?.id ?? rows[0]?.id ?? null;
-    setSelectedId((prev) => {
-      if (prev != null && ids.includes(prev)) {
-        const prevRow = sorted.find((s) => s.id === prev);
+    const keys = sessionKeys.split(',').filter(Boolean);
+    const rows = sorted.filter((r) => keys.includes(workshopSessionKey(r)));
+    const firstOpenKey =
+      rows.find((r) => !workshopEventIsFull(r)) != null
+        ? workshopSessionKey(rows.find((r) => !workshopEventIsFull(r))!)
+        : rows[0]
+          ? workshopSessionKey(rows[0])
+          : null;
+    setSelectedSessionKey((prev) => {
+      if (prev != null && keys.includes(prev)) {
+        const prevRow = sorted.find((s) => workshopSessionKey(s) === prev);
         if (prevRow && !workshopEventIsFull(prevRow)) return prev;
       }
-      return firstOpen;
+      return firstOpenKey;
     });
-  }, [sessionKey, sorted]);
+  }, [sessionKeys, sorted]);
 
   const selected = useMemo(
-    () => sorted.find((r) => r.id === selectedId) ?? sorted[0],
-    [sorted, selectedId]
+    () => sorted.find((r) => workshopSessionKey(r) === selectedSessionKey) ?? sorted[0],
+    [sorted, selectedSessionKey]
   );
 
   const displayPrice = workshopDisplayPrice(selected) ?? formatPrice(selected?.price);
@@ -279,19 +312,37 @@ export default function WorkshopBrowseGroupedCard({
     >
       <View style={{ paddingHorizontal: 12, paddingVertical: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-          <View style={{ flex: 1, minWidth: 0, paddingRight: 10, alignItems: 'flex-start' }}>
+          <View
+            style={{
+              flex: 1,
+              minWidth: 0,
+              flexShrink: 1,
+              marginRight: 8,
+              alignItems: 'flex-start',
+              overflow: 'hidden',
+            }}
+          >
             <QuickViewTap
               onOpenQuickView={onOpenQuickView}
               event={selected}
               label={`View details for ${title}`}
-              style={{ width: '100%' }}
+              style={{ alignSelf: 'stretch', maxWidth: '100%' }}
             >
-              <Text
-                style={{ fontSize: 13, fontWeight: '700', color: DesignColors.charcoal, textAlign: 'left', width: '100%' }}
-                numberOfLines={3}
-              >
-                {title}
-              </Text>
+              <View style={{ marginBottom: 6, overflow: 'hidden', alignSelf: 'stretch' }}>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: '700',
+                    color: DesignColors.charcoal,
+                    textAlign: 'left',
+                    flexShrink: 1,
+                  }}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                >
+                  {title}
+                </Text>
+              </View>
             </QuickViewTap>
 
             {locationLine ? (
@@ -299,7 +350,7 @@ export default function WorkshopBrowseGroupedCard({
                 onOpenQuickView={onOpenQuickView}
                 event={selected}
                 label={`View location for ${title}`}
-                style={{ marginTop: 4, width: '100%' }}
+                style={{ alignSelf: 'stretch', maxWidth: '100%' }}
               >
                 <Text
                   style={{
@@ -364,12 +415,20 @@ export default function WorkshopBrowseGroupedCard({
             ) : null}
           </View>
 
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, flexShrink: 0 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              gap: SIDE_RAIL_GAP,
+              flexShrink: 0,
+              width: SIDE_RAIL_WIDTH,
+            }}
+          >
             {/* Match heart overlay: paddingTop 4 + 36×36 control so share aligns with save on the same row */}
             <View
               style={{
                 height: THUMB_SIZE,
-                width: 36,
+                width: SHARE_BTN_SIZE,
                 paddingTop: 4,
                 alignItems: 'center',
                 justifyContent: 'flex-start',
@@ -381,8 +440,8 @@ export default function WorkshopBrowseGroupedCard({
                 accessibilityLabel="Share workshop"
                 hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                 style={({ pressed }) => ({
-                  width: 36,
-                  height: 36,
+                  width: SHARE_BTN_SIZE,
+                  height: SHARE_BTN_SIZE,
                   borderRadius: 18,
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -483,22 +542,24 @@ export default function WorkshopBrowseGroupedCard({
           contentContainerStyle={{ flexDirection: 'row', gap: 8, alignItems: 'center', paddingRight: 4 }}
         >
           {sorted.map((slot) => {
-            const active = slot.id === selectedId;
+            const slotKey = workshopSessionKey(slot);
+            const active = slotKey === selectedSessionKey;
             const slotFull = workshopEventIsFull(slot);
+            const pillLabel = formatSessionPill(slot, showDateOnPills);
             return (
               <Pressable
-                key={slot.id}
+                key={slotKey}
                 onPress={() => {
                   if (slotFull) return;
                   if (onOpenQuickView) {
                     onOpenQuickView(slot);
                   }
-                  setSelectedId(slot.id);
+                  setSelectedSessionKey(slotKey);
                 }}
                 disabled={slotFull}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active, disabled: slotFull }}
-                accessibilityLabel={`${formatTimePill(slot)}${slotFull ? ', full' : active ? ', selected' : ''}`}
+                accessibilityLabel={`${pillLabel}${slotFull ? ', full' : active ? ', selected' : ''}`}
                 style={{
                   paddingHorizontal: 14,
                   paddingVertical: 8,
@@ -516,7 +577,7 @@ export default function WorkshopBrowseGroupedCard({
                     color: slotFull ? DesignColors.mediumGray : active ? DesignColors.primary : DesignColors.charcoal,
                   }}
                 >
-                  {slotFull ? `${formatTimePill(slot)} · Full` : formatTimePill(slot)}
+                  {slotFull ? `${pillLabel} · Full` : pillLabel}
                 </Text>
               </Pressable>
             );

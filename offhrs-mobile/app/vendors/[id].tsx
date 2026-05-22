@@ -22,11 +22,13 @@ import {
   isEventVisibleToConsumers,
 } from '@/lib/consumer-event-visibility';
 import {
+  expandWorkshopEventsForConsumers,
   mapDbRowToWorkshopEvent,
   WORKSHOP_EVENT_LIST_SELECT,
   type WorkshopEventDbRow,
   type WorkshopEventRow,
 } from '@/lib/workshops-events-query';
+import { isMultiWeekEvent } from '@/lib/workshop-series';
 import { workshopEventIsFull } from '@/lib/workshop-event-utils';
 
 interface Vendor {
@@ -101,12 +103,13 @@ export default function VendorProfileScreen() {
           const row = e as WorkshopEventDbRow;
           const recurrence = row.recurrence;
           if (recurrence === 'daily' || recurrence === 'weekly') return true;
+          if (isMultiWeekEvent(row)) return true;
           if (!row.date) return true;
           return row.date >= nowIso;
         })
         .map((e) => mapDbRowToWorkshopEvent(e as WorkshopEventDbRow));
       setVendor(vendorRes.data ?? null);
-      setEvents(eventList);
+      setEvents(expandWorkshopEventsForConsumers(eventList));
       const revs = (reviewsRes.data ?? []) as Review[];
       setReviews(revs);
       setAvgRating(revs.length > 0 ? Math.round((revs.reduce((s, r) => s + r.rating, 0) / revs.length) * 10) / 10 : null);
