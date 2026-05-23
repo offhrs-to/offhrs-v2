@@ -1,6 +1,6 @@
 -- Per-event saves so "Saved" is exclusive to the event the user clicked (not all events from same vendor)
 CREATE TABLE IF NOT EXISTS user_event_saves (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   event_id BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
