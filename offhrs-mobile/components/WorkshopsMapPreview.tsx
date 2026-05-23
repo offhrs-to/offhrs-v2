@@ -1,6 +1,11 @@
 import { WORKSHOP_PREVIEW_MARKER_CAP } from '@/constants/workshops-list';
 import { DesignColors } from '@/constants/design-template';
 import { canMountNativeMapView } from '@/lib/android-google-maps';
+import {
+  dedupeWorkshopMapMarkerEvents,
+  workshopHasMapCoordinates,
+  workshopMapMarkerKey,
+} from '@/lib/workshop-map-coordinates';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
@@ -26,15 +31,10 @@ type Props = {
 };
 
 export default function WorkshopsMapPreview({ events, loading, height = 168, onPress }: Props) {
-  const withCoords = events
-    .filter(
-      (e) =>
-        e.lat != null &&
-        e.lng != null &&
-        !Number.isNaN(Number(e.lat)) &&
-        !Number.isNaN(Number(e.lng))
-    )
-    .slice(0, WORKSHOP_PREVIEW_MARKER_CAP);
+  const withCoords = dedupeWorkshopMapMarkerEvents(events.filter(workshopHasMapCoordinates)).slice(
+    0,
+    WORKSHOP_PREVIEW_MARKER_CAP
+  );
 
   // Web has no native maps; Android embeds Google Maps and crashes without a valid API key in the manifest.
   if (Platform.OS === 'web' || !canMountNativeMapView()) {
@@ -75,7 +75,7 @@ export default function WorkshopsMapPreview({ events, loading, height = 168, onP
       >
         {withCoords.map((event) => (
           <Marker
-            key={event.id}
+            key={workshopMapMarkerKey(event)}
             coordinate={{
               latitude: Number(event.lat),
               longitude: Number(event.lng),

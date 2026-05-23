@@ -22,3 +22,4 @@ export const WORKSHOP_PREVIEW_MARKER_CAP = 28
 
 /** Workshops shown per page in list view before paging. */
 export const WORKSHOP_LIST_PAGE_SIZE = 20
+

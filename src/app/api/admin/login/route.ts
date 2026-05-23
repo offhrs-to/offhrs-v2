@@ -169,3 +169,4 @@ export function verifyAdmin(request: NextRequest): boolean {
     verifyAdminBasicAuth(request.headers.get('authorization'))
   )
 }
+

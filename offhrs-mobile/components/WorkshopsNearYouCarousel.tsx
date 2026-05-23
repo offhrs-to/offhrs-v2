@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
+import { CONSUMER_BOOKING_STATUS_OR, isEventVisibleToConsumers } from '@/lib/consumer-event-visibility';
 import { supabase } from '@/lib/supabase';
 import { haversineKm } from '@/lib/distance';
 import { DesignColors } from '@/constants/design-template';
@@ -15,6 +16,8 @@ interface DbEventRow {
   category: string | null;
   recurrence: string | null;
   vendor_id: string | null;
+  vendor_profile_id?: string | null;
+  booking_status?: string | null;
   lat?: number | null;
   lng?: number | null;
 }
@@ -88,12 +91,15 @@ export default function WorkshopsNearYouCarousel({
       const nowIso = new Date().toISOString();
       const { data, error } = await supabase
         .from('events')
-        .select('id, title, date, location, image_url, price, category, recurrence, lat, lng, vendor_id')
+        .select(
+          'id, title, date, location, image_url, price, category, recurrence, lat, lng, vendor_id, vendor_profile_id, booking_status'
+        )
         .or(`recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso}`)
+        .or(CONSUMER_BOOKING_STATUS_OR)
         .limit(500);
       if (error) throw error;
       const now = new Date();
-      const rows = (data ?? []) as DbEventRow[];
+      const rows = ((data ?? []) as DbEventRow[]).filter(isEventVisibleToConsumers);
       const withCoords = rows.filter(
         (r) =>
           r.lat != null &&

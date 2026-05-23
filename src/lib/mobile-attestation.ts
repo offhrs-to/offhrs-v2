@@ -66,3 +66,4 @@ export async function requireMobileAttestation(
     clearTimeout(timeout)
   }
 }
+

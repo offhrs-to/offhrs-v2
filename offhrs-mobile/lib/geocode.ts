@@ -49,18 +49,29 @@ export async function geocodeAddress(
     return null;
   }
 
-  const response = await fetch(
-    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(trimmed)}`,
-    { headers: NOMINATIM_HEADERS }
-  );
-  if (!response.ok) return null;
-  const data = await response.json();
-  if (!data?.length) return null;
-  const first = data[0];
-  const lat = first.lat;
-  const lon = first.lon;
-  if (lat == null || lon == null) return null;
-  return { lat: Number(lat), lng: Number(lon) };
+  const queries = new Set<string>([trimmed]);
+  if (!trimmed.toLowerCase().includes('canada')) {
+    queries.add(`${trimmed}, Canada`);
+  }
+
+  for (const q of queries) {
+    const url = new URL('https://nominatim.openstreetmap.org/search');
+    url.searchParams.set('format', 'json');
+    url.searchParams.set('limit', '1');
+    url.searchParams.set('countrycodes', 'ca');
+    url.searchParams.set('q', q);
+    const response = await fetch(url.toString(), { headers: NOMINATIM_HEADERS });
+    if (!response.ok) continue;
+    const data = await response.json();
+    if (!data?.length) continue;
+    const first = data[0];
+    const lat = first.lat;
+    const lon = first.lon;
+    if (lat == null || lon == null) continue;
+    return { lat: Number(lat), lng: Number(lon) };
+  }
+
+  return null;
 }
 
 type NominatimReverse = {
@@ -89,3 +100,4 @@ export async function reverseGeocodeCanadianPostal(
     return null;
   return `${head.slice(0, 3)} ${head.slice(3)}`;
 }
+

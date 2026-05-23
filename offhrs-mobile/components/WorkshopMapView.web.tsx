@@ -2,19 +2,12 @@ import { useMemo } from 'react';
 import { Text, View, ScrollView, Pressable } from 'react-native';
 
 import { DesignColors } from '@/constants/design-template';
-
-type EventWithCoords = {
-  id: number;
-  title: string;
-  lat?: number | null;
-  lng?: number | null;
-  location?: string;
-};
+import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 
 type Props = {
-  events: EventWithCoords[];
+  events: WorkshopEventRow[];
   loading: boolean;
-  onEventPress?: (event: EventWithCoords) => void;
+  onEventPress?: (event: WorkshopEventRow) => void;
   onMapPress?: () => void;
   maxMarkers?: number;
 };

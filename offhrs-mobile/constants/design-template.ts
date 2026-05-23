@@ -80,3 +80,4 @@ export function getCategoryButtonWidth(): number {
   const { horizontalPadding, categoryGap } = DesignSpacing;
   return (Dimensions.get('window').width - horizontalPadding * 2 - categoryGap) / 2;
 }
+

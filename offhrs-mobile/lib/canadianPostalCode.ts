@@ -18,3 +18,13 @@ export function parseCanadianPostalCode(input: string): string | null {
 export function isValidCanadianPostalInput(input: string): boolean {
   return parseCanadianPostalCode(input) != null;
 }
+
+/** Extract postal from venue text (e.g. "88 Queen St E, Toronto, ON M5C 0B6, Canada"). */
+export function extractCanadianPostalFromAddress(address: string): string | null {
+  const m = address.match(
+    /\b([ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z])[\s-]?(\d[ABCEGHJ-NPRSTV-Z]\d)\b/i
+  );
+  if (!m) return null;
+  return parseCanadianPostalCode(`${m[1]}${m[2]}`);
+}
+

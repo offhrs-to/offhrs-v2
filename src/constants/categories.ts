@@ -13,6 +13,25 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number]
 
+/** Zod-friendly tuple: first element + rest (same order as CATEGORIES). */
+export const CATEGORY_ENUM = CATEGORIES as unknown as [Category, ...Category[]]
+
+/** Legacy partner session slugs → canonical display names. */
+const LEGACY_CATEGORY_BY_SLUG: Record<string, Category> = {
+  pottery: 'Pottery',
+  floral: 'Floral',
+  culinary: 'Culinary',
+  other: 'Other',
+}
+
+/** Normalize DB or form values for partner UI (legacy slugs or current labels). */
+export function normalizePartnerSessionCategory(raw: string | null | undefined): Category {
+  if (!raw?.trim()) return 'Other'
+  const t = raw.trim()
+  if ((CATEGORIES as readonly string[]).includes(t)) return t as Category
+  return LEGACY_CATEGORY_BY_SLUG[t.toLowerCase()] ?? 'Other'
+}
+
 /** Novice tier icon per category (same assets as mobile app / landing). */
 export const CATEGORY_NOVICE_ICONS: Record<string, string> = {
   'Beauty & Fragrance': '/categories/beauty-fragrance-novice.png',
@@ -31,3 +50,4 @@ export function getCategoryNoviceIconPath(category: string | null | undefined): 
   const t = category.trim()
   return CATEGORY_NOVICE_ICONS[t] ?? DEFAULT_CATEGORY_NOVICE_ICON
 }
+

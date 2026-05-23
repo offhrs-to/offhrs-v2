@@ -66,3 +66,4 @@ if (!isNode && Platform.OS !== 'web') {
 
   AppState.addEventListener('change', handleAppStateChange);
 }
+

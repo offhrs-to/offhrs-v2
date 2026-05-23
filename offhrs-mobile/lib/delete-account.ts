@@ -1,50 +1,76 @@
 import { supabase } from '@/lib/supabase';
-import { getWebAppOrigin } from '@/lib/web-app-links';
 import { BOOK_API_BASE } from '@/constants/api';
+import { buildBookingApiHeaders } from '@/lib/booking-api-headers';
 
 export type DeleteAccountResult =
   | { ok: true }
   | { ok: false; error: string };
 
 /**
- * Permanently deletes the signed-in user via the same Next.js route as the web app.
+ * Permanently deletes the signed-in consumer account via the deployed Next.js API.
  */
 export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountResult> {
-  const {
+  let {
     data: { session },
   } = await supabase.auth.getSession();
   if (!session?.access_token) {
     return { ok: false, error: 'Not signed in' };
   }
 
-  const bases = [getWebAppOrigin(), BOOK_API_BASE].filter(
-    (value, index, arr) => !!value && arr.indexOf(value) === index
-  );
-
-  let lastError = 'Failed to delete account';
-
-  for (const base of bases) {
-    try {
-      const res = await fetch(`${base}/api/account/delete`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-
-      if (res.ok) {
-        return { ok: true };
-      }
-
-      lastError = body.error ?? 'Failed to delete account';
-      // Wrong/stale EXPO_PUBLIC_APP_URL often returns 401/404; always try BOOK_API_BASE next.
-    } catch (error) {
-      lastError =
-        error instanceof Error
-          ? error.message
-          : 'Network error while deleting account';
+  const expiresAtMs = session.expires_at ? session.expires_at * 1000 : 0;
+  if (expiresAtMs > 0 && expiresAtMs <= Date.now() + 60_000) {
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.error || !refreshed.data.session?.access_token) {
+      return { ok: false, error: 'Session expired. Please sign in again.' };
     }
+    session = refreshed.data.session;
   }
 
-  return { ok: false, error: lastError };
+  try {
+    let res = await fetch(`${BOOK_API_BASE}/api/account/delete`, {
+      method: 'POST',
+      headers: await buildBookingApiHeaders(session.access_token),
+    });
+
+    if (res.status === 401) {
+      const refreshed = await supabase.auth.refreshSession();
+      if (refreshed.error || !refreshed.data.session?.access_token) {
+        return { ok: false, error: 'Session expired. Please sign in again.' };
+      }
+      session = refreshed.data.session;
+      res = await fetch(`${BOOK_API_BASE}/api/account/delete`, {
+        method: 'POST',
+        headers: await buildBookingApiHeaders(session.access_token),
+      });
+    }
+
+    const body = (await res.json().catch(() => ({}))) as { error?: string; stage?: string };
+
+    if (res.ok) {
+      return { ok: true };
+    }
+
+    if (res.status === 401) {
+      return {
+        ok: false,
+        error:
+          body.error?.trim() ||
+          'Unauthorized. Add EXPO_PUBLIC_VERCEL_PROTECTION_BYPASS for preview builds.',
+      };
+    }
+
+    const suffix = body.stage ? ` [${body.stage}]` : '';
+    return {
+      ok: false,
+      error: `${body.error?.trim() || `Failed to delete account (HTTP ${res.status})`}${suffix}`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Network error while deleting account',
+    };
+  }
 }

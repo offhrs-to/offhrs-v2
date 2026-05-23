@@ -179,3 +179,4 @@ export async function fetchUrlMetadata(url: string): Promise<MetadataResult> {
     throw new Error('Failed to fetch metadata from URL')
   }
 }
+

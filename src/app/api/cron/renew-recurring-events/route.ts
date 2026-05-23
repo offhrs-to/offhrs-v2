@@ -74,3 +74,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: message, renewed: 0 }, { status: 500 })
   }
 }
+

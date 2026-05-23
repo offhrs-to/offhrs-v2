@@ -44,10 +44,35 @@ function withAndroidSplashPlugins(plugins) {
   });
 }
 
+/** Native Stripe + Apple Pay / Google Pay (Payment Sheet). New dev client / store build after changing. */
+function withStripePlugin(plugins) {
+  if (!Array.isArray(plugins)) return plugins;
+  const list = [...plugins];
+  const hasStripe = list.some((p) =>
+    Array.isArray(p) ? p[0] === '@stripe/stripe-react-native' : p === '@stripe/stripe-react-native'
+  );
+  if (!hasStripe) {
+    list.push([
+      '@stripe/stripe-react-native',
+      {
+        merchantIdentifier: 'merchant.com.offhrs.app',
+        enableGooglePay: true,
+      },
+    ]);
+  }
+  return list;
+}
+
+const stripePublishableKey = (process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '').trim();
+
+const bookApiBase = (process.env.EXPO_PUBLIC_BOOK_API_BASE || 'https://offhrs.app')
+  .trim()
+  .replace(/\/+$/, '');
+
 module.exports = {
   expo: {
     ...appJson.expo,
-    plugins: withAndroidSplashPlugins(appJson.expo.plugins || []),
+    plugins: withStripePlugin(withAndroidSplashPlugins(appJson.expo.plugins || [])),
     android: {
       ...appJson.expo.android,
       splash: {
@@ -65,6 +90,8 @@ module.exports = {
     extra: {
       ...(appJson.expo.extra || {}),
       hasAndroidMapsKey: googleMapsApiKey.length > 0,
+      stripePublishableKey,
+      bookApiBase,
     },
   },
 };

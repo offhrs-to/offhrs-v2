@@ -301,12 +301,6 @@ function Section1Hero() {
             Google Play
           </Link>
         </div>
-        <Link
-          href="/workshops"
-          className="inline-flex items-center justify-center rounded-lg border-2 border-heading-dark text-heading-dark bg-transparent px-5 py-2.5 text-sm font-medium hover:bg-heading-dark/5 transition-colors"
-        >
-          Browse Workshops
-        </Link>
       </motion.div>
     </motion.div>
   )
@@ -334,8 +328,8 @@ const HOW_IT_WORKS = [
   },
   {
     icon: Mail,
-    title: 'Confirm attendance',
-    description: "Check your inbox after your workshop. Confirm your attendance to claim your XP and level up your craft!",
+    title: 'Earn experience',
+    description: 'After your workshop ends, attendance is credited automatically and you earn XP toward your next level.',
   },
 ]
 
@@ -567,12 +561,6 @@ function Section7Join() {
             Google Play
           </Link>
         </div>
-        <Link
-          href="/workshops"
-          className="inline-flex items-center justify-center rounded-lg border-2 border-heading-dark text-heading-dark bg-transparent px-5 py-2.5 text-sm font-medium hover:bg-heading-dark/5 transition-colors"
-        >
-          Browse Workshops
-        </Link>
       </motion.div>
     </motion.div>
   )
@@ -595,9 +583,6 @@ function LandingFooter() {
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 text-sm text-primary">
         <div className="flex items-center gap-3 flex-wrap justify-center">
           <p>© {new Date().getFullYear()} Offhrs. All rights reserved.</p>
-          <Link href="/privacy" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
-            Privacy Policy
-          </Link>
           <Link href="/disclaimer" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
             Disclaimer
           </Link>
@@ -605,7 +590,7 @@ function LandingFooter() {
             Contact us
           </Link>
           <Link href="/terms" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
-            Terms of Service
+            Terms &amp; policies
           </Link>
         </div>
         <Link href="/admin" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">

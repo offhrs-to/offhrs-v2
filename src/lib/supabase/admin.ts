@@ -13,3 +13,4 @@ export function createAdminClient() {
   if (!url || !serviceRoleKey) return null
   return createClient(url, serviceRoleKey, { auth: { persistSession: false } })
 }
+

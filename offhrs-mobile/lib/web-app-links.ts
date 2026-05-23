@@ -30,3 +30,4 @@ export async function openWebAppPath(path: WebAppPolicyPath): Promise<void> {
     }
   }
 }
+

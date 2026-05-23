@@ -3,7 +3,9 @@ name: Environment Validation
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, feat/saas-booking-engine]
+  pull_request:
+    branches: [main, feat/saas-booking-engine]
 
 jobs:
   validate-required-env:

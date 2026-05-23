@@ -27,6 +27,8 @@ import {
 } from 'lucide-react'
 import { CATEGORIES } from '@/constants/categories'
 import { WORKSHOP_DEFAULT_PAGE_SIZE, WORKSHOP_MAX_UPCOMING_FETCH } from '@/constants/workshops-list'
+import { parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
+import { CONSUMER_BOOKING_STATUS_OR, isEventVisibleToConsumers } from '@/lib/consumer-event-visibility'
 
 const WorkshopMap = dynamic(() => import('@/components/workshop-map'), { ssr: false })
 
@@ -46,9 +48,13 @@ interface EventRow {
   is_multiple_dates: boolean | null
   price: number | string | null
   vendor_id: string | null
+  vendor_profile_id?: string | null
+  booking_status?: string | null
   lat?: number | null
   lng?: number | null
   recurrence?: string | null
+  workshop_series?: string | null
+  series_occurrences?: unknown
 }
 
 const DEFAULT_MAP_CENTER: [number, number] = [43.6532, -79.3832]
@@ -120,12 +126,15 @@ export default function WorkshopsPage() {
 
       let query = supabase
         .from('events')
-        .select('id, title, description, date, location, image_url, external_link, category, is_multiple_dates, price, vendor_id, lat, lng, recurrence')
+        .select(
+          'id, title, description, date, location, image_url, external_link, category, is_multiple_dates, price, vendor_id, vendor_profile_id, booking_status, lat, lng, recurrence, workshop_series, series_occurrences'
+        )
 
       const nowIso = new Date().toISOString()
       query = query.or(
-        `recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso}`
+        `recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso},workshop_series.eq.multi_week`
       )
+      query = query.or(CONSUMER_BOOKING_STATUS_OR)
 
       if (debouncedSearch.trim()) {
         const term = debouncedSearch.trim()
@@ -165,9 +174,24 @@ export default function WorkshopsPage() {
       const { data, error } = await query
       if (error) throw error
 
-      const list = (data as EventRow[]) ?? []
+      const list = ((data as EventRow[]) ?? []).filter((e) =>
+        isEventVisibleToConsumers(e)
+      )
       // Upcoming filter is applied in the query (recurring / null date / date >= now); cap at WORKSHOP_MAX_UPCOMING_FETCH
       const byDateRange = list.filter((e) => {
+        const series = parseSeriesOccurrences(e as EventSeriesFields)
+        if (series.length > 1) {
+          const today = new Date().toISOString().slice(0, 10)
+          const occs = series.filter((o) => o.start.slice(0, 10) >= today && o.available_slots > 0)
+          if (occs.length === 0) return false
+          if (!dateRangeStart && !dateRangeEnd) return true
+          return occs.some((o) => {
+            const eventDate = o.start.slice(0, 10)
+            if (dateRangeStart && eventDate < dateRangeStart) return false
+            if (dateRangeEnd && eventDate > dateRangeEnd) return false
+            return true
+          })
+        }
         if (!e.date) return !dateRangeStart && !dateRangeEnd
         const eventDate = String(e.date).slice(0, 10)
         if (dateRangeStart && eventDate < dateRangeStart) return false

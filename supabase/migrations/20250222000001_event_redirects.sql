@@ -1,7 +1,7 @@
 -- Track every "Book" click (redirect to vendor) per event, including guests.
 -- Admin "# of users redirected" = count of rows per event_id.
 CREATE TABLE IF NOT EXISTS event_redirects (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()

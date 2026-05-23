@@ -1,12 +1,19 @@
 {
   "crons": [
     {
-      "path": "/api/cron/send-confirmation-emails",
+      "path": "/api/cron/credit-workshop-attendance",
       "schedule": "0 9 * * *"
     },
     {
       "path": "/api/cron/renew-recurring-events",
       "schedule": "0 1 * * *"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "partners.offhrs.app" }],
+      "destination": "/partners/:path*"
     }
   ]
 }

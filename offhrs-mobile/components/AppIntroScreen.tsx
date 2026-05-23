@@ -87,9 +87,9 @@ function Slide1() {
       </View>
 
       {/* Text */}
-      <Text style={styles.heading}>Confirm your attendance</Text>
+      <Text style={styles.heading}>Earn experience</Text>
       <Text style={styles.body}>
-        Within 24 hours of your workshop, you'll get a confirmation email. Tap the link to confirm you attended and earn points.
+        After your workshop ends, attendance is credited automatically and you earn experience points toward your next level.
       </Text>
     </View>
   );

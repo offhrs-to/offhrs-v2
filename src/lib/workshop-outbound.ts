@@ -42,3 +42,4 @@ export function openWorkshopBooking(event: WorkshopOutboundPayload) {
     }, 150)
   }
 }
+

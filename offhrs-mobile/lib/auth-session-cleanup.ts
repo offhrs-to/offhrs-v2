@@ -16,3 +16,4 @@ export function completeOAuthBrowserSession(): void {
     /* Browser may already be closed */
   }
 }
+

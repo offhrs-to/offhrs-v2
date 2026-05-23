@@ -1,6 +1,23 @@
 # offhrs SaaS Booking Engine — Product Requirements Document
 
-**Version:** 1.0 | **Date:** May 6, 2026 | **Status:** Final Draft
+**Version:** 1.0 | **Date:** May 6, 2026 | **Status:** Historical reference (superseded)
+
+> ### ⚠️ Historical document
+>
+> This PRD describes the **original** Cal.com–centric architecture and is kept for
+> historical context only. We have since pivoted off Cal.com to a **first-party
+> scheduling engine** built directly on Supabase, with native Google Calendar
+> and Microsoft Outlook OAuth sync handled in-house (see
+> `src/app/api/partners/calendar/oauth/*`, `src/lib/vendor-calendar-sync.ts`,
+> and the `vendor_calendar_connections` table).
+>
+> Sections in this document that reference Cal.com Platform, managed users,
+> Atoms, the `/api/webhooks/cal` route, or the `cal_*` columns/env vars no
+> longer reflect the codebase. The Cal.com schema was removed in migration
+> `supabase/migrations/20260512100000_drop_cal_com_schema.sql`.
+>
+> **For current architecture, refer to the code and `/terms` policy pages —
+> not this PRD.**
 
 ---
 

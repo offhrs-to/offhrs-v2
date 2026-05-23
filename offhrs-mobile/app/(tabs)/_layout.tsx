@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import {
+  CalendarDaysIcon,
   DocumentMagnifyingGlassIcon,
   EnvelopeIcon,
   HomeIcon,
@@ -16,6 +17,7 @@ import { DesignColors, isIOSPad } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { emitProfileUpdated } from '@/lib/profile-events';
 import { supabase } from '@/lib/supabase';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /** Android-only: persistent per-user onboarding completion cache. Survives any remount, auth
@@ -70,6 +72,7 @@ const ICON_WRAP_SIZE = 40;
 const ICON_MAP: Record<string, typeof HomeIcon> = {
   index: HomeIcon,
   workshops: DocumentMagnifyingGlassIcon,
+  bookings: CalendarDaysIcon,
   contact: EnvelopeIcon,
   profile: UserCircleIcon,
 };
@@ -355,7 +358,8 @@ export default function TabLayout() {
       }
 
       if (error || !data) {
-        const isMissingProfileRow = !data || error?.code === 'PGRST116';
+        const pgError = error as PostgrestError | null;
+        const isMissingProfileRow = !data || pgError?.code === 'PGRST116';
         if (isMissingProfileRow) {
           setOnboardingStatus('needs_onboarding');
         } else {
@@ -444,13 +448,14 @@ export default function TabLayout() {
 
     setOnboardingStatus('complete');
 
-    // iOS path — unchanged: verify the DB write then emit.
-    supabase
-      .from('profiles')
-      .select('onboarding_completed')
-      .eq('id', uid)
-      .single()
-      .then(({ data, error }) => {
+    // iOS path — verify the DB write then emit.
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', uid)
+          .single();
         if (error || !data) {
           emitProfileUpdated();
           return;
@@ -461,10 +466,10 @@ export default function TabLayout() {
           setOnboardingStatus('complete');
         }
         emitProfileUpdated();
-      })
-      .catch(() => {
+      } catch {
         emitProfileUpdated();
-      });
+      }
+    })();
   }, []);
 
   const showOnboarding = !!user?.id && onboardingStatus === 'needs_onboarding';
@@ -496,7 +501,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: INACTIVE_TINT,
         headerShown: false,
         tabBarShowLabel: false,
-        sceneContainerStyle: {
+        sceneStyle: {
           paddingBottom:
             Platform.OS === 'ios'
               ? isIPad
@@ -521,6 +526,15 @@ export default function TabLayout() {
           title: 'Workshops',
           tabBarIcon: ({ focused }) => (
             <TabIcon IconComponent={DocumentMagnifyingGlassIcon} focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="bookings"
+        options={{
+          title: 'Bookings',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon IconComponent={CalendarDaysIcon} focused={focused} />
           ),
         }}
       />

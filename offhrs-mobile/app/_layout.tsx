@@ -6,7 +6,10 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
+import { StripeProvider } from '@stripe/stripe-react-native';
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { Modal, Platform } from 'react-native';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -20,6 +23,33 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 const HAS_SEEN_APP_INTRO_KEY = '@offhrs/hasSeenAppIntro';
 
 const ROOT_BG = '#ECEFE5';
+
+function resolveStripePublishableKey(): string {
+  const extra = (
+    Constants.expoConfig?.extra as { stripePublishableKey?: string } | undefined
+  )?.stripePublishableKey;
+  return (extra ?? process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').trim();
+}
+
+/** Native only: Payment Sheet + Apple Pay / Google Pay need a configured publishable key. */
+function StripeRoot({ children }: { children: ReactNode }) {
+  if (Platform.OS === 'web') {
+    return <>{children}</>;
+  }
+  const pk = resolveStripePublishableKey();
+  if (!pk.startsWith('pk_')) {
+    return <>{children}</>;
+  }
+  return (
+    <StripeProvider
+      publishableKey={pk}
+      merchantIdentifier="merchant.com.offhrs.app"
+      urlScheme="offhrsmobile"
+    >
+      {children as ReactElement}
+    </StripeProvider>
+  );
+}
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -40,6 +70,27 @@ export default function RootLayout() {
 
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(ROOT_BG);
+  }, []);
+
+  // EAS OTA: fetch and apply pending update on cold start so preview testers
+  // do not need a second relaunch to pick up the latest mobile JS bundle.
+  useEffect(() => {
+    if (Platform.OS === 'web' || __DEV__) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await Updates.checkForUpdateAsync();
+        if (cancelled || !result.isAvailable) return;
+        await Updates.fetchUpdateAsync();
+        if (cancelled) return;
+        await Updates.reloadAsync();
+      } catch {
+        // Offline / no updates / dev client without Updates configured: ignore.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // OAuth (Android Custom Tabs + iOS ASWebAuthenticationSession): complete session when returning to the app.
@@ -80,13 +131,6 @@ export default function RootLayout() {
       // One-shot: only navigate once per effect lifecycle regardless of how many
       // Linking events or getInitialURL retries fire with the same OAuth URL.
       if (authNavDoneRef.current) {
-        return;
-      }
-
-      // Android: if SignInForm.onSignInSuccess already navigated (via openAuthSessionAsync
-      // return value), the user is already inside (tabs). Skip the redundant replace so we
-      // don't disturb the navigation stack while the onboarding modal may be open.
-      if (Platform.OS === 'android' && segmentsRef.current[0] === '(tabs)') {
         return;
       }
 
@@ -144,34 +188,36 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <ThemeProvider value={DefaultTheme}>
-            <Stack
-              screenOptions={{
-                contentStyle: { backgroundColor: ROOT_BG },
-              }}
-            >
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="login" options={{ headerShown: false }} />
-              <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
-              <Stack.Screen name="vendors/[id]" options={{ headerShown: false }} />
-              <Stack.Screen name="workshop-search" options={{ headerShown: false }} />
-              <Stack.Screen name="workshop-map" options={{ headerShown: false }} />
-              <Stack.Screen name="workshop-browse" options={{ headerShown: false }} />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-            </Stack>
-            {/* Always mount Modal; drive with `visible` so the native layer dismisses cleanly (avoids touch-eating ghost on Android after first-launch intro). */}
-            <Modal
-              visible={showAppIntro}
-              transparent={false}
-              animationType="fade"
-              onRequestClose={handleAppIntroDone}
-            >
-              {showAppIntro ? <AppIntroScreen onDone={handleAppIntroDone} /> : null}
-            </Modal>
-            <StatusBar style="dark" />
-          </ThemeProvider>
-        </AuthProvider>
+        <StripeRoot>
+          <AuthProvider>
+            <ThemeProvider value={DefaultTheme}>
+              <Stack
+                screenOptions={{
+                  contentStyle: { backgroundColor: ROOT_BG },
+                }}
+              >
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="login" options={{ headerShown: false }} />
+                <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+                <Stack.Screen name="vendors/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="workshop-search" options={{ headerShown: false }} />
+                <Stack.Screen name="workshop-map" options={{ headerShown: false }} />
+                <Stack.Screen name="workshop-browse" options={{ headerShown: false }} />
+                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+              </Stack>
+              {/* Always mount Modal; drive with `visible` so the native layer dismisses cleanly (avoids touch-eating ghost on Android after first-launch intro). */}
+              <Modal
+                visible={showAppIntro}
+                transparent={false}
+                animationType="fade"
+                onRequestClose={handleAppIntroDone}
+              >
+                {showAppIntro ? <AppIntroScreen onDone={handleAppIntroDone} /> : null}
+              </Modal>
+              <StatusBar style="dark" />
+            </ThemeProvider>
+          </AuthProvider>
+        </StripeRoot>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

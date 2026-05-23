@@ -2,7 +2,7 @@
 -- Instructor categories are not stored here (they use profiles.instructor_categories and have no progression).
 
 CREATE TABLE IF NOT EXISTS public.profile_category_experience (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   category TEXT NOT NULL,
   expertise_level TEXT NOT NULL DEFAULT 'Novice' CHECK (expertise_level IN ('Novice', 'Intermediate', 'Advanced', 'Expert', 'Master')),

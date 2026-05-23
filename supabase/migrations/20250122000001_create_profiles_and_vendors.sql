@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 -- Create vendors table
 CREATE TABLE IF NOT EXISTS vendors (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
   slug TEXT UNIQUE,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -37,7 +37,7 @@ END $$;
 
 -- Create bookings table
 CREATE TABLE IF NOT EXISTS bookings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   event_id BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'booked' CHECK (status IN ('booked', 'attended', 'pending_confirmation')),
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS bookings (
 
 -- Create user_vendor_saves table
 CREATE TABLE IF NOT EXISTS user_vendor_saves (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   vendor_id UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS user_vendor_saves (
 
 -- Create vendor_reviews table
 CREATE TABLE IF NOT EXISTS vendor_reviews (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   vendor_id UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
   rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),

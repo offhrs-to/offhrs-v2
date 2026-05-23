@@ -61,3 +61,4 @@ export function getVendorThumbSource(row: VendorNearbyRow): { uri: string } | nu
   if (row.image_url) return { uri: row.image_url };
   return getCategoryMasterImageSource(row.category);
 }
+

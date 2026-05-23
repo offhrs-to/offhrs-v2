@@ -37,3 +37,4 @@ export async function fetchVendorRatingMap(vendorIds: string[]): Promise<Record<
   }
   return out;
 }
+

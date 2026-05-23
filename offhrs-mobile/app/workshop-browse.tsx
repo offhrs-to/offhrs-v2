@@ -1,4 +1,5 @@
 import WorkshopBrowseGroupedCard from '@/components/WorkshopBrowseGroupedCard';
+import WorkshopQuickViewModal from '@/components/WorkshopQuickViewModal';
 import WorkshopsChrome from '@/components/WorkshopsChrome';
 import { CATEGORIES } from '@/constants/categories';
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
@@ -11,7 +12,7 @@ import { fetchWorkshopEvents } from '@/lib/workshops-events-query';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const LIST_GAP = 12;
@@ -47,6 +48,7 @@ function eventIsUpcomingToronto(e: WorkshopEventRow): boolean {
 function browseGroupKey(e: WorkshopEventRow, mode: 'single-day' | 'all-dates'): string {
   if (mode === 'single-day') return workshopGroupKey(e);
   if (e.recurrence === 'daily' || e.recurrence === 'weekly') return `rec:${e.id}`;
+  if (e.workshop_series === 'multi_week') return `series:${e.id}`;
   const ymd = e.date_iso ? e.date_iso.slice(0, 10) : '';
   return `${ymd}\u0001${workshopGroupKey(e)}`;
 }
@@ -77,6 +79,9 @@ export default function WorkshopBrowseScreen() {
   const [listPage, setListPage] = useState(1);
 
   const [savedEventIds, setSavedEventIds] = useState<Set<number>>(new Set());
+  const [quickViewEvent, setQuickViewEvent] = useState<WorkshopEventRow | null>(null);
+  const [quickViewSaving, setQuickViewSaving] = useState(false);
+  const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
 
   const [profileLocation, setProfileLocation] = useState<{
     lat: number;
@@ -109,10 +114,11 @@ export default function WorkshopBrowseScreen() {
         });
       supabase
         .from('profiles')
-        .select('location_lat, location_lng, postal_code')
+        .select('location_lat, location_lng, postal_code, display_name')
         .eq('id', user.id)
         .single()
         .then(({ data }) => {
+          setProfileDisplayName(data?.display_name?.trim() || null);
           if (data?.location_lat != null && data?.location_lng != null) {
             setProfileLocation({
               lat: Number(data.location_lat),
@@ -125,6 +131,48 @@ export default function WorkshopBrowseScreen() {
         });
     }, [user?.id])
   );
+
+  const quickViewEventId = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
+  const quickViewSaved =
+    quickViewEventId != null && Number.isInteger(quickViewEventId) && savedEventIds.has(quickViewEventId);
+
+  const handleQuickViewSave = useCallback(async () => {
+    const eid = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
+    if (eid == null || !Number.isInteger(eid) || quickViewSaving) return;
+    if (!user?.id) {
+      router.push('/login');
+      return;
+    }
+    setQuickViewSaving(true);
+    try {
+      const isCurrentlySaved = savedEventIds.has(eid);
+      if (isCurrentlySaved) {
+        const { error } = await supabase
+          .from('user_event_saves')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('event_id', eid);
+        if (error) {
+          Alert.alert("Couldn't update", error.message ?? 'Please try again.');
+        } else {
+          setSavedEventIds((prev) => {
+            const next = new Set(prev);
+            next.delete(eid);
+            return next;
+          });
+        }
+      } else {
+        const { error } = await supabase.from('user_event_saves').insert({ user_id: user.id, event_id: eid });
+        if (error) {
+          Alert.alert("Couldn't save", error.message ?? 'Please try again.');
+        } else {
+          setSavedEventIds((prev) => new Set(prev).add(eid));
+        }
+      }
+    } finally {
+      setQuickViewSaving(false);
+    }
+  }, [quickViewEvent?.id, quickViewSaving, router, savedEventIds, user?.id]);
 
   const categoriesForQuery = useMemo(
     () => (selectedCategory ? [selectedCategory] : [] as string[]),
@@ -209,6 +257,7 @@ export default function WorkshopBrowseScreen() {
   const pillCategories = useMemo(() => ['All', ...CATEGORIES] as const, []);
 
   return (
+    <>
     <View style={{ flex: 1, backgroundColor: DesignColors.creamBg, paddingBottom: insets.bottom }}>
       <WorkshopsChrome
         showBack
@@ -350,6 +399,7 @@ export default function WorkshopBrowseScreen() {
                           return next;
                         });
                       }}
+                      onOpenQuickView={setQuickViewEvent}
                     />
                   </View>
                 );
@@ -379,5 +429,21 @@ export default function WorkshopBrowseScreen() {
         )}
       </ScrollView>
     </View>
+
+      <WorkshopQuickViewModal
+        visible={!!quickViewEvent}
+        event={quickViewEvent}
+        onClose={() => setQuickViewEvent(null)}
+        userId={user?.id}
+        userEmail={user?.email ?? undefined}
+        attendeeName={profileDisplayName ?? ''}
+        saved={quickViewSaved}
+        saving={quickViewSaving}
+        onToggleSave={handleQuickViewSave}
+        profileLocation={profileLocation ? { lat: profileLocation.lat, lng: profileLocation.lng } : null}
+        profilePostalCode={profileLocation?.postal_code ?? null}
+        onBookingComplete={reload}
+      />
+    </>
   );
 }

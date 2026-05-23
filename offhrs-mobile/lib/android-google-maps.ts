@@ -16,3 +16,4 @@ export function canMountNativeMapView(): boolean {
   if (Platform.OS === 'android') return hasAndroidMapsKeyInBuild();
   return true;
 }
+

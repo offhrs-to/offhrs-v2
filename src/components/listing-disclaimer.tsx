@@ -22,7 +22,7 @@ export function ListingDisclaimerBanner({ className }: { className?: string }) {
         </Link>
         <span className="mx-1.5 text-gray-400">·</span>
         <Link href="/terms" className="font-medium text-[#5D755D] underline underline-offset-2 hover:text-[#4a634a]">
-          Terms of Service
+          Terms &amp; policies
         </Link>
       </p>
     </div>

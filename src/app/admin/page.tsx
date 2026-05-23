@@ -338,6 +338,12 @@ export default function AdminPage() {
             >
               <LogOut className="h-4 w-4" /> Logout
             </button>
+            <Link
+              href="/admin/saas"
+              className="text-sm font-medium text-moss hover:text-moss-dark hover:underline"
+            >
+              SaaS metrics →
+            </Link>
           </div>
         </div>
 
