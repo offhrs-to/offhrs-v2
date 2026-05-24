@@ -266,20 +266,30 @@ function Section1Hero() {
       >
         <Image
           src="/logo.png"
-          alt="Offhrs"
+          alt="offhrs"
           width={480}
           height={144}
           className="object-contain w-full max-h-24 sm:max-h-28 md:max-h-32"
           priority
         />
       </motion.div>
+      <h1 className="sr-only">offhrs — discover and book creative workshops in Toronto</h1>
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.9, delay: 0.35, ease: easeOut }}
-        className="text-xl sm:text-2xl md:text-3xl font-bold text-primary text-center mb-6 max-w-2xl -mt-6 w-full"
+        className="text-xl sm:text-2xl md:text-3xl font-bold text-primary text-center mb-3 max-w-2xl -mt-6 w-full"
       >
         Make your free time flourish
+      </motion.p>
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.9, delay: 0.45, ease: easeOut }}
+        className="text-sm sm:text-base md:text-lg text-heading-dark text-center mb-6 max-w-2xl px-2 leading-relaxed"
+      >
+        offhrs is a marketplace for discovering and booking creative workshops across Toronto —
+        pottery, floral design, culinary, coffee, beauty &amp; fragrance, and more.
       </motion.p>
       <motion.div
         initial={{ opacity: 0, y: 34 }}
@@ -582,7 +592,7 @@ function LandingFooter() {
     <footer className="w-full border-t border-neutral-200 bg-neutral-50 py-3 px-4 shrink-0">
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-3 text-sm text-primary">
         <div className="flex items-center gap-3 flex-wrap justify-center">
-          <p>© {new Date().getFullYear()} Offhrs. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} offhrs. All rights reserved.</p>
           <Link href="/disclaimer" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
             Disclaimer
           </Link>
