@@ -301,6 +301,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (profileError || !insertedProfile) {
+      console.error('Partner signup vendor profile insert failed:', profileError)
       await rollbackSignup(admin, userId, { deleteAuthUser: createdNewAuthUser })
       return NextResponse.json({ error: 'Failed to create vendor profile' }, { status: 500 })
     }

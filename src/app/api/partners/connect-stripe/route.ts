@@ -47,6 +47,15 @@ export async function POST(request: NextRequest) {
     let accountId = vendor.stripe_account_id
 
     if (!accountId) {
+      // Express dashboard: Stripe REQUIRES `fees.payer = application` and
+      // `losses.payments = application`. Specifying any other combination with
+      // `stripe_dashboard.type = express` returns:
+      //   "When stripe_dashboard[type]=express, your platform must collect
+      //    fees and be liable for negative balances or refunds and chargebacks."
+      // Vendors still effectively absorb processing fees: each PaymentIntent
+      // (see src/app/api/book/route.ts) attaches an application_fee_amount
+      // equal to the estimated Stripe processing fee, which routes that
+      // amount back to the platform and out of the vendor payout.
       const account = await stripe.accounts.create({
         country: 'CA',
         email: user.email,
@@ -55,7 +64,7 @@ export async function POST(request: NextRequest) {
           transfers: { requested: true },
         },
         controller: {
-          fees: { payer: 'account' },
+          fees: { payer: 'application' },
           losses: { payments: 'application' },
           requirement_collection: 'stripe',
           stripe_dashboard: { type: 'express' },
