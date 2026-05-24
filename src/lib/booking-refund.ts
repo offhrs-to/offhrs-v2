@@ -11,6 +11,7 @@ import {
   type EventSeriesFields,
 } from '@/lib/workshop-series'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
+import { clawBackXpForBooking } from '@/lib/workshop-xp'
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
@@ -334,6 +335,12 @@ export async function processBookingRefund(
       error: 'Could not update booking after refund. Please contact support.',
       status: 500,
     }
+  }
+
+  try {
+    await clawBackXpForBooking(admin, bookingId)
+  } catch (xpErr) {
+    console.error('XP clawback after refund failed:', bookingId, xpErr)
   }
 
   const eventRow: EventSeriesFields = {

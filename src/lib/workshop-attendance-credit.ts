@@ -1,14 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { awardXpForBooking } from '@/lib/workshop-xp'
 
-const LEVEL_THRESHOLDS: Record<string, number> = {
-  Novice: 8,
-  Intermediate: 16,
-  Advanced: 24,
-  Expert: 32,
-  Master: Infinity,
-}
-
-const LEVELS = ['Novice', 'Intermediate', 'Advanced', 'Expert', 'Master'] as const
+/**
+ * Marks bookings as `attended` once the workshop session has ended, and
+ * ensures XP has been awarded for them.
+ *
+ * As of the per-booking XP tracking migration, XP is normally awarded at
+ * booking confirmation time (see `awardXpForBooking` wired into
+ * `/api/book/confirm`). This module is responsible for:
+ *
+ *   1. Flipping the booking status to `attended` once the session ends.
+ *   2. Acting as a safety net for legacy bookings that were confirmed before
+ *      the new flow shipped — those rows have `xp_awarded_at IS NULL` and
+ *      will be awarded XP here as a fallback.
+ */
 
 /** Statuses that count as a paid/confirmed booking eligible for auto-attendance after the session ends. */
 const CREDITABLE_STATUSES = new Set(['confirmed', 'booked'])
@@ -25,7 +30,6 @@ type BookingRow = {
 type EventRow = {
   date: string | null
   duration_minutes: number | null
-  duration_weeks: number | null
   category: string | null
   booking_status: string | null
 }
@@ -68,68 +72,9 @@ function isBookingEligibleForCredit(booking: BookingRow, event: EventRow | null)
   return null
 }
 
-async function awardExperiencePoints(
-  db: SupabaseClient,
-  userId: string,
-  event: EventRow
-): Promise<void> {
-  const pointsToAdd = Math.max(1, event.duration_weeks ?? 1)
-  const eventCategory = event.category?.trim() || null
-
-  if (eventCategory) {
-    const { data: catRow } = await db
-      .from('profile_category_experience')
-      .select('experience_points, expertise_level')
-      .eq('user_id', userId)
-      .eq('category', eventCategory)
-      .maybeSingle()
-
-    const currentPoints = catRow?.experience_points ?? 0
-    const newPoints = currentPoints + pointsToAdd
-    const currentLevel = (catRow?.expertise_level as (typeof LEVELS)[number]) || 'Novice'
-    const currentIndex = LEVELS.indexOf(currentLevel)
-    const nextLevel = LEVELS[Math.min(currentIndex + 1, LEVELS.length - 1)]!
-    const threshold = LEVEL_THRESHOLDS[currentLevel] ?? 8
-    const newLevel = newPoints >= threshold ? nextLevel : currentLevel
-
-    await db.from('profile_category_experience').upsert(
-      {
-        user_id: userId,
-        category: eventCategory,
-        expertise_level: newLevel,
-        experience_points: newPoints,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,category' }
-    )
-  }
-
-  const { data: profile } = await db
-    .from('profiles')
-    .select('experience_points, expertise_level')
-    .eq('id', userId)
-    .single()
-
-  const currentPoints = profile?.experience_points ?? 0
-  const newPoints = currentPoints + pointsToAdd
-  const currentLevel = profile?.expertise_level || 'Novice'
-  const currentIndex = LEVELS.indexOf(currentLevel as (typeof LEVELS)[number])
-  const nextLevel = LEVELS[Math.min(Math.max(currentIndex, 0) + 1, LEVELS.length - 1)]!
-  const threshold = LEVEL_THRESHOLDS[currentLevel] ?? 8
-  const newLevel = newPoints >= threshold ? nextLevel : currentLevel
-
-  await db
-    .from('profiles')
-    .update({
-      experience_points: newPoints,
-      expertise_level: newLevel,
-    })
-    .eq('id', userId)
-}
-
 /**
- * Mark a booking as attended and award XP after the workshop session has ended.
- * Idempotent when status is already `attended`.
+ * Mark a booking as attended once the workshop has ended, and ensure XP has
+ * been awarded (legacy fallback). Idempotent when status is already `attended`.
  */
 export async function creditWorkshopAttendanceForBooking(
   admin: SupabaseClient,
@@ -146,12 +91,19 @@ export async function creditWorkshopAttendanceForBooking(
   }
 
   if (booking.status === 'attended') {
+    // Legacy bookings may have been marked attended before XP tracking existed.
+    // The award helper is idempotent on xp_awarded_at so this is safe to re-run.
+    try {
+      await awardXpForBooking(admin, booking.id)
+    } catch (err) {
+      console.error('attendance-credit legacy XP award error:', booking.id, err)
+    }
     return { credited: false, skipped: 'already_attended' }
   }
 
   const { data: event, error: eventError } = await admin
     .from('events')
-    .select('date, duration_minutes, duration_weeks, category, booking_status')
+    .select('date, duration_minutes, category, booking_status')
     .eq('id', booking.event_id)
     .single()
 
@@ -173,7 +125,13 @@ export async function creditWorkshopAttendanceForBooking(
     throw new Error(updateError.message)
   }
 
-  await awardExperiencePoints(admin, booking.user_id!, event)
+  // Award XP if not already done at confirmation time. Idempotent.
+  try {
+    await awardXpForBooking(admin, booking.id)
+  } catch (err) {
+    console.error('attendance-credit XP award error:', booking.id, err)
+  }
+
   return { credited: true }
 }
 
@@ -187,7 +145,7 @@ export async function creditDueWorkshopAttendances(
   const { data: bookings, error: fetchError } = await admin
     .from('bookings')
     .select(
-      'id, user_id, event_id, status, session_starts_at, refunded_at, events ( date, duration_minutes, duration_weeks, category, booking_status )'
+      'id, user_id, event_id, status, session_starts_at, refunded_at, events ( date, duration_minutes, category, booking_status )'
     )
     .in('status', ['confirmed', 'booked'])
     .is('refunded_at', null)

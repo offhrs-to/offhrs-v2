@@ -16,6 +16,7 @@ import { computeSlotDecrementForEvent } from '@/lib/workshop-series'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 import { commitWorkshopTaxTransaction } from '@/lib/stripe-workshop-tax'
 import { estimateCanadianStripeFee, fetchRealChargeFee } from '@/lib/stripe-charge-fees'
+import { awardXpForBooking } from '@/lib/workshop-xp'
 
 /** Allow time to await Resend before the serverless function exits. */
 export const maxDuration = 60
@@ -255,6 +256,12 @@ export async function POST(request: NextRequest) {
 
     void syncVendorSessionToExternalCalendars(admin, vendorId, String(eventId)).catch(() => {})
 
+    try {
+      await awardXpForBooking(admin, booking.id)
+    } catch (xpErr) {
+      console.error('Award XP on confirm error:', booking.id, xpErr)
+    }
+
     let emailsSent = false
     try {
       await deliverBookingConfirmationEmails(
@@ -405,6 +412,12 @@ async function handleFreeConfirm(
   await admin.from('events').update(eventUpdate).eq('id', event_id)
 
   void syncVendorSessionToExternalCalendars(admin, vendorId, String(event_id)).catch(() => {})
+
+  try {
+    await awardXpForBooking(admin, booking.id)
+  } catch (xpErr) {
+    console.error('Award XP on free confirm error:', booking.id, xpErr)
+  }
 
   let emailsSent = false
   try {
