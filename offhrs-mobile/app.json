@@ -17,11 +17,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.offhrs.app.offhrs",
-      "buildNumber": "33",
+      "buildNumber": "34",
       "usesAppleSignIn": true,
       "backgroundColor": "#ECEFE5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Offhrs may use your camera when you choose to upload or update a profile or workshop photo.",
         "NSLocationWhenInUseUsageDescription": "Offhrs uses your location to show workshops near you and sort results by distance. You can enter a postal code instead."
       }
     },
