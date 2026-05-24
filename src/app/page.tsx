@@ -589,8 +589,14 @@ function LandingFooter() {
           <Link href="/contact" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
             Contact us
           </Link>
+          <Link href="/terms/privacy-policy" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
+            Privacy Policy
+          </Link>
+          <Link href="/terms/terms-of-use" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
+            Terms of Use
+          </Link>
           <Link href="/terms" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
-            Terms &amp; policies
+            All policies
           </Link>
         </div>
         <Link href="/admin" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
