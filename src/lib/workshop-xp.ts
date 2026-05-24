@@ -96,19 +96,25 @@ async function adjustCategoryXp(
   category: string,
   delta: number
 ): Promise<void> {
-  const { data: catRow } = await db
+  const { data: catRow, error: selectError } = await db
     .from('profile_category_experience')
     .select('experience_points, expertise_level')
     .eq('user_id', userId)
     .eq('category', category)
     .maybeSingle()
 
+  if (selectError) {
+    throw new Error(
+      `profile_category_experience select failed (user=${userId} cat=${category}): ${selectError.message}`
+    )
+  }
+
   const currentPoints = catRow?.experience_points ?? 0
   const newPoints = Math.max(0, currentPoints + delta)
   const currentLevel = ((catRow?.expertise_level as Level) || 'Novice')
   const newLevel = delta >= 0 ? nextLevelFor(currentLevel, newPoints) : previousLevelFor(currentLevel, newPoints)
 
-  await db.from('profile_category_experience').upsert(
+  const { error: upsertError } = await db.from('profile_category_experience').upsert(
     {
       user_id: userId,
       category,
@@ -118,6 +124,12 @@ async function adjustCategoryXp(
     },
     { onConflict: 'user_id,category' }
   )
+
+  if (upsertError) {
+    throw new Error(
+      `profile_category_experience upsert failed (user=${userId} cat=${category}): ${upsertError.message}`
+    )
+  }
 }
 
 async function adjustProfileXp(
@@ -125,24 +137,39 @@ async function adjustProfileXp(
   userId: string,
   delta: number
 ): Promise<void> {
-  const { data: profile } = await db
+  const { data: profile, error: selectError } = await db
     .from('profiles')
     .select('experience_points, expertise_level')
     .eq('id', userId)
-    .single()
+    .maybeSingle()
+
+  if (selectError) {
+    throw new Error(`profiles select failed (user=${userId}): ${selectError.message}`)
+  }
 
   const currentPoints = profile?.experience_points ?? 0
   const newPoints = Math.max(0, currentPoints + delta)
   const currentLevel = (profile?.expertise_level as Level) || 'Novice'
   const newLevel = delta >= 0 ? nextLevelFor(currentLevel, newPoints) : previousLevelFor(currentLevel, newPoints)
 
-  await db
+  // Use upsert (rather than update) so missing profiles rows can still receive
+  // XP. An update-only path silently no-ops when no row exists, which would
+  // mask a missing handle_new_user trigger and leave bookings marked as
+  // awarded without the user actually seeing the points.
+  const { error: upsertError } = await db
     .from('profiles')
-    .update({
-      experience_points: newPoints,
-      expertise_level: newLevel,
-    })
-    .eq('id', userId)
+    .upsert(
+      {
+        id: userId,
+        experience_points: newPoints,
+        expertise_level: newLevel,
+      },
+      { onConflict: 'id' }
+    )
+
+  if (upsertError) {
+    throw new Error(`profiles upsert failed (user=${userId}): ${upsertError.message}`)
+  }
 }
 
 /**
