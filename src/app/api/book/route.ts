@@ -241,7 +241,14 @@ export async function POST(request: NextRequest) {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: taxBreakdown.amountTotalCents,
         currency: 'cad',
-        payment_method_types: ['card'],
+        // Let PaymentSheet surface eligible card wallets (Apple Pay / Google Pay)
+        // from the account's payment method settings. Hard-pinning only `card`
+        // can prevent wallet availability checks from matching Stripe's current
+        // mobile PaymentSheet flow.
+        automatic_payment_methods: {
+          enabled: true,
+          allow_redirects: 'never',
+        },
         on_behalf_of: vendor.stripe_account_id,
         ...(applicationFeeAmount ? { application_fee_amount: applicationFeeAmount } : {}),
         transfer_data: {
