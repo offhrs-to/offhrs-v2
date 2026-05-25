@@ -114,9 +114,17 @@ export default function ServiceTermsPage() {
 
         <h3 className="mt-4">3.2 Processing rules</h3>
         <p>
-          Stripe standard processing fees (2.9% + $0.30 CAD on Canadian-issued cards) apply to the gross
-          transaction sum cleared from the consumer&rsquo;s card. This base includes any tax, delivery fees,
-          and material margins added by the Vendor.
+          Stripe standard processing fees (currently 2.9% + $0.30 CAD on Canadian-issued cards, with higher
+          rates for international or premium cards) apply to the gross transaction sum cleared from the
+          consumer&rsquo;s card. This base includes any tax, delivery fees, and material margins added by the
+          Vendor.
+        </p>
+        <p>
+          <strong>
+            These processing fees are borne by the Vendor and are deducted from the Vendor&rsquo;s net
+            payout.
+          </strong>{' '}
+          offhrs does not mark up, retain, or otherwise share in Stripe&rsquo;s processing fees.
         </p>
 
         <h3 className="mt-4">3.3 Refunds</h3>
@@ -124,7 +132,19 @@ export default function ServiceTermsPage() {
           When a consumer self-serves a refund or a Vendor issues a refund from the dashboard, offhrs creates
           a Stripe refund against the original PaymentIntent, updates the booking status to{' '}
           <em>refunded</em>, and reconciles the affected event&rsquo;s available slots so capacity is
-          restored.
+          restored. The full amount paid by the consumer (including HST) is returned to the
+          consumer&rsquo;s original payment method.
+        </p>
+        <p>
+          <strong>
+            Stripe processing fees on refunded transactions are non-refundable by Stripe and remain the
+            responsibility of the Vendor.
+          </strong>{' '}
+          When a refund is issued, the original payout to the Vendor&rsquo;s Stripe Connect Express account
+          is reversed in full, and the Stripe processing fee charged at the time of the original transaction
+          is netted against the Vendor&rsquo;s balance. As a result, a refunded booking will typically show a
+          small negative impact on the Vendor&rsquo;s balance equal to the original Stripe processing fee.
+          Vendors are encouraged to factor this risk into their configured refund window.
         </p>
       </section>
 

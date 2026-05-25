@@ -104,14 +104,27 @@ export default function TermsOfUsePage() {
             Connect Express, with funds settling to the Vendor&rsquo;s connected bank account.
           </li>
           <li>
-            <strong>Fee structure.</strong> Stripe processing fees (currently <strong>2.9% + $0.30 CAD</strong>{' '}
-            per transaction in Canada) apply to the gross transaction total, including any tax collected.
+            <strong>Fee structure.</strong> Stripe processing fees (currently{' '}
+            <strong>2.9% + $0.30 CAD</strong> per transaction in Canada, with higher rates for international
+            or premium cards) apply to the gross transaction total, including any tax collected.{' '}
+            <strong>
+              These fees are borne by the Vendor and deducted from the Vendor&rsquo;s net payout.
+            </strong>{' '}
+            offhrs does not mark up, retain, or share in Stripe&rsquo;s processing fees.
           </li>
           <li>
             <strong>Refund window.</strong> Consumers may self-serve cancellations and refunds inside the
             mobile app or web checkout history when the workshop start time is outside the Vendor&rsquo;s
             configured refund window. The Platform minimum is <strong>24 hours</strong>; Vendors may set a
             longer window (e.g. 48 hours).
+          </li>
+          <li>
+            <strong>Refund fees.</strong> Stripe does not return its processing fee when a charge is
+            refunded. When a booking is refunded, the consumer receives the full amount paid (including
+            HST) back to their original payment method, and the non-refundable Stripe processing fee
+            remains the <strong>Vendor&rsquo;s responsibility</strong>. The fee is netted against the
+            reversed payout in the Vendor&rsquo;s Stripe Connect Express balance and surfaced in the
+            Vendor dashboard&rsquo;s refund notification.
           </li>
         </ul>
       </section>

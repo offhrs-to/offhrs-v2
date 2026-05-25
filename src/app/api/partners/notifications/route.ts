@@ -44,7 +44,9 @@ export async function GET() {
     const [bookingsRes, publishedRes, reminderRes] = await Promise.all([
       admin
         .from('bookings')
-        .select('id, name, status, created_at, refunded_at, amount_cad, net_vendor_cad, event_id, events ( title )')
+        .select(
+          'id, name, status, created_at, refunded_at, amount_cad, net_vendor_cad, stripe_fee_cad, event_id, events ( title )'
+        )
         .eq('vendor_id', vendorId)
         .order('created_at', { ascending: false })
         .limit(120),
@@ -68,27 +70,36 @@ export async function GET() {
 
     const notifications: PartnerNotificationDto[] = []
 
+    const cadFormatter = new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' })
+
     for (const b of bookingsRes.data ?? []) {
       const evTitle = (b.events as { title?: string } | null)?.title ?? 'Workshop'
       const refundedAt = b.refunded_at ? new Date(b.refunded_at) : null
       if (refundedAt && refundedAt >= sinceDate) {
+        // Surface the Stripe fee the vendor is absorbing: Stripe does not return its
+        // processing fee on refunds, so per our Service Terms the vendor (not the
+        // platform) bears that cost. Showing it inline keeps the policy transparent.
+        const fee = Number(b.stripe_fee_cad ?? 0)
+        const refundedAmount = b.amount_cad != null ? cadFormatter.format(Number(b.amount_cad)) : null
+        const feeNote =
+          fee > 0
+            ? ` The Stripe processing fee of ${cadFormatter.format(fee)} on the original transaction is non-refundable by Stripe and remains the vendor's responsibility per our Service Terms.`
+            : ''
+        const refundClause = refundedAmount ? ` (${refundedAmount} refunded to the client)` : ''
         notifications.push({
           id: `booking:refund:${b.id}`,
           type: 'booking_refund',
           title: 'Booking refunded',
-          message: `${b.name ?? 'A client'}'s booking for "${evTitle}" was refunded.`,
+          message: `${b.name ?? 'A client'}'s booking for "${evTitle}" was refunded${refundClause}.${feeNote}`,
           createdAt: refundedAt.toISOString(),
           href: '/partners/dashboard/bookings',
         })
         continue
       }
       if ((b.status === 'confirmed' || b.status === 'pending') && new Date(b.created_at) >= sinceDate) {
-        // Surface the vendor's net payout (post-Stripe-fee) — vendors absorb the fee per policy.
+        // Surface the vendor's net payout (post-Stripe-fee) - vendors absorb the fee per policy.
         const payoutAmount = b.net_vendor_cad ?? b.amount_cad
-        const amt =
-          payoutAmount != null
-            ? new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(payoutAmount)
-            : ''
+        const amt = payoutAmount != null ? cadFormatter.format(Number(payoutAmount)) : ''
         notifications.push({
           id: `booking:new:${b.id}`,
           type: 'booking_new',

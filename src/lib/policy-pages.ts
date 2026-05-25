@@ -1,5 +1,5 @@
 /** Last-updated date shown on every policy page and reused for sitemaps/SEO. */
-export const POLICY_LAST_UPDATED = 'May 20, 2026'
+export const POLICY_LAST_UPDATED = 'May 24, 2026'
 
 export type PolicyAudience = 'consumer' | 'vendor' | 'both'
 
