@@ -305,8 +305,17 @@ export async function processBookingRefund(
 
   if (!stripeAlreadyRefunded && row.stripe_payment_intent_id) {
     try {
+      // Destination charges: refunds on the platform only pay the customer back.
+      // We MUST set reverse_transfer=true to pull the funds back from the
+      // connected (vendor) account, and refund_application_fee=true to also
+      // return the platform application fee to the vendor. Otherwise the
+      // platform double-pays and the vendor's Stripe Connect dashboard keeps
+      // showing the booking as a completed payout.
+      // Docs: https://docs.stripe.com/connect/destination-charges#issuing-refunds
       await stripe.refunds.create({
         payment_intent: row.stripe_payment_intent_id,
+        reverse_transfer: true,
+        refund_application_fee: true,
       })
     } catch (err) {
       if (isStripeChargeAlreadyRefunded(err)) {
