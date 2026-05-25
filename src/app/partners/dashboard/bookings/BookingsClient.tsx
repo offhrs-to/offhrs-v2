@@ -167,6 +167,11 @@ export function BookingsClient({ sessions }: { sessions: Session[] }) {
               b.refunded_at || (b.status ?? '').toLowerCase() === 'refunded' ? 'refunded' : (b.status ?? '')
             const badge = STATUS_BADGE[effectiveStatus] ?? { label: effectiveStatus || '—', className: 'bg-[#F0EDE8] text-[#888]' }
             const canRefund = effectiveStatus === 'confirmed' && !b.refunded_at
+            const stripeFee = Number(b.stripe_fee_cad ?? 0)
+            const amountPaid = b.amount_cad != null ? Number(b.amount_cad) : null
+            const payoutAmount = b.net_vendor_cad != null
+              ? Number(b.net_vendor_cad)
+              : amountPaid
             return (
               <div
                 key={b.id}
@@ -191,22 +196,26 @@ export function BookingsClient({ sessions }: { sessions: Session[] }) {
                   <p
                     className="text-sm font-semibold text-[#1a1a1a]"
                     title={
-                      b.amount_cad != null && b.stripe_fee_cad != null
-                        ? `Customer paid ${formatCad(b.amount_cad)} (incl. tax). Stripe fee ${formatCad(b.stripe_fee_cad)} deducted per policy.`
+                      amountPaid != null && b.stripe_fee_cad != null
+                        ? effectiveStatus === 'refunded'
+                          ? `Refunded ${formatCad(amountPaid)} to the client. Stripe fee ${formatCad(stripeFee)} is non-refundable by Stripe and remains the vendor's responsibility per policy.`
+                          : `Customer paid ${formatCad(amountPaid)} (incl. tax). Stripe fee ${formatCad(stripeFee)} deducted per policy.`
                         : undefined
                     }
                   >
-                    {b.net_vendor_cad != null
-                      ? formatCad(b.net_vendor_cad)
-                      : b.amount_cad != null
-                        ? formatCad(b.amount_cad)
-                        : '—'}
+                    {payoutAmount != null ? formatCad(payoutAmount) : '—'}
                   </p>
-                  {b.amount_cad != null && (b.stripe_fee_cad ?? 0) > 0 && (
+                  {effectiveStatus === 'refunded' && amountPaid != null ? (
                     <p className="text-[11px] text-[#888] leading-tight mt-0.5">
-                      {formatCad(b.amount_cad)} paid · −{formatCad(b.stripe_fee_cad ?? 0)} fee
+                      {formatCad(amountPaid)} refunded · {stripeFee > 0
+                        ? `${formatCad(stripeFee)} Stripe fee absorbed per policy`
+                        : 'Stripe fee handled per policy'}
                     </p>
-                  )}
+                  ) : amountPaid != null && stripeFee > 0 ? (
+                    <p className="text-[11px] text-[#888] leading-tight mt-0.5">
+                      {formatCad(amountPaid)} paid · -{formatCad(stripeFee)} fee
+                    </p>
+                  ) : null}
                 </div>
 
                 {/* Status */}

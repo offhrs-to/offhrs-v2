@@ -164,6 +164,41 @@ export async function sendVendorFullyBooked(to: string, sessionTitle: string, da
   )
 }
 
+export async function sendVendorBookingRefunded(
+  to: string,
+  params: {
+    businessName: string
+    attendeeName: string
+    attendeeEmail: string | null
+    sessionTitle: string
+    amountCad: number
+    stripeFeeCad: number
+    dashboardUrl: string
+  }
+) {
+  const { attendeeName, attendeeEmail, sessionTitle, amountCad, stripeFeeCad, dashboardUrl } = params
+  const attendeeLabel = attendeeEmail ? `${attendeeName} (${attendeeEmail})` : attendeeName
+  const feeCopy =
+    stripeFeeCad > 0
+      ? `The Stripe processing fee of <strong>$${stripeFeeCad.toFixed(2)} CAD</strong> on the original transaction is non-refundable by Stripe and remains your responsibility under the offhrs Service Terms.`
+      : 'Any Stripe processing fee on the original transaction remains your responsibility under the offhrs Service Terms.'
+
+  await send(
+    to,
+    `Booking refunded: ${sessionTitle}`,
+    wrap(`
+      ${h2('Booking refunded')}
+      ${p(`<strong>${attendeeLabel}</strong>'s booking for <strong>${sessionTitle}</strong> was refunded.`)}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Amount refunded to client</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${amountCad.toFixed(2)} CAD</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Stripe processing fee</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${Math.max(0, stripeFeeCad).toFixed(2)} CAD</td></tr>
+      </table>
+      ${p(feeCopy)}
+      ${btn(dashboardUrl, 'View booking')}
+    `)
+  )
+}
+
 // ── Consumer emails ──────────────────────────────────────────────────────────
 
 export interface BookingEmailParams {

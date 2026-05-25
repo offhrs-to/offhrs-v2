@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import {
   sendConsumerBookingCancelled,
   sendConsumerRefundConfirmation,
+  sendVendorBookingRefunded,
   type BookingEmailParams,
 } from '@/lib/emails'
 import {
@@ -18,6 +19,9 @@ const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholde
 })
 
 const PLATFORM_MIN_REFUND_HOURS = 24
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
 const ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending', 'booked', 'pending_confirmation'] as const
 
@@ -133,6 +137,7 @@ type BookingRow = {
   stripe_payment_intent_id: string | null
   amount_cad: number | null
   total_cad: number | null
+  stripe_fee_cad: number | null
   status: string | null
   refunded_at: string | null
   session_starts_at: string | null
@@ -150,46 +155,63 @@ async function sendRefundEmails(
   event: EventJoin,
   vendorBusinessName: string,
   vendorWebsite: string | null,
-  amountCad: number
+  amountCad: number,
+  stripeFeeCad: number,
+  vendorEmail: string | null
 ): Promise<void> {
   const attendeeEmail = booking.email?.trim()
   const attendeeName = booking.name?.trim() || 'Guest'
-  if (!attendeeEmail) return
+  if (!attendeeEmail && !vendorEmail) return
 
   const sessionDateIso = booking.session_starts_at ?? event.date ?? null
   const sessionDate = sessionDateIso ? new Date(sessionDateIso) : new Date()
   const durationMinutes = (event.duration_minutes ?? 60) as number
 
-  const emailParams: BookingEmailParams = {
-    attendeeName,
-    attendeeEmail,
-    sessionTitle: event.title ?? 'Workshop',
-    vendorName: vendorBusinessName,
-    sessionDate,
-    durationMinutes,
-    location: event.location ?? null,
-    vendorWebsite,
-    bookingRef: booking.id,
-    amountCad,
-  }
+  const emailParams: BookingEmailParams | null = attendeeEmail
+    ? {
+        attendeeName,
+        attendeeEmail,
+        sessionTitle: event.title ?? 'Workshop',
+        vendorName: vendorBusinessName,
+        sessionDate,
+        durationMinutes,
+        location: event.location ?? null,
+        vendorWebsite,
+        bookingRef: booking.id,
+        amountCad,
+      }
+    : null
 
   // Paid bookings: send only the refund confirmation (it already states the
   // booking was cancelled and includes the refund amount, so the separate
   // "Booking cancelled" email is redundant and its 5-10 day language conflicts
   // with the refund-confirmed message).
   // Free bookings: send the cancellation email since there is no refund.
-  if (amountCad > 0) {
-    await sendConsumerRefundConfirmation(
-      attendeeEmail,
-      attendeeName,
-      event.title ?? 'Workshop',
-      amountCad,
-      booking.id,
-      emailParams,
-    )
-  } else {
-    await sendConsumerBookingCancelled(emailParams)
-  }
+  await Promise.all([
+    emailParams && amountCad > 0
+      ? sendConsumerRefundConfirmation(
+          emailParams.attendeeEmail,
+          attendeeName,
+          event.title ?? 'Workshop',
+          amountCad,
+          booking.id,
+          emailParams
+        )
+      : emailParams
+        ? sendConsumerBookingCancelled(emailParams)
+        : Promise.resolve(),
+    vendorEmail
+      ? sendVendorBookingRefunded(vendorEmail, {
+          businessName: vendorBusinessName,
+          attendeeName,
+          attendeeEmail: attendeeEmail ?? null,
+          sessionTitle: event.title ?? 'Workshop',
+          amountCad,
+          stripeFeeCad,
+          dashboardUrl: `${APP_URL}/partners/dashboard/bookings`,
+        })
+      : Promise.resolve(),
+  ])
 }
 
 export async function processBookingRefund(
@@ -211,7 +233,7 @@ export async function processBookingRefund(
     .select(
       `
       id, user_id, vendor_id, event_id, name, email,
-      stripe_payment_intent_id, amount_cad, total_cad,
+      stripe_payment_intent_id, amount_cad, total_cad, stripe_fee_cad,
       status, refunded_at, session_starts_at,
       events ( title, date, location, duration_minutes, workshop_series, series_occurrences, available_slots, booking_status, max_attendees )
     `
@@ -266,17 +288,23 @@ export async function processBookingRefund(
   let refundWindowHours = 48
   let vendorBusinessName = 'offhrs'
   let vendorWebsite: string | null = null
+  let vendorEmail: string | null = null
 
   if (row.vendor_id) {
     const { data: vendor } = await admin
       .from('vendor_profiles')
-      .select('id, business_name, website_url, refund_window_hours')
+      .select('id, business_name, website_url, refund_window_hours, user_id')
       .eq('id', row.vendor_id)
       .single()
     if (vendor) {
       refundWindowHours = (vendor.refund_window_hours as number | null) ?? 48
       vendorBusinessName = vendor.business_name ?? vendorBusinessName
       vendorWebsite = (vendor.website_url as string | null) ?? null
+      const vendorUserId = vendor.user_id as string | null
+      if (vendorUserId) {
+        const { data: authUser } = await admin.auth.admin.getUserById(vendorUserId)
+        vendorEmail = authUser?.user?.email ?? null
+      }
     }
   }
 
@@ -317,7 +345,7 @@ export async function processBookingRefund(
       // completed payout.
       //
       // We deliberately set refund_application_fee=false so the vendor - not the
-      // platform — absorbs the Stripe processing fee on refunds. Stripe in CA
+      // platform - absorbs the Stripe processing fee on refunds. Stripe in CA
       // does NOT return the original $X processing fee when a charge is
       // refunded (policy change in 2017), so SOMEONE has to eat that fee. By
       // KEEPING the application_fee_amount on the platform, the platform is
@@ -412,7 +440,15 @@ export async function processBookingRefund(
 
   if (!repairingStripeOnlyRefund) {
     try {
-      await sendRefundEmails(row, ev, vendorBusinessName, vendorWebsite, chargeAmountCad)
+      await sendRefundEmails(
+        row,
+        ev,
+        vendorBusinessName,
+        vendorWebsite,
+        chargeAmountCad,
+        Number(row.stripe_fee_cad ?? 0),
+        vendorEmail
+      )
     } catch (emailErr) {
       console.error('Refund confirmation email error:', emailErr)
     }
