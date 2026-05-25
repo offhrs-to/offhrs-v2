@@ -2,7 +2,7 @@
   "expo": {
     "name": "offhrs-mobile",
     "slug": "offhrs-mobile",
-    "version": "1.2.31",
+    "version": "1.3.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "splash": {
@@ -17,16 +17,18 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.offhrs.app.offhrs",
-      "buildNumber": "32",
+      "buildNumber": "35",
+      "usesAppleSignIn": true,
       "backgroundColor": "#ECEFE5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Offhrs may use your camera when you choose to upload or update a profile or workshop photo.",
         "NSLocationWhenInUseUsageDescription": "Offhrs uses your location to show workshops near you and sort results by distance. You can enter a postal code instead."
       }
     },
     "android": {
       "package": "com.offhrs.app",
-      "versionCode": 35,
+      "versionCode": 36,
       "launchMode": "singleTask",
       "permissions": [
         "ACCESS_COARSE_LOCATION",

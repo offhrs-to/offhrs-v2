@@ -191,9 +191,22 @@ export default function WorkshopQuickViewModal({
           customerAddress: { country: 'CA', postal_code: normalized, state },
         });
         if (result.ok) {
-          Alert.alert('Booked', "You're signed up. Check your email for details.");
-          onBookingComplete?.();
+          // Close the modal FIRST so the alert appears over the underlying
+          // screen, not over a modal that is mid-dismiss. Otherwise iOS can
+          // leave the host tab in an unresponsive state after the alert is
+          // tapped.
           onClose();
+          onBookingComplete?.();
+          // Small defer so the modal close animation has time to finish before
+          // the alert presents on top of the underlying tab.
+          setTimeout(() => {
+            Alert.alert(
+              'Booked',
+              "You're signed up. Check your email for details.",
+              [{ text: 'OK' }],
+              { cancelable: true }
+            );
+          }, 200);
         } else if (!result.cancelled) {
           Alert.alert('Booking', result.message);
         }
