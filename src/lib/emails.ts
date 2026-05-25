@@ -261,16 +261,21 @@ export async function sendConsumerRefundConfirmation(
   attendeeName: string,
   sessionTitle: string,
   amountCad: number,
-  bookingRef: string
+  bookingRef: string,
+  cancellationIcsParams?: BookingEmailParams
 ) {
+  const attachments = cancellationIcsParams
+    ? [{ filename: 'cancellation.ics', content: buildIcs(cancellationIcsParams, 'CANCEL') }]
+    : undefined
   await send(
     to,
     `Refund issued: ${sessionTitle}`,
     wrap(`
-      ${h2('Refund issued')}
-      ${p(`Hi ${attendeeName}, a refund of <strong>$${amountCad.toFixed(2)} CAD</strong> has been issued for your booking of <strong>${sessionTitle}</strong>.`)}
+      ${h2('Refund issued - booking cancelled')}
+      ${p(`Hi ${attendeeName}, your booking for <strong>${sessionTitle}</strong> has been cancelled and a refund of <strong>$${amountCad.toFixed(2)} CAD</strong> has been issued to your original payment method.`)}
       ${p(`Refunds typically appear on your card within 5–10 business days.<br>Booking reference: <code>${bookingRef}</code>`)}
-    `)
+    `),
+    attachments
   )
 }
 

@@ -163,17 +163,27 @@ export default function WorkshopsScreen() {
   }, [params.openTs]);
 
   useEffect(() => {
-    if (openEventId == null || openTs === '') return;
-    const fromList = previewEvents.find((e) => {
-      if (Number(e.id) !== openEventId) return false;
-      if (!openTs) return true;
-      const ts = e.date_iso ?? '';
+    if (openEventId == null) return;
+    // openTs is the event's ISO start (used to disambiguate which occurrence of a
+    // multi-week series to open). It is optional - if it isn't an ISO timestamp
+    // (e.g. an epoch ms passed from the home carousels), we fall back to the
+    // first matching occurrence.
+    const looksLikeIsoTs = !!openTs && /\d{4}-\d{2}-\d{2}T/.test(openTs);
+    const matchesTs = (rowDateIso: string | null | undefined): boolean => {
+      if (!looksLikeIsoTs) return true;
+      const ts = rowDateIso ?? '';
       return ts === openTs || ts.startsWith(openTs) || openTs.startsWith(ts);
-    });
-    if (fromList) {
-      setQuickViewEvent(fromList);
-      return;
+    };
+
+    const candidates = previewEvents.filter((e) => Number(e.id) === openEventId);
+    if (candidates.length > 0) {
+      const fromList = candidates.find((e) => matchesTs(e.date_iso)) ?? candidates[0];
+      if (fromList) {
+        setQuickViewEvent(fromList);
+        return;
+      }
     }
+
     let cancelled = false;
     supabase
       .from('events')
@@ -183,19 +193,19 @@ export default function WorkshopsScreen() {
       .then(async ({ data, error }) => {
         if (cancelled || error || !data) return;
         if (!isEventVisibleToConsumers(data)) return;
-        const [enriched] = await enrichWorkshopEventsWithVendorNames(
+        const enriched = await enrichWorkshopEventsWithVendorNames(
           expandWorkshopEventsForConsumers([mapDbRowToWorkshopEvent(data)])
         );
-        if (!cancelled) {
-          const match =
-            openTs && enriched.length > 1
-              ? enriched.find((e) => {
-                  const ts = e.date_iso ?? '';
-                  return ts === openTs || ts.startsWith(openTs) || openTs.startsWith(ts);
-                })
-              : enriched[0];
-          setQuickViewEvent(match ?? enriched[0] ?? null);
+        if (cancelled) return;
+        if (!enriched || enriched.length === 0) {
+          // expand returned nothing (e.g. all occurrences already passed). Fall
+          // back to the raw row so the modal still opens with the workshop info.
+          const fallback = mapDbRowToWorkshopEvent(data);
+          setQuickViewEvent(fallback);
+          return;
         }
+        const match = enriched.find((e) => matchesTs(e.date_iso)) ?? enriched[0];
+        setQuickViewEvent(match ?? null);
       });
     return () => {
       cancelled = true;
@@ -302,7 +312,7 @@ export default function WorkshopsScreen() {
             marginBottom: 8,
           }}
         >
-          Browse nearby
+          Tap the map to see all workshops
         </Text>
         <WorkshopsMapPreview
           events={previewEvents}

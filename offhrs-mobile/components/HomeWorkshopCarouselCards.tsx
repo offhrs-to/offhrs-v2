@@ -72,7 +72,11 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
   };
 
   const handlePress = (id: number) => {
-    router.push(`/(tabs)/workshops?openEvent=${id}&openTs=${Date.now()}`);
+    // Cache-buster `t` keeps the URL distinct between consecutive taps so the
+    // workshops tab re-reads search params. The workshops tab uses `openEvent`
+    // only - `t` is intentionally a separate name from `openTs` (which means
+    // an event occurrence ISO date) to avoid confusing the matcher.
+    router.push(`/(tabs)/workshops?openEvent=${id}&t=${Date.now()}`);
   };
 
   if (loading && items.length === 0) {

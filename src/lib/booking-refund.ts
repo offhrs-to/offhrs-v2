@@ -173,18 +173,23 @@ async function sendRefundEmails(
     amountCad,
   }
 
-  await Promise.all([
-    sendConsumerBookingCancelled(emailParams),
-    amountCad > 0
-      ? sendConsumerRefundConfirmation(
-          attendeeEmail,
-          attendeeName,
-          event.title ?? 'Workshop',
-          amountCad,
-          booking.id
-        )
-      : Promise.resolve(),
-  ])
+  // Paid bookings: send only the refund confirmation (it already states the
+  // booking was cancelled and includes the refund amount, so the separate
+  // "Booking cancelled" email is redundant and its 5-10 day language conflicts
+  // with the refund-confirmed message).
+  // Free bookings: send the cancellation email since there is no refund.
+  if (amountCad > 0) {
+    await sendConsumerRefundConfirmation(
+      attendeeEmail,
+      attendeeName,
+      event.title ?? 'Workshop',
+      amountCad,
+      booking.id,
+      emailParams,
+    )
+  } else {
+    await sendConsumerBookingCancelled(emailParams)
+  }
 }
 
 export async function processBookingRefund(
@@ -307,15 +312,28 @@ export async function processBookingRefund(
     try {
       // Destination charges: refunds on the platform only pay the customer back.
       // We MUST set reverse_transfer=true to pull the funds back from the
-      // connected (vendor) account, and refund_application_fee=true to also
-      // return the platform application fee to the vendor. Otherwise the
-      // platform double-pays and the vendor's Stripe Connect dashboard keeps
-      // showing the booking as a completed payout.
+      // connected (vendor) account; otherwise the platform double-pays and the
+      // vendor's Stripe Connect dashboard keeps showing the booking as a
+      // completed payout.
+      //
+      // We deliberately set refund_application_fee=false so the vendor - not the
+      // platform — absorbs the Stripe processing fee on refunds. Stripe in CA
+      // does NOT return the original $X processing fee when a charge is
+      // refunded (policy change in 2017), so SOMEONE has to eat that fee. By
+      // KEEPING the application_fee_amount on the platform, the platform is
+      // reimbursed for the Stripe fee it was originally billed for, and the
+      // vendor's reverse_transfer absorbs the matching loss - which mirrors our
+      // policy that vendors absorb card processing fees, refund or not.
+      //
+      // For new connected accounts created with controller.fees.payer=account,
+      // we never charged an application_fee_amount in the first place, so this
+      // flag has no effect - the Stripe fee was already debited directly from
+      // the vendor's balance, and the full reverse_transfer keeps it there.
       // Docs: https://docs.stripe.com/connect/destination-charges#issuing-refunds
       await stripe.refunds.create({
         payment_intent: row.stripe_payment_intent_id,
         reverse_transfer: true,
-        refund_application_fee: true,
+        refund_application_fee: false,
       })
     } catch (err) {
       if (isStripeChargeAlreadyRefunded(err)) {
