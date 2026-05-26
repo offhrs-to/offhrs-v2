@@ -57,6 +57,7 @@ export default function WorkshopsScreen() {
     q?: string;
     openEvent?: string;
     openTs?: string;
+    t?: string;
   }>();
   const qParam = typeof params.q === 'string' ? params.q : Array.isArray(params.q) ? params.q[0] : '';
 
@@ -162,6 +163,11 @@ export default function WorkshopsScreen() {
     return String(Array.isArray(rawTs) ? rawTs[0] : rawTs);
   }, [params.openTs]);
 
+  const openRequestKey = useMemo(() => {
+    const raw = params.t;
+    return raw === undefined || raw === null ? '' : String(Array.isArray(raw) ? raw[0] : raw);
+  }, [params.t]);
+
   useEffect(() => {
     if (openEventId == null) return;
     // openTs is the event's ISO start (used to disambiguate which occurrence of a
@@ -210,7 +216,7 @@ export default function WorkshopsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [openEventId, openTs, previewEvents]);
+  }, [openEventId, openTs, openRequestKey, previewEvents]);
 
   const eventIdNum = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
   const quickViewSaved = eventIdNum != null && savedEventIds.has(eventIdNum);

@@ -252,7 +252,6 @@ export default function WorkshopQuickViewModal({
   // in app.json), so the sheet's top edge can graze the system status bar. Reserve
   // the status-bar height plus a little breathing room above the sheet on Android
   // only; iOS layout must stay exactly as-is.
-  const androidTopInset = Platform.OS === 'android' ? insets.top : 0;
   const sheetTopPadding = Platform.OS === 'android' ? insets.top + 12 : 0;
 
   return (
@@ -319,7 +318,12 @@ export default function WorkshopQuickViewModal({
                 flexDirection: 'row',
                 justifyContent: 'flex-end',
                 alignItems: 'flex-start',
-                paddingTop: 12 + androidTopInset,
+                // Padding from the top of the image area (NOT the screen). The
+                // modal sheet itself is already offset below the status bar by
+                // sheetTopPadding on Android, so adding androidTopInset here
+                // would push the icons into the middle of the image. Keep the
+                // value platform-agnostic.
+                paddingTop: 12,
                 paddingRight: 12,
                 gap: 8,
               }}

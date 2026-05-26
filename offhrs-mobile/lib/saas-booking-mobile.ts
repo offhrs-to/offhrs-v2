@@ -1,4 +1,5 @@
 import * as Linking from 'expo-linking';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
 
@@ -6,6 +7,13 @@ import { BOOK_API_BASE } from '@/constants/api';
 import { bookingApiErrorMessage, buildBookingApiHeaders } from '@/lib/booking-api-headers';
 import { logBookingAnalytics } from '@/lib/booking-analytics';
 import { supabase } from '@/lib/supabase';
+
+function resolveStripePublishableKey(): string {
+  const extra = (
+    Constants.expoConfig?.extra as { stripePublishableKey?: string } | undefined
+  )?.stripePublishableKey;
+  return (extra ?? process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').trim();
+}
 
 export type BookPaidResult =
   | { ok: true }
@@ -125,6 +133,8 @@ export async function runPaidWorkshopBooking(params: {
   }
 
   const returnURL = Linking.createURL('stripe-redirect');
+  const stripePublishableKey = resolveStripePublishableKey();
+  const googlePayTestEnv = __DEV__ || stripePublishableKey.startsWith('pk_test_');
 
   const { error: initError } = await initPaymentSheet({
     merchantDisplayName: 'Offhrs',
@@ -140,7 +150,7 @@ export async function runPaidWorkshopBooking(params: {
         ? {
             merchantCountryCode: 'CA',
             currencyCode: 'CAD',
-            testEnv: __DEV__,
+            testEnv: googlePayTestEnv,
           }
         : undefined,
     allowsDelayedPaymentMethods: false,

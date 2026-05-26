@@ -8,6 +8,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -163,6 +164,8 @@ export default function HomeScreen() {
   const [categoryExperience, setCategoryExperience] = useState<Record<string, { level: string; points: number }>>({});
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [popupCategory, setPopupCategory] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [homeRefreshNonce, setHomeRefreshNonce] = useState(0);
 
   const levelCategories = CATEGORIES;
   const instructorCategories = profile?.instructor_categories ?? [];
@@ -199,9 +202,9 @@ export default function HomeScreen() {
     });
   }, [user?.id]);
 
-  const refreshProfile = useCallback(() => {
+  const refreshProfile = useCallback(async () => {
     if (!user?.id) return;
-    Promise.all([
+    await Promise.all([
       supabase
         .from('profiles')
         .select(
@@ -223,6 +226,17 @@ export default function HomeScreen() {
         }),
     ]);
   }, [user?.id]);
+
+  const handleAndroidRefresh = useCallback(async () => {
+    if (Platform.OS !== 'android') return;
+    setRefreshing(true);
+    try {
+      await refreshProfile();
+      setHomeRefreshNonce((n) => n + 1);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshProfile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -271,16 +285,11 @@ export default function HomeScreen() {
     user?.user_metadata?.avatar_url ||
     user?.user_metadata?.picture ||
     null;
-  const level = profile?.expertise_level || 'Novice';
-  const points = profile?.experience_points ?? 0;
-  const displayLevel = user ? level : 'Novice';
-  const displayPoints = user ? points : 0;
-
   const isInstructorForCategory = (cat: string) => instructorCategories.includes(cat);
   const getLevelForCategory = (cat: string) => {
     if (isInstructorForCategory(cat)) return { level: 'Instructor', points: 0 };
     const ce = categoryExperience[cat];
-    return ce ? { level: ce.level, points: ce.points } : { level: displayLevel, points: displayPoints };
+    return ce ? { level: ce.level, points: ce.points } : { level: 'Novice', points: 0 };
   };
 
   return (
@@ -369,6 +378,17 @@ export default function HomeScreen() {
           paddingHorizontal: HORIZONTAL_PADDING,
         }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          Platform.OS === 'android' ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleAndroidRefresh}
+              tintColor={DesignColors.primary}
+              colors={[DesignColors.primary]}
+              progressBackgroundColor={CREAM_BG}
+            />
+          ) : undefined
+        }
       >
       <Text
         style={{
@@ -497,7 +517,10 @@ export default function HomeScreen() {
       >
         Upcoming workshops in Toronto
       </Text>
-      <UpcomingTorontoCarousel userLocationAnchor={carouselLocationAnchor} />
+      <UpcomingTorontoCarousel
+        userLocationAnchor={carouselLocationAnchor}
+        refreshNonce={homeRefreshNonce}
+      />
 
       <Text
         style={{
@@ -527,6 +550,7 @@ export default function HomeScreen() {
       <WorkshopsNearYouCarousel
         userLocationAnchor={carouselLocationAnchor}
         showHintWhenNoLocation
+        refreshNonce={homeRefreshNonce}
       />
       </ScrollView>
 

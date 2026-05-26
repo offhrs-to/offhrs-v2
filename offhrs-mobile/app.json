@@ -28,7 +28,7 @@
     },
     "android": {
       "package": "com.offhrs.app",
-      "versionCode": 39,
+      "versionCode": 40,
       "launchMode": "singleTask",
       "permissions": [
         "ACCESS_COARSE_LOCATION",

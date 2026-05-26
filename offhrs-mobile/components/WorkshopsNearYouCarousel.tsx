@@ -71,11 +71,13 @@ type Props = {
   userLocationAnchor: { lat: number; lng: number } | null;
   /** When true and anchor is null, show a short hint instead of hiding. */
   showHintWhenNoLocation?: boolean;
+  refreshNonce?: number;
 };
 
 export default function WorkshopsNearYouCarousel({
   userLocationAnchor,
   showHintWhenNoLocation = false,
+  refreshNonce = 0,
 }: Props) {
   const [items, setItems] = useState<HomeCarouselEventItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,7 +136,7 @@ export default function WorkshopsNearYouCarousel({
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshNonce]);
 
   if (!userLocationAnchor) {
     if (!showHintWhenNoLocation) return null;

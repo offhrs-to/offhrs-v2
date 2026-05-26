@@ -237,17 +237,24 @@ export default function OnboardingModal({
         }
       }
 
-      for (const category of learnerCategories) {
-        const value = experienceByCategory[category];
-        if (!value) continue;
-        const option = EXPERIENCE_OPTIONS.find((o) => o.value === value);
-        const { error: rowError } = await supabase.from('profile_category_experience').upsert(
-          {
+      const categoryExperienceRows = CATEGORIES
+        .filter((category) => !instructorCategories.includes(category))
+        .map((category) => {
+          const value = learnerCategories.includes(category)
+            ? experienceByCategory[category]
+            : undefined;
+          const option = EXPERIENCE_OPTIONS.find((o) => o.value === value);
+          return {
             user_id: userId,
             category,
             expertise_level: option?.level ?? 'Novice',
             experience_points: option?.points ?? 0,
-          },
+          };
+        });
+
+      if (categoryExperienceRows.length > 0) {
+        const { error: rowError } = await supabase.from('profile_category_experience').upsert(
+          categoryExperienceRows,
           { onConflict: 'user_id,category' }
         );
         // Non-fatal: onboarding_completed is already committed in profiles.

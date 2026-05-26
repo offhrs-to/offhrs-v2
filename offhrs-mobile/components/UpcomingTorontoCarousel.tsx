@@ -1,8 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 
 import HomeWorkshopCarouselCards, { type HomeCarouselEventItem } from '@/components/HomeWorkshopCarouselCards';
-import { useAuth } from '@/contexts/AuthContext';
 import { haversineKm } from '@/lib/distance';
 import { pickFirstNUniqueCategory } from '@/lib/home-carousel-events';
 import { CONSUMER_BOOKING_STATUS_OR, isEventVisibleToConsumers } from '@/lib/consumer-event-visibility';
@@ -134,12 +133,13 @@ function pickNextFiveToronto(
 type Props = {
   horizontalPadding?: number;
   userLocationAnchor?: { lat: number; lng: number } | null;
+  refreshNonce?: number;
 };
 
 export default function UpcomingTorontoCarousel({
   userLocationAnchor = null,
+  refreshNonce = 0,
 }: Props) {
-  const { user } = useAuth();
   const [items, setItems] = useState<HomeCarouselEventItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -166,13 +166,17 @@ export default function UpcomingTorontoCarousel({
     } finally {
       setLoading(false);
     }
-  }, [user?.id, userLocationAnchor]);
+  }, [userLocationAnchor]);
 
   useFocusEffect(
     useCallback(() => {
       void load();
     }, [load])
   );
+
+  useEffect(() => {
+    if (refreshNonce > 0) void load();
+  }, [load, refreshNonce]);
 
   return <HomeWorkshopCarouselCards items={items} loading={loading} />;
 }

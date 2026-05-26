@@ -4,12 +4,14 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Dimensions,
+  Platform,
   Pressable,
   ScrollView,
   Text,
   View,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import VendorBioCollapsible from '@/components/VendorBioCollapsible';
 import WorkshopQuickViewModal from '@/components/WorkshopQuickViewModal';
@@ -62,6 +64,7 @@ function formatDate(iso: string | null): string {
 export default function VendorProfileScreen() {
   const { id, eventId: eventIdParam, vendorProfileId: vendorProfileIdParam } =
     useLocalSearchParams<{ id: string; eventId?: string; vendorProfileId?: string }>();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
   const [vendor, setVendor] = useState<Vendor | null>(null);
@@ -273,7 +276,10 @@ export default function VendorProfileScreen() {
     <>
     <ScrollView
       style={{ flex: 1, backgroundColor: DesignColors.creamBg }}
-      contentContainerStyle={{ padding: DesignSpacing.horizontalPadding, paddingBottom: 32 }}
+      contentContainerStyle={{
+        padding: DesignSpacing.horizontalPadding,
+        paddingBottom: Platform.OS === 'android' ? Math.max(insets.bottom + 96, 112) : 32,
+      }}
     >
       <View style={{ marginTop: DesignSpacing.contentPaddingTop, marginBottom: 24 }}>
         <Text style={{ fontSize: 28, fontWeight: '700', color: DesignColors.charcoal }}>
