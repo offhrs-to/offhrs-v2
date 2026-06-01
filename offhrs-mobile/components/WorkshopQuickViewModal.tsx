@@ -22,13 +22,7 @@ import { haversineKm } from '@/lib/distance';
 import { extractCanadianPostalFromAddress, parseCanadianPostalCode } from '@/lib/canadianPostalCode';
 import { fetchRefundPolicyForEvent } from '@/lib/booking-cancel';
 import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mobile';
-import {
-  fetchWorkshopTaxQuote,
-  formatCad,
-  provinceFromCanadianPostalCode,
-  type WorkshopTaxQuote,
-} from '@/lib/workshop-booking-tax';
-import { supabase } from '@/lib/supabase';
+import { provinceFromCanadianPostalCode } from '@/lib/workshop-booking-tax';
 import { shareWorkshopEvent } from '@/lib/share-workshop';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import {
@@ -70,11 +64,14 @@ export default function WorkshopQuickViewModal({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [bookingBusy, setBookingBusy] = useState(false);
-  const [taxQuote, setTaxQuote] = useState<WorkshopTaxQuote | null>(null);
-  const [taxQuoteError, setTaxQuoteError] = useState<string | null>(null);
-  const [taxQuoteLoading, setTaxQuoteLoading] = useState(false);
   const [refundWindowHours, setRefundWindowHours] = useState(48);
 
+  // Tax is intentionally NOT calculated on modal open. Stripe Tax bills
+  // per `tax.calculations.create` (~$0.05) and most modal opens never
+  // convert to a booking. We defer the calculation to /api/book at the
+  // moment the user actually proceeds to payment — Stripe's PaymentSheet
+  // then shows the exact subtotal/tax/total breakdown before they confirm.
+  // The refund-policy line is served by a separate, free DB endpoint.
   useEffect(() => {
     if (!visible || !event || !workshopIsSaasVendorEvent(event)) {
       setRefundWindowHours(48);
@@ -90,55 +87,6 @@ export default function WorkshopQuickViewModal({
       cancelled = true;
     };
   }, [visible, event?.id]);
-
-  useEffect(() => {
-    if (!visible || !event || !workshopIsSaasVendorEvent(event)) {
-      setTaxQuote(null);
-      setTaxQuoteError(null);
-      return;
-    }
-    const venuePostal = event.location?.trim()
-      ? extractCanadianPostalFromAddress(event.location)
-      : null;
-    if (!userId || (!profilePostalCode?.trim() && !venuePostal)) {
-      setTaxQuote(null);
-      setTaxQuoteError(null);
-      return;
-    }
-    let cancelled = false;
-    setTaxQuoteLoading(true);
-    setTaxQuoteError(null);
-    void (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        if (!cancelled) setTaxQuoteLoading(false);
-        return;
-      }
-      const result = await fetchWorkshopTaxQuote({
-        eventId: event.id,
-        accessToken: session.access_token,
-        postalCode: profilePostalCode,
-        eventLocation: event.location,
-      });
-      if (cancelled) return;
-      setTaxQuoteLoading(false);
-      if ('error' in result) {
-        setTaxQuote(null);
-        setTaxQuoteError(result.error);
-      } else {
-        setTaxQuote(result);
-        setTaxQuoteError(null);
-        if (result.refundWindowHours != null) {
-          setRefundWindowHours(result.refundWindowHours);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [visible, event?.id, event?.location, userId, profilePostalCode]);
 
   const handleBook = useCallback(async () => {
     if (!event) return;
@@ -241,6 +189,7 @@ export default function WorkshopQuickViewModal({
   const saas = workshopIsSaasVendorEvent(event);
   const vendorName = workshopVendorDisplayName(event);
   const canOpenVendor = vendorPagePath(event) != null;
+  const isFreeEvent = Number(event.price_cad ?? 0) <= 0;
 
   const distanceKm =
     profileLocation && event.lat != null && event.lng != null
@@ -407,19 +356,17 @@ export default function WorkshopQuickViewModal({
                   gap: 6,
                 }}
               >
-                {priceLine != null && !taxQuote ? (
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.charcoal }}>{priceLine}</Text>
-                ) : taxQuote && !taxQuote.free ? (
+                {priceLine != null ? (
                   <View>
-                    <Text style={{ fontSize: 14, color: DesignColors.mediumGray }}>
-                      {formatCad(taxQuote.subtotalCad)} + {formatCad(taxQuote.taxCad)} tax
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.charcoal }}>
+                      {priceLine}
                     </Text>
-                    <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.charcoal, marginTop: 2 }}>
-                      Total {formatCad(taxQuote.totalCad)}
-                    </Text>
+                    {saas && !isFreeEvent ? (
+                      <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginTop: 2 }}>
+                        Tax calculated at checkout
+                      </Text>
+                    ) : null}
                   </View>
-                ) : priceLine != null ? (
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.charcoal }}>{priceLine}</Text>
                 ) : (
                   <View />
                 )}
@@ -428,12 +375,6 @@ export default function WorkshopQuickViewModal({
                 ) : null}
               </View>
 
-              {saas && taxQuoteLoading ? (
-                <Text style={{ marginTop: 8, fontSize: 12, color: DesignColors.mediumGray }}>Calculating tax…</Text>
-              ) : null}
-              {saas && taxQuoteError ? (
-                <Text style={{ marginTop: 8, fontSize: 12, color: '#B45309', lineHeight: 17 }}>{taxQuoteError}</Text>
-              ) : null}
               {full ? (
                 <View
                   style={{

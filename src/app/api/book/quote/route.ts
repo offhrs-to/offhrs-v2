@@ -8,6 +8,10 @@ import {
   calculateWorkshopTicketTax,
   resolveWorkshopCustomerTaxAddress,
 } from '@/lib/stripe-workshop-tax'
+import {
+  getCachedTaxQuote,
+  setCachedTaxQuote,
+} from '@/lib/workshop-tax-quote-cache'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
@@ -118,12 +122,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Vendor payout account not set up yet' }, { status: 422 })
     }
 
+    // Repeat quick-view opens of the same workshop produce identical Stripe
+    // Tax results but each one costs the platform ~$0.05 in Tax API fees.
+    // Serve a cached preview when the same (event, postal, province) was
+    // priced in the last 10 minutes on this server instance. Booking the
+    // workshop still creates a fresh calculation (handled in /api/book) so
+    // every PaymentIntent gets its own Stripe Tax transaction.
+    const cached = getCachedTaxQuote(event.id, customerAddress.postal_code, customerAddress.state)
+    if (cached) {
+      return NextResponse.json({
+        subtotalCad: cached.subtotalCad,
+        taxCad: cached.taxCad,
+        totalCad: cached.totalCad,
+        refundWindowHours: cached.refundWindowHours,
+        refundPolicyLine: cached.refundPolicyLine,
+      })
+    }
+
     const tax = await calculateWorkshopTicketTax(stripe, {
       connectedAccountId: vendor.stripe_account_id,
       subtotalCad: priceCad,
       customerAddress,
       reference: `event_${event.id}`,
       vendorLocationAddress: vendor.location_address,
+    })
+
+    setCachedTaxQuote(event.id, customerAddress.postal_code, customerAddress.state, {
+      subtotalCad: tax.subtotalCad,
+      taxCad: tax.taxCad,
+      totalCad: tax.totalCad,
+      refundWindowHours,
+      refundPolicyLine,
     })
 
     return NextResponse.json({

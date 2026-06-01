@@ -119,8 +119,12 @@ export function BookingSection({
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [loadingIntent, setLoadingIntent] = useState(false)
   const [intentError, setIntentError] = useState('')
+  // `taxQuote` is populated only after the user clicks "Continue to payment"
+  // and /api/book returns the Stripe Tax breakdown. We intentionally do not
+  // preview tax during the details step — Stripe Tax bills per calculation
+  // and most browse sessions never convert, so deferring the call until the
+  // user has committed to checkout keeps the cost proportional to bookings.
   const [taxQuote, setTaxQuote] = useState<TaxQuote | null>(null)
-  const [taxQuoteLoading, setTaxQuoteLoading] = useState(false)
   const [stripePromise] = useState(() => (stripePk ? loadStripe(stripePk) : null))
 
   const [selectedDateTime, setSelectedDateTime] = useState(defaultStartLocal)
@@ -134,39 +138,6 @@ export function BookingSection({
 
   function setField(key: keyof AttendeeForm, val: string) {
     setAttendee((f) => ({ ...f, [key]: val }))
-  }
-
-  async function refreshTaxQuote(postal: string) {
-    const trimmed = postal.trim()
-    if (!trimmed || priceCad <= 0) {
-      setTaxQuote(null)
-      return
-    }
-    setTaxQuoteLoading(true)
-    try {
-      const res = await fetch('/api/book/quote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event_id: eventId,
-          customer_address: { country: 'CA', postal_code: trimmed },
-        }),
-      })
-      const data = await res.json()
-      if (res.ok && data.subtotalCad != null) {
-        setTaxQuote({
-          subtotalCad: Number(data.subtotalCad),
-          taxCad: Number(data.taxCad ?? 0),
-          totalCad: Number(data.totalCad ?? data.subtotalCad),
-        })
-      } else {
-        setTaxQuote(null)
-      }
-    } catch {
-      setTaxQuote(null)
-    } finally {
-      setTaxQuoteLoading(false)
-    }
   }
 
   async function handleProceedToPayment() {
@@ -309,27 +280,15 @@ export function BookingSection({
             <input
               value={attendee.postalCode}
               onChange={(e) => setField('postalCode', e.target.value)}
-              onBlur={() => void refreshTaxQuote(attendee.postalCode)}
               placeholder="A1A 1A1"
               className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
             />
-            <p className="text-xs text-[#888] mt-1">Used to calculate HST/GST for your province.</p>
+            <p className="text-xs text-[#888] mt-1">
+              {priceCad > 0
+                ? 'Used to calculate HST/GST for your province at checkout.'
+                : 'Used to calculate HST/GST for your province.'}
+            </p>
           </div>
-          {priceCad > 0 && (taxQuoteLoading || taxQuote) ? (
-            <div className="rounded-xl bg-[#F5F3EF] px-4 py-3 text-sm text-[#555]">
-              {taxQuoteLoading ? (
-                <p>Calculating tax…</p>
-              ) : taxQuote ? (
-                <>
-                  <p>Subtotal: ${taxQuote.subtotalCad.toFixed(2)} CAD</p>
-                  <p>Tax: ${taxQuote.taxCad.toFixed(2)} CAD</p>
-                  <p className="font-semibold text-[#1a1a1a] mt-1">
-                    Total: ${taxQuote.totalCad.toFixed(2)} CAD
-                  </p>
-                </>
-              ) : null}
-            </div>
-          ) : null}
           <div>
             <label className="block text-xs font-medium text-[#555] mb-1.5">
               {occurrenceOptions?.length ? 'Session date' : 'Session start'}
@@ -378,9 +337,7 @@ export function BookingSection({
               ? 'Preparing payment…'
               : priceCad === 0
                 ? 'Reserve my spot (free)'
-                : taxQuote
-                  ? `Continue to payment — $${taxQuote.totalCad.toFixed(2)} CAD`
-                  : `Continue to payment — $${priceCad.toFixed(2)} CAD`}
+                : `Continue to payment — $${priceCad.toFixed(2)} + tax CAD`}
           </button>
         </div>
       )}
@@ -406,6 +363,15 @@ export function BookingSection({
               Edit
             </button>
           </div>
+          {taxQuote ? (
+            <div className="mb-4 rounded-xl bg-[#F5F3EF] px-4 py-3 text-sm text-[#555]">
+              <p>Subtotal: ${taxQuote.subtotalCad.toFixed(2)} CAD</p>
+              <p>Tax: ${taxQuote.taxCad.toFixed(2)} CAD</p>
+              <p className="font-semibold text-[#1a1a1a] mt-1">
+                Total: ${taxQuote.totalCad.toFixed(2)} CAD
+              </p>
+            </div>
+          ) : null}
           <PaymentForm
             attendee={attendee}
             priceCad={taxQuote?.totalCad ?? priceCad}

@@ -20,6 +20,7 @@ import {
   type EventSeriesFields,
 } from '@/lib/workshop-series'
 import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
+import { invalidateCachedTaxQuotesForEvent } from '@/lib/workshop-tax-quote-cache'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 const ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending', 'booked', 'pending_confirmation'] as const
@@ -318,6 +319,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Drop any cached tax previews for this event so vendor price edits
+    // surface immediately rather than waiting for the cache TTL to expire.
+    if (updated?.id) {
+      invalidateCachedTaxQuotesForEvent(updated.id)
+    }
 
     if (updated?.id) {
       void syncVendorSessionToExternalCalendars(admin, vendor.id, String(updated.id)).catch((e) =>
