@@ -15,6 +15,7 @@ import {
   X,
   UserCircle2,
   FileText,
+  HelpCircle,
 } from 'lucide-react'
 import { useState } from 'react'
 import { OffhrsLogo } from '@/components/offhrs-logo'
@@ -86,6 +87,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Bottom */}
       <div className="px-3 pb-4 border-t border-[#E8E4DE] pt-3 space-y-1">
+        <Link
+          href="/partners/dashboard/faq"
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            pathname.startsWith('/partners/dashboard/faq')
+              ? 'bg-[#5D755D] text-white'
+              : 'text-[#555] hover:bg-[#F0EDE8] hover:text-[#1a1a1a]'
+          }`}
+        >
+          <HelpCircle className="w-4 h-4" />
+          FAQ
+        </Link>
         <Link
           href="/terms"
           target="_blank"
