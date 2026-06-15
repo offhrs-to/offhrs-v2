@@ -10,13 +10,13 @@ function applyStripeAndroidPin(buildGradle) {
 
   return `${buildGradle.trimEnd()}
 
-// ${MARKER}: avoid Gradle resolving com.stripe:stripe-android:21.22.+ metadata from flaky repositories.
+// ${MARKER}: avoid Gradle resolving com.stripe:*:21.22.+ metadata from flaky repositories.
 allprojects {
     configurations.configureEach {
         resolutionStrategy.eachDependency { details ->
-            if (details.requested.group == 'com.stripe' && details.requested.name == 'stripe-android') {
+            if (details.requested.group == 'com.stripe' && details.requested.version == '21.22.+') {
                 details.useVersion '${STRIPE_ANDROID_VERSION}'
-                details.because 'Pin Stripe Android SDK for reliable EAS dependency resolution'
+                details.because 'Pin Stripe Android modules for reliable EAS dependency resolution'
             }
         }
     }
