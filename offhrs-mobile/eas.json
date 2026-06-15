@@ -27,6 +27,7 @@
     },
     "production": {
       "channel": "production",
+      "environment": "production",
       "env": {
         "EAS_BUILD_NO_EXPO_GO_WARNING": "true",
         "EXPO_PUBLIC_APP_URL": "https://offhrs.app",
