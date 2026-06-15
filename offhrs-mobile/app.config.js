@@ -63,6 +63,16 @@ function withStripePlugin(plugins) {
   return list;
 }
 
+function withStripeAndroidPinPlugin(plugins) {
+  if (!Array.isArray(plugins)) return plugins;
+  const list = [...plugins];
+  const pluginPath = './plugins/withStripeAndroidPin';
+  if (!list.some((p) => (Array.isArray(p) ? p[0] === pluginPath : p === pluginPath))) {
+    list.push(pluginPath);
+  }
+  return list;
+}
+
 const stripePublishableKey = (process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '').trim();
 
 const bookApiBase = (process.env.EXPO_PUBLIC_BOOK_API_BASE || 'https://offhrs.app')
@@ -72,7 +82,9 @@ const bookApiBase = (process.env.EXPO_PUBLIC_BOOK_API_BASE || 'https://offhrs.ap
 module.exports = {
   expo: {
     ...appJson.expo,
-    plugins: withStripePlugin(withAndroidSplashPlugins(appJson.expo.plugins || [])),
+    plugins: withStripeAndroidPinPlugin(
+      withStripePlugin(withAndroidSplashPlugins(appJson.expo.plugins || []))
+    ),
     android: {
       ...appJson.expo.android,
       splash: {
