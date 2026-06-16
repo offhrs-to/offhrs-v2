@@ -13,7 +13,7 @@ import Link from 'next/link'
 import Navbar from '@/components/navbar'
 import { Badge } from '@/components/ui/badge'
 import { fetchUrlMetadata } from '@/app/actions/fetch-metadata'
-import { updateEvent } from '@/app/actions/events'
+import { insertEvents, updateEvent } from '@/app/actions/events'
 import { geocodeAddress } from '@/lib/geocode'
 import { parseWorkshopDateTimeInput } from '@/lib/workshop-timezone'
 import {
@@ -375,10 +375,9 @@ export default function AdminEditPage() {
           date: rows[0].date,
           recurrence: 'none',
         })
-        const rest = rows.slice(1) as Record<string, unknown>[]
+        const rest = rows.slice(1) as Parameters<typeof insertEvents>[0]
         if (rest.length > 0) {
-          const { error: insertError } = await supabase.from('events').insert(rest)
-          if (insertError) throw insertError
+          await insertEvents(rest)
         }
       } else {
         await updateEvent(eventId, submitData)

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, FormEvent } from 'react'
-import { supabase } from '@/lib/supabase'
+import { insertEvents } from '@/app/actions/events'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -274,11 +274,9 @@ export default function AdminAddPage() {
         }
         // One row per occurrence; recurrence is stored as 'none' so the cron job does not
         // advance multiple rows for the same workshop (would create duplicate future slots).
-        const { error: insertError } = await supabase.from('events').insert(rows)
-        if (insertError) throw insertError
+        await insertEvents(rows)
       } else {
-        const { error: insertError } = await supabase.from('events').insert([submitData])
-        if (insertError) throw insertError
+        await insertEvents([submitData])
       }
 
       // Success!
