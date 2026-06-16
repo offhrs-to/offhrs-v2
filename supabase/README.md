@@ -21,7 +21,7 @@ Run these migrations in your Supabase project:
    - `20250220000001_ensure_vendor_reviews_one_per_user.sql`
    - **`20250221000001_user_event_saves.sql`** – required for mobile app **Save** button and Profile **Saved** list.
    - `20250222000001_event_redirects.sql`
-   - `20250223000001_daily_visits.sql`
+   - `20250223000001_daily_visits.sql` (superseded by `20260616000000_drop_daily_visits.sql`)
    - **`20250224000001_add_events_duration_weeks.sql`** – adds `events.duration_weeks` for XP-by-workshop-weeks (requires `events` table to exist).
    - `20250225000001_booking_confirmation_email_sent.sql`
    - **`20250324000001_remove_music_wellness_categories.sql`** – removes Music/Wellness from stored data (events → Other; profile rows cleaned).

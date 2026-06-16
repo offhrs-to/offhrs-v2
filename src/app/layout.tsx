@@ -4,7 +4,6 @@ import { Inter } from 'next/font/google'
 import Script from 'next/script'
 import Footer from '@/components/footer'
 import { AuthProviderWrapper } from '@/components/auth-provider'
-import RecordVisit from '@/components/record-visit'
 import { getSiteUrl } from '@/lib/site'
 
 const META_PIXEL_ID = '1674304227024425'
@@ -82,7 +81,6 @@ fbq('track', 'PageView');`}
       </head>
       <body className={`${inter.variable} min-h-screen flex flex-col font-sans`}>
         <AuthProviderWrapper>
-          <RecordVisit />
           <main className="flex-grow">{children}</main>
           <Footer />
         </AuthProviderWrapper>

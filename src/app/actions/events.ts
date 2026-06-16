@@ -39,6 +39,8 @@ export async function updateEvent(id: string, data: {
   lng: string | number | null
   is_multiple_dates: boolean
   duration_weeks: number | null
+  duration_minutes: number | null
+  description: string | null
   recurrence?: 'none' | 'daily' | 'weekly'
 }) {
   try {
@@ -106,6 +108,11 @@ export async function updateEvent(id: string, data: {
         lng: lng,
         is_multiple_dates: data.is_multiple_dates,
         duration_weeks: data.duration_weeks != null ? Math.max(1, data.duration_weeks) : null,
+        duration_minutes:
+          data.duration_minutes != null
+            ? Math.min(480, Math.max(15, data.duration_minutes))
+            : null,
+        description: data.description?.trim() || null,
         recurrence: data.recurrence ?? 'none',
       })
       .eq('id', id)

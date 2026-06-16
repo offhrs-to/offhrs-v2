@@ -49,7 +49,6 @@ export default function AdminPage() {
     results: { eventId: string; title: string; url: string; ok: boolean; status?: number; error?: string }[]
     error?: string
   } | null>(null)
-  const [dailyVisits, setDailyVisits] = useState<{ today: number; byDay: { date: string; count: number }[] } | null>(null)
   const [pageSize, setPageSize] = useState<PageSize>(20)
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -105,18 +104,16 @@ export default function AdminPage() {
   const fetchEvents = async () => {
     setLoading(true)
     try {
-      const [eventsRes, countsRes, visitsRes] = await Promise.all([
+      const [eventsRes, countsRes] = await Promise.all([
         supabase
           .from('events')
           .select('id, title, date, image_url, category, created_at, external_link, is_multiple_dates')
           .order('created_at', { ascending: false }),
         fetch('/api/admin/event-redirect-counts', { credentials: 'include', headers: getAdminHeaders() }).then((r) => (r.ok ? r.json() : { counts: {} })).catch(() => ({ counts: {} })),
-        fetch('/api/admin/daily-visits', { credentials: 'include', headers: getAdminHeaders() }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ])
       if (eventsRes.error) throw eventsRes.error
       setEvents(eventsRes.data || [])
       setRedirectCounts(countsRes.counts || {})
-      setDailyVisits(visitsRes)
     } catch (error) {
       console.error('Error fetching events:', error)
     } finally {
@@ -293,16 +290,6 @@ export default function AdminPage() {
           <div>
             <h1 className="text-4xl font-bold text-slate-900 mb-2">Admin Dashboard</h1>
             <p className="text-slate-600">Manage your workshop events</p>
-            {dailyVisits != null && (
-              <p className="text-sm text-slate-500 mt-2">
-                Today&apos;s visitors: <span className="font-semibold text-slate-700">{dailyVisits.today}</span>
-                {dailyVisits.byDay.length > 1 && (
-                  <span className="ml-3">
-                    (last 7 days: {dailyVisits.byDay.slice(-7).map((d) => d.count).join(', ')})
-                  </span>
-                )}
-              </p>
-            )}
           </div>
           <div className="flex flex-wrap items-center justify-end gap-3 sm:shrink-0">
             {events.length > 0 && (

@@ -104,9 +104,12 @@ export function buildMaterializedEventRows<T extends Record<string, unknown>>(
   const dates = getMaterializedInstanceDates(
     baseDate,
     recurrence,
-    recurrence === 'daily'
-      ? { dailyWeekdays: options?.dailyWeekdays ?? ALL_JS_WEEKDAYS }
-      : undefined
+    {
+      weeks: options?.weeks,
+      ...(recurrence === 'daily'
+        ? { dailyWeekdays: options?.dailyWeekdays ?? ALL_JS_WEEKDAYS }
+        : {}),
+    }
   )
   return dates.map((iso) => ({ ...base, date: iso, recurrence: 'none' })) as Array<
     T & { date: string; recurrence: 'none' }

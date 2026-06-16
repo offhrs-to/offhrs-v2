@@ -18,9 +18,17 @@ import {
   ALL_JS_WEEKDAYS,
   buildMaterializedEventRows,
   countDailyInstancesInWindow,
+  REPEATING_WEEKS_MAX,
+  REPEATING_WEEKS_MIN,
   RENEW_INSTANCES_WEEKS,
 } from '@/lib/recurring-event-instances'
 import { cn } from '@/lib/utils'
+import { CATEGORIES } from '@/constants/categories'
+
+const RECURRING_WEEK_OPTIONS = Array.from(
+  { length: REPEATING_WEEKS_MAX - REPEATING_WEEKS_MIN + 1 },
+  (_, i) => i + REPEATING_WEEKS_MIN
+)
 
 type Recurrence = 'none' | 'daily' | 'weekly'
 
@@ -48,6 +56,8 @@ interface FormData {
   lng: string
   is_multiple_dates: boolean
   duration_weeks: number
+  duration_minutes: number
+  description: string
   recurrence: Recurrence
 }
 
@@ -65,6 +75,8 @@ export default function AdminAddPage() {
     lng: '',
     is_multiple_dates: false,
     duration_weeks: 1,
+    duration_minutes: 90,
+    description: '',
     recurrence: 'none',
   })
   const [loading, setLoading] = useState(false)
@@ -75,8 +87,17 @@ export default function AdminAddPage() {
   const [urlInput, setUrlInput] = useState('')
   const [fetchingMetadata, setFetchingMetadata] = useState(false)
   const [metadataSuccess, setMetadataSuccess] = useState(false)
-  /** For daily renewal: which weekdays (JS 0–6) get an instance in the 4-week window */
+  /** For daily renewal: which weekdays (JS 0–6) get an instance in the selected week window */
   const [dailyWeekdays, setDailyWeekdays] = useState<Set<number>>(() => new Set(ALL_JS_WEEKDAYS))
+  /** How many weeks of recurring listings to create (weekly or daily patterns). */
+  const [recurringWeeks, setRecurringWeeks] = useState(RENEW_INSTANCES_WEEKS)
+
+  const dailyPreviewCount = useMemo(() => {
+    if (formData.recurrence !== 'daily' || !formData.date.trim()) return null
+    const d = new Date(formData.date)
+    if (Number.isNaN(d.getTime())) return null
+    return countDailyInstancesInWindow(d, dailyWeekdays, recurringWeeks * 7)
+  }, [formData.recurrence, formData.date, dailyWeekdays, recurringWeeks])
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -85,7 +106,14 @@ export default function AdminAddPage() {
     const checked = (e.target as HTMLInputElement).checked
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'duration_weeks' ? (parseInt(value, 10) || 1) : type === 'checkbox' ? checked : value,
+      [name]:
+        name === 'duration_weeks'
+          ? parseInt(value, 10) || 1
+          : name === 'duration_minutes'
+            ? Math.min(480, Math.max(15, parseInt(value, 10) || 90))
+            : type === 'checkbox'
+              ? checked
+              : value,
     }))
     // Clear error when user starts typing
     if (error) setError(null)
@@ -94,13 +122,6 @@ export default function AdminAddPage() {
       setCoordinatesFound(false)
     }
   }
-
-  const dailyPreviewCount = useMemo(() => {
-    if (formData.recurrence !== 'daily' || !formData.date.trim()) return null
-    const d = new Date(formData.date)
-    if (Number.isNaN(d.getTime())) return null
-    return countDailyInstancesInWindow(d, dailyWeekdays)
-  }, [formData.recurrence, formData.date, dailyWeekdays])
 
   const handleFetchMetadata = async () => {
     if (!urlInput.trim()) {
@@ -220,6 +241,8 @@ export default function AdminAddPage() {
         lng: lng || null,
         is_multiple_dates: formData.is_multiple_dates,
         duration_weeks: Math.max(1, formData.duration_weeks),
+        duration_minutes: formData.duration_minutes,
+        description: formData.description.trim() || null,
         recurrence: formData.recurrence,
       }
 
@@ -237,10 +260,14 @@ export default function AdminAddPage() {
           throw new Error('Select at least one day of the week for daily renewal')
         }
         const pattern = formData.recurrence === 'daily' ? 'daily' : 'weekly'
+        const materializeOptions =
+          formData.recurrence === 'daily'
+            ? { dailyWeekdays, weeks: recurringWeeks }
+            : { weeks: recurringWeeks }
         const rows = buildMaterializedEventRows(
           { ...submitData, recurrence: formData.recurrence } as Record<string, unknown>,
           pattern,
-          formData.recurrence === 'daily' ? { dailyWeekdays } : undefined
+          materializeOptions
         ) as Array<typeof submitData & { recurrence: Recurrence }>
         if (rows.length === 0) {
           throw new Error('Could not build recurring event dates')
@@ -270,9 +297,12 @@ export default function AdminAddPage() {
         lng: '',
         is_multiple_dates: false,
         duration_weeks: 1,
+        duration_minutes: 90,
+        description: '',
         recurrence: 'none',
       })
       setDailyWeekdays(new Set(ALL_JS_WEEKDAYS))
+      setRecurringWeeks(RENEW_INSTANCES_WEEKS)
       setUrlInput('')
       setCoordinatesFound(false)
       setMetadataSuccess(false)
@@ -420,12 +450,33 @@ export default function AdminAddPage() {
               {/* Category */}
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
-                <Input
+                <select
                   id="category"
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
-                  placeholder="e.g., Workshop, Conference, Meetup"
+                  disabled={loading}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">Select category</option>
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="What will attendees learn or experience?"
+                  rows={4}
                   disabled={loading}
                 />
               </div>
@@ -443,7 +494,7 @@ export default function AdminAddPage() {
                 />
               </div>
 
-              {/* Duration (weeks) */}
+              {/* Duration (weeks) — XP */}
               <div className="space-y-2">
                 <Label htmlFor="duration_weeks">Duration (weeks)</Label>
                 <Input
@@ -456,6 +507,22 @@ export default function AdminAddPage() {
                   disabled={loading}
                 />
                 <p className="text-xs text-slate-500">Used for XP when attendees confirm (e.g. 8-week workshop = 8 points).</p>
+              </div>
+
+              {/* Duration (minutes) — session length */}
+              <div className="space-y-2">
+                <Label htmlFor="duration_minutes">Duration (minutes)</Label>
+                <Input
+                  id="duration_minutes"
+                  name="duration_minutes"
+                  type="number"
+                  min={15}
+                  max={480}
+                  value={formData.duration_minutes}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+                <p className="text-xs text-slate-500">Length of a single session (15–480 min). Shown in the app quick view and bookings.</p>
               </div>
 
               {/* Date */}
@@ -503,6 +570,29 @@ export default function AdminAddPage() {
                     </Button>
                   </div>
                 </div>
+                {(formData.recurrence === 'weekly' || formData.recurrence === 'daily') && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-3 space-y-2">
+                    <Label htmlFor="recurring-weeks">How many weeks?</Label>
+                    <select
+                      id="recurring-weeks"
+                      value={recurringWeeks}
+                      onChange={(e) => setRecurringWeeks(Number(e.target.value))}
+                      disabled={loading}
+                      className="flex h-10 w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {RECURRING_WEEK_OPTIONS.map((n) => (
+                        <option key={n} value={n}>
+                          {n} week{n === 1 ? '' : 's'}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500">
+                      {formData.recurrence === 'weekly'
+                        ? `Creates ${recurringWeeks} weekly listing${recurringWeeks === 1 ? '' : 's'} (one per week) at the same time of day.`
+                        : `Creates listings on selected weekdays over ${recurringWeeks} week${recurringWeeks === 1 ? '' : 's'}.`}
+                    </p>
+                  </div>
+                )}
                 {formData.recurrence === 'daily' && (
                   <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-3 space-y-2">
                     <p className="text-xs font-medium text-slate-800">Repeat on these days</p>
@@ -537,7 +627,7 @@ export default function AdminAddPage() {
                     </div>
                     <p className="text-xs text-slate-500">
                       All days are selected by default. Tap to exclude a day — no listing will be created
-                      on deselected weekdays during the {RENEW_INSTANCES_WEEKS}-week window.
+                      on deselected weekdays during the {recurringWeeks}-week window.
                     </p>
                   </div>
                 )}
@@ -545,10 +635,10 @@ export default function AdminAddPage() {
                   <p className="text-xs text-slate-500">
                     Saving will create{' '}
                     {formData.recurrence === 'weekly'
-                      ? `${RENEW_INSTANCES_WEEKS} weekly listings (${RENEW_INSTANCES_WEEKS} occurrences)`
+                      ? `${recurringWeeks} weekly listing${recurringWeeks === 1 ? '' : 's'} (${recurringWeeks} occurrence${recurringWeeks === 1 ? '' : 's'})`
                       : dailyPreviewCount != null
-                        ? `${dailyPreviewCount} daily listing${dailyPreviewCount === 1 ? '' : 's'} (over ${RENEW_INSTANCES_WEEKS} weeks, selected weekdays only)`
-                        : `daily listings (${RENEW_INSTANCES_WEEKS} weeks, selected weekdays)`}{' '}
+                        ? `${dailyPreviewCount} daily listing${dailyPreviewCount === 1 ? '' : 's'} (over ${recurringWeeks} weeks, selected weekdays only)`
+                        : `daily listings (${recurringWeeks} weeks, selected weekdays)`}{' '}
                     at the same time of day, starting from the date above.
                   </p>
                 )}
