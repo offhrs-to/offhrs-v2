@@ -62,10 +62,7 @@ export function normalizeEventRow(data: AdminEventInput) {
     lng: parseLatLng(data.lng),
     is_multiple_dates: data.is_multiple_dates,
     duration_weeks: data.duration_weeks != null ? Math.max(1, data.duration_weeks) : null,
-    duration_minutes:
-      data.duration_minutes != null
-        ? Math.min(480, Math.max(15, data.duration_minutes))
-        : null,
+    duration_minutes: data.duration_minutes != null ? data.duration_minutes : null,
     description: data.description?.trim() || null,
     recurrence: data.recurrence ?? 'none',
   }

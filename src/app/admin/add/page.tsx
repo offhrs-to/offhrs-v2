@@ -57,7 +57,7 @@ interface FormData {
   lng: string
   is_multiple_dates: boolean
   duration_weeks: number
-  duration_minutes: number | ''
+  duration_minutes: string
   description: string
   recurrence: Recurrence
 }
@@ -111,11 +111,7 @@ export default function AdminAddPage() {
       [name]:
         name === 'duration_weeks'
           ? parseInt(value, 10) || 1
-          : name === 'duration_minutes'
-            ? value === ''
-              ? ''
-              : Math.min(480, Math.max(15, parseInt(value, 10) || 15))
-            : type === 'checkbox'
+          : type === 'checkbox'
               ? checked
               : value,
     }))
@@ -231,6 +227,15 @@ export default function AdminAddPage() {
         }
       }
 
+      const durationMinutesRaw = formData.duration_minutes.trim()
+      let duration_minutes: number | null = null
+      if (durationMinutesRaw) {
+        if (!/^\d+$/.test(durationMinutesRaw)) {
+          throw new Error('Duration (minutes) must be a whole number')
+        }
+        duration_minutes = parseInt(durationMinutesRaw, 10)
+      }
+
       const submitData = {
         title: formData.title.trim(),
         category: formData.category.trim() || null,
@@ -244,7 +249,7 @@ export default function AdminAddPage() {
         lng: lng || null,
         is_multiple_dates: formData.is_multiple_dates,
         duration_weeks: Math.max(1, formData.duration_weeks),
-        duration_minutes: formData.duration_minutes === '' ? null : formData.duration_minutes,
+        duration_minutes,
         description: formData.description.trim() || null,
         recurrence: formData.recurrence,
       }
@@ -535,15 +540,14 @@ export default function AdminAddPage() {
                 <Input
                   id="duration_minutes"
                   name="duration_minutes"
-                  type="number"
-                  min={15}
-                  max={480}
+                  type="text"
+                  inputMode="numeric"
                   value={formData.duration_minutes}
                   onChange={handleChange}
-                  placeholder="Optional"
+                  placeholder="e.g. 120"
                   disabled={loading}
                 />
-                <p className="text-xs text-slate-500">Optional. Length of a single session (15–480 min). Shown in the app quick view and bookings.</p>
+                <p className="text-xs text-slate-500">Optional. Session length in minutes. Shown in the app quick view and bookings.</p>
               </div>
 
               {/* Date */}
