@@ -57,7 +57,7 @@ interface FormData {
   lng: string
   is_multiple_dates: boolean
   duration_weeks: number
-  duration_minutes: number
+  duration_minutes: number | ''
   description: string
   recurrence: Recurrence
 }
@@ -77,7 +77,7 @@ export default function AdminAddPage() {
     lng: '',
     is_multiple_dates: false,
     duration_weeks: 1,
-    duration_minutes: 90,
+    duration_minutes: '',
     description: '',
     recurrence: 'none',
   })
@@ -112,7 +112,9 @@ export default function AdminAddPage() {
         name === 'duration_weeks'
           ? parseInt(value, 10) || 1
           : name === 'duration_minutes'
-            ? Math.min(480, Math.max(15, parseInt(value, 10) || 90))
+            ? value === ''
+              ? ''
+              : Math.min(480, Math.max(15, parseInt(value, 10) || 15))
             : type === 'checkbox'
               ? checked
               : value,
@@ -242,7 +244,7 @@ export default function AdminAddPage() {
         lng: lng || null,
         is_multiple_dates: formData.is_multiple_dates,
         duration_weeks: Math.max(1, formData.duration_weeks),
-        duration_minutes: formData.duration_minutes,
+        duration_minutes: formData.duration_minutes === '' ? null : formData.duration_minutes,
         description: formData.description.trim() || null,
         recurrence: formData.recurrence,
       }
@@ -307,7 +309,7 @@ export default function AdminAddPage() {
         lng: '',
         is_multiple_dates: false,
         duration_weeks: 1,
-        duration_minutes: 90,
+        duration_minutes: '',
         description: '',
         recurrence: 'none',
       })
@@ -538,9 +540,10 @@ export default function AdminAddPage() {
                   max={480}
                   value={formData.duration_minutes}
                   onChange={handleChange}
+                  placeholder="Optional"
                   disabled={loading}
                 />
-                <p className="text-xs text-slate-500">Length of a single session (15–480 min). Shown in the app quick view and bookings.</p>
+                <p className="text-xs text-slate-500">Optional. Length of a single session (15–480 min). Shown in the app quick view and bookings.</p>
               </div>
 
               {/* Date */}
