@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ExternalLink, Edit, Trash2, Loader2, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import Navbar from '@/components/navbar'
-import { deleteEvent } from '@/app/actions/events'
+import { adminFetch, clearAdminBasicAuth, storeAdminBasicAuth } from '@/lib/admin-fetch'
 import { EventImageFallback } from '@/components/event-image-fallback'
 import { getVisiblePageNumbers } from '@/lib/pagination'
 
@@ -32,7 +32,6 @@ export default function AdminPage() {
   const [sessionChecking, setSessionChecking] = useState(true)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const adminAuthRef = useRef<string | null>(null)
 
   const [events, setEvents] = useState<Event[]>([])
   const [redirectCounts, setRedirectCounts] = useState<Record<string, number>>({})
@@ -77,8 +76,9 @@ export default function AdminPage() {
 
   const getAdminHeaders = (): HeadersInit => {
     const h: HeadersInit = { 'Content-Type': 'application/json' }
-    if (adminAuthRef.current) {
-      (h as Record<string, string>)['Authorization'] = `Basic ${adminAuthRef.current}`
+    if (typeof sessionStorage !== 'undefined') {
+      const basic = sessionStorage.getItem('offhrs_admin_basic')
+      if (basic) (h as Record<string, string>)['Authorization'] = `Basic ${basic}`
     }
     return h
   }
@@ -92,7 +92,7 @@ export default function AdminPage() {
       credentials: 'include',
     })
     if (res.ok) {
-      adminAuthRef.current = typeof btoa !== 'undefined' ? btoa(`${username}:${password}`) : Buffer.from(`${username}:${password}`).toString('base64')
+      storeAdminBasicAuth(username, password)
       setIsAuthenticated(true)
       fetchEvents()
     } else {
@@ -219,7 +219,9 @@ export default function AdminPage() {
     if (!confirmed) return
     setDeletingId(id)
     try {
-      await deleteEvent(id)
+      const res = await adminFetch(`/api/admin/events/${id}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to delete event')
       await fetchEvents()
     } catch (error: unknown) {
       alert(`Failed to delete event: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -317,7 +319,7 @@ export default function AdminPage() {
             <button
               type="button"
               onClick={async () => {
-                adminAuthRef.current = null
+                clearAdminBasicAuth()
                 await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
                 setIsAuthenticated(false)
               }}

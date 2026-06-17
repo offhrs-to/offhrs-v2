@@ -1,4 +1,4 @@
-import { verifyAdminBasicAuth, verifyAdminCookie, getAdminCookieName } from '@/app/api/admin/login/route'
+import { verifyAdminBasicAuth, verifyAdminCookie, getAdminCookieName } from '@/lib/admin-auth'
 import { cookies, headers } from 'next/headers'
 
 /** Require a valid admin session cookie or Basic auth (server actions / RSC). */

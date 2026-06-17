@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useMemo, FormEvent } from 'react'
-import { insertEvents } from '@/app/actions/events'
+import { adminFetch } from '@/lib/admin-fetch'
+import { useRequireAdminSession } from '@/lib/use-require-admin-session'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -62,6 +63,7 @@ interface FormData {
 }
 
 export default function AdminAddPage() {
+  const adminReady = useRequireAdminSession()
   const [formData, setFormData] = useState<FormData>({
     title: '',
     category: '',
@@ -229,7 +231,6 @@ export default function AdminAddPage() {
 
       const submitData = {
         title: formData.title.trim(),
-        mode: 'craft', // Always set to 'craft' for leisure workshops
         category: formData.category.trim() || null,
         price: formData.price.trim() || null,
         date: formattedDate,
@@ -274,9 +275,20 @@ export default function AdminAddPage() {
         }
         // One row per occurrence; recurrence is stored as 'none' so the cron job does not
         // advance multiple rows for the same workshop (would create duplicate future slots).
-        await insertEvents(rows)
+        await adminFetch('/api/admin/events', {
+          method: 'POST',
+          body: JSON.stringify({ rows }),
+        }).then(async (res) => {
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok) throw new Error(data.error || 'Failed to add event')
+        })
       } else {
-        await insertEvents([submitData])
+        const res = await adminFetch('/api/admin/events', {
+          method: 'POST',
+          body: JSON.stringify({ rows: [submitData] }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'Failed to add event')
       }
 
       // Success!
@@ -330,6 +342,14 @@ export default function AdminAddPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!adminReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      </div>
+    )
   }
 
   return (

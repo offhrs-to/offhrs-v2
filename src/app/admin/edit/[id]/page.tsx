@@ -13,7 +13,8 @@ import Link from 'next/link'
 import Navbar from '@/components/navbar'
 import { Badge } from '@/components/ui/badge'
 import { fetchUrlMetadata } from '@/app/actions/fetch-metadata'
-import { insertEvents, updateEvent } from '@/app/actions/events'
+import { adminFetch } from '@/lib/admin-fetch'
+import { useRequireAdminSession } from '@/lib/use-require-admin-session'
 import { geocodeAddress } from '@/lib/geocode'
 import { parseWorkshopDateTimeInput } from '@/lib/workshop-timezone'
 import {
@@ -64,6 +65,7 @@ interface FormData {
 
 export default function AdminEditPage() {
   const router = useRouter()
+  const adminReady = useRequireAdminSession()
   const params = useParams()
   const eventId = params.id as string
 
@@ -361,7 +363,6 @@ export default function AdminEditPage() {
         const rows = buildMaterializedEventRows(
           {
             ...submitData,
-            mode: 'craft',
             recurrence: formData.recurrence,
           } as Record<string, unknown>,
           pattern,
@@ -370,17 +371,37 @@ export default function AdminEditPage() {
         if (rows.length === 0) {
           throw new Error('Could not build recurring event dates')
         }
-        await updateEvent(eventId, {
-          ...submitData,
-          date: rows[0].date,
-          recurrence: 'none',
+        const patchRes = await adminFetch(`/api/admin/events/${eventId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            ...submitData,
+            date: rows[0].date,
+            recurrence: 'none',
+          }),
         })
-        const rest = rows.slice(1) as Parameters<typeof insertEvents>[0]
+        const patchData = await patchRes.json().catch(() => ({}))
+        if (!patchRes.ok) throw new Error(patchData.error || 'Failed to update event')
+
+        const rest = rows.slice(1).map(({ date, recurrence, ...row }) => ({
+          ...row,
+          date,
+          recurrence: 'none' as const,
+        }))
         if (rest.length > 0) {
-          await insertEvents(rest)
+          const insertRes = await adminFetch('/api/admin/events', {
+            method: 'POST',
+            body: JSON.stringify({ rows: rest }),
+          })
+          const insertData = await insertRes.json().catch(() => ({}))
+          if (!insertRes.ok) throw new Error(insertData.error || 'Failed to add recurring instances')
         }
       } else {
-        await updateEvent(eventId, submitData)
+        const res = await adminFetch(`/api/admin/events/${eventId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(submitData),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'Failed to update event')
       }
 
       // Redirect to dashboard on success
@@ -410,7 +431,7 @@ export default function AdminEditPage() {
     }
   }
 
-  if (fetchingEvent) {
+  if (!adminReady || fetchingEvent) {
     return (
       <div className="min-h-screen bg-white">
         <Navbar />
@@ -418,7 +439,7 @@ export default function AdminEditPage() {
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto mb-4" />
-              <p className="text-slate-600">Loading event...</p>
+              <p className="text-slate-600">{fetchingEvent ? 'Loading event...' : 'Checking admin session...'}</p>
             </div>
           </div>
         </main>
