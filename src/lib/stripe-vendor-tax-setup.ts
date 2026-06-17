@@ -7,7 +7,7 @@ import {
   provinceFromCanadianAddress,
   type CustomerTaxAddress,
 } from '@/lib/canadian-postal-province'
-import { WORKSHOP_STRIPE_TAX_CODE } from '@/lib/stripe-workshop-tax'
+import { WORKSHOP_STRIPE_TAX_CODE } from '@/lib/stripe-tax-constants'
 
 /** Fallback head office when vendor has no geocoded address (Toronto, ON). */
 const DEFAULT_VENDOR_HEAD_OFFICE: CustomerTaxAddress = {
@@ -18,6 +18,8 @@ const DEFAULT_VENDOR_HEAD_OFFICE: CustomerTaxAddress = {
 
 export type VendorTaxSetupHints = {
   locationAddress?: string | null
+  /** When false, do not register for GST/HST in Stripe Tax (small supplier / not registered). */
+  gstHstRegistered: boolean
 }
 
 function headOfficeFromVendorLocation(locationAddress?: string | null): CustomerTaxAddress {
@@ -41,14 +43,20 @@ function headOfficeFromVendorLocation(locationAddress?: string | null): Customer
 }
 
 /**
- * Express Connect accounts often complete payouts before Stripe Tax is configured.
- * Without an active `tax.settings`, Tax Calculation API calls fail even though charges work.
+ * Configure Stripe Tax on a Connect account only when the vendor attests GST/HST registration.
+ * Unregistered vendors must not have active CA GST/HST registrations (CRA small-supplier rule).
  */
 export async function ensureConnectedAccountStripeTaxReady(
   stripe: Stripe,
   connectedAccountId: string,
-  hints: VendorTaxSetupHints = {}
+  hints: VendorTaxSetupHints
 ): Promise<void> {
+  if (!hints.gstHstRegistered) {
+    // Checkout never calls Stripe Tax Calculation when gst_hst_registered is false.
+    // We do not auto-create CA registrations for unregistered / small-supplier vendors.
+    return
+  }
+
   const headOffice = headOfficeFromVendorLocation(hints.locationAddress)
 
   let settings: Stripe.Tax.Settings
@@ -72,7 +80,6 @@ export async function ensureConnectedAccountStripeTaxReady(
     )
   }
 
-  // GST/HST (incl. Ontario) uses CA `standard` registration — not province_standard (PST/QST).
   let registrations: Stripe.Tax.Registration[] = []
   try {
     const listed = await stripe.tax.registrations.list(

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatGstHstRegistrationNumberForDisplay } from '@/lib/vendor-gst-hst'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
 import { Loader2, AlertTriangle, CalendarX } from 'lucide-react'
@@ -15,6 +16,8 @@ interface Vendor {
   refund_window_hours: number
   status: string
   subscription_current_period_end: string | null
+  gst_hst_registered: boolean
+  gst_hst_registration_number: string | null
 }
 
 interface SubscriptionState {
@@ -56,6 +59,15 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  const [taxRegistered, setTaxRegistered] = useState(vendor.gst_hst_registered)
+  const [taxNumber, setTaxNumber] = useState(
+    formatGstHstRegistrationNumberForDisplay(vendor.gst_hst_registration_number)
+  )
+  const [taxLoading, setTaxLoading] = useState(false)
+  const [taxMsg, setTaxMsg] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(
+    null
+  )
+
   // Password form
   const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' })
   const [passwordLoading, setPasswordLoading] = useState(false)
@@ -95,6 +107,42 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
       setProfileMsg({ type: 'error', text: 'Network error.' })
     } finally {
       setProfileLoading(false)
+    }
+  }
+
+  async function saveTaxSettings(e: React.FormEvent) {
+    e.preventDefault()
+    setTaxLoading(true)
+    setTaxMsg(null)
+    try {
+      const res = await fetch('/api/partners/tax-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gst_hst_registered: taxRegistered,
+          gst_hst_registration_number: taxRegistered ? taxNumber : '',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setTaxMsg({ type: 'error', text: data.error ?? 'Failed to save tax settings.' })
+        return
+      }
+      if (data.gst_hst_registration_number) {
+        setTaxNumber(data.gst_hst_registration_number)
+      }
+      setTaxMsg({
+        type: data.warning ? 'warning' : 'success',
+        text:
+          data.warning ??
+          (taxRegistered
+            ? 'GST/HST registration saved. Tax will be calculated at checkout.'
+            : 'Saved. Workshop prices will not include GST/HST until you register with the CRA.'),
+      })
+    } catch {
+      setTaxMsg({ type: 'error', text: 'Network error.' })
+    } finally {
+      setTaxLoading(false)
     }
   }
 
@@ -291,6 +339,73 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
             >
               {profileLoading && <Loader2 className="w-4 h-4 animate-spin" />}
               Save profile
+            </button>
+          </div>
+        </form>
+      </section>
+
+      {/* Workshop sales tax (GST/HST) */}
+      <section className="bg-white border border-[#E8E4DE] rounded-xl p-5">
+        <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Workshop sales tax (GST/HST)</h2>
+        <p className="text-xs text-[#888] mb-4 leading-relaxed">
+          You are the seller of record for workshop tickets. offhrs only adds GST/HST at checkout when
+          you confirm you are registered with the CRA. If you are a small supplier (generally under
+          $30,000 in taxable sales over four quarters), leave this off and do not charge tax on
+          tickets.
+        </p>
+        <form onSubmit={saveTaxSettings} className="space-y-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={taxRegistered}
+              onChange={(e) => {
+                setTaxRegistered(e.target.checked)
+                setTaxMsg(null)
+              }}
+              className="mt-1 h-4 w-4 rounded border-[#E8E4DE] text-[#5D755D] focus:ring-[#5D755D]"
+            />
+            <span className="text-sm text-[#555] leading-relaxed">
+              I am registered for GST/HST with the CRA and authorized to charge tax on my workshop
+              sales.
+            </span>
+          </label>
+          {taxRegistered && (
+            <div>
+              <label className="block text-xs font-medium text-[#555] mb-1.5">
+                GST/HST registration number
+              </label>
+              <input
+                value={taxNumber}
+                onChange={(e) => {
+                  setTaxNumber(e.target.value)
+                  setTaxMsg(null)
+                }}
+                placeholder="123456789 RT 0001"
+                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+              />
+            </div>
+          )}
+          {taxMsg && (
+            <p
+              className={`text-sm px-4 py-3 rounded-xl ${
+                taxMsg.type === 'success'
+                  ? 'bg-green-50 border border-green-200 text-green-700'
+                  : taxMsg.type === 'warning'
+                    ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                    : 'bg-red-50 border border-red-200 text-red-600'
+              }`}
+            >
+              {taxMsg.text}
+            </p>
+          )}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={taxLoading}
+              className="flex items-center gap-2 bg-[#5D755D] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#4d644d] disabled:opacity-60 transition-colors"
+            >
+              {taxLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+              Save tax settings
             </button>
           </div>
         </form>

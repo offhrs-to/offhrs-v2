@@ -9,7 +9,12 @@ const SEEN_KEY = 'partner-notifications-seen-ids'
 
 export type PartnerNotificationDto = {
   id: string
-  type: 'booking_new' | 'booking_refund' | 'workshop_published' | 'workshop_reminder'
+  type:
+    | 'booking_new'
+    | 'booking_refund'
+    | 'workshop_published'
+    | 'workshop_reminder'
+    | 'onboarding_tax_settings'
   title: string
   message: string
   createdAt: string
@@ -139,7 +144,9 @@ export function PartnerNotificationsBell({
         >
           <div className="border-b border-[#F0EDE8] px-4 py-3 bg-[#FAFAF8]">
             <p className="text-sm font-semibold text-[#1a1a1a]">Notifications</p>
-            <p className="text-xs text-[#888] mt-0.5">Bookings, refunds, publishes, and tomorrow&apos;s workshops</p>
+            <p className="text-xs text-[#888] mt-0.5">
+              Bookings, refunds, publishes, tax setup, and tomorrow&apos;s workshops
+            </p>
           </div>
           <div className="max-h-[min(70vh,420px)] overflow-y-auto">
             {items.length === 0 ? (

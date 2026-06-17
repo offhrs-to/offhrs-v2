@@ -114,7 +114,9 @@ export async function POST(request: NextRequest) {
 
       const { data: vendor } = await admin
         .from('vendor_profiles')
-        .select('stripe_account_id, business_name, location_address')
+        .select(
+          'stripe_account_id, business_name, location_address, gst_hst_registered, gst_hst_registration_number'
+        )
         .eq('id', event.vendor_profile_id)
         .single()
 
@@ -149,6 +151,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      const collectsGstHst = vendor.gst_hst_registered === true
+
       let profilePostal: string | null = null
       if (user?.id) {
         const { data: profile } = await admin
@@ -159,13 +163,15 @@ export async function POST(request: NextRequest) {
         profilePostal = profile?.postal_code?.trim() ?? null
       }
 
-      const customerTaxAddr = resolveWorkshopCustomerTaxAddress({
-        customerAddress: customer_address,
-        profilePostalCode: profilePostal,
-        eventLocation: (event.location as string | null) ?? null,
-      })
+      const customerTaxAddr = collectsGstHst
+        ? resolveWorkshopCustomerTaxAddress({
+            customerAddress: customer_address,
+            profilePostalCode: profilePostal,
+            eventLocation: (event.location as string | null) ?? null,
+          })
+        : null
 
-      if (!customerTaxAddr) {
+      if (collectsGstHst && !customerTaxAddr) {
         return NextResponse.json(
           {
             error:
@@ -180,9 +186,14 @@ export async function POST(request: NextRequest) {
         taxBreakdown = await calculateWorkshopTicketTax(stripe, {
           connectedAccountId: vendor.stripe_account_id,
           subtotalCad: priceCad,
-          customerAddress: customerTaxAddr,
+          customerAddress: customerTaxAddr ?? {
+            country: 'CA',
+            postal_code: 'M5H 2N2',
+            state: 'ON',
+          },
           reference: `event_${event.id}`,
           vendorLocationAddress: vendor.location_address,
+          gstHstRegistered: collectsGstHst,
         })
       } catch (taxErr) {
         console.error('Stripe Tax calculation error:', taxErr)

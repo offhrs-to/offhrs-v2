@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { getEffectiveRefundWindowHours } from '@/lib/booking-refund'
 import {
+  buildWorkshopPriceBreakdownNoTax,
   calculateWorkshopTicketTax,
   resolveWorkshopCustomerTaxAddress,
 } from '@/lib/stripe-workshop-tax'
@@ -70,7 +71,9 @@ export async function POST(request: NextRequest) {
 
     const { data: vendor } = await admin
       .from('vendor_profiles')
-      .select('stripe_account_id, location_address, refund_window_hours')
+      .select(
+        'stripe_account_id, location_address, refund_window_hours, gst_hst_registered, gst_hst_registration_number'
+      )
       .eq('id', event.vendor_profile_id)
       .single()
 
@@ -92,6 +95,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    const collectsGstHst = vendor?.gst_hst_registered === true
+
     let profilePostal: string | null = null
     if (user?.id) {
       const { data: profile } = await admin
@@ -102,13 +107,15 @@ export async function POST(request: NextRequest) {
       profilePostal = profile?.postal_code?.trim() ?? null
     }
 
-    const customerAddress = resolveWorkshopCustomerTaxAddress({
-      customerAddress: parsed.data.customer_address,
-      profilePostalCode: profilePostal,
-      eventLocation: (event.location as string | null) ?? null,
-    })
+    const customerAddress = collectsGstHst
+      ? resolveWorkshopCustomerTaxAddress({
+          customerAddress: parsed.data.customer_address,
+          profilePostalCode: profilePostal,
+          eventLocation: (event.location as string | null) ?? null,
+        })
+      : null
 
-    if (!customerAddress) {
+    if (collectsGstHst && !customerAddress) {
       return NextResponse.json(
         {
           error:
@@ -122,12 +129,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Vendor payout account not set up yet' }, { status: 422 })
     }
 
+    if (!collectsGstHst) {
+      const noTax = buildWorkshopPriceBreakdownNoTax(priceCad)
+      return NextResponse.json({
+        subtotalCad: noTax.subtotalCad,
+        taxCad: noTax.taxCad,
+        totalCad: noTax.totalCad,
+        collectsGstHst: false,
+        refundWindowHours,
+        refundPolicyLine,
+      })
+    }
+
     // Repeat quick-view opens of the same workshop produce identical Stripe
     // Tax results but each one costs the platform ~$0.05 in Tax API fees.
     // Serve a cached preview when the same (event, postal, province) was
     // priced in the last 10 minutes on this server instance. Booking the
     // workshop still creates a fresh calculation (handled in /api/book) so
     // every PaymentIntent gets its own Stripe Tax transaction.
+    if (!customerAddress) {
+      return NextResponse.json({ error: 'Canadian address required for tax' }, { status: 422 })
+    }
+
     const cached = getCachedTaxQuote(event.id, customerAddress.postal_code, customerAddress.state)
     if (cached) {
       return NextResponse.json({
@@ -145,6 +168,7 @@ export async function POST(request: NextRequest) {
       customerAddress,
       reference: `event_${event.id}`,
       vendorLocationAddress: vendor.location_address,
+      gstHstRegistered: true,
     })
 
     setCachedTaxQuote(event.id, customerAddress.postal_code, customerAddress.state, {
@@ -159,6 +183,7 @@ export async function POST(request: NextRequest) {
       subtotalCad: tax.subtotalCad,
       taxCad: tax.taxCad,
       totalCad: tax.totalCad,
+      collectsGstHst: true,
       refundWindowHours,
       refundPolicyLine,
     })

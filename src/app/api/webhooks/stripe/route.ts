@@ -504,7 +504,7 @@ async function handleStripeEvent(
 
         const { data: vendorRow } = await admin
           .from('vendor_profiles')
-          .select('location_address')
+          .select('location_address, gst_hst_registered')
           .eq('id', vp.id)
           .single()
 
@@ -514,6 +514,7 @@ async function handleStripeEvent(
           )
           await ensureConnectedAccountStripeTaxReady(stripe, account.id, {
             locationAddress: vendorRow?.location_address,
+            gstHstRegistered: vendorRow?.gst_hst_registered === true,
           })
         } catch (taxSetupErr) {
           console.warn('Stripe Tax setup on Connect account.updated:', taxSetupErr)

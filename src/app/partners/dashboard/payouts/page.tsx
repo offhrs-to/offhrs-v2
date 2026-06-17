@@ -36,7 +36,7 @@ export default async function PayoutsPage() {
 
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('id, stripe_account_id, stripe_connect_completed, location_address')
+    .select('id, stripe_account_id, stripe_connect_completed, location_address, gst_hst_registered')
     .eq('user_id', user.id)
     .single() as {
       data: {
@@ -44,6 +44,7 @@ export default async function PayoutsPage() {
         stripe_account_id: string | null
         stripe_connect_completed: boolean
         location_address: string | null
+        gst_hst_registered: boolean
       } | null
     }
 

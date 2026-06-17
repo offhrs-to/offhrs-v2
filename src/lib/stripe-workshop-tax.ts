@@ -6,11 +6,10 @@ import {
   extractCanadianPostalFromFreeformAddress,
   type CustomerTaxAddress,
 } from '@/lib/canadian-postal-province'
+import { WORKSHOP_STRIPE_TAX_CODE } from '@/lib/stripe-tax-constants'
 import { ensureConnectedAccountStripeTaxReady } from '@/lib/stripe-vendor-tax-setup'
 
-/** Stripe product tax code — override via STRIPE_WORKSHOP_TAX_CODE (general services default). */
-export const WORKSHOP_STRIPE_TAX_CODE =
-  process.env.STRIPE_WORKSHOP_TAX_CODE?.trim() || 'txcd_20030000'
+export { WORKSHOP_STRIPE_TAX_CODE }
 
 export type WorkshopTaxBreakdown = {
   calculationId: string
@@ -65,6 +64,18 @@ function centsToCad(cents: number): number {
   return Math.round(cents) / 100
 }
 
+/** Ticket price with no GST/HST (vendor not registered / small supplier). */
+export function buildWorkshopPriceBreakdownNoTax(subtotalCad: number): WorkshopTaxBreakdown {
+  const subtotalCents = Math.round(subtotalCad * 100)
+  return {
+    calculationId: '',
+    subtotalCad,
+    taxCad: 0,
+    totalCad: subtotalCad,
+    amountTotalCents: subtotalCents,
+  }
+}
+
 /**
  * Calculate tax for a workshop ticket on the connected vendor account (vendor tax liability).
  * @see https://docs.stripe.com/tax/tax-for-platforms#custom-flows-using-the-stripe-tax-api
@@ -77,8 +88,13 @@ export async function calculateWorkshopTicketTax(
     customerAddress: CustomerTaxAddress
     reference?: string
     vendorLocationAddress?: string | null
+    gstHstRegistered: boolean
   }
 ): Promise<WorkshopTaxBreakdown> {
+  if (!params.gstHstRegistered) {
+    return buildWorkshopPriceBreakdownNoTax(params.subtotalCad)
+  }
+
   const subtotalCents = Math.round(params.subtotalCad * 100)
   if (subtotalCents <= 0) {
     throw new Error('Subtotal must be positive for tax calculation')
@@ -86,6 +102,7 @@ export async function calculateWorkshopTicketTax(
 
   await ensureConnectedAccountStripeTaxReady(stripe, params.connectedAccountId, {
     locationAddress: params.vendorLocationAddress,
+    gstHstRegistered: true,
   })
 
   const calculation = await stripe.tax.calculations.create(

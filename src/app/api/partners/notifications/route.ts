@@ -6,7 +6,12 @@ const ACTIVITY_DAYS = 14
 
 export type PartnerNotificationDto = {
   id: string
-  type: 'booking_new' | 'booking_refund' | 'workshop_published' | 'workshop_reminder'
+  type:
+    | 'booking_new'
+    | 'booking_refund'
+    | 'workshop_published'
+    | 'workshop_reminder'
+    | 'onboarding_tax_settings'
   title: string
   message: string
   createdAt: string
@@ -32,10 +37,15 @@ export async function GET() {
     const admin = createAdminClient()
     if (!admin) return NextResponse.json({ error: 'Server error' }, { status: 500 })
 
-    const { data: vendor } = await admin.from('vendor_profiles').select('id').eq('user_id', user.id).single()
+    const { data: vendor } = await admin
+      .from('vendor_profiles')
+      .select('id, created_at, gst_hst_settings_confirmed_at')
+      .eq('user_id', user.id)
+      .single()
     if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
 
     const vendorId = vendor.id as string
+    const taxSettingsConfirmed = vendor.gst_hst_settings_confirmed_at != null
     const sinceMs = Date.now() - ACTIVITY_DAYS * 24 * 60 * 60 * 1000
     const sinceDate = new Date(sinceMs)
     const sinceIso = sinceDate.toISOString()
@@ -69,6 +79,18 @@ export async function GET() {
     ])
 
     const notifications: PartnerNotificationDto[] = []
+
+    if (!taxSettingsConfirmed) {
+      notifications.push({
+        id: 'onboarding:tax_settings',
+        type: 'onboarding_tax_settings',
+        title: 'Set your workshop sales tax',
+        message:
+          'Open Settings → Workshop sales tax (GST/HST) and confirm whether you are registered with the CRA. If you are registered, enter your BN; if you are a small supplier, leave it off and save.',
+        createdAt: (vendor.created_at as string) || new Date().toISOString(),
+        href: '/partners/dashboard/settings',
+      })
+    }
 
     const cadFormatter = new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' })
 
@@ -137,7 +159,12 @@ export async function GET() {
       })
     }
 
-    notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    notifications.sort((a, b) => {
+      const aOnboarding = a.type === 'onboarding_tax_settings' ? 1 : 0
+      const bOnboarding = b.type === 'onboarding_tax_settings' ? 1 : 0
+      if (aOnboarding !== bOnboarding) return bOnboarding - aOnboarding
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
 
     const dedup = new Map<string, PartnerNotificationDto>()
     for (const n of notifications) {

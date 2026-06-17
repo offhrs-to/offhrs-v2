@@ -232,7 +232,12 @@ export default function WorkshopQuickViewModal({
             contentContainerStyle={{ paddingBottom: 8 }}
           >
             <View
-              style={{ height: 200, width: '100%', backgroundColor: DesignColors.inputBg, position: 'relative' }}
+              style={{
+                width: '100%',
+                aspectRatio: 4 / 3,
+                backgroundColor: DesignColors.inputBg,
+                position: 'relative',
+              }}
             >
               <Pressable
                 onPress={canOpenVendor ? openVendorPage : undefined}
@@ -249,7 +254,7 @@ export default function WorkshopQuickViewModal({
                   imageUrl={event.image_url}
                   category={event.category}
                   style={{ width: '100%', height: '100%' }}
-                  contentFit="cover"
+                  contentFit="contain"
                   recyclingKey={`qv-${event.id}`}
                 />
               </Pressable>

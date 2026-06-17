@@ -44,6 +44,7 @@ const SECTIONS: Section[] = [
               <li>Verify email</li>
               <li>Start your free trial</li>
               <li>Connect your Stripe payout account</li>
+              <li>Set workshop sales tax in Settings (registered or small supplier)</li>
               <li>Review settings and add a bio</li>
               <li>Connect a calendar (Google or Outlook)</li>
               <li>Create your first workshop</li>
@@ -214,13 +215,41 @@ const SECTIONS: Section[] = [
     title: 'Taxes',
     items: [
       {
+        q: 'Where do I set my GST/HST status?',
+        a: (
+          <>
+            <p>
+              Open <strong>Settings</strong> in your partner dashboard and scroll to{' '}
+              <strong>Workshop sales tax (GST/HST)</strong>. Confirm whether you are registered with
+              the CRA:
+            </p>
+            <ul className="list-disc pl-5 mt-2 space-y-1">
+              <li>
+                <strong>Registered</strong> — turn the option on, enter your GST/HST registration
+                number (BN), and click <strong>Save tax settings</strong>. Tax will be calculated at
+                checkout on your connected Stripe account.
+              </li>
+              <li>
+                <strong>Small supplier (not registered)</strong> — leave the option off and click{' '}
+                <strong>Save tax settings</strong> so we know not to add GST/HST to ticket prices.
+              </li>
+            </ul>
+            <p className="mt-2 text-[#555]">
+              You&apos;ll also see this on your getting-started checklist and in notifications until
+              you save your choice.
+            </p>
+          </>
+        ),
+      },
+      {
         q: 'How is sales tax handled?',
         a: (
           <p>
             Sales tax (GST/HST) is calculated with <strong>Stripe Tax on your connected
-            account</strong>, meaning the tax is collected under your registration and is your tax
-            liability — not the platform&apos;s. When you connect your payout account, we attempt to
-            set up your Canadian GST/HST tax registration automatically.
+            account</strong> only after you open <strong>Settings → Workshop sales tax</strong> and
+            confirm you are registered with the CRA. If you are a small supplier and not registered,
+            leave that off and save — ticket prices will not include GST/HST. When registered, tax is
+            your liability, not the platform&apos;s.
           </p>
         ),
       },

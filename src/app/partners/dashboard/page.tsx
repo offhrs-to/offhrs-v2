@@ -25,6 +25,7 @@ interface VendorProfile {
   first_session_created: boolean
   trial_ends_at: string | null
   subscription_current_period_end: string | null
+  gst_hst_settings_confirmed_at: string | null
 }
 
 function daysUntil(date: string | null): number | null {
@@ -84,6 +85,7 @@ export default async function DashboardPage() {
     stripe_account_id: vendor.stripe_account_id,
     stripe_connect_completed: vendor.stripe_connect_completed,
     location_address: vendor.location_address,
+    gst_hst_registered: (vendor as { gst_hst_registered?: boolean }).gst_hst_registered,
   })
   if (connectReconciled?.stripe_connect_completed) {
     vendor.stripe_connect_completed = true
@@ -169,6 +171,7 @@ export default async function DashboardPage() {
 
   const profileBioComplete = Boolean(vendor.bio?.trim())
   const calendarConnected = (calendarConnectionsRes.data ?? []).length > 0
+  const taxSettingsConfirmed = vendor.gst_hst_settings_confirmed_at != null
 
   const checklistItems = [
     { key: 'email_verified', label: 'Verify your email', done: vendor.email_verified, showStripeCta: false, href: null as string | null },
@@ -179,6 +182,13 @@ export default async function DashboardPage() {
       done: vendor.stripe_connect_completed,
       showStripeCta: !vendor.stripe_connect_completed,
       href: null,
+    },
+    {
+      key: 'workshop_tax_settings',
+      label: 'Set workshop sales tax (Settings)',
+      done: taxSettingsConfirmed,
+      showStripeCta: false,
+      href: taxSettingsConfirmed ? null : '/partners/dashboard/settings',
     },
     {
       key: 'profile_settings_reviewed',

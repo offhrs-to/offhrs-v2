@@ -24,6 +24,7 @@ export type ConnectReconcileVendor = {
   stripe_account_id: string | null
   stripe_connect_completed: boolean
   location_address?: string | null
+  gst_hst_registered?: boolean | null
 }
 
 export type ConnectReconcileResult = {
@@ -90,6 +91,7 @@ export async function reconcileStripeConnectStatus(
     )
     await ensureConnectedAccountStripeTaxReady(stripe, account.id, {
       locationAddress: vendor.location_address,
+      gstHstRegistered: vendor.gst_hst_registered === true,
     })
   } catch (taxErr) {
     console.warn('reconcileStripeConnectStatus: tax setup failed', taxErr)
