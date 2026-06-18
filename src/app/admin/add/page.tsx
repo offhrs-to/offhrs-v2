@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { CheckCircle, ArrowLeft, Loader2, Sparkles, CalendarDays } from 'lucide-react'
+import { CheckCircle, ArrowLeft, Loader2, Sparkles, CalendarDays, Plus, X } from 'lucide-react'
 import Link from 'next/link'
 import Navbar from '@/components/navbar'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +19,8 @@ import {
   buildMaterializedEventRows,
   buildMaterializedEventRowsFromPickerDates,
   countDailyInstancesInWindow,
+  expandEventRowsWithExtraSessionTimes,
+  normalizeExtraSessionTimesHhMm,
   REPEATING_WEEKS_MAX,
   REPEATING_WEEKS_MIN,
   RENEW_INSTANCES_WEEKS,
@@ -98,6 +100,9 @@ export default function AdminAddPage() {
   /** YYYY-MM-DD keys for multi-date manual workshops (one row per date). */
   const [selectedPickerDates, setSelectedPickerDates] = useState<Set<string>>(() => new Set())
   const [calendarOpen, setCalendarOpen] = useState(false)
+  const [hasExtraSessionTimes, setHasExtraSessionTimes] = useState(false)
+  /** Additional HH:mm times on the same calendar day(s) as each occurrence. */
+  const [extraSessionTimes, setExtraSessionTimes] = useState<string[]>([])
 
   const sortedPickerDates = useMemo(
     () => [...selectedPickerDates].sort(),
@@ -143,6 +148,33 @@ export default function AdminAddPage() {
     if (Number.isNaN(d.getTime())) return null
     return countDailyInstancesInWindow(d, dailyWeekdays, recurringWeeks * 7)
   }, [formData.recurrence, formData.date, dailyWeekdays, recurringWeeks])
+
+  const normalizedExtraTimes = useMemo(
+    () => normalizeExtraSessionTimesHhMm(extraSessionTimes, sessionTimeSource),
+    [extraSessionTimes, sessionTimeSource]
+  )
+
+  const timesPerOccurrence = 1 + normalizedExtraTimes.length
+
+  const baseOccurrenceCount = useMemo(() => {
+    if (
+      formData.is_multiple_dates &&
+      sortedPickerDates.length >= 2
+    ) {
+      return sortedPickerDates.length
+    }
+    if (formData.recurrence === 'weekly') return recurringWeeks
+    if (formData.recurrence === 'daily') return dailyPreviewCount ?? 0
+    return 1
+  }, [
+    formData.is_multiple_dates,
+    formData.recurrence,
+    sortedPickerDates.length,
+    recurringWeeks,
+    dailyPreviewCount,
+  ])
+
+  const projectedListingCount = baseOccurrenceCount * timesPerOccurrence
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -302,6 +334,26 @@ export default function AdminAddPage() {
         throw new Error('Title is required')
       }
 
+      if (hasExtraSessionTimes) {
+        if (!sessionTimeSource) {
+          throw new Error('Set the primary date & time before adding more session times')
+        }
+        if (normalizedExtraTimes.length === 0) {
+          throw new Error('Add at least one additional session time, or turn off “additional times on the same day(s)”')
+        }
+      }
+
+      const finalizeRows = <T extends Record<string, unknown> & { date: string }>(rows: T[]) => {
+        if (hasExtraSessionTimes && normalizedExtraTimes.length > 0) {
+          return expandEventRowsWithExtraSessionTimes(rows, normalizedExtraTimes)
+        }
+        return rows.map((row) => ({
+          ...row,
+          recurrence: 'none' as const,
+          is_multiple_dates: false as const,
+        }))
+      }
+
       const shouldMaterializePickerDates =
         formData.is_multiple_dates &&
         selectedPickerDates.size >= 2 &&
@@ -313,10 +365,12 @@ export default function AdminAddPage() {
         formattedDate != null
 
       if (shouldMaterializePickerDates && sessionTimeSource) {
-        const rows = buildMaterializedEventRowsFromPickerDates(
-          { ...submitData, is_multiple_dates: false },
-          sortedPickerDates,
-          sessionTimeSource
+        const rows = finalizeRows(
+          buildMaterializedEventRowsFromPickerDates(
+            { ...submitData, is_multiple_dates: false },
+            sortedPickerDates,
+            sessionTimeSource
+          )
         )
         if (rows.length < 2) {
           throw new Error('Select at least two dates on the calendar')
@@ -337,11 +391,13 @@ export default function AdminAddPage() {
           formData.recurrence === 'daily'
             ? { dailyWeekdays, weeks: recurringWeeks }
             : { weeks: recurringWeeks }
-        const rows = buildMaterializedEventRows(
-          { ...submitData, recurrence: formData.recurrence } as Record<string, unknown>,
-          pattern,
-          materializeOptions
-        ) as Array<typeof submitData & { recurrence: Recurrence }>
+        const rows = finalizeRows(
+          buildMaterializedEventRows(
+            { ...submitData, recurrence: formData.recurrence } as Record<string, unknown>,
+            pattern,
+            materializeOptions
+          ) as Array<typeof submitData & { date: string; recurrence: Recurrence }>
+        )
         if (rows.length === 0) {
           throw new Error('Could not build recurring event dates')
         }
@@ -365,7 +421,11 @@ export default function AdminAddPage() {
         }
         const res = await adminFetch('/api/admin/events', {
           method: 'POST',
-          body: JSON.stringify({ rows: [submitData] }),
+          body: JSON.stringify({
+            rows: finalizeRows([
+              { ...submitData, date: formattedDate! } as typeof submitData & { date: string },
+            ]),
+          }),
         })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(data.error || 'Failed to add event')
@@ -395,6 +455,8 @@ export default function AdminAddPage() {
       setRecurringWeeks(RENEW_INSTANCES_WEEKS)
       setSelectedPickerDates(new Set())
       setCalendarOpen(false)
+      setHasExtraSessionTimes(false)
+      setExtraSessionTimes([])
       setUrlInput('')
       setCoordinatesFound(false)
       setMetadataSuccess(false)
@@ -697,8 +759,11 @@ export default function AdminAddPage() {
                     </div>
                     {sortedPickerDates.length > 0 ? (
                       <p className="text-xs text-slate-500">
-                        Saving will create {sortedPickerDates.length} separate workshop listing
-                        {sortedPickerDates.length === 1 ? '' : 's'} at the session time above.
+                        Saving will create{' '}
+                        {hasExtraSessionTimes && normalizedExtraTimes.length > 0
+                          ? `${sortedPickerDates.length * timesPerOccurrence} listings (${sortedPickerDates.length} dates × ${timesPerOccurrence} times)`
+                          : `${sortedPickerDates.length} separate workshop listing${sortedPickerDates.length === 1 ? '' : 's'}`}{' '}
+                        at the session time{timesPerOccurrence > 1 ? 's' : ''} above.
                       </p>
                     ) : (
                       <p className="text-xs text-slate-500">
@@ -787,6 +852,90 @@ export default function AdminAddPage() {
                   onChange={handleChange}
                   disabled={loading}
                 />
+
+                <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-3 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      id="has_extra_session_times"
+                      checked={hasExtraSessionTimes}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        setHasExtraSessionTimes(checked)
+                        if (checked && extraSessionTimes.length === 0) {
+                          setExtraSessionTimes([''])
+                        }
+                        if (!checked) {
+                          setExtraSessionTimes([])
+                        }
+                      }}
+                      disabled={loading}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-moss focus:ring-moss"
+                    />
+                    <div>
+                      <Label htmlFor="has_extra_session_times" className="text-sm font-normal cursor-pointer">
+                        Also offer this workshop at additional times on the same day(s)
+                      </Label>
+                      <p className="text-xs text-slate-500 mt-1">
+                        The date &amp; time above is the first session. Add more times (e.g. 4:00 PM, 6:00 PM) —
+                        each date gets one listing per time, with the same title, location, and other details.
+                      </p>
+                    </div>
+                  </div>
+
+                  {hasExtraSessionTimes && (
+                    <div className="space-y-2 pl-6">
+                      {extraSessionTimes.map((timeValue, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Input
+                            type="time"
+                            value={timeValue}
+                            onChange={(e) => {
+                              const next = [...extraSessionTimes]
+                              next[index] = e.target.value
+                              setExtraSessionTimes(next)
+                            }}
+                            disabled={loading}
+                            className="max-w-[10rem]"
+                            aria-label={`Additional session time ${index + 1}`}
+                          />
+                          {extraSessionTimes.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              disabled={loading}
+                              aria-label="Remove this time"
+                              onClick={() =>
+                                setExtraSessionTimes(extraSessionTimes.filter((_, i) => i !== index))
+                              }
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={loading}
+                        className="gap-1.5"
+                        onClick={() => setExtraSessionTimes([...extraSessionTimes, ''])}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add another time
+                      </Button>
+                      {normalizedExtraTimes.length > 0 && baseOccurrenceCount > 0 && (
+                        <p className="text-xs text-slate-600">
+                          {baseOccurrenceCount} day{baseOccurrenceCount === 1 ? '' : 's'} ×{' '}
+                          {timesPerOccurrence} time{timesPerOccurrence === 1 ? '' : 's'} ={' '}
+                          <strong>{projectedListingCount} listings</strong>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Location */}
@@ -874,8 +1023,8 @@ export default function AdminAddPage() {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Adding Event...
                   </>
-                ) : formData.is_multiple_dates && sortedPickerDates.length >= 2 ? (
-                  `Add ${sortedPickerDates.length} workshops`
+                ) : projectedListingCount > 1 ? (
+                  `Add ${projectedListingCount} workshops`
                 ) : (
                   'Add Event'
                 )}

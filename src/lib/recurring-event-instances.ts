@@ -156,6 +156,98 @@ export function combineWorkshopDateYmdWithTime(dateYmd: string, timeSource: Date
   return combined.toISOString()
 }
 
+/** HH:mm (24h) on a Toronto calendar day → ISO instant. */
+export function combineWorkshopDateYmdWithHhMm(dateYmd: string, hhMm: string): string | null {
+  const match = DATE_YMD_RE.exec(dateYmd.trim())
+  const timeMatch = /^(\d{1,2}):(\d{2})$/.exec(hhMm.trim())
+  if (!match || !timeMatch) return null
+  const h = Number(timeMatch[1])
+  const m = Number(timeMatch[2])
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null
+  const combined = new TZDate(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    h,
+    m,
+    0,
+    WORKSHOP_TIMEZONE
+  )
+  return combined.toISOString()
+}
+
+/** Dedupe HH:mm values and drop any that match the primary session time. */
+export function normalizeExtraSessionTimesHhMm(
+  raw: string[],
+  primaryTimeSource?: Date | null
+): string[] {
+  let primaryHhMm: string | null = null
+  if (primaryTimeSource && !Number.isNaN(primaryTimeSource.getTime())) {
+    const t = new TZDate(primaryTimeSource.getTime(), WORKSHOP_TIMEZONE)
+    primaryHhMm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`
+  }
+  const out: string[] = []
+  const seen = new Set<string>()
+  if (primaryHhMm) seen.add(primaryHhMm)
+  for (const rawT of raw) {
+    const trimmed = rawT.trim()
+    if (!trimmed) continue
+    const timeMatch = /^(\d{1,2}):(\d{2})$/.exec(trimmed)
+    if (!timeMatch) continue
+    const h = Number(timeMatch[1])
+    const m = Number(timeMatch[2])
+    if (h < 0 || h > 23 || m < 0 || m > 59) continue
+    const norm = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+    if (seen.has(norm)) continue
+    seen.add(norm)
+    out.push(norm)
+  }
+  return out.sort()
+}
+
+/**
+ * Duplicate each row with extra session times on the same calendar day (Toronto).
+ * Primary time on each row is preserved; extras add more listings per day.
+ */
+export function expandEventRowsWithExtraSessionTimes<T extends Record<string, unknown> & { date: string }>(
+  rows: T[],
+  extraTimesHhMm: string[]
+): Array<T & { date: string; recurrence: 'none'; is_multiple_dates: false }> {
+  if (extraTimesHhMm.length === 0) {
+    return rows.map((row) => ({
+      ...row,
+      recurrence: 'none' as const,
+      is_multiple_dates: false as const,
+    }))
+  }
+
+  const out: Array<T & { date: string; recurrence: 'none'; is_multiple_dates: false }> = []
+
+  for (const row of rows) {
+    const base = {
+      ...row,
+      recurrence: 'none' as const,
+      is_multiple_dates: false as const,
+    }
+    const ymd = workshopDateYmdInToronto(new Date(row.date))
+    const seen = new Set<string>()
+    const primaryIso = new Date(row.date).toISOString()
+    seen.add(primaryIso)
+    out.push({ ...base, date: primaryIso })
+
+    for (const hhMm of extraTimesHhMm) {
+      const iso = combineWorkshopDateYmdWithHhMm(ymd, hhMm)
+      if (iso && !seen.has(iso)) {
+        seen.add(iso)
+        out.push({ ...base, date: iso })
+      }
+    }
+  }
+
+  out.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  return out
+}
+
 /**
  * One event row per selected calendar day (recurrence `none`), same payload as renew materialization.
  */
