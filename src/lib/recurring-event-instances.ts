@@ -125,3 +125,53 @@ export function stripEventRowForInsert(row: Record<string, unknown>): Record<str
   return out
 }
 
+const DATE_YMD_RE = /^(\d{4})-(\d{2})-(\d{2})$/
+
+/** Calendar day key (YYYY-MM-DD) in America/Toronto. */
+export function workshopDateYmdInToronto(instant: Date): string {
+  const local = new TZDate(instant.getTime(), WORKSHOP_TIMEZONE)
+  const y = local.getFullYear()
+  const m = String(local.getMonth() + 1).padStart(2, '0')
+  const d = String(local.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+/**
+ * Build a TIMESTAMPTZ ISO string for a calendar day using the wall-clock time from `timeSource`
+ * (both interpreted in America/Toronto).
+ */
+export function combineWorkshopDateYmdWithTime(dateYmd: string, timeSource: Date): string | null {
+  const match = DATE_YMD_RE.exec(dateYmd.trim())
+  if (!match || Number.isNaN(timeSource.getTime())) return null
+  const time = new TZDate(timeSource.getTime(), WORKSHOP_TIMEZONE)
+  const combined = new TZDate(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    time.getHours(),
+    time.getMinutes(),
+    time.getSeconds(),
+    WORKSHOP_TIMEZONE
+  )
+  return combined.toISOString()
+}
+
+/**
+ * One event row per selected calendar day (recurrence `none`), same payload as renew materialization.
+ */
+export function buildMaterializedEventRowsFromPickerDates<T extends Record<string, unknown>>(
+  base: T,
+  dateYmdList: Iterable<string>,
+  timeSource: Date
+): Array<T & { date: string; recurrence: 'none'; is_multiple_dates: false }> {
+  const unique = [...new Set([...dateYmdList].map((d) => d.trim()).filter(Boolean))].sort()
+  const rows: Array<T & { date: string; recurrence: 'none'; is_multiple_dates: false }> = []
+  for (const ymd of unique) {
+    const iso = combineWorkshopDateYmdWithTime(ymd, timeSource)
+    if (iso) {
+      rows.push({ ...base, date: iso, recurrence: 'none', is_multiple_dates: false })
+    }
+  }
+  return rows
+}
+

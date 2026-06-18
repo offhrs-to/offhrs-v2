@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { CheckCircle, ArrowLeft, Loader2, Sparkles } from 'lucide-react'
+import { CheckCircle, ArrowLeft, Loader2, Sparkles, CalendarDays } from 'lucide-react'
 import Link from 'next/link'
 import Navbar from '@/components/navbar'
 import { Badge } from '@/components/ui/badge'
@@ -16,13 +16,15 @@ import { fetchUrlMetadata } from '@/app/actions/fetch-metadata'
 import { geocodeAddress } from '@/lib/geocode'
 import { parseWorkshopDateTimeInput } from '@/lib/workshop-timezone'
 import {
-  ALL_JS_WEEKDAYS,
   buildMaterializedEventRows,
+  buildMaterializedEventRowsFromPickerDates,
   countDailyInstancesInWindow,
   REPEATING_WEEKS_MAX,
   REPEATING_WEEKS_MIN,
   RENEW_INSTANCES_WEEKS,
+  workshopDateYmdInToronto,
 } from '@/lib/recurring-event-instances'
+import { AdminMultiDatePickerDialog } from '@/app/admin/components/AdminMultiDatePickerDialog'
 import { cn } from '@/lib/utils'
 import { CATEGORIES } from '@/constants/categories'
 
@@ -90,9 +92,50 @@ export default function AdminAddPage() {
   const [fetchingMetadata, setFetchingMetadata] = useState(false)
   const [metadataSuccess, setMetadataSuccess] = useState(false)
   /** For daily renewal: which weekdays (JS 0–6) get an instance in the selected week window */
-  const [dailyWeekdays, setDailyWeekdays] = useState<Set<number>>(() => new Set(ALL_JS_WEEKDAYS))
+  const [dailyWeekdays, setDailyWeekdays] = useState<Set<number>>(() => new Set())
   /** How many weeks of recurring listings to create (weekly or daily patterns). */
   const [recurringWeeks, setRecurringWeeks] = useState(RENEW_INSTANCES_WEEKS)
+  /** YYYY-MM-DD keys for multi-date manual workshops (one row per date). */
+  const [selectedPickerDates, setSelectedPickerDates] = useState<Set<string>>(() => new Set())
+  const [calendarOpen, setCalendarOpen] = useState(false)
+
+  const sortedPickerDates = useMemo(
+    () => [...selectedPickerDates].sort(),
+    [selectedPickerDates]
+  )
+
+  const sessionTimeSource = useMemo(() => {
+    const trimmed = formData.date.trim()
+    if (!trimmed) return null
+    return parseWorkshopDateTimeInput(trimmed)
+  }, [formData.date])
+
+  const handleMultipleDatesToggle = (checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      is_multiple_dates: checked,
+      recurrence: checked ? 'none' : prev.recurrence,
+    }))
+    if (checked) {
+      const parsed = sessionTimeSource
+      if (parsed) {
+        setSelectedPickerDates(new Set([workshopDateYmdInToronto(parsed)]))
+      }
+    } else {
+      setSelectedPickerDates(new Set())
+    }
+  }
+
+  const handleRecurrenceToggle = (next: Recurrence) => {
+    setFormData((prev) => ({
+      ...prev,
+      recurrence: next,
+      is_multiple_dates: next === 'none' ? prev.is_multiple_dates : false,
+    }))
+    if (next !== 'none') {
+      setSelectedPickerDates(new Set())
+    }
+  }
 
   const dailyPreviewCount = useMemo(() => {
     if (formData.recurrence !== 'daily' || !formData.date.trim()) return null
@@ -259,11 +302,33 @@ export default function AdminAddPage() {
         throw new Error('Title is required')
       }
 
+      const shouldMaterializePickerDates =
+        formData.is_multiple_dates &&
+        selectedPickerDates.size >= 2 &&
+        sessionTimeSource != null
+
       const shouldMaterializeRenewal =
+        !shouldMaterializePickerDates &&
         (formData.recurrence === 'weekly' || formData.recurrence === 'daily') &&
         formattedDate != null
 
-      if (shouldMaterializeRenewal && formattedDate) {
+      if (shouldMaterializePickerDates && sessionTimeSource) {
+        const rows = buildMaterializedEventRowsFromPickerDates(
+          { ...submitData, is_multiple_dates: false },
+          sortedPickerDates,
+          sessionTimeSource
+        )
+        if (rows.length < 2) {
+          throw new Error('Select at least two dates on the calendar')
+        }
+        await adminFetch('/api/admin/events', {
+          method: 'POST',
+          body: JSON.stringify({ rows }),
+        }).then(async (res) => {
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok) throw new Error(data.error || 'Failed to add event')
+        })
+      } else if (shouldMaterializeRenewal && formattedDate) {
         if (formData.recurrence === 'daily' && dailyWeekdays.size === 0) {
           throw new Error('Select at least one day of the week for daily renewal')
         }
@@ -290,6 +355,14 @@ export default function AdminAddPage() {
           if (!res.ok) throw new Error(data.error || 'Failed to add event')
         })
       } else {
+        if (formData.is_multiple_dates) {
+          if (selectedPickerDates.size < 2) {
+            throw new Error('Select at least two dates on the calendar for a multi-date workshop')
+          }
+          if (!sessionTimeSource) {
+            throw new Error('Set session date & time before adding a multi-date workshop')
+          }
+        }
         const res = await adminFetch('/api/admin/events', {
           method: 'POST',
           body: JSON.stringify({ rows: [submitData] }),
@@ -318,8 +391,10 @@ export default function AdminAddPage() {
         description: '',
         recurrence: 'none',
       })
-      setDailyWeekdays(new Set(ALL_JS_WEEKDAYS))
+      setDailyWeekdays(new Set())
       setRecurringWeeks(RENEW_INSTANCES_WEEKS)
+      setSelectedPickerDates(new Set())
+      setCalendarOpen(false)
       setUrlInput('')
       setCoordinatesFound(false)
       setMetadataSuccess(false)
@@ -554,7 +629,9 @@ export default function AdminAddPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <Label htmlFor="date">
-                    {formData.is_multiple_dates ? 'Next Upcoming Date (For Sorting)' : 'Date & Time'}
+                    {formData.is_multiple_dates
+                      ? 'Session time (same for every selected date)'
+                      : 'Date & Time'}
                   </Label>
                   <div className="flex items-center gap-2 flex-wrap">
                     <input
@@ -562,39 +639,74 @@ export default function AdminAddPage() {
                       id="is_multiple_dates"
                       name="is_multiple_dates"
                       checked={formData.is_multiple_dates}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, is_multiple_dates: e.target.checked }))}
+                      onChange={(e) => handleMultipleDatesToggle(e.target.checked)}
                       disabled={loading}
                       className="h-4 w-4 rounded border-gray-300 text-moss focus:ring-moss"
                     />
                     <Label htmlFor="is_multiple_dates" className="text-sm font-normal cursor-pointer">
                       This event has multiple dates
                     </Label>
-                    <Button
-                      type="button"
-                      variant={formData.recurrence === 'weekly' ? 'default' : 'outline'}
-                      size="sm"
-                      className="ml-2"
-                      disabled={loading}
-                      onClick={() => setFormData((prev) => ({ ...prev, recurrence: prev.recurrence === 'weekly' ? 'none' : 'weekly' }))}
-                    >
-                      Renew event every week
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={formData.recurrence === 'daily' ? 'default' : 'outline'}
-                      size="sm"
-                      disabled={loading}
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          recurrence: prev.recurrence === 'daily' ? 'none' : 'daily',
-                        }))
-                      }
-                    >
-                      Renew event every day
-                    </Button>
+                    {!formData.is_multiple_dates && (
+                      <>
+                        <Button
+                          type="button"
+                          variant={formData.recurrence === 'weekly' ? 'default' : 'outline'}
+                          size="sm"
+                          className="ml-2"
+                          disabled={loading}
+                          onClick={() =>
+                            handleRecurrenceToggle(formData.recurrence === 'weekly' ? 'none' : 'weekly')
+                          }
+                        >
+                          Renew event every week
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={formData.recurrence === 'daily' ? 'default' : 'outline'}
+                          size="sm"
+                          disabled={loading}
+                          onClick={() =>
+                            handleRecurrenceToggle(formData.recurrence === 'daily' ? 'none' : 'daily')
+                          }
+                        >
+                          Renew event every day
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
+                {formData.is_multiple_dates && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-3 space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={loading}
+                        className="gap-2"
+                        onClick={() => setCalendarOpen(true)}
+                      >
+                        <CalendarDays className="h-4 w-4" />
+                        Select dates on calendar
+                      </Button>
+                      {sortedPickerDates.length > 0 && (
+                        <span className="text-xs text-slate-600">
+                          {sortedPickerDates.length} date{sortedPickerDates.length === 1 ? '' : 's'} selected
+                        </span>
+                      )}
+                    </div>
+                    {sortedPickerDates.length > 0 ? (
+                      <p className="text-xs text-slate-500">
+                        Saving will create {sortedPickerDates.length} separate workshop listing
+                        {sortedPickerDates.length === 1 ? '' : 's'} at the session time above.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-500">
+                        Pick at least two dates. Use the field below to set the start time applied to each day.
+                      </p>
+                    )}
+                  </div>
+                )}
                 {(formData.recurrence === 'weekly' || formData.recurrence === 'daily') && (
                   <div className="rounded-lg border border-slate-200 bg-slate-50/90 p-3 space-y-2">
                     <Label htmlFor="recurring-weeks">How many weeks?</Label>
@@ -651,8 +763,8 @@ export default function AdminAddPage() {
                       })}
                     </div>
                     <p className="text-xs text-slate-500">
-                      All days are selected by default. Tap to exclude a day — no listing will be created
-                      on deselected weekdays during the {recurringWeeks}-week window.
+                      Select the weekdays to include. No listing will be created on unselected days during
+                      the {recurringWeeks}-week window.
                     </p>
                   </div>
                 )}
@@ -762,6 +874,8 @@ export default function AdminAddPage() {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Adding Event...
                   </>
+                ) : formData.is_multiple_dates && sortedPickerDates.length >= 2 ? (
+                  `Add ${sortedPickerDates.length} workshops`
                 ) : (
                   'Add Event'
                 )}
@@ -769,6 +883,16 @@ export default function AdminAddPage() {
             </form>
           </CardContent>
         </Card>
+
+        <AdminMultiDatePickerDialog
+          open={calendarOpen}
+          onOpenChange={setCalendarOpen}
+          selectedDates={selectedPickerDates}
+          onSelectedDatesChange={setSelectedPickerDates}
+          initialAnchorYmd={
+            sessionTimeSource ? workshopDateYmdInToronto(sessionTimeSource) : sortedPickerDates[0] ?? null
+          }
+        />
       </main>
     </div>
   )

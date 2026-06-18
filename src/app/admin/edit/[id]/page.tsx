@@ -18,7 +18,6 @@ import { useRequireAdminSession } from '@/lib/use-require-admin-session'
 import { geocodeAddress } from '@/lib/geocode'
 import { parseWorkshopDateTimeInput } from '@/lib/workshop-timezone'
 import {
-  ALL_JS_WEEKDAYS,
   buildMaterializedEventRows,
   countDailyInstancesInWindow,
   REPEATING_WEEKS_MAX,
@@ -96,7 +95,7 @@ export default function AdminEditPage() {
   const [metadataSuccess, setMetadataSuccess] = useState(false)
   /** Recurrence as loaded from DB — used to expand legacy daily/weekly rows once without duplicating */
   const [initialRecurrence, setInitialRecurrence] = useState<Recurrence>('none')
-  const [dailyWeekdays, setDailyWeekdays] = useState<Set<number>>(() => new Set(ALL_JS_WEEKDAYS))
+  const [dailyWeekdays, setDailyWeekdays] = useState<Set<number>>(() => new Set())
   const [recurringWeeks, setRecurringWeeks] = useState(RENEW_INSTANCES_WEEKS)
 
   const dailyPreviewCount = useMemo(() => {
@@ -723,7 +722,8 @@ export default function AdminEditPage() {
                       })}
                     </div>
                     <p className="text-xs text-slate-500">
-                      All days selected by default. Tap to exclude weekdays from the {recurringWeeks}-week window.
+                      Select the weekdays to include. No listing will be created on unselected days during
+                      the {recurringWeeks}-week window.
                     </p>
                   </div>
                 )}
