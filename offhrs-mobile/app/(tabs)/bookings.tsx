@@ -286,6 +286,11 @@ export default function BookingsScreen() {
                     );
                     void loadBookings();
                   }
+                } catch {
+                  Alert.alert(
+                    'Could not cancel',
+                    'The request timed out or failed. Check your connection and try again.'
+                  );
                 } finally {
                   setCancellingBookingId(null);
                 }

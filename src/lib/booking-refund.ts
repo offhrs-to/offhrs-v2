@@ -12,6 +12,7 @@ import {
   type EventSeriesFields,
 } from '@/lib/workshop-series'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
+import { reverseWorkshopTaxTransaction } from '@/lib/stripe-workshop-tax'
 import { clawBackXpForBooking } from '@/lib/workshop-xp'
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
@@ -338,31 +339,43 @@ export async function processBookingRefund(
 
   if (!stripeAlreadyRefunded && row.stripe_payment_intent_id) {
     try {
-      // Destination charges: refunds on the platform only pay the customer back.
-      // We MUST set reverse_transfer=true to pull the funds back from the
-      // connected (vendor) account; otherwise the platform double-pays and the
-      // vendor's Stripe Connect dashboard keeps showing the booking as a
-      // completed payout.
+      // Destination charges: refunds on the platform pay the customer back; we
+      // reverse_transfer to pull funds from the connected (vendor) account.
       //
-      // We deliberately set refund_application_fee=false so the vendor - not the
-      // platform - absorbs the Stripe processing fee on refunds. Stripe in CA
-      // does NOT return the original $X processing fee when a charge is
-      // refunded (policy change in 2017), so SOMEONE has to eat that fee. By
-      // KEEPING the application_fee_amount on the platform, the platform is
-      // reimbursed for the Stripe fee it was originally billed for, and the
-      // vendor's reverse_transfer absorbs the matching loss - which mirrors our
-      // policy that vendors absorb card processing fees, refund or not.
+      // When we charged an application_fee_amount (Express accounts where the
+      // platform recoups Stripe processing), refund_application_fee MUST be true
+      // on a full refund or the connected account lacks balance for reversal
+      // (e.g. $0.80 net vs $1.13 reverse). Stripe still does not return the
+      // original card processing fee to anyone — the vendor absorbs that cost.
       //
-      // For new connected accounts created with controller.fees.payer=account,
-      // we never charged an application_fee_amount in the first place, so this
-      // flag has no effect - the Stripe fee was already debited directly from
-      // the vendor's balance, and the full reverse_transfer keeps it there.
+      // Accounts with controller.fees.payer=account have no application fee;
+      // refund_application_fee stays false.
       // Docs: https://docs.stripe.com/connect/destination-charges#issuing-refunds
+      const pi = await stripe.paymentIntents.retrieve(row.stripe_payment_intent_id)
+      let applicationFeeCents = pi.application_fee_amount ?? 0
+      if (!applicationFeeCents) {
+        const parsed = Number.parseInt(pi.metadata?.application_fee_cents ?? '0', 10)
+        applicationFeeCents = Number.isFinite(parsed) ? parsed : 0
+      }
+      const refundApplicationFee = applicationFeeCents > 0
+
       await stripe.refunds.create({
         payment_intent: row.stripe_payment_intent_id,
         reverse_transfer: true,
-        refund_application_fee: false,
+        refund_application_fee: refundApplicationFee,
       })
+
+      const connectedAccountId = pi.metadata?.stripe_account_id?.trim() || null
+      if (connectedAccountId && pi.metadata?.tax_calculation?.trim()) {
+        try {
+          await reverseWorkshopTaxTransaction(stripe, {
+            connectedAccountId,
+            paymentIntentId: row.stripe_payment_intent_id,
+          })
+        } catch (taxRevErr) {
+          console.warn('Stripe Tax reversal after refund failed:', taxRevErr)
+        }
+      }
     } catch (err) {
       if (isStripeChargeAlreadyRefunded(err)) {
         stripeAlreadyRefunded = true

@@ -1,5 +1,5 @@
 import { BOOK_API_BASE } from '@/constants/api';
-import { buildBookingApiHeaders } from '@/lib/booking-api-headers';
+import { bookingApiErrorMessage, buildBookingApiHeaders } from '@/lib/booking-api-headers';
 
 export async function cancelUserBooking(params: {
   bookingId: string;

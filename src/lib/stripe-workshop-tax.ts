@@ -155,3 +155,27 @@ export async function commitWorkshopTaxTransaction(
     { stripeAccount: params.connectedAccountId }
   )
 }
+
+/** Reverse a committed workshop tax transaction when a booking is refunded. */
+export async function reverseWorkshopTaxTransaction(
+  stripe: Stripe,
+  params: { connectedAccountId: string; paymentIntentId: string }
+): Promise<void> {
+  const listed = await stripe.tax.transactions.list(
+    { limit: 25 },
+    { stripeAccount: params.connectedAccountId }
+  )
+  const original = listed.data.find(
+    (tx) => tx.reference === params.paymentIntentId && tx.type !== 'reversal'
+  )
+  if (!original?.id) return
+
+  await stripe.tax.transactions.createReversal(
+    {
+      mode: 'full',
+      original_transaction: original.id,
+      reference: `${params.paymentIntentId}_refund`,
+    },
+    { stripeAccount: params.connectedAccountId }
+  )
+}
