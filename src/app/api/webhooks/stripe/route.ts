@@ -279,6 +279,12 @@ async function handleStripeEvent(
               After the trial, you&apos;ll be billed ${monthlyAmountLabelForTier(subscription_tier)} unless you cancel before then.
               Next step: set up payouts and publish your first workshop session.
             </p>
+            <p style="color:#555;font-size:14px;line-height:1.6;margin-top:16px;">
+              <strong>GST/HST on workshop tickets:</strong> If you&apos;re registered with the CRA, open
+              <strong>Settings → Workshop sales tax</strong> and turn it on with your registration number
+              before you publish paid workshops. If you&apos;re a small supplier and not registered, leave it
+              off and click <strong>Save tax settings</strong> so we don&apos;t add tax at checkout.
+            </p>
             <a href="${APP_URL}/partners/dashboard"
                style="display:inline-block;margin-top:24px;padding:12px 28px;background:#5D755D;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
               Go to dashboard

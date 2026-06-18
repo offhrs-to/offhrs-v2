@@ -397,6 +397,11 @@ export async function POST(request: NextRequest) {
           <p style="color:#555;font-size:14px;line-height:1.6;">
             Click the button below to verify your email address and continue setting up your account.
           </p>
+          <p style="color:#555;font-size:14px;line-height:1.6;margin-top:16px;">
+            Once you&apos;re in the dashboard: if you&apos;re GST/HST-registered with the CRA, enable
+            <strong>Settings → Workshop sales tax</strong> before your first paid booking. Small suppliers
+            should leave it off and save their choice.
+          </p>
           <a href="${verifyUrl}"
              style="display:inline-block;margin-top:24px;padding:12px 28px;background:#5D755D;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
             Verify email

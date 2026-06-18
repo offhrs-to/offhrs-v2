@@ -9,15 +9,18 @@ export function GettingStartedRail({
   items,
   allDone,
   trialDays,
+  initialOpen = false,
   onOpenChange,
 }: {
   items: ChecklistItemProps[]
   allDone: boolean
   trialDays: number | null
+  /** Open the rail on first paint (e.g. after signup redirect with ?onboarding=1). */
+  initialOpen?: boolean
   /** Fires when the rail opens or closes so siblings (e.g. notifications) can adjust stacking. */
   onOpenChange?: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(initialOpen)
   const [portalReady, setPortalReady] = useState(false)
 
   const close = useCallback(() => setOpen(false), [])

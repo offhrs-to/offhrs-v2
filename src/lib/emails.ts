@@ -77,6 +77,7 @@ export async function sendVendorWelcome(to: string, businessName: string, dashbo
     wrap(`
       ${h2('You\'re in! 🎉')}
       ${p(`Your 30-day free trial has started, <strong>${businessName}</strong>. Next: connect your calendar and create your first session.`)}
+      ${p(`<strong>GST/HST on workshop tickets:</strong> If you&apos;re registered with the CRA, open <strong>Settings → Workshop sales tax</strong> and turn it on with your registration number before you publish paid workshops. If you&apos;re a small supplier and not registered, leave it off and click <strong>Save tax settings</strong> so we don&apos;t add tax at checkout.`)}
       ${btn(dashboardUrl, 'Go to dashboard')}
     `)
   )

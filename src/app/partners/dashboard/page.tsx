@@ -61,7 +61,12 @@ function formatDurationMinutes(minutes: number | null): string {
   return `${h} hr ${m} min`
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ onboarding?: string }>
+}) {
+  const { onboarding } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/partners/login')
@@ -185,7 +190,7 @@ export default async function DashboardPage() {
     },
     {
       key: 'workshop_tax_settings',
-      label: 'Set workshop sales tax (Settings)',
+      label: 'Confirm GST/HST status (Settings)',
       done: taxSettingsConfirmed,
       showStripeCta: false,
       href: taxSettingsConfirmed ? null : '/partners/dashboard/settings',
@@ -251,7 +256,12 @@ export default async function DashboardPage() {
           </h1>
           <p className="text-sm text-[#888] mt-1">Here's what's happening with your workshops.</p>
         </div>
-        <PartnerDashboardHeaderActions items={checklistItems} allDone={allDone} trialDays={trialDays} />
+        <PartnerDashboardHeaderActions
+          items={checklistItems}
+          allDone={allDone}
+          trialDays={trialDays}
+          openGettingStartedInitially={onboarding === '1' && !allDone}
+        />
       </div>
 
       {/* Status banners */}

@@ -44,7 +44,7 @@ const SECTIONS: Section[] = [
               <li>Verify email</li>
               <li>Start your free trial</li>
               <li>Connect your Stripe payout account</li>
-              <li>Set workshop sales tax in Settings (registered or small supplier)</li>
+              <li>Confirm GST/HST status in Settings (registered or small supplier)</li>
               <li>Review settings and add a bio</li>
               <li>Connect a calendar (Google or Outlook)</li>
               <li>Create your first workshop</li>
