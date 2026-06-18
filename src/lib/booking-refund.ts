@@ -136,6 +136,7 @@ type BookingRow = {
   name: string | null
   email: string | null
   stripe_payment_intent_id: string | null
+  stripe_tax_transaction_id: string | null
   amount_cad: number | null
   total_cad: number | null
   stripe_fee_cad: number | null
@@ -234,7 +235,7 @@ export async function processBookingRefund(
     .select(
       `
       id, user_id, vendor_id, event_id, name, email,
-      stripe_payment_intent_id, amount_cad, total_cad, stripe_fee_cad,
+      stripe_payment_intent_id, stripe_tax_transaction_id, amount_cad, total_cad, stripe_fee_cad,
       status, refunded_at, session_starts_at,
       events ( title, date, location, duration_minutes, workshop_series, series_occurrences, available_slots, booking_status, max_attendees )
     `
@@ -366,10 +367,12 @@ export async function processBookingRefund(
       })
 
       const connectedAccountId = pi.metadata?.stripe_account_id?.trim() || null
-      if (connectedAccountId && pi.metadata?.tax_calculation?.trim()) {
+      const taxTransactionId = row.stripe_tax_transaction_id?.trim() || null
+      if (connectedAccountId && taxTransactionId) {
         try {
           await reverseWorkshopTaxTransaction(stripe, {
             connectedAccountId,
+            taxTransactionId,
             paymentIntentId: row.stripe_payment_intent_id,
           })
         } catch (taxRevErr) {

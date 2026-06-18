@@ -142,38 +142,33 @@ export async function calculateWorkshopTicketTax(
   }
 }
 
-/** Record tax on the vendor account after payment succeeds. */
+/** Record tax on the vendor account after payment succeeds. Returns the Tax Transaction id. */
 export async function commitWorkshopTaxTransaction(
   stripe: Stripe,
   params: { connectedAccountId: string; calculationId: string; reference: string }
-): Promise<void> {
-  await stripe.tax.transactions.createFromCalculation(
+): Promise<string> {
+  const tx = await stripe.tax.transactions.createFromCalculation(
     {
       calculation: params.calculationId,
       reference: params.reference,
     },
     { stripeAccount: params.connectedAccountId }
   )
+  if (!tx.id) {
+    throw new Error('Stripe Tax transaction did not return an id')
+  }
+  return tx.id
 }
 
 /** Reverse a committed workshop tax transaction when a booking is refunded. */
 export async function reverseWorkshopTaxTransaction(
   stripe: Stripe,
-  params: { connectedAccountId: string; paymentIntentId: string }
+  params: { connectedAccountId: string; taxTransactionId: string; paymentIntentId: string }
 ): Promise<void> {
-  const listed = await stripe.tax.transactions.list(
-    { limit: 25 },
-    { stripeAccount: params.connectedAccountId }
-  )
-  const original = listed.data.find(
-    (tx) => tx.reference === params.paymentIntentId && tx.type !== 'reversal'
-  )
-  if (!original?.id) return
-
   await stripe.tax.transactions.createReversal(
     {
       mode: 'full',
-      original_transaction: original.id,
+      original_transaction: params.taxTransactionId,
       reference: `${params.paymentIntentId}_refund`,
     },
     { stripeAccount: params.connectedAccountId }

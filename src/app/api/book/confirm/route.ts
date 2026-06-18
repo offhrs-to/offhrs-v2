@@ -150,9 +150,10 @@ export async function POST(request: NextRequest) {
       return authUser?.user?.email ?? null
     })()
 
+    let taxTransactionId: string | null = null
     if (taxCalculationId && connectedAccountId) {
       try {
-        await commitWorkshopTaxTransaction(stripe, {
+        taxTransactionId = await commitWorkshopTaxTransaction(stripe, {
           connectedAccountId,
           calculationId: taxCalculationId,
           reference: paymentIntentId,
@@ -219,6 +220,7 @@ export async function POST(request: NextRequest) {
         tax_cad: taxCad,
         total_cad: totalCad > 0 ? totalCad : chargeAmountCad,
         stripe_tax_calculation_id: taxCalculationId,
+        stripe_tax_transaction_id: taxTransactionId,
         stripe_fee_cad: stripeFee,
         net_vendor_cad: netVendor,
         ics_sent: false,
