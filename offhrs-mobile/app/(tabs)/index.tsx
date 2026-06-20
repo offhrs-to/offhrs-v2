@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -33,7 +32,6 @@ const CHARCOAL = '#2C2C2C';
 const MEDIUM_GRAY = '#6B6B6B';
 
 const HORIZONTAL_PADDING = 24;
-const PILOT_LAUNCH_ACK_KEY = '@offhrs/hasAcknowledgedPilotLaunch';
 
 const isAndroid = Platform.OS === 'android';
 const AVATAR_SIZE = isAndroid ? 46 : 52;
@@ -150,7 +148,6 @@ export default function HomeScreen() {
 
   const router = useRouter();
   const { user } = useAuth();
-  const [showPilotLaunchNotice, setShowPilotLaunchNotice] = useState(false);
   const [profile, setProfile] = useState<{
     display_name: string | null;
     avatar_url: string | null;
@@ -255,17 +252,6 @@ export default function HomeScreen() {
     if (profile?.location_lat == null || profile?.location_lng == null) return null;
     return { lat: Number(profile.location_lat), lng: Number(profile.location_lng) };
   }, [profile?.location_lat, profile?.location_lng]);
-
-  useEffect(() => {
-    AsyncStorage.getItem(PILOT_LAUNCH_ACK_KEY).then((acknowledged) => {
-      if (acknowledged !== 'true') setShowPilotLaunchNotice(true);
-    });
-  }, []);
-
-  const acknowledgePilotLaunch = () => {
-    AsyncStorage.setItem(PILOT_LAUNCH_ACK_KEY, 'true');
-    setShowPilotLaunchNotice(false);
-  };
 
   const displayName =
     profile?.display_name ||
@@ -548,102 +534,12 @@ export default function HomeScreen() {
       />
       </ScrollView>
 
+      {popupCategory !== null ? (
       <Modal
-        visible={showPilotLaunchNotice}
+        visible
         transparent
         animationType="fade"
-        onRequestClose={acknowledgePilotLaunch}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 24,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: DesignColors.creamBg,
-              borderRadius: 16,
-              padding: 24,
-              maxWidth: 360,
-              width: '100%',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.15,
-              shadowRadius: 12,
-              elevation: 8,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 20,
-                fontWeight: '700',
-                color: DesignColors.charcoal,
-                textAlign: 'center',
-                marginBottom: 12,
-              }}
-            >
-              Welcome to our pilot launch
-            </Text>
-            <Text
-              style={{
-                fontSize: 15,
-                lineHeight: 22,
-                color: DesignColors.charcoal,
-                marginBottom: 14,
-              }}
-            >
-              offhrs is live in Toronto with a mix of workshop listings:
-            </Text>
-            <View style={{ gap: 10, marginBottom: 20 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                <Text style={{ fontSize: 14, lineHeight: 21, color: DesignColors.primary }}>•</Text>
-                <Text style={{ flex: 1, fontSize: 14, lineHeight: 21, color: DesignColors.charcoal }}>
-                  <Text style={{ fontWeight: '700' }}>Host-posted workshops</Text> — book and pay directly
-                  in the app.
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                <Text style={{ fontSize: 14, lineHeight: 21, color: DesignColors.primary }}>•</Text>
-                <Text style={{ flex: 1, fontSize: 14, lineHeight: 21, color: DesignColors.charcoal }}>
-                  <Text style={{ fontWeight: '700' }}>App-listed workshops</Text> — we link you to the host&apos;s
-                  website to book with them directly.
-                </Text>
-              </View>
-            </View>
-            <Text
-              style={{
-                fontSize: 13,
-                lineHeight: 19,
-                color: DesignColors.mediumGray,
-                marginBottom: 20,
-              }}
-            >
-              Thanks for helping us shape the experience — listings and booking options may change as we grow.
-            </Text>
-            <Pressable
-              onPress={acknowledgePilotLaunch}
-              accessibilityRole="button"
-              style={{
-                paddingVertical: 14,
-                borderRadius: 9999,
-                backgroundColor: DesignColors.primary,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFF' }}>I understand</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={popupCategory !== null}
-        transparent
-        animationType="fade"
+        presentationStyle="overFullScreen"
         onRequestClose={() => setPopupCategory(null)}
       >
         <Pressable
@@ -737,6 +633,7 @@ export default function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+      ) : null}
     </View>
   );
 }

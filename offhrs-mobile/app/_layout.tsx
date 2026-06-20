@@ -15,6 +15,9 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import AppIntroScreen from '@/components/AppIntroScreen';
+import PilotLaunchNoticeModal, {
+  PILOT_LAUNCH_ACK_KEY,
+} from '@/components/PilotLaunchNoticeModal';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { processAuthCallbackUrl } from '@/lib/auth-callback-url';
 import { completeOAuthBrowserSession } from '@/lib/auth-session-cleanup';
@@ -59,6 +62,9 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const [showAppIntro, setShowAppIntro] = useState(false);
+  const [showPilotLaunchNotice, setShowPilotLaunchNotice] = useState(false);
+  /** Blocks pilot notice until intro slides are done or were already seen this install. */
+  const [introGate, setIntroGate] = useState<'loading' | 'needs_intro' | 'done'>('loading');
 
   // Always-current snapshot of navigation segments accessible inside async closures.
   const segmentsRef = useRef<readonly string[]>(segments);
@@ -100,11 +106,25 @@ export default function RootLayout() {
     }
   }, []);
 
-  // First-launch app intro: show once per install on native only
+  // First-launch gates: load intro + pilot flags together so pilot never flashes before slides.
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-    AsyncStorage.getItem(HAS_SEEN_APP_INTRO_KEY).then((seen) => {
-      if (seen !== 'true') setShowAppIntro(true);
+    if (Platform.OS === 'web') {
+      setIntroGate('done');
+      return;
+    }
+    Promise.all([
+      AsyncStorage.getItem(HAS_SEEN_APP_INTRO_KEY),
+      AsyncStorage.getItem(PILOT_LAUNCH_ACK_KEY),
+    ]).then(([introSeen, pilotAcknowledged]) => {
+      if (introSeen !== 'true') {
+        setShowAppIntro(true);
+        setIntroGate('needs_intro');
+      } else {
+        setIntroGate('done');
+      }
+      if (pilotAcknowledged !== 'true') {
+        setShowPilotLaunchNotice(true);
+      }
     });
   }, []);
 
@@ -183,7 +203,16 @@ export default function RootLayout() {
   const handleAppIntroDone = () => {
     AsyncStorage.setItem(HAS_SEEN_APP_INTRO_KEY, 'true');
     setShowAppIntro(false);
+    setIntroGate('done');
   };
+
+  const acknowledgePilotLaunch = () => {
+    AsyncStorage.setItem(PILOT_LAUNCH_ACK_KEY, 'true');
+    setShowPilotLaunchNotice(false);
+  };
+
+  const showPilotLaunchModal =
+    introGate === 'done' && showPilotLaunchNotice && !showAppIntro;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -205,15 +234,33 @@ export default function RootLayout() {
                 <Stack.Screen name="workshop-browse" options={{ headerShown: false }} />
                 <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
               </Stack>
-              {/* Always mount Modal; drive with `visible` so the native layer dismisses cleanly (avoids touch-eating ghost on Android after first-launch intro). */}
-              <Modal
-                visible={showAppIntro}
-                transparent={false}
-                animationType="fade"
-                onRequestClose={handleAppIntroDone}
-              >
-                {showAppIntro ? <AppIntroScreen onDone={handleAppIntroDone} /> : null}
-              </Modal>
+              {/* Android: keep Modal mounted with `visible` to avoid touch ghost after intro.
+                  iOS: unmount when hidden — `visible={false}` on transparent modals can block taps. */}
+              {Platform.OS === 'ios' ? (
+                showAppIntro ? (
+                  <Modal
+                    visible
+                    transparent={false}
+                    animationType="fade"
+                    onRequestClose={handleAppIntroDone}
+                  >
+                    <AppIntroScreen onDone={handleAppIntroDone} />
+                  </Modal>
+                ) : null
+              ) : (
+                <Modal
+                  visible={showAppIntro}
+                  transparent={false}
+                  animationType="fade"
+                  onRequestClose={handleAppIntroDone}
+                >
+                  {showAppIntro ? <AppIntroScreen onDone={handleAppIntroDone} /> : null}
+                </Modal>
+              )}
+              <PilotLaunchNoticeModal
+                visible={showPilotLaunchModal}
+                onAcknowledge={acknowledgePilotLaunch}
+              />
               <StatusBar style="dark" />
             </ThemeProvider>
           </AuthProvider>
