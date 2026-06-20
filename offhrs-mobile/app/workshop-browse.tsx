@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { buildDateStrip, eventMatchesCalendarDay, getTorontoYmd } from '@/lib/workshop-calendar';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import { fetchWorkshopEvents } from '@/lib/workshops-events-query';
+import { compareWorkshopEventsByStart, workshopEventTorontoYmd } from '@/lib/workshop-event-sort';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -22,15 +23,6 @@ function parseParamString(v: string | string[] | undefined): string {
   return typeof v === 'string' ? v : v[0] ?? '';
 }
 
-function eventSortMs(r: WorkshopEventRow): number {
-  if (r.date_iso) {
-    const t = new Date(r.date_iso).getTime();
-    if (!Number.isNaN(t)) return t;
-  }
-  const t = new Date(r.date).getTime();
-  return Number.isNaN(t) ? 0 : t;
-}
-
 /** Same workshop listing (vendor + title) on the same calendar day → one card with multiple time pills. */
 function workshopGroupKey(e: WorkshopEventRow): string {
   const v = e.vendor_id ?? '';
@@ -38,18 +30,17 @@ function workshopGroupKey(e: WorkshopEventRow): string {
   return `${v}\u0001${t}`;
 }
 
-/** Non-recurring events on or after today (Toronto); recurring rows always included. */
 function eventIsUpcomingToronto(e: WorkshopEventRow): boolean {
   if (e.recurrence === 'daily' || e.recurrence === 'weekly') return true;
-  if (!e.date_iso) return false;
-  return e.date_iso.slice(0, 10) >= getTorontoYmd();
+  const eventYmd = workshopEventTorontoYmd(e);
+  return eventYmd !== '' && eventYmd >= getTorontoYmd();
 }
 
 function browseGroupKey(e: WorkshopEventRow, mode: 'single-day' | 'all-dates'): string {
   if (mode === 'single-day') return workshopGroupKey(e);
   if (e.recurrence === 'daily' || e.recurrence === 'weekly') return `rec:${e.id}`;
   if (e.workshop_series === 'multi_week') return `series:${e.id}`;
-  const ymd = e.date_iso ? e.date_iso.slice(0, 10) : '';
+  const ymd = workshopEventTorontoYmd(e);
   return `${ymd}\u0001${workshopGroupKey(e)}`;
 }
 
@@ -209,7 +200,7 @@ export default function WorkshopBrowseScreen() {
       return events.filter((e) => eventMatchesCalendarDay(e, selectedYmd));
     }
     const upcoming = events.filter(eventIsUpcomingToronto);
-    return [...upcoming].sort((a, b) => eventSortMs(a) - eventSortMs(b));
+    return [...upcoming].sort(compareWorkshopEventsByStart);
   }, [events, selectedYmd]);
 
   const groupedForDay = useMemo(() => {
@@ -221,8 +212,8 @@ export default function WorkshopBrowseScreen() {
       arr.push(e);
       map.set(k, arr);
     }
-    const groups = [...map.values()].map((g) => [...g].sort((a, b) => eventSortMs(a) - eventSortMs(b)));
-    groups.sort((a, b) => eventSortMs(a[0]!) - eventSortMs(b[0]!));
+    const groups = [...map.values()].map((g) => [...g].sort(compareWorkshopEventsByStart));
+    groups.sort((a, b) => compareWorkshopEventsByStart(a[0]!, b[0]!));
     return groups;
   }, [dayEvents, selectedYmd]);
 

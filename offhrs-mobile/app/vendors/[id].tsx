@@ -1,3 +1,4 @@
+import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useState } from 'react';
@@ -15,7 +16,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import VendorBioCollapsible from '@/components/VendorBioCollapsible';
 import WorkshopQuickViewModal from '@/components/WorkshopQuickViewModal';
-import { resolveVendorProfileBio } from '@/lib/vendor-profile-bio';
+import {
+  formatVendorWebsiteLabel,
+  normalizeVendorWebsiteUrl,
+  resolveVendorPublicProfile,
+} from '@/lib/vendor-profile-bio';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
@@ -82,6 +87,7 @@ export default function VendorProfileScreen() {
   const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
   const [profilePostalCode, setProfilePostalCode] = useState<string | null>(null);
   const [vendorBio, setVendorBio] = useState<string | null>(null);
+  const [vendorWebsiteUrl, setVendorWebsiteUrl] = useState<string | null>(null);
 
   const loadData = () => {
     if (!id) return;
@@ -118,7 +124,7 @@ export default function VendorProfileScreen() {
       setAvgRating(revs.length > 0 ? Math.round((revs.reduce((s, r) => s + r.rating, 0) / revs.length) * 10) / 10 : null);
 
       const { data: sessionData } = await supabase.auth.getSession();
-      const bio = await resolveVendorProfileBio({
+      const publicProfile = await resolveVendorPublicProfile({
         legacyVendorId: id,
         vendorProfileIdParam: vendorProfileIdParam ?? null,
         vendorName: vendorRes.data?.name ?? null,
@@ -126,7 +132,8 @@ export default function VendorProfileScreen() {
         events: (eventsRes.data ?? []) as { vendor_profile_id?: string | null; organizer?: string | null }[],
         accessToken: sessionData.session?.access_token ?? null,
       });
-      setVendorBio(bio);
+      setVendorBio(publicProfile.bio);
+      setVendorWebsiteUrl(publicProfile.websiteUrl);
     }).finally(() => setLoading(false));
 
     if (user?.id) {
@@ -288,8 +295,23 @@ export default function VendorProfileScreen() {
         <Text style={{ fontSize: 15, color: DesignColors.mediumGray, marginTop: 4 }}>
           Workshop host
         </Text>
+        {vendorWebsiteUrl ? (
+          <Pressable
+            onPress={() => {
+              const url = normalizeVendorWebsiteUrl(vendorWebsiteUrl);
+              if (url) void Linking.openURL(url);
+            }}
+            accessibilityRole="link"
+            accessibilityLabel={`Visit ${formatVendorWebsiteLabel(vendorWebsiteUrl)}`}
+            style={{ marginTop: 10, alignSelf: 'flex-start' }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>
+              {formatVendorWebsiteLabel(vendorWebsiteUrl)}
+            </Text>
+          </Pressable>
+        ) : null}
         {vendorBio ? (
-          <VendorBioCollapsible bio={vendorBio} style={{ marginTop: 10 }} />
+          <VendorBioCollapsible bio={vendorBio} style={{ marginTop: vendorWebsiteUrl ? 8 : 10 }} />
         ) : null}
         {avgRating != null && (
           <Text style={{ fontSize: 14, color: DesignColors.mediumGray, marginTop: 8 }}>

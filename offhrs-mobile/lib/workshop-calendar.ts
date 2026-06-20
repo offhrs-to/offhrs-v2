@@ -1,4 +1,5 @@
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
+import { workshopEventTorontoYmd } from '@/lib/workshop-event-sort';
 
 /** YYYY-MM-DD in America/Toronto for "today". */
 export function getTorontoYmd(d = new Date()): string {
@@ -40,8 +41,7 @@ export function buildDateStrip(dayCount: number): DateStripItem[] {
 /** Event appears on a given calendar day (Toronto date string). */
 export function eventMatchesCalendarDay(e: WorkshopEventRow, ymd: string): boolean {
   if (e.recurrence === 'daily' || e.recurrence === 'weekly') return true;
-  if (!e.date_iso) return false;
-  const eventYmd = e.date_iso.slice(0, 10);
-  return eventYmd === ymd;
+  const eventYmd = workshopEventTorontoYmd(e);
+  return eventYmd !== '' && eventYmd === ymd;
 }
 

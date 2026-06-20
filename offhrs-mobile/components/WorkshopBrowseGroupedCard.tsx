@@ -21,6 +21,7 @@ import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mo
 import { shareWorkshopEvent } from '@/lib/share-workshop';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import { workshopSessionKey } from '@/lib/workshops-events-query';
+import { compareWorkshopEventsByStart, workshopEventTorontoYmd } from '@/lib/workshop-event-sort';
 import {
   getSeriesMode,
   isMultiWeekEvent,
@@ -44,15 +45,6 @@ function formatPrice(price: number | string | null | undefined): string | null {
   const s = typeof price === 'string' ? price.replace(/^\$/, '').trim() : String(price);
   if (s === '' || isNaN(Number(s))) return null;
   return `$${s}`;
-}
-
-function eventSortMs(r: WorkshopEventRow): number {
-  if (r.date_iso) {
-    const t = new Date(r.date_iso).getTime();
-    if (!Number.isNaN(t)) return t;
-  }
-  const t = new Date(r.date).getTime();
-  return Number.isNaN(t) ? 0 : t;
 }
 
 function formatTimePill(r: WorkshopEventRow): string {
@@ -168,12 +160,10 @@ export default function WorkshopBrowseGroupedCard({
 }: Props) {
   const { user } = useAuth();
   const router = useRouter();
-  const sorted = useMemo(() => [...group].sort((a, b) => eventSortMs(a) - eventSortMs(b)), [group]);
+  const sorted = useMemo(() => [...group].sort(compareWorkshopEventsByStart), [group]);
   const sessionKeys = sorted.map((r) => workshopSessionKey(r)).join(',');
   const showDateOnPills = useMemo(() => {
-    const ymds = new Set(
-      sorted.map((r) => (r.date_iso ? r.date_iso.slice(0, 10) : '')).filter(Boolean)
-    );
+    const ymds = new Set(sorted.map((r) => workshopEventTorontoYmd(r)).filter(Boolean));
     return ymds.size > 1;
   }, [sorted]);
 

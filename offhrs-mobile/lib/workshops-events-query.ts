@@ -9,6 +9,7 @@ import {
   parseSeriesOccurrences,
   type EventSeriesFields,
 } from '@/lib/workshop-series';
+import { compareWorkshopEventsByStart, workshopEventTorontoYmd } from '@/lib/workshop-event-sort';
 
 export type WorkshopEventRow = {
   id: number;
@@ -204,7 +205,8 @@ function eventMatchesDateRange(
   }
 
   if (!e.date_iso) return !dateRangeStart && !dateRangeEnd;
-  const eventDate = e.date_iso.slice(0, 10);
+  const eventDate = workshopEventTorontoYmd(e);
+  if (!eventDate) return false;
   if (dateRangeStart && eventDate < dateRangeStart) return false;
   if (dateRangeEnd && eventDate > dateRangeEnd) return false;
   return true;
@@ -216,8 +218,8 @@ function occurrenceMatchesDateRange(
   dateRangeEnd: string | null
 ): boolean {
   if (!dateRangeStart && !dateRangeEnd) return true;
-  if (!e.date_iso) return false;
-  const eventDate = e.date_iso.slice(0, 10);
+  const eventDate = workshopEventTorontoYmd(e);
+  if (!eventDate) return false;
   if (dateRangeStart && eventDate < dateRangeStart) return false;
   if (dateRangeEnd && eventDate > dateRangeEnd) return false;
   return true;
@@ -311,11 +313,7 @@ export async function fetchWorkshopEvents(
     occurrenceMatchesDateRange(e, dateRangeStart, dateRangeEnd)
   );
 
-  const sorted = expanded.sort((a, b) => {
-    const aTime = a.date_iso ? new Date(a.date_iso).getTime() : Infinity;
-    const bTime = b.date_iso ? new Date(b.date_iso).getTime() : Infinity;
-    return aTime - bTime;
-  });
+  const sorted = expanded.sort(compareWorkshopEventsByStart);
 
   let result = sorted;
   if (searchRawWords.length > 0 || searchVendorIds.length > 0) {

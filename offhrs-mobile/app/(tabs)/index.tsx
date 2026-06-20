@@ -33,7 +33,7 @@ const CHARCOAL = '#2C2C2C';
 const MEDIUM_GRAY = '#6B6B6B';
 
 const HORIZONTAL_PADDING = 24;
-const FIRST_TIME_SIGNUP_KEY = '@offhrs/hasSeenFirstTimeSignUpPrompt';
+const PILOT_LAUNCH_ACK_KEY = '@offhrs/hasAcknowledgedPilotLaunch';
 
 const isAndroid = Platform.OS === 'android';
 const AVATAR_SIZE = isAndroid ? 46 : 52;
@@ -149,8 +149,8 @@ export default function HomeScreen() {
   const homeScrollPaddingBottom = isIPad ? Math.max(SCROLL_PADDING_BOTTOM, insets.bottom + 72) : SCROLL_PADDING_BOTTOM;
 
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
-  const [showFirstTimeSignUpPrompt, setShowFirstTimeSignUpPrompt] = useState(false);
+  const { user } = useAuth();
+  const [showPilotLaunchNotice, setShowPilotLaunchNotice] = useState(false);
   const [profile, setProfile] = useState<{
     display_name: string | null;
     avatar_url: string | null;
@@ -257,20 +257,14 @@ export default function HomeScreen() {
   }, [profile?.location_lat, profile?.location_lng]);
 
   useEffect(() => {
-    if (user) {
-      setShowFirstTimeSignUpPrompt(false);
-      return;
-    }
-    if (authLoading) return;
-    AsyncStorage.getItem(FIRST_TIME_SIGNUP_KEY).then((seen) => {
-      if (seen !== 'true') setShowFirstTimeSignUpPrompt(true);
+    AsyncStorage.getItem(PILOT_LAUNCH_ACK_KEY).then((acknowledged) => {
+      if (acknowledged !== 'true') setShowPilotLaunchNotice(true);
     });
-  }, [authLoading, user]);
+  }, []);
 
-  const dismissFirstTimePrompt = (goToSignUp: boolean) => {
-    AsyncStorage.setItem(FIRST_TIME_SIGNUP_KEY, 'true');
-    setShowFirstTimeSignUpPrompt(false);
-    if (goToSignUp) router.push('/(tabs)/profile');
+  const acknowledgePilotLaunch = () => {
+    AsyncStorage.setItem(PILOT_LAUNCH_ACK_KEY, 'true');
+    setShowPilotLaunchNotice(false);
   };
 
   const displayName =
@@ -555,12 +549,12 @@ export default function HomeScreen() {
       </ScrollView>
 
       <Modal
-        visible={showFirstTimeSignUpPrompt}
+        visible={showPilotLaunchNotice}
         transparent
         animationType="fade"
-        onRequestClose={() => dismissFirstTimePrompt(false)}
+        onRequestClose={acknowledgePilotLaunch}
       >
-        <Pressable
+        <View
           style={{
             flex: 1,
             backgroundColor: 'rgba(0,0,0,0.5)',
@@ -568,62 +562,82 @@ export default function HomeScreen() {
             alignItems: 'center',
             padding: 24,
           }}
-          onPress={() => dismissFirstTimePrompt(false)}
         >
-          <Pressable
+          <View
             style={{
               backgroundColor: DesignColors.creamBg,
               borderRadius: 16,
               padding: 24,
-              minWidth: 280,
+              maxWidth: 360,
+              width: '100%',
               shadowColor: '#000',
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.15,
               shadowRadius: 12,
               elevation: 8,
             }}
-            onPress={(e) => e.stopPropagation()}
           >
             <Text
               style={{
-                fontSize: 18,
-                fontWeight: '600',
+                fontSize: 20,
+                fontWeight: '700',
                 color: DesignColors.charcoal,
                 textAlign: 'center',
-                marginBottom: 24,
+                marginBottom: 12,
               }}
             >
-              Create a profile to begin tracking your Mastery! Sign in with Google or Apple on the Profile tab.
+              Welcome to our pilot launch
             </Text>
-            <View style={{ gap: 12 }}>
-              <Pressable
-                onPress={() => dismissFirstTimePrompt(true)}
-                style={{
-                  paddingVertical: 14,
-                  borderRadius: 9999,
-                  backgroundColor: DesignColors.primary,
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFF' }}>
-                  Continue
+            <Text
+              style={{
+                fontSize: 15,
+                lineHeight: 22,
+                color: DesignColors.charcoal,
+                marginBottom: 14,
+              }}
+            >
+              offhrs is live in Toronto with a mix of workshop listings:
+            </Text>
+            <View style={{ gap: 10, marginBottom: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                <Text style={{ fontSize: 14, lineHeight: 21, color: DesignColors.primary }}>•</Text>
+                <Text style={{ flex: 1, fontSize: 14, lineHeight: 21, color: DesignColors.charcoal }}>
+                  <Text style={{ fontWeight: '700' }}>Host-posted workshops</Text> — book and pay directly
+                  in the app.
                 </Text>
-              </Pressable>
-              <Pressable
-                onPress={() => dismissFirstTimePrompt(false)}
-                style={{
-                  paddingVertical: 14,
-                  borderRadius: 9999,
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={{ fontSize: 16, color: DesignColors.mediumGray }}>
-                  Maybe later
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                <Text style={{ fontSize: 14, lineHeight: 21, color: DesignColors.primary }}>•</Text>
+                <Text style={{ flex: 1, fontSize: 14, lineHeight: 21, color: DesignColors.charcoal }}>
+                  <Text style={{ fontWeight: '700' }}>App-listed workshops</Text> — we link you to the host&apos;s
+                  website to book with them directly.
                 </Text>
-              </Pressable>
+              </View>
             </View>
-          </Pressable>
-        </Pressable>
+            <Text
+              style={{
+                fontSize: 13,
+                lineHeight: 19,
+                color: DesignColors.mediumGray,
+                marginBottom: 20,
+              }}
+            >
+              Thanks for helping us shape the experience — listings and booking options may change as we grow.
+            </Text>
+            <Pressable
+              onPress={acknowledgePilotLaunch}
+              accessibilityRole="button"
+              style={{
+                paddingVertical: 14,
+                borderRadius: 9999,
+                backgroundColor: DesignColors.primary,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFF' }}>I understand</Text>
+            </Pressable>
+          </View>
+        </View>
       </Modal>
 
       <Modal

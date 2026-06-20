@@ -33,21 +33,29 @@ export async function GET(
   const tryProfile = async (profileId: string) => {
     const { data } = await admin
       .from('vendor_profiles')
-      .select('id, business_name, bio')
+      .select('id, business_name, bio, website_url')
       .eq('id', profileId)
       .in('status', [...ACTIVE_STATUSES])
       .maybeSingle()
     return data
   }
 
+  const profilePayload = (vp: {
+    id: string
+    business_name: string | null
+    bio: string | null
+    website_url?: string | null
+  }) => ({
+    vendorProfileId: vp.id,
+    businessName: vp.business_name,
+    bio: vp.bio?.trim() || null,
+    websiteUrl: vp.website_url?.trim() || null,
+  })
+
   if (vendorProfileId) {
     const vp = await tryProfile(vendorProfileId)
     if (vp) {
-      return NextResponse.json({
-        vendorProfileId: vp.id,
-        businessName: vp.business_name,
-        bio: vp.bio?.trim() || null,
-      })
+      return NextResponse.json(profilePayload(vp))
     }
   }
 
@@ -63,11 +71,7 @@ export async function GET(
     if (!pid) continue
     const vp = await tryProfile(pid)
     if (vp) {
-      return NextResponse.json({
-        vendorProfileId: vp.id,
-        businessName: vp.business_name,
-        bio: vp.bio?.trim() || null,
-      })
+      return NextResponse.json(profilePayload(vp))
     }
   }
 
@@ -80,17 +84,13 @@ export async function GET(
   for (const name of names) {
     const { data: vp } = await admin
       .from('vendor_profiles')
-      .select('id, business_name, bio')
+      .select('id, business_name, bio, website_url')
       .ilike('business_name', name)
       .in('status', [...ACTIVE_STATUSES])
       .limit(1)
       .maybeSingle()
     if (vp) {
-      return NextResponse.json({
-        vendorProfileId: vp.id,
-        businessName: vp.business_name,
-        bio: vp.bio?.trim() || null,
-      })
+      return NextResponse.json(profilePayload(vp))
     }
   }
 
@@ -98,16 +98,12 @@ export async function GET(
   if (slug) {
     const { data: vp } = await admin
       .from('vendor_profiles')
-      .select('id, business_name, bio')
+      .select('id, business_name, bio, website_url')
       .eq('slug', slug)
       .in('status', [...ACTIVE_STATUSES])
       .maybeSingle()
     if (vp) {
-      return NextResponse.json({
-        vendorProfileId: vp.id,
-        businessName: vp.business_name,
-        bio: vp.bio?.trim() || null,
-      })
+      return NextResponse.json(profilePayload(vp))
     }
   }
 
@@ -115,5 +111,6 @@ export async function GET(
     vendorProfileId: null,
     businessName: legacyVendor.name,
     bio: null,
+    websiteUrl: null,
   })
 }
