@@ -609,9 +609,14 @@ function LandingFooter() {
             All policies
           </Link>
         </div>
-        <Link href="/admin" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
-          Admin
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/admin" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
+            Admin
+          </Link>
+          <Link href="/partners" prefetch={false} className="hover:text-primary/90 transition-colors font-medium">
+            Partners
+          </Link>
+        </div>
       </div>
     </footer>
   )

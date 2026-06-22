@@ -27,6 +27,10 @@ export default function Footer() {
           <Link href="/admin" prefetch={false} className="hover:text-gray-600 transition-colors">
             Admin
           </Link>
+          <span className="text-gray-300">|</span>
+          <Link href="/partners" prefetch={false} className="hover:text-gray-600 transition-colors">
+            Partners
+          </Link>
         </div>
       </div>
     </footer>

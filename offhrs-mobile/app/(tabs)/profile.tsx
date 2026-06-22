@@ -314,6 +314,14 @@ export default function ProfileScreen() {
   const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture;
   const email = user.email || '—';
 
+  const memberSinceLabel = user.created_at
+    ? new Date(user.created_at).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null;
+
   const statsRowInnerWidth = windowWidth - DesignSpacing.horizontalPadding * 2;
   const statsCellWidth = (statsRowInnerWidth - STATS_DIVIDER_WIDTH) / 2;
 
@@ -410,11 +418,23 @@ export default function ProfileScreen() {
           fontWeight: '700',
           color: DesignColors.charcoal,
           textAlign: 'center',
-          marginBottom: Platform.OS === 'android' ? 12 : 20,
+          marginBottom: memberSinceLabel ? (Platform.OS === 'android' ? 6 : 8) : Platform.OS === 'android' ? 12 : 20,
         }}
       >
         {displayName}
       </Text>
+      {memberSinceLabel ? (
+        <Text
+          style={{
+            fontSize: 14,
+            color: DesignColors.mediumGray,
+            textAlign: 'center',
+            marginBottom: Platform.OS === 'android' ? 12 : 16,
+          }}
+        >
+          Member since {memberSinceLabel}
+        </Text>
+      ) : null}
 
       {/* Stats row – fixed equal widths so dividers are centered between columns (iOS + Android) */}
       <View
@@ -520,7 +540,7 @@ export default function ProfileScreen() {
           By continuing you agree to our{' '}
           <Text
             accessibilityRole="link"
-            accessibilityLabel="Terms and policies"
+            accessibilityLabel="Terms and Policies"
             onPress={() => void openWebAppPath('/terms')}
             style={{
               color: DesignColors.primary,
@@ -529,7 +549,7 @@ export default function ProfileScreen() {
               fontWeight: '600',
             }}
           >
-            Terms &amp; policies
+            Terms & Policies
           </Text>
           .
         </Text>

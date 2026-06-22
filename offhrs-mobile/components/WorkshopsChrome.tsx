@@ -1,6 +1,10 @@
 import { DesignColors, DesignSizes, DesignSpacing } from '@/constants/design-template';
+import type { WorkshopPriceSort } from '@/lib/workshop-price-sort';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image } from 'expo-image';
+import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
+import WorkshopPriceSortMenu from '@/components/WorkshopPriceSortMenu';
 
 export type WorkshopsChromeProps = {
   /** When true, search is a tappable row that calls onSearchPress (hub). */
@@ -17,6 +21,10 @@ export type WorkshopsChromeProps = {
   /** Optional back control for stack screens */
   showBack?: boolean;
   onBackPress?: () => void;
+  /** Price sort filter (browse / search list screens). */
+  showPriceFilter?: boolean;
+  priceSort?: WorkshopPriceSort;
+  onPriceSortChange?: (sort: WorkshopPriceSort) => void;
 };
 
 export default function WorkshopsChrome({
@@ -31,7 +39,13 @@ export default function WorkshopsChrome({
   hasDateFilter = false,
   showBack,
   onBackPress,
+  showPriceFilter = false,
+  priceSort = 'default',
+  onPriceSortChange,
 }: WorkshopsChromeProps) {
+  const [priceMenuOpen, setPriceMenuOpen] = useState(false);
+  const filterActive = priceSort !== 'default';
+
   return (
     <>
       <View
@@ -166,8 +180,39 @@ export default function WorkshopsChrome({
               </Pressable>
             </>
           ) : null}
+          {showPriceFilter && onPriceSortChange ? (
+            <Pressable
+              onPress={() => setPriceMenuOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Sort workshops by price"
+              style={{
+                width: 36,
+                height: 36,
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderRadius: 9999,
+                backgroundColor: filterActive ? DesignColors.heroBg : DesignColors.inputBg,
+                borderWidth: 1,
+                borderColor: filterActive ? DesignColors.primary : DesignColors.lightGreenBorder,
+              }}
+            >
+              <MaterialCommunityIcons
+                name="filter-variant"
+                size={20}
+                color={filterActive ? DesignColors.primary : DesignColors.sageGreen}
+              />
+            </Pressable>
+          ) : null}
         </View>
       </View>
+      {showPriceFilter && onPriceSortChange ? (
+        <WorkshopPriceSortMenu
+          visible={priceMenuOpen}
+          value={priceSort}
+          onClose={() => setPriceMenuOpen(false)}
+          onSelect={onPriceSortChange}
+        />
+      ) : null}
     </>
   );
 }

@@ -10,6 +10,7 @@ import { buildDateStrip, eventMatchesCalendarDay, getTorontoYmd } from '@/lib/wo
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import { fetchWorkshopEvents } from '@/lib/workshops-events-query';
 import { compareWorkshopEventsByStart, workshopEventTorontoYmd } from '@/lib/workshop-event-sort';
+import { sortWorkshopGroupsByPrice, type WorkshopPriceSort } from '@/lib/workshop-price-sort';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -64,6 +65,7 @@ export default function WorkshopBrowseScreen() {
   const strip = useMemo(() => buildDateStrip(90), []);
   /** `null` = show all upcoming dates, chronological (soonest first). */
   const [selectedYmd, setSelectedYmd] = useState<string | null>(null);
+  const [priceSort, setPriceSort] = useState<WorkshopPriceSort>('default');
 
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<WorkshopEventRow[]>([]);
@@ -193,7 +195,7 @@ export default function WorkshopBrowseScreen() {
 
   useEffect(() => {
     setListPage(1);
-  }, [selectedYmd, selectedCategory, searchTerm]);
+  }, [selectedYmd, selectedCategory, searchTerm, priceSort]);
 
   const dayEvents = useMemo(() => {
     if (selectedYmd != null) {
@@ -213,9 +215,8 @@ export default function WorkshopBrowseScreen() {
       map.set(k, arr);
     }
     const groups = [...map.values()].map((g) => [...g].sort(compareWorkshopEventsByStart));
-    groups.sort((a, b) => compareWorkshopEventsByStart(a[0]!, b[0]!));
-    return groups;
-  }, [dayEvents, selectedYmd]);
+    return sortWorkshopGroupsByPrice(groups, priceSort);
+  }, [dayEvents, selectedYmd, priceSort]);
 
   const pagedGroups = useMemo(
     () => groupedForDay.slice(0, listPage * WORKSHOP_LIST_PAGE_SIZE),
@@ -258,6 +259,9 @@ export default function WorkshopBrowseScreen() {
         searchPlaceholder="Search workshops…"
         searchValue={searchTerm}
         onSearchPress={pushSearch}
+        showPriceFilter
+        priceSort={priceSort}
+        onPriceSortChange={setPriceSort}
       />
 
       <ScrollView

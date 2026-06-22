@@ -202,6 +202,7 @@ export default function WorkshopQuickViewModal({
   // the status-bar height plus a little breathing room above the sheet on Android
   // only; iOS layout must stay exactly as-is.
   const sheetTopPadding = Platform.OS === 'android' ? insets.top + 12 : 0;
+  const sheetTopRadius = 20;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -221,14 +222,18 @@ export default function WorkshopQuickViewModal({
           style={{
             maxHeight: '92%',
             backgroundColor: '#FFF',
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
+            borderTopLeftRadius: sheetTopRadius,
+            borderTopRightRadius: sheetTopRadius,
+            overflow: 'hidden',
             paddingBottom: Math.max(insets.bottom, 12),
           }}
         >
           <ScrollView
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator
+            bounces={false}
+            alwaysBounceVertical={false}
+            overScrollMode="never"
             contentContainerStyle={{ paddingBottom: 8 }}
           >
             <View
@@ -237,6 +242,9 @@ export default function WorkshopQuickViewModal({
                 aspectRatio: 4 / 3,
                 backgroundColor: DesignColors.inputBg,
                 position: 'relative',
+                borderTopLeftRadius: sheetTopRadius,
+                borderTopRightRadius: sheetTopRadius,
+                overflow: 'hidden',
               }}
             >
               <Pressable
@@ -270,7 +278,7 @@ export default function WorkshopQuickViewModal({
                 elevation: Platform.OS === 'android' ? 10 : undefined,
                 direction: 'ltr',
                 flexDirection: 'row',
-                justifyContent: 'flex-end',
+                justifyContent: 'space-between',
                 alignItems: 'flex-start',
                 // Padding from the top of the image area (NOT the screen). The
                 // modal sheet itself is already offset below the status bar by
@@ -278,10 +286,29 @@ export default function WorkshopQuickViewModal({
                 // would push the icons into the middle of the image. Keep the
                 // value platform-agnostic.
                 paddingTop: 12,
+                paddingLeft: 12,
                 paddingRight: 12,
-                gap: 8,
               }}
             >
+              <Pressable
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="Close workshop preview"
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={({ pressed }) => ({
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: 'rgba(255,255,255,0.95)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: pressed ? 0.85 : 1,
+                  elevation: Platform.OS === 'android' ? 4 : undefined,
+                })}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={DesignColors.charcoal} />
+              </Pressable>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
               <Pressable
                 onPress={() => void shareWorkshopEvent({ id: event.id, title: event.title })}
                 accessibilityRole="button"
@@ -323,6 +350,7 @@ export default function WorkshopQuickViewModal({
                   <EventSaveHeartIcon saved={saved} size={26} />
                 )}
               </Pressable>
+              </View>
             </View>
             </View>
 
