@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ExternalLink, Edit, Trash2, Loader2, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { ExternalLink, Edit, Trash2, Loader2, LogOut, ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import Link from 'next/link'
 import Navbar from '@/components/navbar'
 import { adminFetch, clearAdminBasicAuth, storeAdminBasicAuth } from '@/lib/admin-fetch'
@@ -20,6 +21,11 @@ interface Event {
   created_at: string
   external_link: string | null
   is_multiple_dates: boolean | null
+  organizer: string | null
+  vendor_id: string | null
+  vendor_profile_id: string | null
+  vendors: { name: string } | { name: string }[] | null
+  vendor_profiles: { business_name: string } | { business_name: string }[] | null
 }
 
 type EventFilter = 'all' | 'upcoming' | 'expired'
@@ -50,12 +56,50 @@ export default function AdminPage() {
   } | null>(null)
   const [pageSize, setPageSize] = useState<PageSize>(20)
   const [currentPage, setCurrentPage] = useState(1)
+  const [vendorSearch, setVendorSearch] = useState('')
+
+  function vendorLabel(event: Event): string {
+    const fromOrganizer = event.organizer?.trim()
+    if (fromOrganizer) return fromOrganizer
+    const vp = event.vendor_profiles
+    if (vp) {
+      const row = Array.isArray(vp) ? vp[0] : vp
+      const name = row?.business_name?.trim()
+      if (name) return name
+    }
+    const v = event.vendors
+    if (!v) return ''
+    const row = Array.isArray(v) ? v[0] : v
+    return row?.name?.trim() ?? ''
+  }
+
+  function vendorSearchHaystack(event: Event): string {
+    const parts: string[] = []
+    const org = event.organizer?.trim()
+    if (org) parts.push(org)
+    const vp = event.vendor_profiles
+    if (vp) {
+      const row = Array.isArray(vp) ? vp[0] : vp
+      const name = row?.business_name?.trim()
+      if (name) parts.push(name)
+    }
+    const v = event.vendors
+    if (v) {
+      const row = Array.isArray(v) ? v[0] : v
+      const name = row?.name?.trim()
+      if (name) parts.push(name)
+    }
+    return parts.join(' ').toLowerCase()
+  }
 
   const filteredEvents = events.filter((event) => {
     const isExpired = event.date != null && new Date(event.date) < new Date()
-    if (eventFilter === 'upcoming') return !isExpired
-    if (eventFilter === 'expired') return isExpired
-    return true
+    if (eventFilter === 'upcoming' && isExpired) return false
+    if (eventFilter === 'expired' && !isExpired) return false
+
+    const q = vendorSearch.trim().toLowerCase()
+    if (!q) return true
+    return vendorSearchHaystack(event).includes(q)
   })
 
   const totalFiltered = filteredEvents.length
@@ -68,7 +112,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [eventFilter])
+  }, [eventFilter, vendorSearch])
 
   useEffect(() => {
     setCurrentPage((p) => Math.min(p, totalPages))
@@ -107,7 +151,9 @@ export default function AdminPage() {
       const [eventsRes, countsRes] = await Promise.all([
         supabase
           .from('events')
-          .select('id, title, date, image_url, category, created_at, external_link, is_multiple_dates')
+          .select(
+            'id, title, date, image_url, category, created_at, external_link, is_multiple_dates, organizer, vendor_id, vendor_profile_id, vendors ( name ), vendor_profiles ( business_name )'
+          )
           .order('created_at', { ascending: false }),
         fetch('/api/admin/event-redirect-counts', { credentials: 'include', headers: getAdminHeaders() }).then((r) => (r.ok ? r.json() : { counts: {} })).catch(() => ({ counts: {} })),
       ])
@@ -338,6 +384,17 @@ export default function AdminPage() {
 
         {!loading && events.length > 0 && (
           <div className="mb-6 flex flex-wrap items-center gap-4">
+            <div className="relative w-full sm:w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                type="search"
+                value={vendorSearch}
+                onChange={(e) => setVendorSearch(e.target.value)}
+                placeholder="Search by vendor / organizer…"
+                className="pl-9"
+                aria-label="Search by vendor or organizer name"
+              />
+            </div>
             <label htmlFor="event-filter" className="text-sm font-medium text-slate-700">
               Filter:
             </label>
@@ -464,14 +521,21 @@ export default function AdminPage() {
             <CardContent className="pt-6">
               <div className="text-center py-12">
                 <p className="text-slate-600 mb-4">
-                  {eventFilter === 'upcoming' ? 'No upcoming events.' : 'No expired events.'}
+                  {vendorSearch.trim()
+                    ? `No events match vendor “${vendorSearch.trim()}”.`
+                    : eventFilter === 'upcoming'
+                      ? 'No upcoming events.'
+                      : 'No expired events.'}
                 </p>
                 <button
                   type="button"
-                  onClick={() => setEventFilter('all')}
+                  onClick={() => {
+                    if (vendorSearch.trim()) setVendorSearch('')
+                    else setEventFilter('all')
+                  }}
                   className="text-sm font-medium text-moss hover:text-moss-dark"
                 >
-                  Show all events
+                  {vendorSearch.trim() ? 'Clear vendor search' : 'Show all events'}
                 </button>
               </div>
             </CardContent>
@@ -481,6 +545,9 @@ export default function AdminPage() {
             <CardHeader>
               <CardTitle>
                 {eventFilter === 'all' ? 'All' : eventFilter === 'upcoming' ? 'Upcoming' : 'Expired'} Events ({filteredEvents.length})
+                {vendorSearch.trim() ? (
+                  <span className="font-normal text-slate-500"> — vendor “{vendorSearch.trim()}”</span>
+                ) : null}
               </CardTitle>
               {totalFiltered > 0 && (
                 <p className="text-sm font-normal text-slate-500 mt-1">
@@ -495,6 +562,7 @@ export default function AdminPage() {
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Image</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Title</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Vendor</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Date</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Redirects</th>
@@ -535,6 +603,11 @@ export default function AdminPage() {
                                 </a>
                               )}
                             </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-sm text-slate-600 max-w-[10rem] truncate block">
+                              {vendorLabel(event) || '—'}
+                            </span>
                           </td>
                           <td className="py-4 px-4">
                             <span className="text-sm text-slate-600">
