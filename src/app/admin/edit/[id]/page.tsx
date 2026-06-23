@@ -26,6 +26,7 @@ import {
 } from '@/lib/recurring-event-instances'
 import { cn } from '@/lib/utils'
 import { CATEGORIES } from '@/constants/categories'
+import { AdminPartnerNameSearch } from '@/app/admin/components/AdminPartnerNameSearch'
 
 type Recurrence = 'none' | 'daily' | 'weekly'
 
@@ -97,6 +98,7 @@ export default function AdminEditPage() {
   const [initialRecurrence, setInitialRecurrence] = useState<Recurrence>('none')
   const [dailyWeekdays, setDailyWeekdays] = useState<Set<number>>(() => new Set())
   const [recurringWeeks, setRecurringWeeks] = useState(RENEW_INSTANCES_WEEKS)
+  const [vendorProfileId, setVendorProfileId] = useState<string | null>(null)
 
   const dailyPreviewCount = useMemo(() => {
     if (formData.recurrence !== 'daily' || !formData.date.trim()) return null
@@ -154,6 +156,11 @@ export default function AdminEditPage() {
           (data.recurrence === 'daily' || data.recurrence === 'weekly'
             ? data.recurrence
             : 'none') as Recurrence
+        )
+        setVendorProfileId(
+          typeof data.vendor_profile_id === 'string' && data.vendor_profile_id.trim()
+            ? data.vendor_profile_id.trim()
+            : null
         )
 
         // Set coordinates found if lat/lng exist
@@ -336,6 +343,7 @@ export default function AdminEditPage() {
         duration_minutes: formData.duration_minutes,
         description: formData.description.trim() || null,
         recurrence: formData.recurrence,
+        vendor_profile_id: vendorProfileId,
       }
 
       // Validate required fields
@@ -794,17 +802,21 @@ export default function AdminEditPage() {
               </div>
 
               {/* Vendor / Organizer */}
-              <div className="space-y-2">
-                <Label htmlFor="organizer">Vendor / Organizer</Label>
-                <Input
-                  id="organizer"
-                  name="organizer"
-                  value={formData.organizer}
-                  onChange={handleChange}
-                  placeholder="Enter vendor or organizer name (e.g. studio or host name)"
-                  disabled={loading}
-                />
-              </div>
+              <AdminPartnerNameSearch
+                organizer={formData.organizer}
+                vendorProfileId={vendorProfileId}
+                onOrganizerChange={(value) =>
+                  setFormData((prev) => ({ ...prev, organizer: value }))
+                }
+                onVendorProfileIdChange={setVendorProfileId}
+                onLocationHint={(address) => {
+                  setFormData((prev) => {
+                    if (prev.location.trim()) return prev
+                    return { ...prev, location: address }
+                  })
+                }}
+                disabled={loading}
+              />
 
               {/* Image URL */}
               <div className="space-y-2">

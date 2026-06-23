@@ -19,6 +19,7 @@ const adminEventSchema = z.object({
   duration_minutes: z.number().nullable(),
   description: z.string().nullable(),
   recurrence: z.enum(['none', 'daily', 'weekly']).optional(),
+  vendor_profile_id: z.string().uuid().nullable().optional(),
 })
 
 type RouteContext = { params: Promise<{ id: string }> }

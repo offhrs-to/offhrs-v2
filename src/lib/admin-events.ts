@@ -18,6 +18,7 @@ export type AdminEventInput = {
   duration_minutes: number | null
   description: string | null
   recurrence?: 'none' | 'daily' | 'weekly'
+  vendor_profile_id?: string | null
 }
 
 function getAdminSupabase() {
@@ -65,6 +66,10 @@ export function normalizeEventRow(data: AdminEventInput) {
     duration_minutes: data.duration_minutes != null ? data.duration_minutes : null,
     description: data.description?.trim() || null,
     recurrence: data.recurrence ?? 'none',
+    vendor_profile_id:
+      typeof data.vendor_profile_id === 'string' && data.vendor_profile_id.trim()
+        ? data.vendor_profile_id.trim()
+        : null,
   }
 }
 

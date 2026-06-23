@@ -27,6 +27,7 @@ import {
   workshopDateYmdInToronto,
 } from '@/lib/recurring-event-instances'
 import { AdminMultiDatePickerDialog } from '@/app/admin/components/AdminMultiDatePickerDialog'
+import { AdminPartnerNameSearch } from '@/app/admin/components/AdminPartnerNameSearch'
 import { cn } from '@/lib/utils'
 import { CATEGORIES } from '@/constants/categories'
 
@@ -103,6 +104,7 @@ export default function AdminAddPage() {
   const [hasExtraSessionTimes, setHasExtraSessionTimes] = useState(false)
   /** Additional HH:mm times on the same calendar day(s) as each occurrence. */
   const [extraSessionTimes, setExtraSessionTimes] = useState<string[]>([])
+  const [vendorProfileId, setVendorProfileId] = useState<string | null>(null)
 
   const sortedPickerDates = useMemo(
     () => [...selectedPickerDates].sort(),
@@ -327,6 +329,7 @@ export default function AdminAddPage() {
         duration_minutes,
         description: formData.description.trim() || null,
         recurrence: formData.recurrence,
+        vendor_profile_id: vendorProfileId,
       }
 
       // Validate required fields
@@ -457,6 +460,7 @@ export default function AdminAddPage() {
       setCalendarOpen(false)
       setHasExtraSessionTimes(false)
       setExtraSessionTimes([])
+      setVendorProfileId(null)
       setUrlInput('')
       setCoordinatesFound(false)
       setMetadataSuccess(false)
@@ -971,17 +975,21 @@ export default function AdminAddPage() {
               </div>
 
               {/* Organizer / Vendor */}
-              <div className="space-y-2">
-                <Label htmlFor="organizer">Organizer / Vendor</Label>
-                <Input
-                  id="organizer"
-                  name="organizer"
-                  value={formData.organizer}
-                  onChange={handleChange}
-                  placeholder="Enter organizer or vendor name (e.g. studio or host name)"
-                  disabled={loading}
-                />
-              </div>
+              <AdminPartnerNameSearch
+                organizer={formData.organizer}
+                vendorProfileId={vendorProfileId}
+                onOrganizerChange={(value) =>
+                  setFormData((prev) => ({ ...prev, organizer: value }))
+                }
+                onVendorProfileIdChange={setVendorProfileId}
+                onLocationHint={(address) => {
+                  setFormData((prev) => {
+                    if (prev.location.trim()) return prev
+                    return { ...prev, location: address }
+                  })
+                }}
+                disabled={loading}
+              />
 
               {/* Image URL */}
               <div className="space-y-2">
