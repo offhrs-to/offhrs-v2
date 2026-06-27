@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import Script from 'next/script'
 import Footer from '@/components/footer'
+import { SocialLinksBar } from '@/components/social-links-bar'
 import { AuthProviderWrapper } from '@/components/auth-provider'
 import { getSiteUrl } from '@/lib/site'
 
@@ -81,6 +82,7 @@ fbq('track', 'PageView');`}
       </head>
       <body className={`${inter.variable} min-h-screen flex flex-col font-sans`}>
         <AuthProviderWrapper>
+          <SocialLinksBar />
           <main className="flex-grow">{children}</main>
           <Footer />
         </AuthProviderWrapper>
