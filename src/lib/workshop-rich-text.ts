@@ -46,6 +46,16 @@ export function workshopRichTextForEditor(stored: string): string {
     .join('')
 }
 
+/** Browsers often insert `<div>` on Enter in contentEditable; normalize to `<br>`. */
+function normalizeContentEditableBlocks(html: string): string {
+  return html
+    .replace(/<div><br\s*\/?><\/div>/gi, '<br>')
+    .replace(/<div>\s*<\/div>/gi, '<br>')
+    .replace(/<\/div>\s*<div[^>]*>/gi, '<br>')
+    .replace(/<div[^>]*>/gi, '<br>')
+    .replace(/<\/div>/gi, '')
+}
+
 /** Strip unsafe markup; keep bold, italic, underline, and lists only. */
 export function sanitizeWorkshopHtml(input: string): string {
   const trimmed = input.trim()
@@ -55,7 +65,7 @@ export function sanitizeWorkshopHtml(input: string): string {
     return trimmed
   }
 
-  let html = trimmed
+  let html = normalizeContentEditableBlocks(trimmed)
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')

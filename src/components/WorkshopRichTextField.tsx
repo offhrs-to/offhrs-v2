@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Bold, Italic, List, Underline } from 'lucide-react'
 import {
   sanitizeWorkshopHtml,
@@ -20,6 +20,36 @@ type WorkshopRichTextFieldProps = {
 const toolbarBtn =
   'inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#E8E4DE] bg-white text-[#444] hover:bg-[#F3F2EF] focus:outline-none focus:ring-2 focus:ring-[#5D755D] disabled:opacity-40'
 
+const toolbarBtnActive =
+  'border-[#5D755D] bg-[#E8EDE8] text-[#3D523D] ring-1 ring-[#5D755D]/25 hover:bg-[#DFE8DF]'
+
+type FormatState = {
+  bold: boolean
+  italic: boolean
+  underline: boolean
+  list: boolean
+}
+
+const EMPTY_FORMAT: FormatState = {
+  bold: false,
+  italic: false,
+  underline: false,
+  list: false,
+}
+
+function readFormatState(): FormatState {
+  return {
+    bold: document.queryCommandState('bold'),
+    italic: document.queryCommandState('italic'),
+    underline: document.queryCommandState('underline'),
+    list: document.queryCommandState('insertUnorderedList'),
+  }
+}
+
+function toolbarBtnClass(active: boolean) {
+  return active ? `${toolbarBtn} ${toolbarBtnActive}` : toolbarBtn
+}
+
 export function WorkshopRichTextField({
   value,
   onChange,
@@ -31,6 +61,25 @@ export function WorkshopRichTextField({
   /** Last value written to the editor or emitted to the parent (null = not synced yet). */
   const syncedValue = useRef<string | null>(null)
   const [plainLength, setPlainLength] = useState(() => workshopRichTextPlainLength(value))
+  const [formatState, setFormatState] = useState<FormatState>(EMPTY_FORMAT)
+
+  const updateFormatState = useCallback(() => {
+    const el = editorRef.current
+    if (!el || disabled) return
+
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+
+    const anchor = sel.anchorNode
+    if (!anchor || !el.contains(anchor)) return
+
+    setFormatState(readFormatState())
+  }, [disabled])
+
+  useEffect(() => {
+    document.addEventListener('selectionchange', updateFormatState)
+    return () => document.removeEventListener('selectionchange', updateFormatState)
+  }, [updateFormatState])
 
   useLayoutEffect(() => {
     const el = editorRef.current
@@ -47,20 +96,34 @@ export function WorkshopRichTextField({
     const el = editorRef.current
     if (!el) return
     const sanitized = sanitizeWorkshopHtml(el.innerHTML)
-    const normalized = sanitized !== el.innerHTML ? workshopRichTextForEditor(sanitized) : sanitized
-    if (normalized !== el.innerHTML) {
-      el.innerHTML = normalized
+    // Do not rewrite innerHTML here — that resets the caret (e.g. after Enter).
+    syncedValue.current = sanitized
+    setPlainLength(workshopRichTextPlainLength(sanitized))
+    onChange(sanitized)
+    updateFormatState()
+  }, [onChange, updateFormatState])
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter' || e.shiftKey || disabled) return
+
+    const sel = window.getSelection()
+    let node: Node | null = sel?.anchorNode ?? null
+    while (node && node !== editorRef.current) {
+      const tag = node instanceof HTMLElement ? node.tagName : ''
+      if (tag === 'LI' || tag === 'UL' || tag === 'OL') return
+      node = node.parentNode
     }
-    syncedValue.current = normalized
-    setPlainLength(workshopRichTextPlainLength(normalized))
-    onChange(normalized)
-  }, [onChange])
+
+    e.preventDefault()
+    document.execCommand('insertLineBreak')
+  }
 
   const runCommand = (command: string) => {
     if (disabled) return
     editorRef.current?.focus()
     document.execCommand(command, false)
     emit()
+    updateFormatState()
   }
 
   const minHeight = rows * 24 + 20
@@ -70,8 +133,9 @@ export function WorkshopRichTextField({
       <div className="mb-2 flex flex-wrap gap-1">
         <button
           type="button"
-          className={toolbarBtn}
+          className={toolbarBtnClass(formatState.bold)}
           aria-label="Bold"
+          aria-pressed={formatState.bold}
           disabled={disabled}
           onMouseDown={(e) => {
             e.preventDefault()
@@ -82,8 +146,9 @@ export function WorkshopRichTextField({
         </button>
         <button
           type="button"
-          className={toolbarBtn}
+          className={toolbarBtnClass(formatState.italic)}
           aria-label="Italic"
+          aria-pressed={formatState.italic}
           disabled={disabled}
           onMouseDown={(e) => {
             e.preventDefault()
@@ -94,8 +159,9 @@ export function WorkshopRichTextField({
         </button>
         <button
           type="button"
-          className={toolbarBtn}
+          className={toolbarBtnClass(formatState.underline)}
           aria-label="Underline"
+          aria-pressed={formatState.underline}
           disabled={disabled}
           onMouseDown={(e) => {
             e.preventDefault()
@@ -106,8 +172,9 @@ export function WorkshopRichTextField({
         </button>
         <button
           type="button"
-          className={toolbarBtn}
+          className={toolbarBtnClass(formatState.list)}
           aria-label="Bullet list"
+          aria-pressed={formatState.list}
           disabled={disabled}
           onMouseDown={(e) => {
             e.preventDefault()
@@ -127,6 +194,11 @@ export function WorkshopRichTextField({
         aria-placeholder={placeholder}
         data-placeholder={placeholder}
         onInput={emit}
+        onKeyDown={handleKeyDown}
+        onKeyUp={updateFormatState}
+        onMouseUp={updateFormatState}
+        onFocus={updateFormatState}
+        onBlur={() => setFormatState(EMPTY_FORMAT)}
         style={{ minHeight }}
         className="workshop-rich-text-editor w-full rounded-xl border border-[#E8E4DE] bg-white px-4 py-2.5 text-sm text-[#1a1a1a] focus:outline-none focus:ring-2 focus:ring-[#5D755D] focus:border-transparent [&_li]:ml-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_ul]:list-disc [&_ul]:pl-4"
       />
