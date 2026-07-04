@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.offhrs.app.offhrs",
-      "buildNumber": "47",
+      "buildNumber": "48",
       "usesAppleSignIn": true,
       "backgroundColor": "#ECEFE5",
       "infoPlist": {
@@ -28,7 +28,7 @@
     },
     "android": {
       "package": "com.offhrs.app",
-      "versionCode": 48,
+      "versionCode": 49,
       "launchMode": "singleTask",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -44,7 +44,10 @@
               "pathPrefix": "/callback"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "adaptiveIcon": {

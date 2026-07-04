@@ -44,10 +44,11 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
   const titleLineHeight = isIPad ? 18 : 15;
   const titleBlockHeight = isIPad ? 40 : 30;
   const CARD_FOOTER_HEIGHT = isAndroid
-    ? 74
+    ? 88
     : isIPad
       ? 102
       : 82;
+  const cardFooterPaddingBottom = isAndroid ? 14 : 10;
   const loadingPlaceholderHeight = CARD_IMAGE_HEIGHT + CARD_FOOTER_HEIGHT + 14;
 
   useEffect(() => {
@@ -130,7 +131,7 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
                   height: CARD_FOOTER_HEIGHT,
                   paddingHorizontal: 8,
                   paddingTop: 6,
-                  paddingBottom: 10,
+                  paddingBottom: cardFooterPaddingBottom,
                 }}
               >
                 <View style={{ minHeight: titleBlockHeight, justifyContent: 'flex-start' }}>
