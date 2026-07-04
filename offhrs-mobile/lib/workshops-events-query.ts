@@ -34,6 +34,13 @@ export type WorkshopEventRow = {
   recurrence: string | null;
   category: string | null;
   description: string | null;
+  workshop_experience?: string | null;
+  workshop_experience_hidden?: boolean | null;
+  workshop_materials_takeaway?: string | null;
+  workshop_materials_takeaway_hidden?: boolean | null;
+  workshop_skill_level?: string | null;
+  workshop_skill_level_hidden?: boolean | null;
+  registration_closed?: boolean | null;
   booking_status: string | null;
   available_slots: number | null;
   duration_minutes: number | null;
@@ -86,6 +93,13 @@ export type WorkshopEventDbRow = {
   vendor_profile_id: string | null;
   recurrence: string | null;
   description: string | null;
+  workshop_experience?: string | null;
+  workshop_experience_hidden?: boolean | null;
+  workshop_materials_takeaway?: string | null;
+  workshop_materials_takeaway_hidden?: boolean | null;
+  workshop_skill_level?: string | null;
+  workshop_skill_level_hidden?: boolean | null;
+  registration_closed?: boolean | null;
   booking_status: string | null;
   available_slots: number | null;
   duration_minutes: number | null;
@@ -115,6 +129,13 @@ export function mapDbRowToWorkshopEvent(row: WorkshopEventDbRow): WorkshopEventR
     recurrence: row.recurrence ?? null,
     category: row.category ?? null,
     description: row.description ?? null,
+    workshop_experience: row.workshop_experience ?? null,
+    workshop_experience_hidden: row.workshop_experience_hidden ?? false,
+    workshop_materials_takeaway: row.workshop_materials_takeaway ?? null,
+    workshop_materials_takeaway_hidden: row.workshop_materials_takeaway_hidden ?? false,
+    workshop_skill_level: row.workshop_skill_level ?? null,
+    workshop_skill_level_hidden: row.workshop_skill_level_hidden ?? false,
+    registration_closed: row.registration_closed ?? false,
     booking_status: row.booking_status ?? null,
     available_slots: row.available_slots ?? null,
     duration_minutes: row.duration_minutes != null ? Number(row.duration_minutes) : null,
@@ -155,6 +176,7 @@ export function expandWorkshopEventsForConsumers(rows: WorkshopEventRow[]): Work
         return Number.isFinite(startMs) && startMs >= nowMs;
       });
       if (!firstUpcoming) continue;
+      if (row.registration_closed) continue;
       if (cohortSlots <= 0) continue;
       out.push({
         ...row,
@@ -170,12 +192,14 @@ export function expandWorkshopEventsForConsumers(rows: WorkshopEventRow[]): Work
     for (const o of series) {
       const startMs = new Date(o.start).getTime();
       if (!Number.isFinite(startMs) || startMs < nowMs) continue;
+      if (row.registration_closed || o.registration_closed) continue;
       if (o.available_slots <= 0) continue;
       out.push({
         ...row,
         date_iso: o.start,
         date: formatDateToronto(o.start),
         available_slots: o.available_slots,
+        registration_closed: false,
         workshop_series: 'multi_week',
       });
     }
@@ -235,10 +259,50 @@ export type FetchWorkshopEventsOptions = {
 };
 
 export const WORKSHOP_EVENT_LIST_SELECT =
-  'id, title, date, location, image_url, price, price_cad, external_link, category, lat, lng, vendor_id, vendor_profile_id, organizer, recurrence, description, booking_status, available_slots, duration_minutes, workshop_series, series_occurrences, partner_series_meta, max_attendees';
+  'id, title, date, location, image_url, price, price_cad, external_link, category, lat, lng, vendor_id, vendor_profile_id, organizer, recurrence, description, workshop_experience, workshop_experience_hidden, workshop_materials_takeaway, workshop_materials_takeaway_hidden, workshop_skill_level, workshop_skill_level_hidden, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, partner_series_meta, max_attendees';
+
+/** Lighter payload for vendor profile workshop cards (no description sections). */
+export const VENDOR_PROFILE_EVENT_SELECT =
+  'id, title, date, location, image_url, price_cad, external_link, category, vendor_id, vendor_profile_id, recurrence, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, partner_series_meta, max_attendees';
+
+export const VENDOR_PROFILE_EVENTS_LIMIT = 80;
 
 export const WORKSHOP_EVENTS_UPCOMING_OR = (nowIso: string) =>
   `recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso},workshop_series.eq.multi_week`;
+
+/** Upcoming workshops for a vendor profile page (slim select, DB date filter, capped). */
+export async function fetchVendorProfileEvents(vendorId: string): Promise<WorkshopEventRow[]> {
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('events')
+    .select(VENDOR_PROFILE_EVENT_SELECT)
+    .eq('vendor_id', vendorId)
+    .or(CONSUMER_BOOKING_STATUS_OR)
+    .or(WORKSHOP_EVENTS_UPCOMING_OR(nowIso))
+    .order('date', { ascending: true, nullsFirst: false })
+    .limit(VENDOR_PROFILE_EVENTS_LIMIT);
+
+  if (error || !data?.length) {
+    if (error && __DEV__) {
+      console.warn('fetchVendorProfileEvents failed', error.message);
+    }
+    return [];
+  }
+
+  const eventList = data
+    .filter((e) => isEventVisibleToConsumers(e as WorkshopEventDbRow))
+    .filter((e) => {
+      const row = e as WorkshopEventDbRow;
+      const recurrence = row.recurrence;
+      if (recurrence === 'daily' || recurrence === 'weekly') return true;
+      if (isMultiWeekEvent(row)) return true;
+      if (!row.date) return true;
+      return row.date >= nowIso;
+    })
+    .map((e) => mapDbRowToWorkshopEvent(e as WorkshopEventDbRow));
+
+  return expandWorkshopEventsForConsumers(eventList);
+}
 
 /**
  * Shared Supabase fetch for workshop list/map flows (matches workshops tab logic).

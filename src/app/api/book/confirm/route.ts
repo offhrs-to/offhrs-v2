@@ -17,6 +17,7 @@ import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync
 import { commitWorkshopTaxTransaction } from '@/lib/stripe-workshop-tax'
 import { estimateCanadianStripeFee, fetchRealChargeFee } from '@/lib/stripe-charge-fees'
 import { awardXpForBooking } from '@/lib/workshop-xp'
+import { workshopBookingBlockReason } from '@/lib/workshop-registration-closed'
 
 /** Allow time to await Resend before the serverless function exits. */
 export const maxDuration = 60
@@ -124,13 +125,18 @@ export async function POST(request: NextRequest) {
     const { data: event } = await admin
       .from('events')
       .select(
-        'id, title, available_slots, max_attendees, duration_minutes, location, booking_status, vendor_profile_id, date, workshop_series, series_occurrences'
+        'id, title, available_slots, max_attendees, duration_minutes, location, booking_status, registration_closed, vendor_profile_id, date, workshop_series, series_occurrences, partner_series_meta'
       )
       .eq('id', eventId)
       .single()
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+    }
+
+    const bookingBlock = workshopBookingBlockReason(event, startTime)
+    if (bookingBlock) {
+      return NextResponse.json({ error: bookingBlock }, { status: 409 })
     }
 
     const slot = computeSlotDecrementForEvent(event, startTime, piStartTime)
@@ -140,7 +146,7 @@ export async function POST(request: NextRequest) {
 
     const { data: vendorProfile } = await admin
       .from('vendor_profiles')
-      .select('business_name, website_url, user_id')
+      .select('business_name, website_url, user_id, refund_window_hours, strict_no_refund')
       .eq('id', vendorId)
       .single()
 
@@ -334,7 +340,7 @@ async function handleFreeConfirm(
   const { data: event } = await admin
     .from('events')
     .select(
-      'id, title, available_slots, max_attendees, duration_minutes, location, booking_status, vendor_profile_id, price_cad, date, workshop_series, series_occurrences'
+      'id, title, available_slots, max_attendees, duration_minutes, location, booking_status, registration_closed, vendor_profile_id, price_cad, date, workshop_series, series_occurrences, partner_series_meta'
     )
     .eq('id', event_id)
     .single()
@@ -347,16 +353,9 @@ async function handleFreeConfirm(
     return NextResponse.json({ error: 'This session requires payment' }, { status: 409 })
   }
 
-  if (event.booking_status === 'fully_booked') {
-    return NextResponse.json({ error: 'This session is fully booked' }, { status: 409 })
-  }
-
-  if (event.booking_status !== 'published') {
-    return NextResponse.json({ error: 'This session is not available for booking' }, { status: 409 })
-  }
-
-  if ((event.available_slots ?? 0) <= 0) {
-    return NextResponse.json({ error: 'No spots remaining' }, { status: 409 })
+  const bookingBlock = workshopBookingBlockReason(event, startTime)
+  if (bookingBlock) {
+    return NextResponse.json({ error: bookingBlock }, { status: 409 })
   }
 
   const slot = computeSlotDecrementForEvent(event, startTime, undefined)
@@ -368,7 +367,7 @@ async function handleFreeConfirm(
 
   const { data: vendorProfile } = await admin
     .from('vendor_profiles')
-    .select('business_name, website_url, user_id')
+    .select('business_name, website_url, user_id, refund_window_hours, strict_no_refund')
     .eq('id', vendorId)
     .single()
 

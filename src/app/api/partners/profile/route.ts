@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { normalizeInstagramHandle } from '@/lib/instagram-handle'
 
 /** For dashboard forms (e.g. session location default from onboarding). */
 export async function GET() {
@@ -43,9 +44,30 @@ const profileSchema = z.object({
   business_name: z.string().min(2).max(100),
   bio: z.string().max(2000).optional(),
   website_url: z.string().url().optional().or(z.literal('')),
+  instagram_handle: z.string().max(200).optional().or(z.literal('')),
   phone: z.string().max(30).optional(),
   location_address: z.string().max(500).optional(),
-  refund_window_hours: z.number().int().min(24).max(8760),
+  refund_window_hours: z.number().int().min(24).max(8760).optional(),
+  strict_no_refund: z.boolean().optional(),
+}).superRefine((data, ctx) => {
+  if (!data.strict_no_refund && data.refund_window_hours == null) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Refund window is required unless strict no-refund policy is enabled.',
+      path: ['refund_window_hours'],
+    })
+  }
+  if (
+    data.instagram_handle &&
+    data.instagram_handle.trim() &&
+    !normalizeInstagramHandle(data.instagram_handle)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Enter a valid Instagram handle (letters, numbers, periods, underscores).',
+      path: ['instagram_handle'],
+    })
+  }
 })
 
 export async function PUT(request: NextRequest) {
@@ -65,16 +87,27 @@ export async function PUT(request: NextRequest) {
 
     const { data } = parsed
 
+    const strictNoRefund = data.strict_no_refund === true
+    const refundWindowHours = strictNoRefund ? 48 : (data.refund_window_hours ?? 48)
+    const instagramHandle =
+      data.instagram_handle !== undefined ? normalizeInstagramHandle(data.instagram_handle) : undefined
+
+    const updatePayload: Record<string, unknown> = {
+      business_name: data.business_name,
+      bio: data.bio || null,
+      website_url: data.website_url || null,
+      phone: data.phone || null,
+      location_address: data.location_address || null,
+      refund_window_hours: refundWindowHours,
+      strict_no_refund: strictNoRefund,
+    }
+    if (instagramHandle !== undefined) {
+      updatePayload.instagram_handle = instagramHandle
+    }
+
     const { error } = await admin
       .from('vendor_profiles')
-      .update({
-        business_name: data.business_name,
-        bio: data.bio || null,
-        website_url: data.website_url || null,
-        phone: data.phone || null,
-        location_address: data.location_address || null,
-        refund_window_hours: data.refund_window_hours,
-      })
+      .update(updatePayload)
       .eq('user_id', user.id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

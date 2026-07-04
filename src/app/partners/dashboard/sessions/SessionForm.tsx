@@ -12,6 +12,7 @@ import {
 } from '@/lib/recurring-event-instances'
 import { PARTNER_WEEKDAY_TOGGLE_ORDER } from '@/constants/partner-workshop-schedule'
 import { formatWorkshopDateTimeLocalValue } from '@/lib/workshop-timezone'
+import { WORKSHOP_DESCRIPTION_SECTIONS } from '@/lib/workshop-description-sections'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -35,6 +36,12 @@ interface SessionFormProps {
     lng?: number | null
     status: string
     description?: string | null
+    workshop_experience?: string | null
+    workshop_experience_hidden?: boolean | null
+    workshop_materials_takeaway?: string | null
+    workshop_materials_takeaway_hidden?: boolean | null
+    workshop_skill_level?: string | null
+    workshop_skill_level_hidden?: boolean | null
     image_url?: string | null
     workshop_series?: string | null
     series_occurrences?: unknown
@@ -91,6 +98,12 @@ export function SessionForm({
     location_address: (session?.location ?? '').trim() || vendorDefaultAddress.trim(),
     location_link: '',
     description: session?.description ?? '',
+    workshop_experience: session?.workshop_experience ?? '',
+    workshop_experience_hidden: session?.workshop_experience_hidden ?? false,
+    workshop_materials_takeaway: session?.workshop_materials_takeaway ?? '',
+    workshop_materials_takeaway_hidden: session?.workshop_materials_takeaway_hidden ?? false,
+    workshop_skill_level: session?.workshop_skill_level ?? '',
+    workshop_skill_level_hidden: session?.workshop_skill_level_hidden ?? false,
     status: (session?.status ?? 'published') as 'published' | 'draft',
   })
 
@@ -244,7 +257,7 @@ export function SessionForm({
     setLocationLng(null)
   }, [])
 
-  function set(key: keyof typeof form, value: string) {
+  function set(key: keyof typeof form, value: string | boolean) {
     setForm((f) => ({ ...f, [key]: value }))
   }
 
@@ -326,6 +339,12 @@ export function SessionForm({
         location_lng: form.location_type === 'in_person' ? locationLng : null,
         location_link: form.location_type === 'virtual' ? form.location_link : undefined,
         description: form.description || undefined,
+        workshop_experience: form.workshop_experience || undefined,
+        workshop_experience_hidden: form.workshop_experience_hidden,
+        workshop_materials_takeaway: form.workshop_materials_takeaway || undefined,
+        workshop_materials_takeaway_hidden: form.workshop_materials_takeaway_hidden,
+        workshop_skill_level: form.workshop_skill_level || undefined,
+        workshop_skill_level_hidden: form.workshop_skill_level_hidden,
         status: form.status,
         external_booked_count: extElsewhere,
       }
@@ -399,17 +418,47 @@ export function SessionForm({
           />
         </div>
 
-        {/* Description */}
+        {/* General description */}
         <div>
-          <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Description</label>
+          <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">General information</label>
           <textarea
             value={form.description}
             onChange={(e) => set('description', e.target.value)}
             rows={3}
-            placeholder="What will participants learn or experience?"
+            placeholder="Introduce your workshop — what it's about and who it's for."
             className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D] focus:border-transparent resize-none"
           />
         </div>
+
+        {WORKSHOP_DESCRIPTION_SECTIONS.map((section) => {
+          const contentKey = section.contentField as keyof typeof form
+          const hiddenKey = section.hiddenField as keyof typeof form
+          const hidden = Boolean(form[hiddenKey])
+          return (
+            <div key={section.key} className="rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+                <label className="text-sm font-medium text-[#1a1a1a]">{section.title}</label>
+                <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[#666]">
+                  <input
+                    type="checkbox"
+                    checked={hidden}
+                    onChange={(e) => set(hiddenKey, e.target.checked)}
+                    className="rounded border-[#D9D7CF] text-[#5D755D] focus:ring-[#5D755D]"
+                  />
+                  Hide section / not applicable
+                </label>
+              </div>
+              <textarea
+                value={String(form[contentKey] ?? '')}
+                onChange={(e) => set(contentKey, e.target.value)}
+                rows={3}
+                disabled={hidden}
+                placeholder={section.placeholder}
+                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white placeholder:text-[#999] focus:outline-none focus:ring-2 focus:ring-[#5D755D] focus:border-transparent resize-none disabled:cursor-not-allowed disabled:bg-[#F3F2EF] disabled:text-[#888]"
+              />
+            </div>
+          )
+        })}
 
         <div>
           <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Workshop image</label>

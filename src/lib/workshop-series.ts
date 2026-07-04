@@ -6,6 +6,8 @@ export type SeriesOccurrence = {
   start: string
   max_attendees: number
   available_slots: number
+  /** When true, this session is hidden from browse and not bookable (per-occurrence series). */
+  registration_closed?: boolean
 }
 
 export type EventSeriesFields = {
@@ -67,7 +69,13 @@ export function parseSeriesOccurrences(row: EventSeriesFields): SeriesOccurrence
     const max = Number(o.max_attendees)
     const avail = Number(o.available_slots)
     if (start && Number.isFinite(max) && Number.isFinite(avail)) {
-      out.push({ start, max_attendees: max, available_slots: avail })
+      const registration_closed = o.registration_closed === true
+      out.push({
+        start,
+        max_attendees: max,
+        available_slots: avail,
+        ...(registration_closed ? { registration_closed: true } : {}),
+      })
     }
   }
   out.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())

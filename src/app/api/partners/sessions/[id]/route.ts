@@ -25,9 +25,17 @@ import { invalidateCachedTaxQuotesForEvent } from '@/lib/workshop-tax-quote-cach
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 const ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending', 'booked', 'pending_confirmation'] as const
 
+const optionalWorkshopSectionText = z.string().max(2000).optional()
+
 const updateSchema = z.object({
   title: z.string().min(2).max(120).optional(),
   description: z.string().max(2000).optional(),
+  workshop_experience: optionalWorkshopSectionText,
+  workshop_experience_hidden: z.boolean().optional(),
+  workshop_materials_takeaway: optionalWorkshopSectionText,
+  workshop_materials_takeaway_hidden: z.boolean().optional(),
+  workshop_skill_level: optionalWorkshopSectionText,
+  workshop_skill_level_hidden: z.boolean().optional(),
   category: z.enum(CATEGORY_ENUM).optional(),
   price_cad: z.number().min(0).max(10000).optional(),
   max_attendees: z.number().int().min(1).max(500).optional(),
@@ -47,6 +55,7 @@ const updateSchema = z.object({
   multi_week_daily_js_weekdays: z.array(z.number().int().min(0).max(6)).max(7).optional(),
   multi_week_daily_weeks: z.number().int().min(2).max(12).optional(),
   external_booked_count: z.number().int().min(0).max(500).optional(),
+  registration_closed: z.boolean().optional(),
 })
 
 type PartnerMeta = {
@@ -168,8 +177,29 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const updatePayload: Record<string, unknown> = {}
     if (body.title !== undefined) updatePayload.title = body.title
     if (body.description !== undefined) updatePayload.description = body.description
+    if (body.workshop_experience !== undefined) {
+      updatePayload.workshop_experience = body.workshop_experience.trim() || null
+    }
+    if (body.workshop_experience_hidden !== undefined) {
+      updatePayload.workshop_experience_hidden = body.workshop_experience_hidden
+    }
+    if (body.workshop_materials_takeaway !== undefined) {
+      updatePayload.workshop_materials_takeaway = body.workshop_materials_takeaway.trim() || null
+    }
+    if (body.workshop_materials_takeaway_hidden !== undefined) {
+      updatePayload.workshop_materials_takeaway_hidden = body.workshop_materials_takeaway_hidden
+    }
+    if (body.workshop_skill_level !== undefined) {
+      updatePayload.workshop_skill_level = body.workshop_skill_level.trim() || null
+    }
+    if (body.workshop_skill_level_hidden !== undefined) {
+      updatePayload.workshop_skill_level_hidden = body.workshop_skill_level_hidden
+    }
     if (body.category !== undefined) updatePayload.category = body.category
     if (body.status !== undefined) updatePayload.booking_status = body.status
+    if (body.registration_closed !== undefined) {
+      updatePayload.registration_closed = body.registration_closed
+    }
     if (body.price_cad !== undefined) {
       updatePayload.price_cad = body.price_cad
       updatePayload.price = body.price_cad > 0 ? `$${body.price_cad} CAD` : 'Free'

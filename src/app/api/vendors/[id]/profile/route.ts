@@ -3,6 +3,21 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const ACTIVE_STATUSES = ['trialing', 'active', 'past_due'] as const
 
+async function contactEmailForUserId(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  userId: string | null | undefined
+): Promise<string | null> {
+  if (!userId) return null
+  try {
+    const { data, error } = await admin.auth.admin.getUserById(userId)
+    if (error || !data.user?.email) return null
+    const email = data.user.email.trim()
+    return email || null
+  } catch {
+    return null
+  }
+}
+
 /**
  * GET /api/vendors/[id]/profile
  * Public partner bio for mobile vendor pages (legacy vendors.id).
@@ -33,29 +48,33 @@ export async function GET(
   const tryProfile = async (profileId: string) => {
     const { data } = await admin
       .from('vendor_profiles')
-      .select('id, business_name, bio, website_url')
+      .select('id, business_name, bio, website_url, instagram_handle, user_id')
       .eq('id', profileId)
       .in('status', [...ACTIVE_STATUSES])
       .maybeSingle()
     return data
   }
 
-  const profilePayload = (vp: {
+  const profilePayload = async (vp: {
     id: string
     business_name: string | null
     bio: string | null
     website_url?: string | null
+    instagram_handle?: string | null
+    user_id?: string | null
   }) => ({
     vendorProfileId: vp.id,
     businessName: vp.business_name,
     bio: vp.bio?.trim() || null,
     websiteUrl: vp.website_url?.trim() || null,
+    instagramHandle: vp.instagram_handle?.trim() || null,
+    contactEmail: await contactEmailForUserId(admin, vp.user_id),
   })
 
   if (vendorProfileId) {
     const vp = await tryProfile(vendorProfileId)
     if (vp) {
-      return NextResponse.json(profilePayload(vp))
+      return NextResponse.json(await profilePayload(vp))
     }
   }
 
@@ -71,7 +90,7 @@ export async function GET(
     if (!pid) continue
     const vp = await tryProfile(pid)
     if (vp) {
-      return NextResponse.json(profilePayload(vp))
+      return NextResponse.json(await profilePayload(vp))
     }
   }
 
@@ -84,13 +103,13 @@ export async function GET(
   for (const name of names) {
     const { data: vp } = await admin
       .from('vendor_profiles')
-      .select('id, business_name, bio, website_url')
+      .select('id, business_name, bio, website_url, instagram_handle, user_id')
       .ilike('business_name', name)
       .in('status', [...ACTIVE_STATUSES])
       .limit(1)
       .maybeSingle()
     if (vp) {
-      return NextResponse.json(profilePayload(vp))
+      return NextResponse.json(await profilePayload(vp))
     }
   }
 
@@ -98,12 +117,12 @@ export async function GET(
   if (slug) {
     const { data: vp } = await admin
       .from('vendor_profiles')
-      .select('id, business_name, bio, website_url')
+      .select('id, business_name, bio, website_url, instagram_handle, user_id')
       .eq('slug', slug)
       .in('status', [...ACTIVE_STATUSES])
       .maybeSingle()
     if (vp) {
-      return NextResponse.json(profilePayload(vp))
+      return NextResponse.json(await profilePayload(vp))
     }
   }
 
@@ -112,5 +131,7 @@ export async function GET(
     businessName: legacyVendor.name,
     bio: null,
     websiteUrl: null,
+    instagramHandle: null,
+    contactEmail: null,
   })
 }

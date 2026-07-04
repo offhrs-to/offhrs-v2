@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { X } from 'lucide-react'
+import { Lock, LockOpen, X } from 'lucide-react'
 import { formatWorkshopDateTimeLocalValue } from '@/lib/workshop-timezone'
 import { spotsFilledLabel } from '@/lib/workshop-spots-label'
 import type { SeriesOccurrence } from '@/lib/workshop-series'
@@ -37,6 +37,7 @@ export function OccurrenceEditModal({ target, onClose, onSaved }: OccurrenceEdit
   const [maxAttendees, setMaxAttendees] = useState('')
   const [loading, setLoading] = useState(false)
   const [cancelLoading, setCancelLoading] = useState(false)
+  const [registrationLoading, setRegistrationLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const occ = target?.occurrence
@@ -97,6 +98,43 @@ export function OccurrenceEditModal({ target, onClose, onSaved }: OccurrenceEdit
       onClose()
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleToggleRegistration() {
+    if (!target || !occ) return
+    const closing = !occ.registration_closed
+    if (closing) {
+      if (
+        !confirm(
+          'Close registration for this session? It will be hidden from the app. Existing bookings are kept.'
+        )
+      ) {
+        return
+      }
+    } else if (!confirm('Reopen registration for this session?')) {
+      return
+    }
+    setError(null)
+    setRegistrationLoading(true)
+    try {
+      const res = await fetch(`/api/partners/sessions/${target.sessionId}/occurrences`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          occurrence_start: target.occurrence.start,
+          registration_closed: closing,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError((data as { error?: string }).error ?? 'Could not update registration.')
+        return
+      }
+      onSaved()
+      onClose()
+    } finally {
+      setRegistrationLoading(false)
     }
   }
 
@@ -190,13 +228,46 @@ export function OccurrenceEditModal({ target, onClose, onSaved }: OccurrenceEdit
           </div>
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+          <div className="rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] p-3">
+            <p className="text-xs font-medium text-[#555] mb-2">Registration</p>
+            <p className="text-xs text-[#888] mb-3 leading-relaxed">
+              {occ?.registration_closed
+                ? 'This session is hidden from the app. Existing bookings are kept.'
+                : 'Close registration to hide this session from the app without refunding bookings.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleToggleRegistration()}
+              disabled={loading || cancelLoading || registrationLoading}
+              className={`inline-flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border transition-colors ${
+                occ?.registration_closed
+                  ? 'border-amber-200 text-amber-800 bg-amber-50 hover:bg-amber-100'
+                  : 'border-[#E8E4DE] text-[#1a1a1a] bg-white hover:bg-[#F0EDE8]'
+              } disabled:opacity-60`}
+            >
+              {registrationLoading ? (
+                'Updating…'
+              ) : occ?.registration_closed ? (
+                <>
+                  <LockOpen className="w-4 h-4" />
+                  Reopen registration
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4" />
+                  Close registration
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         <div className="px-5 py-4 border-t border-[#F0EDE8] flex flex-col gap-2">
           <button
             type="button"
             onClick={() => void handleSave()}
-            disabled={loading || cancelLoading}
+            disabled={loading || cancelLoading || registrationLoading}
             className="w-full py-2.5 rounded-xl bg-[#5D755D] text-white text-sm font-semibold hover:bg-[#4d644d] disabled:opacity-60"
           >
             {loading ? 'Saving…' : 'Save session'}
@@ -204,7 +275,7 @@ export function OccurrenceEditModal({ target, onClose, onSaved }: OccurrenceEdit
           <button
             type="button"
             onClick={() => void handleCancelSession()}
-            disabled={loading || cancelLoading || filled > 0}
+            disabled={loading || cancelLoading || registrationLoading || filled > 0}
             title={filled > 0 ? 'Refund active bookings before canceling this session' : 'Remove this session from the series'}
             className="w-full py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >

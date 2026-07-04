@@ -31,3 +31,7 @@ export function isBookingCancellableNow(params: {
 export function refundWindowBlockedMessage(minWindowHours: number): string {
   return `Refunds are only available at least ${minWindowHours} hours before the session starts. Contact the host if you need help.`;
 }
+
+export function strictRefundBlockedMessage(): string {
+  return 'This booking is non-refundable per the host’s strict cancellation policy. Contact the host if you need help.';
+}

@@ -9,7 +9,12 @@ import {
   isBookingCancellableNow,
   refundWindowBlockedMessage,
 } from '@/lib/booking-refund-eligibility';
+import {
+  formatFlexibleCancelDeadlineNote,
+  STRICT_REFUND_MY_BOOKINGS_NOTE,
+} from '@/lib/vendor-refund-policy';
 import { workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
+import { registrationClosedConsumerNote } from '@/lib/workshop-registration-closed';
 import { supabase } from '@/lib/supabase';
 
 const TORONTO_TZ = 'America/Toronto';
@@ -30,6 +35,14 @@ export type UserBookingListItem = {
   canRequestRefund: boolean;
   refundWindowHours: number | null;
   cancelBlockedMessage: string | null;
+  /** Shown when the vendor closed registration but the booking remains valid. */
+  registrationClosedNote: string | null;
+  /** Strict or flexible cancellation reminder for upcoming bookings. */
+  cancellationPolicyNote: string | null;
+  /** SaaS partner booking — show Contact host action. */
+  showContactHost: boolean;
+  contactHostLegacyVendorId: string | null;
+  contactHostVendorProfileId: string | null;
 };
 
 type BookingRow = {
@@ -39,6 +52,9 @@ type BookingRow = {
   created_at: string;
   session_starts_at: string | null;
   refunded_at: string | null;
+  amount_cad: number | null;
+  total_cad: number | null;
+  stripe_payment_intent_id: string | null;
 };
 
 function formatDateLine(iso: string): string {
@@ -119,7 +135,9 @@ export async function fetchUserBookings(
   const email = userEmail?.trim();
   let bookingsQuery = supabase
     .from('bookings')
-    .select('id, event_id, status, created_at, session_starts_at, refunded_at')
+    .select(
+      'id, event_id, status, created_at, session_starts_at, refunded_at, amount_cad, total_cad, stripe_payment_intent_id'
+    )
     .order('created_at', { ascending: false });
 
   if (email) {
@@ -159,13 +177,17 @@ export async function fetchUserBookings(
     ),
   ];
   const refundHoursByVendorId: Record<string, number> = {};
+  const strictNoRefundByVendorId: Record<string, boolean> = {};
   if (vendorProfileIds.length > 0) {
     const { data: vendors } = await supabase
       .from('vendor_profiles')
-      .select('id, refund_window_hours')
+      .select('id, refund_window_hours, strict_no_refund')
       .in('id', vendorProfileIds);
     for (const v of vendors ?? []) {
-      if (v.id) refundHoursByVendorId[v.id] = Number(v.refund_window_hours ?? 48);
+      if (v.id) {
+        refundHoursByVendorId[v.id] = Number(v.refund_window_hours ?? 48);
+        strictNoRefundByVendorId[v.id] = v.strict_no_refund === true;
+      }
     }
   }
 
@@ -180,26 +202,48 @@ export async function fetchUserBookings(
     const { kind, label } = resolveBookingStatus(booking, event, startIso);
 
     const isSaas = workshopIsSaasVendorEvent(event);
-    const refundWindowHours = event.vendor_profile_id
-      ? (refundHoursByVendorId[event.vendor_profile_id] ?? 48)
+    const vendorProfileId = event.vendor_profile_id?.trim() ?? null;
+    const strictNoRefund = vendorProfileId ? strictNoRefundByVendorId[vendorProfileId] === true : false;
+    const chargeCad =
+      booking.total_cad != null && Number(booking.total_cad) > 0
+        ? Number(booking.total_cad)
+        : Number(booking.amount_cad ?? 0);
+    const isPaidBooking = chargeCad > 0 || Boolean(booking.stripe_payment_intent_id?.trim());
+    const refundWindowHours = vendorProfileId
+      ? (refundHoursByVendorId[vendorProfileId] ?? 48)
       : null;
     const window =
-      refundWindowHours != null
+      refundWindowHours != null && !strictNoRefund
         ? isBookingCancellableNow({
             sessionStartsAt: booking.session_starts_at,
             eventDateIso: event.date_iso,
             refundWindowHours,
           })
         : null;
-    const canRequestRefund =
+
+    let canRequestRefund = false;
+    let cancelBlockedMessage: string | null = null;
+    let cancellationPolicyNote: string | null = null;
+
+    if (
       isSaas &&
       kind === 'confirmed' &&
-      (booking.status === 'confirmed' || booking.status === 'booked') &&
-      (window?.cancellable ?? false);
-    const cancelBlockedMessage =
-      isSaas && kind === 'confirmed' && window && !window.cancellable
-        ? refundWindowBlockedMessage(window.minWindowHours)
-        : null;
+      (booking.status === 'confirmed' || booking.status === 'booked')
+    ) {
+      if (strictNoRefund && isPaidBooking) {
+        cancellationPolicyNote = STRICT_REFUND_MY_BOOKINGS_NOTE;
+      } else if (window?.cancellable) {
+        canRequestRefund = true;
+        cancellationPolicyNote = formatFlexibleCancelDeadlineNote(startIso, window.minWindowHours);
+      } else if (window && !window.cancellable) {
+        cancelBlockedMessage = refundWindowBlockedMessage(window.minWindowHours);
+      }
+    }
+
+    const showContactHost =
+      isSaas &&
+      (kind === 'confirmed' || kind === 'pending') &&
+      Boolean(event.vendor_id?.trim() || vendorProfileId);
 
     items.push({
       bookingId: booking.id,
@@ -214,6 +258,14 @@ export async function fetchUserBookings(
       canRequestRefund,
       refundWindowHours,
       cancelBlockedMessage,
+      registrationClosedNote:
+        kind === 'confirmed' || kind === 'pending'
+          ? registrationClosedConsumerNote(event, booking.session_starts_at ?? startIso)
+          : null,
+      cancellationPolicyNote,
+      showContactHost,
+      contactHostLegacyVendorId: event.vendor_id?.trim() ?? null,
+      contactHostVendorProfileId: vendorProfileId,
     });
   }
 

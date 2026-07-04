@@ -3,7 +3,7 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { getEffectiveRefundWindowHours } from '@/lib/booking-refund'
+import { resolveVendorRefundPolicy } from '@/lib/vendor-refund-policy'
 import {
   buildWorkshopPriceBreakdownNoTax,
   calculateWorkshopTicketTax,
@@ -16,6 +16,7 @@ import {
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
+import { workshopBookingBlockReason } from '@/lib/workshop-registration-closed'
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     const { data: event } = await admin
       .from('events')
-      .select('id, vendor_profile_id, price_cad, booking_status, location')
+      .select('id, vendor_profile_id, price_cad, booking_status, registration_closed, available_slots, location, workshop_series, series_occurrences, partner_series_meta')
       .eq('id', String(parsed.data.event_id))
       .single()
 
@@ -69,18 +70,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
+    const bookingBlock = workshopBookingBlockReason(event)
+    if (bookingBlock) {
+      return NextResponse.json({ error: bookingBlock }, { status: 409 })
+    }
+
     const { data: vendor } = await admin
       .from('vendor_profiles')
       .select(
-        'stripe_account_id, location_address, refund_window_hours, gst_hst_registered, gst_hst_registration_number'
+        'stripe_account_id, location_address, refund_window_hours, strict_no_refund, gst_hst_registered, gst_hst_registration_number'
       )
       .eq('id', event.vendor_profile_id)
       .single()
 
-    const refundWindowHours = getEffectiveRefundWindowHours(
-      (vendor?.refund_window_hours as number | null) ?? 48
-    )
-    const refundPolicyLine = `Free cancellation with full refund up to ${refundWindowHours} hours before the session starts.`
+    const refundPolicy = resolveVendorRefundPolicy(vendor ?? {})
+    const { refundWindowHours, policyLine: refundPolicyLine, strictNoRefund } = refundPolicy
 
     const priceCad = Number(event.price_cad ?? 0)
 
@@ -92,6 +96,7 @@ export async function POST(request: NextRequest) {
         totalCad: 0,
         refundWindowHours,
         refundPolicyLine,
+        strictNoRefund,
       })
     }
 
@@ -138,6 +143,7 @@ export async function POST(request: NextRequest) {
         collectsGstHst: false,
         refundWindowHours,
         refundPolicyLine,
+        strictNoRefund,
       })
     }
 
@@ -159,6 +165,7 @@ export async function POST(request: NextRequest) {
         totalCad: cached.totalCad,
         refundWindowHours: cached.refundWindowHours,
         refundPolicyLine: cached.refundPolicyLine,
+        strictNoRefund: cached.strictNoRefund,
       })
     }
 
@@ -177,6 +184,7 @@ export async function POST(request: NextRequest) {
       totalCad: tax.totalCad,
       refundWindowHours,
       refundPolicyLine,
+      strictNoRefund,
     })
 
     return NextResponse.json({
@@ -186,6 +194,7 @@ export async function POST(request: NextRequest) {
       collectsGstHst: true,
       refundWindowHours,
       refundPolicyLine,
+      strictNoRefund,
     })
   } catch (err) {
     console.error('Book quote error:', err)

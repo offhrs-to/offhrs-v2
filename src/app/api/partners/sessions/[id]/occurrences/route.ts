@@ -13,6 +13,7 @@ const patchSchema = z.object({
   occurrence_start: z.string().min(1),
   start: z.string().optional(),
   max_attendees: z.number().int().min(1).max(500).optional(),
+  registration_closed: z.boolean().optional(),
 })
 
 const deleteSchema = z.object({
@@ -93,8 +94,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       )
     }
 
-    if (!parsed.data.start && parsed.data.max_attendees === undefined) {
-      return NextResponse.json({ error: 'Provide a new date/time and/or max spots.' }, { status: 400 })
+    if (
+      !parsed.data.start &&
+      parsed.data.max_attendees === undefined &&
+      parsed.data.registration_closed === undefined
+    ) {
+      return NextResponse.json(
+        { error: 'Provide a new date/time, max spots, and/or registration status.' },
+        { status: 400 }
+      )
     }
 
     const { data: bookingRows } = await admin

@@ -10,6 +10,7 @@ import {
   Pressable,
   ScrollView,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,17 +21,23 @@ import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
 import { DesignColors } from '@/constants/design-template';
 import { haversineKm } from '@/lib/distance';
 import { extractCanadianPostalFromAddress, parseCanadianPostalCode } from '@/lib/canadianPostalCode';
-import { fetchRefundPolicyForEvent } from '@/lib/booking-cancel';
+import { fetchRefundPolicyForEvent, type ConsumerRefundPolicyDisplay } from '@/lib/booking-cancel';
 import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mobile';
+import { useStrictBookingAck } from '@/lib/use-strict-booking-ack';
 import { provinceFromCanadianPostalCode } from '@/lib/workshop-booking-tax';
 import { shareWorkshopEvent } from '@/lib/share-workshop';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import {
   workshopDisplayPrice,
+  workshopBookButtonLabel,
   workshopEventIsFull,
   workshopIsSaasVendorEvent,
 } from '@/lib/workshop-event-utils';
 import { vendorPagePath, workshopVendorDisplayName } from '@/lib/workshop-vendor-display';
+
+/** Share of screen below the top inset used for every quick-view sheet. */
+const SHEET_HEIGHT_RATIO = 0.88;
+const QUICK_VIEW_IMAGE_ASPECT = 4 / 3;
 
 export type WorkshopQuickViewModalProps = {
   visible: boolean;
@@ -63,8 +70,10 @@ export default function WorkshopQuickViewModal({
 }: WorkshopQuickViewModalProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [bookingBusy, setBookingBusy] = useState(false);
-  const [refundWindowHours, setRefundWindowHours] = useState(48);
+  const [refundPolicy, setRefundPolicy] = useState<ConsumerRefundPolicyDisplay | null>(null);
+  const { requestStrictAckIfNeeded, ackModalElement } = useStrictBookingAck();
 
   // Tax is intentionally NOT calculated on modal open. Stripe Tax bills
   // per `tax.calculations.create` (~$0.05) and most modal opens never
@@ -74,13 +83,31 @@ export default function WorkshopQuickViewModal({
   // The refund-policy line is served by a separate, free DB endpoint.
   useEffect(() => {
     if (!visible || !event || !workshopIsSaasVendorEvent(event)) {
-      setRefundWindowHours(48);
+      setRefundPolicy(null);
       return;
     }
     let cancelled = false;
     void fetchRefundPolicyForEvent(event.id).then((policy) => {
-      if (!cancelled && policy?.refundWindowHours != null) {
-        setRefundWindowHours(policy.refundWindowHours);
+      if (cancelled) return;
+      if (policy?.policyLine) {
+        setRefundPolicy(policy);
+      } else {
+        setRefundPolicy({
+          strictNoRefund: false,
+          refundWindowHours: 48,
+          badge: null,
+          policyLine:
+            'Free cancellation with full refund up to 48 hours before the session starts.',
+          policyHeadline: null,
+          summary: null,
+          detailBullets: [],
+          exceptionLine: null,
+          beforeBookLine: null,
+          platformFooter: null,
+          ackLabel: null,
+          myBookingsNote: null,
+          emailSummaryLine: null,
+        });
       }
     });
     return () => {
@@ -131,6 +158,9 @@ export default function WorkshopQuickViewModal({
       }
       setBookingBusy(true);
       try {
+        const acked = await requestStrictAckIfNeeded(event.id);
+        if (!acked) return;
+
         const result = await runPaidWorkshopBooking({
           eventId: event.id,
           attendeeName: name,
@@ -172,7 +202,7 @@ export default function WorkshopQuickViewModal({
       Alert.alert('No booking link', 'This listing does not have an external booking URL yet.');
     }
     onClose();
-  }, [attendeeName, event, onBookingComplete, onClose, profilePostalCode, router, userEmail, userId]);
+  }, [attendeeName, event, onBookingComplete, onClose, profilePostalCode, requestStrictAckIfNeeded, router, userEmail, userId]);
 
   const openVendorPage = useCallback(() => {
     if (!event) return;
@@ -203,8 +233,11 @@ export default function WorkshopQuickViewModal({
   // only; iOS layout must stay exactly as-is.
   const sheetTopPadding = Platform.OS === 'android' ? insets.top + 12 : 0;
   const sheetTopRadius = 20;
+  const sheetHeight = Math.round((windowHeight - sheetTopPadding) * SHEET_HEIGHT_RATIO);
+  const imageHeight = Math.round(windowWidth / QUICK_VIEW_IMAGE_ASPECT);
 
   return (
+    <>
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: 'flex-end', paddingTop: sheetTopPadding }}>
         <Pressable
@@ -220,7 +253,7 @@ export default function WorkshopQuickViewModal({
         />
         <View
           style={{
-            maxHeight: '92%',
+            height: sheetHeight,
             backgroundColor: '#FFF',
             borderTopLeftRadius: sheetTopRadius,
             borderTopRightRadius: sheetTopRadius,
@@ -229,17 +262,19 @@ export default function WorkshopQuickViewModal({
           }}
         >
           <ScrollView
+            style={{ flex: 1 }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator
             bounces={false}
             alwaysBounceVertical={false}
             overScrollMode="never"
-            contentContainerStyle={{ paddingBottom: 8 }}
+            contentContainerStyle={{ paddingBottom: 8, flexGrow: 1 }}
           >
             <View
               style={{
                 width: '100%',
-                aspectRatio: 4 / 3,
+                height: imageHeight,
+                flexShrink: 0,
                 backgroundColor: DesignColors.inputBg,
                 position: 'relative',
                 borderTopLeftRadius: sheetTopRadius,
@@ -429,16 +464,38 @@ export default function WorkshopQuickViewModal({
                 </View>
               ) : null}
 
-              <WorkshopDescriptionCollapsible description={event.description} />
+              <WorkshopDescriptionCollapsible
+                description={event.description}
+                workshop_experience={event.workshop_experience}
+                workshop_experience_hidden={event.workshop_experience_hidden}
+                workshop_materials_takeaway={event.workshop_materials_takeaway}
+                workshop_materials_takeaway_hidden={event.workshop_materials_takeaway_hidden}
+                workshop_skill_level={event.workshop_skill_level}
+                workshop_skill_level_hidden={event.workshop_skill_level_hidden}
+              />
 
-              {saas ? (
-                <Text style={{ marginTop: 12, fontSize: 12, color: DesignColors.mediumGray, lineHeight: 17 }}>
-                  Free cancellation with full refund up to{' '}
-                  <Text style={{ fontWeight: '600', color: DesignColors.charcoal }}>
-                    {refundWindowHours} hours
-                  </Text>{' '}
-                  before the workshop starts.
-                </Text>
+              {saas && refundPolicy?.policyLine ? (
+                <View style={{ marginTop: 12 }}>
+                  {refundPolicy.badge ? (
+                    <View
+                      style={{
+                        alignSelf: 'flex-start',
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 8,
+                        backgroundColor: '#FEE2E2',
+                        marginBottom: 6,
+                      }}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#B91C1C' }}>
+                        {refundPolicy.badge}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <Text style={{ fontSize: 12, color: DesignColors.mediumGray, lineHeight: 17 }}>
+                    {refundPolicy.policyLine}
+                  </Text>
+                </View>
               ) : null}
               <Text style={{ marginTop: 14, fontSize: 11, color: DesignColors.mediumGray, lineHeight: 16 }}>
                 {saas
@@ -450,6 +507,7 @@ export default function WorkshopQuickViewModal({
 
           <View
             style={{
+              flexShrink: 0,
               flexDirection: 'row',
               gap: 10,
               paddingHorizontal: 16,
@@ -492,8 +550,13 @@ export default function WorkshopQuickViewModal({
               {bookingBusy ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFF' }}>
-                  {full ? 'Full' : saas ? 'Book' : 'Book on site'}
+                <Text
+                  style={{ fontSize: 14, fontWeight: '600', color: '#FFF' }}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.85}
+                >
+                  {workshopBookButtonLabel(event)}
                 </Text>
               )}
             </Pressable>
@@ -501,5 +564,7 @@ export default function WorkshopQuickViewModal({
         </View>
       </View>
     </Modal>
+    {ackModalElement}
+    </>
   );
 }

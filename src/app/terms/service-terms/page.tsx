@@ -146,6 +146,32 @@ export default function ServiceTermsPage() {
           small negative impact on the Vendor&rsquo;s balance equal to the original Stripe processing fee.
           Vendors are encouraged to factor this risk into their configured refund window.
         </p>
+
+        <h3 className="mt-4">3.4 Chargebacks and payment disputes</h3>
+        <p>
+          If you are unhappy with a booking, use the in-app cancellation flow (when eligible under the
+          Vendor&rsquo;s refund window), contact the host directly, or email{' '}
+          <a href="mailto:hello@offhrs.app">hello@offhrs.app</a> before disputing the charge with your bank.
+        </p>
+        <ul>
+          <li>
+            <strong>Card disputes.</strong> If you initiate a chargeback or similar payment dispute with your
+            card issuer instead of following the steps above, Stripe may assess a dispute fee (currently
+            approximately <strong>CAD $15 per dispute</strong>, subject to change by Stripe). offhrs does not
+            control Stripe&rsquo;s dispute fees, evidence deadlines, or outcomes.
+          </li>
+          <li>
+            <strong>Host policies apply.</strong> Each Vendor sets their own cancellation terms (including
+            strict non-refundable policies). Disputing a charge when you received the workshop service, or
+            when the Vendor&rsquo;s stated policy was disclosed at booking, may not result in a refund and may
+            lead to account restrictions on the Platform.
+          </li>
+          <li>
+            <strong>How disputes are handled.</strong> Workshop payments are routed to the Vendor&rsquo;s Stripe
+            Connect account. Dispute fees and reversed amounts are handled under Stripe Connect rules and may
+            affect the Vendor&rsquo;s payout balance.
+          </li>
+        </ul>
       </section>
 
       <section>
@@ -241,7 +267,7 @@ export default function ServiceTermsPage() {
           If you are unhappy with a workshop experience, we want to know so we can keep the marketplace
           standard high. First, communicate directly with the studio owner to find an alignment or organize
           an alternative date. If you cannot reach a fair agreement, email our team at{' '}
-          <a href="mailto:admin@offhrs.app">admin@offhrs.app</a>. While we are not legally obligated to issue
+          <a href="mailto:hello@offhrs.app">hello@offhrs.app</a>. While we are not legally obligated to issue
           refunds for a Vendor&rsquo;s class, we review escalations on a case-by-case basis to help maintain
           a great experience for everyone.
         </p>

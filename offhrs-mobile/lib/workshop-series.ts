@@ -4,6 +4,7 @@ export type SeriesOccurrence = {
   start: string;
   max_attendees: number;
   available_slots: number;
+  registration_closed?: boolean;
 };
 
 export type EventSeriesFields = {
@@ -48,7 +49,13 @@ export function parseSeriesOccurrences(row: EventSeriesFields): SeriesOccurrence
     const max = Number(o.max_attendees);
     const avail = Number(o.available_slots);
     if (start && Number.isFinite(max) && Number.isFinite(avail)) {
-      out.push({ start, max_attendees: max, available_slots: avail });
+      const registration_closed = o.registration_closed === true;
+      out.push({
+        start,
+        max_attendees: max,
+        available_slots: avail,
+        ...(registration_closed ? { registration_closed: true } : {}),
+      });
     }
   }
   out.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
@@ -57,4 +64,26 @@ export function parseSeriesOccurrences(row: EventSeriesFields): SeriesOccurrence
 
 export function isMultiWeekEvent(row: EventSeriesFields): boolean {
   return row.workshop_series === 'multi_week' && parseSeriesOccurrences(row).length > 0;
+}
+
+const MATCH_START_MS = 5 * 60 * 1000;
+
+export function findOccurrenceIndexByStart(series: SeriesOccurrence[], candidate: string | undefined): number {
+  if (series.length === 0) return -1;
+  if (!candidate?.trim()) return 0;
+  const t = new Date(candidate).getTime();
+  if (Number.isNaN(t)) return -1;
+  let best = 0;
+  let bestDelta = Infinity;
+  for (let i = 0; i < series.length; i++) {
+    const dt = new Date(series[i].start).getTime();
+    if (Number.isNaN(dt)) continue;
+    const d = Math.abs(dt - t);
+    if (d < bestDelta) {
+      bestDelta = d;
+      best = i;
+    }
+  }
+  if (bestDelta <= MATCH_START_MS) return best;
+  return -1;
 }

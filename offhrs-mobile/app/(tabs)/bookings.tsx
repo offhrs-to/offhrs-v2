@@ -7,6 +7,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { BOOK_API_BASE } from '@/constants/api';
 import { cancelUserBooking } from '@/lib/booking-cancel';
+import { openBookingContactHost } from '@/lib/contact-host-booking';
 import { buildBookingApiHeaders } from '@/lib/booking-api-headers';
 import { fetchUserBookings, type UserBookingListItem } from '@/lib/user-bookings-query';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
@@ -39,15 +40,20 @@ function BookingListRow({
   item,
   onPress,
   onCancel,
+  onContactHost,
   cancelBusy,
+  contactBusy,
 }: {
   item: UserBookingListItem;
   onPress: () => void;
   onCancel?: () => void;
+  onContactHost?: () => void;
   cancelBusy?: boolean;
+  contactBusy?: boolean;
 }) {
   const colors = STATUS_COLORS[item.statusKind];
   const showCancel = item.canRequestRefund || item.cancelBlockedMessage;
+  const showActions = showCancel || item.showContactHost;
   return (
     <View
       style={{
@@ -90,9 +96,27 @@ function BookingListRow({
       <Text style={{ marginTop: 4, fontSize: 13, color: DesignColors.mediumGray }} numberOfLines={2}>
         {item.location}
       </Text>
+      {item.registrationClosedNote ? (
+        <Text style={{ marginTop: 6, fontSize: 12, fontWeight: '600', color: '#B45309', lineHeight: 17 }}>
+          {item.registrationClosedNote}
+        </Text>
+      ) : null}
+      {item.cancellationPolicyNote ? (
+        <Text
+          style={{
+            marginTop: 6,
+            fontSize: 12,
+            fontWeight: '600',
+            color: item.cancellationPolicyNote.startsWith('Non-refundable') ? '#B45309' : DesignColors.charcoal,
+            lineHeight: 17,
+          }}
+        >
+          {item.cancellationPolicyNote}
+        </Text>
+      ) : null}
     </Pressable>
-    {showCancel ? (
-      <View style={{ marginTop: 10 }}>
+    {showActions ? (
+      <View style={{ marginTop: 10, gap: 8 }}>
         {item.canRequestRefund && onCancel ? (
           <Pressable
             onPress={onCancel}
@@ -120,6 +144,29 @@ function BookingListRow({
             {item.cancelBlockedMessage}
           </Text>
         ) : null}
+        {item.showContactHost && onContactHost ? (
+          <Pressable
+            onPress={onContactHost}
+            disabled={contactBusy}
+            style={({ pressed }) => ({
+              alignSelf: 'flex-start',
+              paddingVertical: 8,
+              paddingHorizontal: 14,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: DesignColors.primary,
+              opacity: pressed || contactBusy ? 0.7 : 1,
+            })}
+          >
+            {contactBusy ? (
+              <ActivityIndicator size="small" color={DesignColors.primary} />
+            ) : (
+              <Text style={{ fontSize: 13, fontWeight: '600', color: DesignColors.primary }}>
+                Contact host
+              </Text>
+            )}
+          </Pressable>
+        ) : null}
       </View>
     ) : null}
     </View>
@@ -144,6 +191,7 @@ export default function BookingsScreen() {
   } | null>(null);
   const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
+  const [contactingBookingId, setContactingBookingId] = useState<string | null>(null);
 
   const loadBookings = useCallback(async () => {
     if (!user?.id) {
@@ -303,6 +351,38 @@ export default function BookingsScreen() {
     [user?.id, cancellingBookingId, loadBookings]
   );
 
+  const handleContactHost = useCallback(
+    (item: UserBookingListItem) => {
+      if (contactingBookingId) return;
+      const legacyVendorId = item.contactHostLegacyVendorId?.trim();
+      if (!legacyVendorId) {
+        Alert.alert('Contact unavailable', 'This host does not have a contact profile set up yet.');
+        return;
+      }
+      void (async () => {
+        setContactingBookingId(item.bookingId);
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData.session?.access_token;
+          const result = await openBookingContactHost({
+            legacyVendorId,
+            vendorProfileId: item.contactHostVendorProfileId,
+            workshopTitle: item.title,
+            dateLine: item.dateLine,
+            bookingRef: item.bookingId,
+            accessToken: token,
+          });
+          if (!result.ok) {
+            Alert.alert('Contact host', result.message);
+          }
+        } finally {
+          setContactingBookingId(null);
+        }
+      })();
+    },
+    [contactingBookingId]
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: DesignColors.creamBg }}>
       <View
@@ -402,7 +482,11 @@ export default function BookingsScreen() {
                           ? () => handleCancelBooking(item)
                           : undefined
                       }
+                      onContactHost={
+                        item.showContactHost ? () => handleContactHost(item) : undefined
+                      }
                       cancelBusy={cancellingBookingId === item.bookingId}
+                      contactBusy={contactingBookingId === item.bookingId}
                     />
                   ))}
                 </View>

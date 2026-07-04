@@ -18,9 +18,17 @@ import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 
+const optionalWorkshopSectionText = z.string().max(2000).optional()
+
 const sessionSchema = z.object({
   title: z.string().min(2).max(120),
   description: z.string().max(2000).optional(),
+  workshop_experience: optionalWorkshopSectionText,
+  workshop_experience_hidden: z.boolean().optional(),
+  workshop_materials_takeaway: optionalWorkshopSectionText,
+  workshop_materials_takeaway_hidden: z.boolean().optional(),
+  workshop_skill_level: optionalWorkshopSectionText,
+  workshop_skill_level_hidden: z.boolean().optional(),
   category: z.enum(CATEGORY_ENUM),
   price_cad: z.number().min(0).max(10000),
   max_attendees: z.number().int().min(1).max(500),
@@ -234,6 +242,12 @@ export async function POST(request: NextRequest) {
       lng,
       booking_status: body.status,
       description: body.description ?? null,
+      workshop_experience: body.workshop_experience?.trim() || null,
+      workshop_experience_hidden: body.workshop_experience_hidden ?? false,
+      workshop_materials_takeaway: body.workshop_materials_takeaway?.trim() || null,
+      workshop_materials_takeaway_hidden: body.workshop_materials_takeaway_hidden ?? false,
+      workshop_skill_level: body.workshop_skill_level?.trim() || null,
+      workshop_skill_level_hidden: body.workshop_skill_level_hidden ?? false,
       organizer: vendor.business_name?.trim() || null,
       image_url: resolvedImageUrl,
       external_booked_count: extRaw,

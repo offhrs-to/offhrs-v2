@@ -27,6 +27,7 @@ export type OccurrencePatchInput = {
   occurrence_start: string
   start?: string
   max_attendees?: number
+  registration_closed?: boolean
 }
 
 function parseIdArray(v: unknown): (string | null)[] {
@@ -154,6 +155,10 @@ export function patchRepeatingDaysOccurrence(
       }
     }
     series[idx] = { ...series[idx], max_attendees: max }
+  }
+
+  if (input.registration_closed !== undefined) {
+    series[idx] = { ...series[idx], registration_closed: input.registration_closed }
   }
 
   const bookingSessionMigrations: Array<{ from: string; to: string }> = []

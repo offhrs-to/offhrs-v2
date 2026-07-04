@@ -31,8 +31,9 @@ export type CachedTaxQuote = {
   subtotalCad: number
   taxCad: number
   totalCad: number
-  refundWindowHours: number
+  refundWindowHours: number | null
   refundPolicyLine: string
+  strictNoRefund: boolean
 }
 
 type CacheEntry = {

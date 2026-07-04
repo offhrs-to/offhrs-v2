@@ -31,7 +31,13 @@ function formatCad(n: number) {
   return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(n)
 }
 
-export function BookingsClient({ sessions }: { sessions: Session[] }) {
+export function BookingsClient({
+  sessions,
+  strictNoRefund = false,
+}: {
+  sessions: Session[]
+  strictNoRefund?: boolean
+}) {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('all')
@@ -102,6 +108,13 @@ export function BookingsClient({ sessions }: { sessions: Session[] }) {
         </button>
       </div>
 
+      {strictNoRefund ? (
+        <p className="mb-5 text-xs text-[#888] leading-relaxed rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] px-4 py-3">
+          Strict cancellation policy is on — paid bookings are non-refundable in the app. Manual refunds
+          are disabled here (workshop archive still refunds active bookings).
+        </p>
+      ) : null}
+
       {/* Filters */}
       <div className="flex gap-3 mb-5 flex-wrap">
         <select
@@ -166,7 +179,8 @@ export function BookingsClient({ sessions }: { sessions: Session[] }) {
             const effectiveStatus =
               b.refunded_at || (b.status ?? '').toLowerCase() === 'refunded' ? 'refunded' : (b.status ?? '')
             const badge = STATUS_BADGE[effectiveStatus] ?? { label: effectiveStatus || '—', className: 'bg-[#F0EDE8] text-[#888]' }
-            const canRefund = effectiveStatus === 'confirmed' && !b.refunded_at
+            const canRefund =
+              effectiveStatus === 'confirmed' && !b.refunded_at && !strictNoRefund
             const stripeFee = Number(b.stripe_fee_cad ?? 0)
             const amountPaid = b.amount_cad != null ? Number(b.amount_cad) : null
             const payoutAmount = b.net_vendor_cad != null

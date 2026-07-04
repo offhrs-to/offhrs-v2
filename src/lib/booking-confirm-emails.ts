@@ -5,6 +5,7 @@ import {
   sendVendorFullyBooked,
   type BookingEmailParams,
 } from '@/lib/emails'
+import { buildConsumerRefundPolicyDisplay } from '@/lib/vendor-refund-policy'
 import { formatWorkshopDateTimeShort } from '@/lib/workshop-timezone'
 
 const APP_URL =
@@ -23,6 +24,8 @@ type EventRow = {
 type VendorProfileRow = {
   business_name: string | null
   website_url: string | null
+  refund_window_hours?: number | null
+  strict_no_refund?: boolean | null
 }
 
 type BookingRow = {
@@ -58,6 +61,7 @@ export async function deliverBookingConfirmationEmails(
   const sessionDate = resolveBookingSessionDate(booking.session_starts_at, event.date)
   const durationMinutes = (event.duration_minutes ?? 60) as number
 
+  const refundDisplay = buildConsumerRefundPolicyDisplay(vendorProfile ?? {})
   const emailParams: BookingEmailParams = {
     attendeeName: booking.name,
     attendeeEmail: booking.email,
@@ -69,6 +73,7 @@ export async function deliverBookingConfirmationEmails(
     vendorWebsite: vendorProfile?.website_url ?? null,
     bookingRef: booking.id,
     amountCad: options.amountCad,
+    cancellationPolicyLine: refundDisplay.emailSummaryLine,
   }
 
   const sessionDateLabel = formatWorkshopDateTimeShort(sessionDate)
@@ -137,7 +142,7 @@ export async function retryBookingConfirmationEmailsIfNeeded(
   if (vendorId) {
     const { data: vp } = await admin
       .from('vendor_profiles')
-      .select('business_name, website_url, user_id')
+      .select('business_name, website_url, user_id, refund_window_hours, strict_no_refund')
       .eq('id', vendorId)
       .single()
     vendorProfile = vp

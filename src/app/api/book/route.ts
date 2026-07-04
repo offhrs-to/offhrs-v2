@@ -13,6 +13,7 @@ import {
   resolveWorkshopCustomerTaxAddress,
 } from '@/lib/stripe-workshop-tax'
 import { estimateCanadianStripeFee } from '@/lib/stripe-charge-fees'
+import { workshopBookingBlockReason } from '@/lib/workshop-registration-closed'
 
 const BOOK_RATE_LIMIT = 15 // per minute per IP
 
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
       const { data: event } = await admin
         .from('events')
         .select(
-          'id, title, vendor_profile_id, price_cad, available_slots, duration_minutes, location, booking_status, date, workshop_series, series_occurrences'
+          'id, title, vendor_profile_id, price_cad, available_slots, duration_minutes, location, booking_status, registration_closed, date, workshop_series, series_occurrences, partner_series_meta'
         )
         .eq('id', String(event_id))
         .single()
@@ -95,16 +96,9 @@ export async function POST(request: NextRequest) {
         return handleLegacyBook(raw, user)
       }
 
-      if (event.booking_status === 'fully_booked') {
-        return NextResponse.json({ error: 'This session is fully booked' }, { status: 409 })
-      }
-
-      if (event.booking_status !== 'published') {
-        return NextResponse.json({ error: 'This session is not available for booking' }, { status: 409 })
-      }
-
-      if ((event.available_slots ?? 0) <= 0) {
-        return NextResponse.json({ error: 'No spots remaining' }, { status: 409 })
+      const bookingBlock = workshopBookingBlockReason(event, start_time)
+      if (bookingBlock) {
+        return NextResponse.json({ error: bookingBlock }, { status: 409 })
       }
 
       const dry = computeSlotDecrementForEvent(event, start_time, undefined)

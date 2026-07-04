@@ -9,9 +9,10 @@ import { DesignColors } from '@/constants/design-template';
 import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mobile';
+import { useStrictBookingAck } from '@/lib/use-strict-booking-ack';
 import { supabase } from '@/lib/supabase';
 import { vendorPagePath } from '@/lib/workshop-vendor-display';
-import { workshopDisplayPrice, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
+import { workshopDisplayPrice, workshopBookButtonLabel, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
 
 export interface Event {
   id: number;
@@ -80,6 +81,7 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
   const [internalSaved, setInternalSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [bookingBusy, setBookingBusy] = useState(false);
+  const { requestStrictAckIfNeeded, ackModalElement } = useStrictBookingAck();
   const displayPrice =
     workshopIsSaasVendorEvent(event) ? workshopDisplayPrice(event) : formatPrice(event.price);
   const isFull = workshopEventIsFull(event);
@@ -154,6 +156,9 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
         'Guest';
       setBookingBusy(true);
       try {
+        const acked = await requestStrictAckIfNeeded(event.id);
+        if (!acked) return;
+
         const result = await runPaidWorkshopBooking({
           eventId: event.id,
           attendeeName: name,
@@ -273,7 +278,14 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
         {bookingBusy ? (
           <ActivityIndicator size="small" color="#FFF" />
         ) : (
-          <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}>{isFull ? 'Full' : 'Book'}</Text>
+          <Text
+            style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
+            {workshopBookButtonLabel(event)}
+          </Text>
         )}
       </Pressable>
     </>
@@ -294,6 +306,7 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
 
   if (onPress) {
     return (
+      <>
       <View style={wrapperStyle}>
         <Pressable
           onPress={isFull ? undefined : onPress}
@@ -328,6 +341,8 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
           {actionButtons}
         </View>
       </View>
+      {ackModalElement}
+      </>
     );
   }
 
@@ -362,5 +377,10 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
     </>
   );
 
-  return <View style={wrapperStyle}>{cardContent}</View>;
+  return (
+    <>
+      <View style={wrapperStyle}>{cardContent}</View>
+      {ackModalElement}
+    </>
+  );
 }

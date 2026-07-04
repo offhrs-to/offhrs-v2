@@ -213,6 +213,8 @@ export interface BookingEmailParams {
   vendorWebsite: string | null
   bookingRef: string
   amountCad: number
+  /** Cancellation policy summary (strict or flexible) shown in confirmation email. */
+  cancellationPolicyLine?: string | null
 }
 
 function buildIcs(params: BookingEmailParams, method: 'REQUEST' | 'CANCEL' = 'REQUEST'): string {
@@ -247,6 +249,7 @@ export async function sendConsumerBookingConfirmation(params: BookingEmailParams
         <tr><td style="padding:6px 0;font-size:13px;color:#888;">Amount paid</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${params.amountCad.toFixed(2)} CAD</td></tr>
         <tr><td style="padding:6px 0;font-size:13px;color:#888;">Booking ref</td><td style="padding:6px 0;font-size:13px;color:#888;font-family:monospace;">${params.bookingRef}</td></tr>
       </table>
+      ${params.cancellationPolicyLine ? p(`<strong>Cancellation policy:</strong> ${params.cancellationPolicyLine}`) : ''}
       ${p('A calendar invite is attached. See you there!')}
     `),
     [{ filename: 'booking.ics', content: ics }]

@@ -18,6 +18,7 @@ import { DesignColors } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { haversineKm } from '@/lib/distance';
 import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mobile';
+import { useStrictBookingAck } from '@/lib/use-strict-booking-ack';
 import { shareWorkshopEvent } from '@/lib/share-workshop';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import { workshopSessionKey } from '@/lib/workshops-events-query';
@@ -29,7 +30,7 @@ import {
   type EventSeriesFields,
 } from '@/lib/workshop-series';
 import { supabase } from '@/lib/supabase';
-import { workshopDisplayPrice, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
+import { workshopDisplayPrice, workshopBookButtonLabel, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
 import { vendorPagePath, workshopVendorDisplayName } from '@/lib/workshop-vendor-display';
 
 /** Compact square thumbnail (top-right of card), Classpass-style — does not span full card height. */
@@ -172,6 +173,7 @@ export default function WorkshopBrowseGroupedCard({
   );
   const [saving, setSaving] = useState(false);
   const [bookingBusy, setBookingBusy] = useState(false);
+  const { requestStrictAckIfNeeded, ackModalElement } = useStrictBookingAck();
 
   useEffect(() => {
     const keys = sessionKeys.split(',').filter(Boolean);
@@ -263,6 +265,9 @@ export default function WorkshopBrowseGroupedCard({
         'Guest';
       setBookingBusy(true);
       try {
+        const acked = await requestStrictAckIfNeeded(selected.id);
+        if (!acked) return;
+
         const result = await runPaidWorkshopBooking({
           eventId: selected.id,
           attendeeName: name,
@@ -310,6 +315,7 @@ export default function WorkshopBrowseGroupedCard({
   const vendorPath = vendorPagePath(selected);
 
   return (
+    <>
     <View
       style={[
         softShadow,
@@ -650,13 +656,20 @@ export default function WorkshopBrowseGroupedCard({
             {bookingBusy ? (
               <ActivityIndicator size="small" color="#FFF" />
             ) : (
-              <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}>
-                {selected != null && workshopEventIsFull(selected) ? 'Full' : 'Book'}
+              <Text
+                style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+              >
+                {selected != null ? workshopBookButtonLabel(selected) : 'Book'}
               </Text>
             )}
           </Pressable>
         </View>
       </View>
     </View>
+    {ackModalElement}
+    </>
   );
 }

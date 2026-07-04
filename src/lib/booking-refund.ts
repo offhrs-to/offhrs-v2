@@ -14,6 +14,10 @@ import {
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 import { reverseWorkshopTaxTransaction } from '@/lib/stripe-workshop-tax'
 import { clawBackXpForBooking } from '@/lib/workshop-xp'
+import {
+  isStrictNoRefundPolicy,
+  STRICT_REFUND_CONSUMER_BLOCK_MESSAGE,
+} from '@/lib/vendor-refund-policy'
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
@@ -288,6 +292,7 @@ export async function processBookingRefund(
   }
 
   let refundWindowHours = 48
+  let strictNoRefund = false
   let vendorBusinessName = 'offhrs'
   let vendorWebsite: string | null = null
   let vendorEmail: string | null = null
@@ -295,11 +300,12 @@ export async function processBookingRefund(
   if (row.vendor_id) {
     const { data: vendor } = await admin
       .from('vendor_profiles')
-      .select('id, business_name, website_url, refund_window_hours, user_id')
+      .select('id, business_name, website_url, refund_window_hours, strict_no_refund, user_id')
       .eq('id', row.vendor_id)
       .single()
     if (vendor) {
       refundWindowHours = (vendor.refund_window_hours as number | null) ?? 48
+      strictNoRefund = isStrictNoRefundPolicy(vendor)
       vendorBusinessName = vendor.business_name ?? vendorBusinessName
       vendorWebsite = (vendor.website_url as string | null) ?? null
       const vendorUserId = vendor.user_id as string | null
@@ -310,7 +316,20 @@ export async function processBookingRefund(
     }
   }
 
+  const chargeAmountCad =
+    row.total_cad != null && Number(row.total_cad) > 0
+      ? Number(row.total_cad)
+      : Number(row.amount_cad ?? 0)
+
   if (!options.skipRefundWindowCheck && options.initiatedBy !== 'stripe_webhook') {
+    if (strictNoRefund && chargeAmountCad > 0) {
+      return {
+        ok: false,
+        error: STRICT_REFUND_CONSUMER_BLOCK_MESSAGE,
+        status: 403,
+      }
+    }
+
     const window = checkRefundWindowEligibility(
       row.session_starts_at,
       ev.date,
@@ -324,11 +343,6 @@ export async function processBookingRefund(
       }
     }
   }
-
-  const chargeAmountCad =
-    row.total_cad != null && Number(row.total_cad) > 0
-      ? Number(row.total_cad)
-      : Number(row.amount_cad ?? 0)
 
   let stripeAlreadyRefunded = options.stripeAlreadyRefunded ?? false
   if (!stripeAlreadyRefunded && row.stripe_payment_intent_id) {

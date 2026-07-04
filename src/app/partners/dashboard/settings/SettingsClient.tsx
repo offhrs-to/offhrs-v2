@@ -11,9 +11,11 @@ interface Vendor {
   business_name: string
   bio: string | null
   website_url: string | null
+  instagram_handle: string | null
   phone: string | null
   location_address: string | null
   refund_window_hours: number
+  strict_no_refund: boolean
   status: string
   subscription_current_period_end: string | null
   gst_hst_registered: boolean
@@ -56,6 +58,10 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
     location_address: vendor.location_address ?? '',
     refund_window_hours: vendor.refund_window_hours.toString(),
   })
+  const [instagramHandle, setInstagramHandle] = useState(vendor.instagram_handle ?? '')
+  const [instagramLoading, setInstagramLoading] = useState(false)
+  const [instagramMsg, setInstagramMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [strictNoRefund, setStrictNoRefund] = useState(vendor.strict_no_refund === true)
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -84,6 +90,37 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
     setProfile((f) => ({ ...f, [key]: val }))
   }
 
+  async function saveInstagramHandle(e: React.FormEvent) {
+    e.preventDefault()
+    setInstagramLoading(true)
+    setInstagramMsg(null)
+    try {
+      const res = await fetch(`/api/partners/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...profile,
+          instagram_handle: instagramHandle,
+          strict_no_refund: strictNoRefund,
+          refund_window_hours: strictNoRefund ? undefined : parseInt(profile.refund_window_hours) || 48,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setInstagramMsg({
+          type: 'error',
+          text: data.fields?.instagram_handle?.[0] ?? data.error ?? 'Failed to save Instagram handle.',
+        })
+      } else {
+        setInstagramMsg({ type: 'success', text: 'Instagram handle saved.' })
+      }
+    } catch {
+      setInstagramMsg({ type: 'error', text: 'Network error.' })
+    } finally {
+      setInstagramLoading(false)
+    }
+  }
+
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault()
     setProfileLoading(true)
@@ -94,7 +131,9 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...profile,
-          refund_window_hours: parseInt(profile.refund_window_hours) || 48,
+          instagram_handle: instagramHandle,
+          strict_no_refund: strictNoRefund,
+          refund_window_hours: strictNoRefund ? undefined : parseInt(profile.refund_window_hours) || 48,
         }),
       })
       const data = await res.json()
@@ -306,19 +345,65 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
                 className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-[#555] mb-1.5">
-                Refund window (hours before workshop)
-              </label>
-              <input
-                type="number"
-                min={24}
-                value={profile.refund_window_hours}
-                onChange={(e) => setP('refund_window_hours', e.target.value)}
-                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-              />
-              <p className="text-xs text-[#888] mt-1">Minimum 24 hours (platform policy).</p>
+            <div className="col-span-2">
+              <p className="block text-xs font-medium text-[#555] mb-2">Cancellation policy</p>
+              <p className="text-xs text-[#888] mb-3 leading-relaxed">
+                Applies to all of your workshops. Customers see this before they book.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStrictNoRefund(false)}
+                  className={`rounded-xl border p-4 text-left transition-colors ${
+                    !strictNoRefund
+                      ? 'border-[#5D755D] bg-[#5D755D]/5 ring-2 ring-[#5D755D]/20'
+                      : 'border-[#E8E4DE] bg-white hover:border-[#C8BFB0]'
+                  }`}
+                >
+                  <p className="text-sm font-semibold text-[#1a1a1a]">Flexible refunds</p>
+                  <p className="text-xs text-[#888] mt-1 leading-relaxed">
+                    Customers can cancel for a full refund before your cutoff time.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStrictNoRefund(true)}
+                  className={`rounded-xl border p-4 text-left transition-colors ${
+                    strictNoRefund
+                      ? 'border-[#5D755D] bg-[#5D755D]/5 ring-2 ring-[#5D755D]/20'
+                      : 'border-[#E8E4DE] bg-white hover:border-[#C8BFB0]'
+                  }`}
+                >
+                  <p className="text-sm font-semibold text-[#1a1a1a]">Strict — no refunds</p>
+                  <p className="text-xs text-[#888] mt-1 leading-relaxed">
+                    Paid bookings are non-refundable once purchased.
+                  </p>
+                </button>
+              </div>
             </div>
+            {!strictNoRefund ? (
+              <div>
+                <label className="block text-xs font-medium text-[#555] mb-1.5">
+                  Refund window (hours before workshop)
+                </label>
+                <input
+                  type="number"
+                  min={24}
+                  value={profile.refund_window_hours}
+                  onChange={(e) => setP('refund_window_hours', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                />
+                <p className="text-xs text-[#888] mt-1">Minimum 24 hours (platform policy).</p>
+              </div>
+            ) : (
+              <div className="col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-xs font-semibold text-amber-900">Strict policy active</p>
+                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                  Customers will see: &ldquo;Strict Policy: This booking is non-refundable once
+                  purchased.&rdquo; They cannot cancel paid bookings for a refund in the app.
+                </p>
+              </div>
+            )}
           </div>
 
           {profileMsg && (
@@ -453,6 +538,40 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
           <span className="text-xs font-medium text-[#888]">Email</span>
           <p className="mt-0.5">{email}</p>
         </div>
+        <form onSubmit={saveInstagramHandle} className="mb-6 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-[#888] mb-1.5">Instagram handle</label>
+            <input
+              type="text"
+              value={instagramHandle}
+              onChange={(e) => setInstagramHandle(e.target.value)}
+              placeholder="@yourstudio"
+              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+            />
+            <p className="text-xs text-[#888] mt-1 leading-relaxed">
+              Optional. Shown on your vendor profile in the offhrs app. Leave blank to hide the Instagram link.
+            </p>
+          </div>
+          {instagramMsg && (
+            <p
+              className={`text-sm px-4 py-3 rounded-xl ${
+                instagramMsg.type === 'success'
+                  ? 'bg-green-50 border border-green-200 text-green-700'
+                  : 'bg-red-50 border border-red-200 text-red-600'
+              }`}
+            >
+              {instagramMsg.text}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={instagramLoading}
+            className="flex items-center gap-2 text-sm font-semibold text-[#1a1a1a] border border-[#E8E4DE] px-4 py-2 rounded-xl hover:bg-[#F0EDE8] disabled:opacity-50 transition-colors"
+          >
+            {instagramLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+            Save Instagram
+          </button>
+        </form>
         <form onSubmit={changePassword} className="space-y-3">
           <p className="text-xs font-semibold text-[#555]">Change password</p>
           <input

@@ -11,6 +11,8 @@ import {
   DollarSign,
   Eye,
   EyeOff,
+  Lock,
+  LockOpen,
   Pencil,
   Plus,
   Trash2,
@@ -32,6 +34,7 @@ interface Session {
   date: string | null
   location: string | null
   status: string
+  registration_closed?: boolean
   created_at: string
   description?: string | null
   image_url?: string | null
@@ -128,6 +131,65 @@ function SessionsPageInner() {
       cancelled = true
     }
   }, [])
+
+  async function handleToggleRegistrationClosed(session: Session) {
+    const closing = !session.registration_closed
+    if (closing) {
+      const ok = confirm(
+        'Close registration for this workshop?\n\nIt will be hidden from the offhrs app and no new bookings will be accepted. Existing bookings are kept — no refunds.\n\nYou can reopen registration later.'
+      )
+      if (!ok) return
+    } else if (
+      !confirm(
+        'Reopen registration?\n\nThis workshop will appear in the offhrs app again and accept new bookings based on remaining capacity.'
+      )
+    ) {
+      return
+    }
+    const res = await fetch(`/api/partners/sessions/${session.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ registration_closed: closing }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert((data as { error?: string }).error ?? 'Could not update registration status.')
+      return
+    }
+    await fetchSessions()
+  }
+
+  async function handleToggleOccurrenceRegistrationClosed(
+    session: Session,
+    occurrenceStart: string,
+    currentlyClosed: boolean
+  ) {
+    const closing = !currentlyClosed
+    if (closing) {
+      const ok = confirm(
+        'Close registration for this session?\n\nIt will be hidden from the offhrs app. Existing bookings for this date are kept — no refunds.'
+      )
+      if (!ok) return
+    } else if (
+      !confirm('Reopen registration for this session? It will appear in the app again if spots remain.')
+    ) {
+      return
+    }
+    const res = await fetch(`/api/partners/sessions/${session.id}/occurrences`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        occurrence_start: occurrenceStart,
+        registration_closed: closing,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      alert((data as { error?: string }).error ?? 'Could not update registration status.')
+      return
+    }
+    await fetchSessions()
+  }
 
   async function handleDelete(id: string) {
     if (
@@ -242,6 +304,10 @@ function SessionsPageInner() {
             const isMulti = series.length > 1
             const pattern = session.partner_series_meta?.pattern
             const isPerOccurrenceSeries = isMulti && pattern === 'daily_weekdays'
+            const registrationClosed = session.registration_closed === true
+            const closedOccurrenceCount = isPerOccurrenceSeries
+              ? series.filter((o) => o.registration_closed).length
+              : 0
             const countBadgeLabel = isMulti
               ? pattern === 'daily_weekdays'
                 ? `${series.length} session${series.length === 1 ? '' : 's'}`
@@ -267,6 +333,16 @@ function SessionsPageInner() {
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${badge.className}`}>
                         {badge.label}
                       </span>
+                      {registrationClosed && session.status !== 'archived' && !isPerOccurrenceSeries && (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 bg-amber-100 text-amber-800">
+                          Registration closed
+                        </span>
+                      )}
+                      {closedOccurrenceCount > 0 && (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 bg-amber-100 text-amber-800">
+                          {closedOccurrenceCount} session{closedOccurrenceCount === 1 ? '' : 's'} closed
+                        </span>
+                      )}
                       {countBadgeLabel && (
                         <span className="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 bg-[#EDF2ED] text-[#5D755D]">
                           {countBadgeLabel}
@@ -321,6 +397,29 @@ function SessionsPageInner() {
                         {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       </button>
                     )}
+                    {!isPerOccurrenceSeries ? (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleRegistrationClosed(session)}
+                        title={
+                          registrationClosed
+                            ? 'Reopen registration'
+                            : 'Close registration (hide from app, keep existing bookings)'
+                        }
+                        disabled={session.status === 'archived' || session.status === 'draft'}
+                        className={`p-2 rounded-lg transition-colors ${
+                          registrationClosed
+                            ? 'text-amber-700 bg-amber-50 hover:bg-amber-100'
+                            : 'text-[#888] hover:bg-[#F0EDE8] hover:text-[#1a1a1a]'
+                        } disabled:opacity-40 disabled:pointer-events-none`}
+                      >
+                        {registrationClosed ? (
+                          <Lock className="w-4 h-4" />
+                        ) : (
+                          <LockOpen className="w-4 h-4" />
+                        )}
+                      </button>
+                    ) : null}
                     <button
                       onClick={() => handleToggleStatus(session)}
                       title={session.status === 'published' ? 'Unpublish' : 'Publish'}
@@ -351,7 +450,7 @@ function SessionsPageInner() {
                     className="border-t border-[#F0EDE8] px-4 py-3"
                   >
                     <p className="text-xs font-medium text-[#888] uppercase tracking-wide mb-2">
-                      Per-session capacity
+                      Per-session capacity &amp; registration
                     </p>
                     <ul className="divide-y divide-[#F5F2EE]">
                       {series.map((occ, idx) => {
@@ -374,9 +473,41 @@ function SessionsPageInner() {
                           >
                             <span className="text-[#1a1a1a] truncate">{label}</span>
                             <div className="flex items-center gap-2 flex-shrink-0">
+                              {occ.registration_closed ? (
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                                  Closed
+                                </span>
+                              ) : null}
                               <span className="text-[#555]">
                                 {spotsFilledLabel(occ.max_attendees, occ.available_slots)}
                               </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleToggleOccurrenceRegistrationClosed(
+                                    session,
+                                    occ.start,
+                                    occ.registration_closed === true
+                                  )
+                                }
+                                title={
+                                  occ.registration_closed
+                                    ? 'Reopen registration for this session'
+                                    : 'Close registration for this session'
+                                }
+                                disabled={session.status === 'archived'}
+                                className={`p-1.5 rounded-md transition-colors ${
+                                  occ.registration_closed
+                                    ? 'text-amber-700 bg-amber-50 hover:bg-amber-100'
+                                    : 'text-[#888] hover:bg-[#F0EDE8] hover:text-[#1a1a1a]'
+                                } disabled:opacity-40`}
+                              >
+                                {occ.registration_closed ? (
+                                  <Lock className="w-3.5 h-3.5" />
+                                ) : (
+                                  <LockOpen className="w-3.5 h-3.5" />
+                                )}
+                              </button>
                               <button
                                 type="button"
                                 onClick={() =>

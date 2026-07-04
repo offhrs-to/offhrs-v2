@@ -13,7 +13,7 @@ export default async function BookingsPage() {
 
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('id')
+    .select('id, strict_no_refund')
     .eq('user_id', user.id)
     .single()
 
@@ -26,5 +26,10 @@ export default async function BookingsPage() {
     .neq('booking_status', 'archived')
     .order('title')
 
-  return <BookingsClient sessions={sessions ?? []} />
+  return (
+    <BookingsClient
+      sessions={sessions ?? []}
+      strictNoRefund={vendor.strict_no_refund === true}
+    />
+  )
 }

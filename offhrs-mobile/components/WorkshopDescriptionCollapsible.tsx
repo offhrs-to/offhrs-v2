@@ -10,6 +10,10 @@ import {
 } from 'react-native';
 
 import { DesignColors } from '@/constants/design-template';
+import {
+  visibleWorkshopDescriptionSections,
+  type WorkshopDescriptionFields,
+} from '@/lib/workshop-description-sections';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -17,11 +21,9 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const PREVIEW_CHARS = 180;
 
-type Props = {
-  description: string | null | undefined;
-};
+type Props = WorkshopDescriptionFields;
 
-export default function WorkshopDescriptionCollapsible({ description }: Props) {
+function GeneralDescription({ description }: { description: string | null | undefined }) {
   const raw = (description ?? '').trim();
   if (!raw) return null;
 
@@ -59,6 +61,48 @@ export default function WorkshopDescriptionCollapsible({ description }: Props) {
           {expanded ? 'Show less' : 'Read full description'}
         </Text>
       </Pressable>
+    </View>
+  );
+}
+
+function DescriptionAccordionSection({ title, body }: { title: string; body: string }) {
+  const [open, setOpen] = useState(false);
+
+  const toggle = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setOpen((v) => !v);
+  };
+
+  return (
+    <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.08)' }}>
+      <Pressable
+        onPress={toggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+      >
+        <Text style={{ fontSize: 12, color: DesignColors.mediumGray, width: 14 }}>{open ? '▾' : '▸'}</Text>
+        <Text style={{ flex: 1, fontSize: 14, fontWeight: '700', color: '#000' }}>{title}</Text>
+      </Pressable>
+      {open ? (
+        <Text style={{ marginTop: 8, marginLeft: 22, fontSize: 13, color: '#444', lineHeight: 20 }}>{body}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+export default function WorkshopDescriptionCollapsible(props: Props) {
+  const sections = visibleWorkshopDescriptionSections(props);
+  const hasGeneral = Boolean((props.description ?? '').trim());
+
+  if (!hasGeneral && sections.length === 0) return null;
+
+  return (
+    <View>
+      <GeneralDescription description={props.description} />
+      {sections.map((section) => (
+        <DescriptionAccordionSection key={section.title} title={section.title} body={section.body} />
+      ))}
     </View>
   );
 }

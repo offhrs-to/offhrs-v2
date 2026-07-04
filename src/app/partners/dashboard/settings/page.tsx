@@ -23,7 +23,7 @@ export default async function SettingsPage() {
   const { data: vendor } = await admin
     .from('vendor_profiles')
     .select(
-      'id, business_name, bio, website_url, phone, location_address, refund_window_hours, status, subscription_current_period_end, stripe_customer_id, gst_hst_registered, gst_hst_registration_number'
+      'id, business_name, bio, website_url, instagram_handle, phone, location_address, refund_window_hours, strict_no_refund, status, subscription_current_period_end, stripe_customer_id, gst_hst_registered, gst_hst_registration_number'
     )
     .eq('user_id', user.id)
     .single()

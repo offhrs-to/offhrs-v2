@@ -127,6 +127,32 @@ export default function TermsOfUsePage() {
             Vendor dashboard&rsquo;s refund notification.
           </li>
         </ul>
+
+        <h3 className="mt-4">3.3 Chargebacks and payment disputes</h3>
+        <ul>
+          <li>
+            <strong>Dispute fees.</strong> If a consumer disputes a workshop payment through their card issuer
+            (a &ldquo;chargeback&rdquo;) or a similar process, Stripe may assess a dispute fee (currently
+            approximately <strong>CAD $15 per dispute</strong>, subject to change by Stripe). offhrs does
+            not control Stripe&rsquo;s dispute fees or timelines.
+          </li>
+          <li>
+            <strong>Vendor responsibility.</strong> Workshop ticket payments are processed via Stripe Connect
+            Express to your connected account. Dispute fees, reversed amounts, and related adjustments are
+            handled according to Stripe Connect rules and may be deducted from your Connect balance or future
+            payouts.
+          </li>
+          <li>
+            <strong>Resolution first.</strong> We encourage Vendors and consumers to resolve booking issues
+            through the in-app cancellation policy, direct communication, or by contacting{' '}
+            <a href="mailto:hello@offhrs.app">hello@offhrs.app</a> before a card dispute is filed.
+          </li>
+          <li>
+            <strong>Account restrictions.</strong> offhrs may limit, suspend, or revoke access if an account
+            shows an abnormal pattern of chargebacks, payment failures, or abusive dispute behaviour, as
+            described in these Terms.
+          </li>
+        </ul>
       </section>
 
       <section>
@@ -135,7 +161,7 @@ export default function TermsOfUsePage() {
           <li>
             <strong>Account protection.</strong> You are responsible for maintaining the confidentiality of
             your sign-in credentials and any third-party OAuth sessions (Google, Apple). Notify us immediately
-            at <a href="mailto:admin@offhrs.app">admin@offhrs.app</a> if you detect unauthorized access.
+            at <a href="mailto:hello@offhrs.app">hello@offhrs.app</a> if you detect unauthorized access.
           </li>
           <li>
             <strong>Calendar accuracy.</strong> Vendors must keep their dashboard calendars up to date.
@@ -206,7 +232,7 @@ export default function TermsOfUsePage() {
         <h2>8. Feedback and communications</h2>
         <p>
           Submit formal questions, security notifications, or technical feedback to{' '}
-          <a href="mailto:admin@offhrs.app">admin@offhrs.app</a>.
+          <a href="mailto:hello@offhrs.app">hello@offhrs.app</a>.
         </p>
       </section>
     </LegalPageLayout>

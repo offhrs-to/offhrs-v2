@@ -1,3 +1,5 @@
+import { isRegistrationClosedForSession } from '@/lib/workshop-registration-closed';
+
 /** Partner-hosted (SaaS) listing — book in-app with Stripe, not only external link. */
 export function workshopIsSaasVendorEvent(e: { vendor_profile_id?: string | null }): boolean {
   return e.vendor_profile_id != null && String(e.vendor_profile_id).length > 0;
@@ -8,8 +10,14 @@ export function workshopEventIsFull(e: {
   vendor_profile_id?: string | null;
   booking_status?: string | null;
   available_slots?: number | null;
+  registration_closed?: boolean | null;
+  date_iso?: string | null;
+  workshop_series?: string | null;
+  series_occurrences?: unknown;
+  partner_series_meta?: unknown;
 }): boolean {
   if (!workshopIsSaasVendorEvent(e)) return false;
+  if (isRegistrationClosedForSession(e, e.date_iso)) return true;
   if (e.booking_status === 'fully_booked') return true;
   const slots = e.available_slots;
   return slots != null && slots <= 0;
@@ -32,4 +40,30 @@ export function workshopDisplayPrice(e: {
   const s = typeof e.price === 'string' ? e.price.replace(/^\$/, '').trim() : String(e.price);
   if (s === '' || Number.isNaN(Number(s))) return null;
   return `$${s}`;
+}
+
+function formatSpotsAvailable(count: number): string {
+  const n = Math.max(0, Math.floor(count));
+  return n === 1 ? '1 spot available' : `${n} spots available`;
+}
+
+/** Primary book CTA label (quick view, browse cards, event cards). */
+export function workshopBookButtonLabel(e: {
+  vendor_profile_id?: string | null;
+  booking_status?: string | null;
+  available_slots?: number | null;
+  registration_closed?: boolean | null;
+  date_iso?: string | null;
+  workshop_series?: string | null;
+  series_occurrences?: unknown;
+  partner_series_meta?: unknown;
+}): string {
+  if (isRegistrationClosedForSession(e, e.date_iso)) return 'Registration closed';
+  if (workshopEventIsFull(e)) return 'Full';
+  if (!workshopIsSaasVendorEvent(e)) return 'Book on site';
+  const slots = e.available_slots;
+  if (slots != null && Number.isFinite(Number(slots))) {
+    return `Book - ${formatSpotsAvailable(Number(slots))}`;
+  }
+  return 'Book';
 }
