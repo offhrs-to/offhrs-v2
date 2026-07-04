@@ -37,6 +37,12 @@ interface Session {
   registration_closed?: boolean
   created_at: string
   description?: string | null
+  workshop_experience?: string | null
+  workshop_experience_hidden?: boolean | null
+  workshop_materials_takeaway?: string | null
+  workshop_materials_takeaway_hidden?: boolean | null
+  workshop_skill_level?: string | null
+  workshop_skill_level_hidden?: boolean | null
   image_url?: string | null
   workshop_series?: string | null
   series_occurrences?: unknown

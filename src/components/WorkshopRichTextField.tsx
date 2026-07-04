@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { Bold, Italic, List, Underline } from 'lucide-react'
 import {
   sanitizeWorkshopHtml,
@@ -28,17 +28,18 @@ export function WorkshopRichTextField({
   rows = 3,
 }: WorkshopRichTextFieldProps) {
   const editorRef = useRef<HTMLDivElement>(null)
-  const lastEmitted = useRef(value)
+  /** Last value written to the editor or emitted to the parent (null = not synced yet). */
+  const syncedValue = useRef<string | null>(null)
   const [plainLength, setPlainLength] = useState(() => workshopRichTextPlainLength(value))
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = editorRef.current
     if (!el) return
+    if (value === syncedValue.current) return
+
     const html = workshopRichTextForEditor(value)
-    if (el.innerHTML !== html && value !== lastEmitted.current) {
-      el.innerHTML = html
-    }
-    lastEmitted.current = value
+    el.innerHTML = html
+    syncedValue.current = value
     setPlainLength(workshopRichTextPlainLength(value))
   }, [value])
 
@@ -46,12 +47,13 @@ export function WorkshopRichTextField({
     const el = editorRef.current
     if (!el) return
     const sanitized = sanitizeWorkshopHtml(el.innerHTML)
-    if (sanitized !== el.innerHTML) {
-      el.innerHTML = workshopRichTextForEditor(sanitized)
+    const normalized = sanitized !== el.innerHTML ? workshopRichTextForEditor(sanitized) : sanitized
+    if (normalized !== el.innerHTML) {
+      el.innerHTML = normalized
     }
-    lastEmitted.current = sanitized
-    setPlainLength(workshopRichTextPlainLength(sanitized))
-    onChange(sanitized)
+    syncedValue.current = normalized
+    setPlainLength(workshopRichTextPlainLength(normalized))
+    onChange(normalized)
   }, [onChange])
 
   const runCommand = (command: string) => {
@@ -125,7 +127,6 @@ export function WorkshopRichTextField({
         aria-placeholder={placeholder}
         data-placeholder={placeholder}
         onInput={emit}
-        onBlur={emit}
         style={{ minHeight }}
         className="workshop-rich-text-editor w-full rounded-xl border border-[#E8E4DE] bg-white px-4 py-2.5 text-sm text-[#1a1a1a] focus:outline-none focus:ring-2 focus:ring-[#5D755D] focus:border-transparent [&_li]:ml-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_ul]:list-disc [&_ul]:pl-4"
       />
