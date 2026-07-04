@@ -73,7 +73,7 @@ export default function WorkshopQuickViewModal({
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [bookingBusy, setBookingBusy] = useState(false);
   const [refundPolicy, setRefundPolicy] = useState<ConsumerRefundPolicyDisplay | null>(null);
-  const { requestStrictAckIfNeeded, ackModalElement } = useStrictBookingAck();
+  const { requestStrictAckIfNeeded, ackModalElement } = useStrictBookingAck({ embedded: true });
 
   // Tax is intentionally NOT calculated on modal open. Stripe Tax bills
   // per `tax.calculations.create` (~$0.05) and most modal opens never
@@ -156,11 +156,11 @@ export default function WorkshopQuickViewModal({
         );
         return;
       }
+      const acked = await requestStrictAckIfNeeded(event.id);
+      if (!acked) return;
+
       setBookingBusy(true);
       try {
-        const acked = await requestStrictAckIfNeeded(event.id);
-        if (!acked) return;
-
         const result = await runPaidWorkshopBooking({
           eventId: event.id,
           attendeeName: name,
@@ -239,7 +239,7 @@ export default function WorkshopQuickViewModal({
   return (
     <>
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, justifyContent: 'flex-end', paddingTop: sheetTopPadding }}>
+      <View style={{ flex: 1, justifyContent: 'flex-end', paddingTop: sheetTopPadding, position: 'relative' }}>
         <Pressable
           style={{
             position: 'absolute',
@@ -562,9 +562,9 @@ export default function WorkshopQuickViewModal({
             </Pressable>
           </View>
         </View>
+        {ackModalElement}
       </View>
     </Modal>
-    {ackModalElement}
     </>
   );
 }

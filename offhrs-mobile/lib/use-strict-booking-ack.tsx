@@ -4,7 +4,12 @@ import StrictCancellationAckModal from '@/components/StrictCancellationAckModal'
 import { fetchRefundPolicyForEvent } from '@/lib/booking-cancel';
 import type { ConsumerRefundPolicyDisplay } from '@/lib/vendor-refund-policy';
 
-export function useStrictBookingAck() {
+type UseStrictBookingAckOptions = {
+  /** Use when booking from inside another RN Modal (e.g. workshop quick view). */
+  embedded?: boolean;
+};
+
+export function useStrictBookingAck(options?: UseStrictBookingAckOptions) {
   const [visible, setVisible] = useState(false);
   const [policy, setPolicy] = useState<ConsumerRefundPolicyDisplay | null>(null);
   const resolverRef = useRef<((confirmed: boolean) => void) | null>(null);
@@ -30,6 +35,7 @@ export function useStrictBookingAck() {
     <StrictCancellationAckModal
       visible={visible}
       policy={policy}
+      embedded={options?.embedded}
       onCancel={() => resolvePending(false)}
       onConfirm={() => resolvePending(true)}
     />

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Modal,
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -18,6 +19,11 @@ export type StrictCancellationAckModalProps = {
   policy: ConsumerRefundPolicyDisplay | null;
   onCancel: () => void;
   onConfirm: () => void;
+  /**
+   * Render inside an existing modal as a full-screen overlay instead of opening
+   * a second RN Modal (which cannot stack above another visible Modal on iOS).
+   */
+  embedded?: boolean;
 };
 
 export default function StrictCancellationAckModal({
@@ -25,9 +31,14 @@ export default function StrictCancellationAckModal({
   policy,
   onCancel,
   onConfirm,
+  embedded = false,
 }: StrictCancellationAckModalProps) {
   const insets = useSafeAreaInsets();
   const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    if (visible) setChecked(false);
+  }, [visible]);
 
   const handleDismiss = () => {
     setChecked(false);
@@ -40,22 +51,15 @@ export default function StrictCancellationAckModal({
     onConfirm();
   };
 
-  if (!policy?.strictNoRefund) return null;
+  if (!policy?.strictNoRefund || !visible) return null;
 
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={handleDismiss}
-      onShow={() => setChecked(false)}
-    >
+  const sheet = (
       <View
         style={{
           flex: 1,
           justifyContent: 'flex-end',
           backgroundColor: 'rgba(0,0,0,0.45)',
-          paddingTop: Platform.OS === 'android' ? insets.top : 0,
+          paddingTop: Platform.OS === 'android' && !embedded ? insets.top : 0,
         }}
       >
         <Pressable style={{ flex: 1 }} onPress={handleDismiss} accessibilityLabel="Dismiss" />
@@ -182,6 +186,28 @@ export default function StrictCancellationAckModal({
           </View>
         </View>
       </View>
+  );
+
+  if (embedded) {
+    return (
+      <View
+        style={[StyleSheet.absoluteFillObject, { zIndex: 50, elevation: 50 }]}
+        pointerEvents="auto"
+      >
+        {sheet}
+      </View>
+    );
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={handleDismiss}
+      onShow={() => setChecked(false)}
+    >
+      {sheet}
     </Modal>
   );
 }
