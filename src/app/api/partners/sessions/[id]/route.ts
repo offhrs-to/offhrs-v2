@@ -21,15 +21,16 @@ import {
 } from '@/lib/workshop-series'
 import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
 import { invalidateCachedTaxQuotesForEvent } from '@/lib/workshop-tax-quote-cache'
+import { applyWorkshopRichTextFields } from '@/lib/workshop-rich-text'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 const ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending', 'booked', 'pending_confirmation'] as const
 
-const optionalWorkshopSectionText = z.string().max(2000).optional()
+const optionalWorkshopSectionText = z.string().max(6000).optional()
 
 const updateSchema = z.object({
   title: z.string().min(2).max(120).optional(),
-  description: z.string().max(2000).optional(),
+  description: z.string().max(6000).optional(),
   workshop_experience: optionalWorkshopSectionText,
   workshop_experience_hidden: z.boolean().optional(),
   workshop_materials_takeaway: optionalWorkshopSectionText,
@@ -164,7 +165,14 @@ export async function PUT(request: NextRequest, { params }: Params) {
     if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
 
     const raw = await request.json()
-    const parsed = updateSchema.safeParse(raw)
+    let parsedBody: unknown
+    try {
+      parsedBody = applyWorkshopRichTextFields(raw)
+    } catch (richTextErr) {
+      const message = richTextErr instanceof Error ? richTextErr.message : 'Invalid description'
+      return NextResponse.json({ error: message }, { status: 400 })
+    }
+    const parsed = updateSchema.safeParse(parsedBody)
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Validation failed', fields: parsed.error.flatten().fieldErrors },

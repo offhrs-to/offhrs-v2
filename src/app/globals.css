@@ -101,3 +101,9 @@
     scroll-behavior: smooth;
   }
 }
+
+.workshop-rich-text-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #999;
+  pointer-events: none;
+}

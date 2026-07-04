@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 
+import WorkshopRichTextContent, { stripWorkshopRichTextPlain } from '@/components/WorkshopRichTextContent';
 import { DesignColors } from '@/constants/design-template';
 import {
   visibleWorkshopDescriptionSections,
@@ -27,9 +28,10 @@ function GeneralDescription({ description }: { description: string | null | unde
   const raw = (description ?? '').trim();
   if (!raw) return null;
 
+  const plain = stripWorkshopRichTextPlain(raw);
   const [expanded, setExpanded] = useState(false);
-  const needsExpand = raw.length > PREVIEW_CHARS;
-  const preview = needsExpand ? `${raw.slice(0, PREVIEW_CHARS).trim()}…` : raw;
+  const needsExpand = plain.length > PREVIEW_CHARS;
+  const preview = needsExpand ? `${plain.slice(0, PREVIEW_CHARS).trim()}…` : plain;
 
   const toggle = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -38,7 +40,9 @@ function GeneralDescription({ description }: { description: string | null | unde
 
   if (!needsExpand) {
     return (
-      <Text style={{ marginTop: 10, fontSize: 13, color: '#444', lineHeight: 20 }}>{raw}</Text>
+      <View style={{ marginTop: 10 }}>
+        <WorkshopRichTextContent content={raw} />
+      </View>
     );
   }
 
@@ -51,7 +55,7 @@ function GeneralDescription({ description }: { description: string | null | unde
           showsVerticalScrollIndicator
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={{ fontSize: 13, color: '#444', lineHeight: 20 }}>{raw}</Text>
+          <WorkshopRichTextContent content={raw} />
         </ScrollView>
       ) : (
         <Text style={{ fontSize: 13, color: '#444', lineHeight: 20 }}>{preview}</Text>
@@ -85,7 +89,9 @@ function DescriptionAccordionSection({ title, body }: { title: string; body: str
         <Text style={{ flex: 1, fontSize: 14, fontWeight: '700', color: '#000' }}>{title}</Text>
       </Pressable>
       {open ? (
-        <Text style={{ marginTop: 8, marginLeft: 22, fontSize: 13, color: '#444', lineHeight: 20 }}>{body}</Text>
+        <View style={{ marginTop: 8, marginLeft: 22 }}>
+          <WorkshopRichTextContent content={body} contentWidthPadding={88} />
+        </View>
       ) : null}
     </View>
   );

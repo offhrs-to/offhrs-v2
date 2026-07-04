@@ -15,14 +15,15 @@ import { LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD } from '@/lib/stripe-part
 import { buildPartnerSeriesMeta, resolveWorkshopSeriesDates } from '@/lib/partner-session-series-resolve'
 import { setSeriesAvailabilityFromRules } from '@/lib/partner-event-availability'
 import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
+import { applyWorkshopRichTextFields } from '@/lib/workshop-rich-text'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 
-const optionalWorkshopSectionText = z.string().max(2000).optional()
+const optionalWorkshopSectionText = z.string().max(6000).optional()
 
 const sessionSchema = z.object({
   title: z.string().min(2).max(120),
-  description: z.string().max(2000).optional(),
+  description: z.string().max(6000).optional(),
   workshop_experience: optionalWorkshopSectionText,
   workshop_experience_hidden: z.boolean().optional(),
   workshop_materials_takeaway: optionalWorkshopSectionText,
@@ -136,7 +137,14 @@ export async function POST(request: NextRequest) {
     if (!admin) return NextResponse.json({ error: 'Server error' }, { status: 500 })
 
     const raw = await request.json()
-    const parsed = sessionSchema.safeParse(raw)
+    let parsedBody: unknown
+    try {
+      parsedBody = applyWorkshopRichTextFields(raw)
+    } catch (richTextErr) {
+      const message = richTextErr instanceof Error ? richTextErr.message : 'Invalid description'
+      return NextResponse.json({ error: message }, { status: 400 })
+    }
+    const parsed = sessionSchema.safeParse(parsedBody)
     if (!parsed.success) {
       return NextResponse.json({ error: 'Validation failed', fields: parsed.error.flatten().fieldErrors }, { status: 400 })
     }

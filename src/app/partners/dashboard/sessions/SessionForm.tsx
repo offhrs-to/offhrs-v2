@@ -13,6 +13,11 @@ import {
 import { PARTNER_WEEKDAY_TOGGLE_ORDER } from '@/constants/partner-workshop-schedule'
 import { formatWorkshopDateTimeLocalValue } from '@/lib/workshop-timezone'
 import { WORKSHOP_DESCRIPTION_SECTIONS } from '@/lib/workshop-description-sections'
+import { WorkshopRichTextField } from '@/components/WorkshopRichTextField'
+import {
+  workshopRichTextPlainLength,
+  WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH,
+} from '@/lib/workshop-rich-text'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -267,6 +272,22 @@ export function SessionForm({
     setError('')
 
     try {
+      const richFields = [
+        form.description,
+        form.workshop_experience,
+        form.workshop_materials_takeaway,
+        form.workshop_skill_level,
+      ]
+      for (const field of richFields) {
+        if (workshopRichTextPlainLength(field) > WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH) {
+          setError(
+            `Each description section must be ${WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH} characters or less.`
+          )
+          setLoading(false)
+          return
+        }
+      }
+
       const maxSpots = parseInt(form.max_attendees) || 10
       const extElsewhere = Math.max(0, parseInt(externalBooked, 10) || 0)
       if (extElsewhere > maxSpots) {
@@ -421,12 +442,11 @@ export function SessionForm({
         {/* General description */}
         <div>
           <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">General information</label>
-          <textarea
+          <WorkshopRichTextField
             value={form.description}
-            onChange={(e) => set('description', e.target.value)}
-            rows={3}
+            onChange={(v) => set('description', v)}
+            rows={4}
             placeholder="Introduce your workshop — what it's about and who it's for."
-            className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D] focus:border-transparent resize-none"
           />
         </div>
 
@@ -448,13 +468,12 @@ export function SessionForm({
                   Hide section / not applicable
                 </label>
               </div>
-              <textarea
+              <WorkshopRichTextField
                 value={String(form[contentKey] ?? '')}
-                onChange={(e) => set(contentKey, e.target.value)}
+                onChange={(v) => set(contentKey, v)}
                 rows={3}
                 disabled={hidden}
                 placeholder={section.placeholder}
-                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white placeholder:text-[#999] focus:outline-none focus:ring-2 focus:ring-[#5D755D] focus:border-transparent resize-none disabled:cursor-not-allowed disabled:bg-[#F3F2EF] disabled:text-[#888]"
               />
             </div>
           )
