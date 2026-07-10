@@ -311,6 +311,9 @@ export default function AdminAddPage() {
           throw new Error('Duration (minutes) must be a whole number')
         }
         duration_minutes = parseInt(durationMinutesRaw, 10)
+        if (duration_minutes < 15 || duration_minutes > 480) {
+          throw new Error('Duration (minutes) must be between 15 and 480')
+        }
       }
 
       const submitData = {
@@ -688,7 +691,9 @@ export default function AdminAddPage() {
                   placeholder="e.g. 120"
                   disabled={loading}
                 />
-                <p className="text-xs text-slate-500">Optional. Session length in minutes. Shown in the app quick view and bookings.</p>
+                <p className="text-xs text-slate-500">
+                  Optional. Session length in minutes (15–480). Shown in the app quick view and bookings.
+                </p>
               </div>
 
               {/* Date */}

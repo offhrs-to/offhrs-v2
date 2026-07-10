@@ -58,7 +58,7 @@ interface FormData {
   lng: string
   is_multiple_dates: boolean
   duration_weeks: number
-  duration_minutes: number
+  duration_minutes: string
   description: string
   recurrence: Recurrence
 }
@@ -82,7 +82,7 @@ export default function AdminEditPage() {
     lng: '',
     is_multiple_dates: false,
     duration_weeks: 1,
-    duration_minutes: 90,
+    duration_minutes: '',
     description: '',
     recurrence: 'none',
   })
@@ -148,7 +148,9 @@ export default function AdminEditPage() {
           is_multiple_dates: data.is_multiple_dates || false,
           duration_weeks: data.duration_weeks != null ? Math.max(1, Number(data.duration_weeks)) : 1,
           duration_minutes:
-            data.duration_minutes != null ? Math.min(480, Math.max(15, Number(data.duration_minutes))) : 90,
+            data.duration_minutes != null && Number(data.duration_minutes) > 0
+              ? String(Number(data.duration_minutes))
+              : '',
           description: data.description || '',
           recurrence: (data.recurrence === 'daily' || data.recurrence === 'weekly' ? data.recurrence : 'none') as Recurrence,
         })
@@ -206,9 +208,7 @@ export default function AdminEditPage() {
       [name]:
         name === 'duration_weeks'
           ? parseInt(value, 10) || 1
-          : name === 'duration_minutes'
-            ? Math.min(480, Math.max(15, parseInt(value, 10) || 90))
-            : type === 'checkbox'
+          : type === 'checkbox'
               ? checked
               : value,
     }))
@@ -326,6 +326,18 @@ export default function AdminEditPage() {
         }
       }
 
+      const durationMinutesRaw = formData.duration_minutes.trim()
+      let duration_minutes: number | null = null
+      if (durationMinutesRaw) {
+        if (!/^\d+$/.test(durationMinutesRaw)) {
+          throw new Error('Duration (minutes) must be a whole number')
+        }
+        duration_minutes = parseInt(durationMinutesRaw, 10)
+        if (duration_minutes < 15 || duration_minutes > 480) {
+          throw new Error('Duration (minutes) must be between 15 and 480')
+        }
+      }
+
       // Prepare data for Supabase (handle empty strings as null)
       const submitData = {
         title: formData.title.trim(),
@@ -340,7 +352,7 @@ export default function AdminEditPage() {
         lng: lng || null,
         is_multiple_dates: formData.is_multiple_dates,
         duration_weeks: Math.max(1, formData.duration_weeks),
-        duration_minutes: formData.duration_minutes,
+        duration_minutes,
         description: formData.description.trim() || null,
         recurrence: formData.recurrence,
         vendor_profile_id: vendorProfileId,
@@ -624,14 +636,16 @@ export default function AdminEditPage() {
                 <Input
                   id="duration_minutes"
                   name="duration_minutes"
-                  type="number"
-                  min={15}
-                  max={480}
+                  type="text"
+                  inputMode="numeric"
                   value={formData.duration_minutes}
                   onChange={handleChange}
+                  placeholder="e.g. 120"
                   disabled={loading}
                 />
-                <p className="text-xs text-slate-500">Length of a single session (15–480 min). Shown in the app quick view and bookings.</p>
+                <p className="text-xs text-slate-500">
+                  Optional. Session length in minutes (15–480). Shown in the app quick view and bookings.
+                </p>
               </div>
 
               {/* Date */}

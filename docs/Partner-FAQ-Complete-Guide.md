@@ -571,9 +571,18 @@ Use **Forgot password** on the partner login page, or change your password in **
 In **Settings**, use the account deletion option. This will:
 
 - Cancel your partner subscription immediately  
-- Delete your vendor profile, workshops, bookings, payout records, and calendar connections  
+- **Refund any active paid customer bookings** (including upcoming workshops)  
+- Delete your vendor profile, workshops, booking records, payout history in offhrs, and calendar connections  
 
 If you use the same email for the mobile consumer app, **your consumer account is preserved** and you can continue using the app as a customer.
+
+**Before you delete, we recommend:**
+
+1. **Check Stripe Express** (Payouts → Open Stripe Express) for any balance or payouts still in progress. Ticket revenue is held and paid out by **Stripe**, not offhrs. Deleting your partner account does **not** cancel in-flight bank payouts — funds already in your Stripe Express balance should still reach your linked bank on Stripe’s normal schedule. You will, however, lose access to payout history in the offhrs dashboard (use Stripe directly for balances and tax documents after deletion).
+2. **Confirm you are okay refunding upcoming paid bookings.** Deletion automatically refunds customers who still have active paid bookings. If you are not willing to issue those refunds, do not delete until those workshops have run or bookings are resolved.
+3. **Export your Bookings CSV** (Bookings page) if you need records for your accountant or files. Once the account is deleted, offhrs cannot recover that data.
+
+Deletion may fail if Stripe cannot complete a required refund on an active booking — resolve those in Stripe and try again.
 
 ---
 

@@ -231,7 +231,12 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
       'Delete your vendor account?\n\n' +
         'This is permanent and cannot be undone. We will:\n' +
         '  • Cancel your offhrs Partners subscription immediately\n' +
-        '  • Delete your business profile, workshops, bookings, payouts, and calendar connections\n\n' +
+        '  • Refund any active paid customer bookings\n' +
+        '  • Delete your business profile, workshops, bookings, payout records, and calendar connections\n\n' +
+        'Before you continue:\n' +
+        '  • Check Stripe Express (Payouts) for any balance or pending payouts — bank payouts continue on Stripe’s schedule even after you leave offhrs\n' +
+        '  • Confirm you are okay refunding any upcoming paid bookings\n' +
+        '  • Export your Bookings CSV if you need records — offhrs data is removed and cannot be recovered\n\n' +
         'If you also use the offhrs mobile app as a consumer with the same email, ' +
         'that consumer account is kept and you will still be able to log in there.'
     )
@@ -669,9 +674,13 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
 
         <div className="mt-4 border-t border-red-100 pt-4">
           <p className="text-xs text-[#888] mb-3">
-            Deleting your vendor account cancels your subscription right away and permanently removes
-            your business profile, workshops, bookings, payouts, and calendar connections. If you also
-            use the offhrs mobile app with the same email, your consumer account is kept.
+            Deleting your vendor account cancels your subscription right away, refunds active paid
+            bookings, and permanently removes your business profile, workshops, bookings, payout
+            records, and calendar connections. Funds already in your Stripe Express account still
+            pay out to your bank on Stripe’s schedule — but you will lose payout history in this
+            dashboard. Before deleting, check Stripe Express for any pending balance, confirm you are
+            okay refunding upcoming paid bookings, and export your Bookings CSV if you need records.
+            If you also use the offhrs mobile app with the same email, your consumer account is kept.
           </p>
           <button
             onClick={deleteAccount}

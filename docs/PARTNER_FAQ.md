@@ -196,4 +196,26 @@ partner, are the in-app bookable kind.
 
 ---
 
+## Account & deletion
+
+### How do I delete my partner account?
+
+In **Settings**, use **Delete vendor account**. This cancels your subscription
+immediately, refunds active paid customer bookings, and permanently removes your
+vendor profile, workshops, booking records, payout history in offhrs, and
+calendar connections. If you use the same email in the mobile app, your consumer
+account is kept.
+
+**Before you delete:**
+
+1. **Check Stripe Express** (Payouts) for any balance or pending payouts. Bank
+   payouts continue on Stripe's schedule even after you leave offhrs; you lose
+   payout history in the offhrs dashboard.
+2. **Confirm you are okay refunding upcoming paid bookings** — deletion refunds
+   active paid bookings automatically.
+3. **Export your Bookings CSV** if you need records; offhrs cannot recover data
+   after deletion.
+
+---
+
 _Questions this FAQ doesn't cover? Contact the offhrs team and we'll help._
