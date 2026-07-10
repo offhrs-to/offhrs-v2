@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { siInstagram, siTiktok, type SimpleIcon } from 'simple-icons'
 
 const INSTAGRAM_URL = 'https://www.instagram.com/offhrs_to'
-const TIKTOK_URL = 'https://www.tiktok.com/@offhrs_to'
+const TIKTOK_URL = 'https://www.tiktok.com/@offhrs_toronto'
 
 /** Instagram brand gradient (Meta glyph guidelines). */
 const INSTAGRAM_GRADIENT_STOPS = [
