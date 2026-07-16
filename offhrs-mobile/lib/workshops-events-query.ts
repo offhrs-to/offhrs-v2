@@ -278,7 +278,10 @@ export type FetchWorkshopEventsOptions = {
    * search/hub can skip when unused.
    */
   skipMapCoords?: boolean;
-  /** Progressive UI: called after the first page is ready, then again with the full set. */
+  /**
+   * Progressive UI: called once after the first page is processed (fast path, no enrichment).
+   * The returned promise still contains the fully enriched list.
+   */
   onPartial?: (rows: WorkshopEventRow[]) => void;
 };
 
@@ -451,7 +454,7 @@ export async function fetchWorkshopEvents(
     return q.order('date', { ascending: true }).order('id', { ascending: true });
   };
 
-  const finish = async (combined: WorkshopEventDbRow[]): Promise<WorkshopEventRow[]> => {
+  const processRows = (combined: WorkshopEventDbRow[]): WorkshopEventRow[] => {
     const list = combined
       .map(mapDbRowToWorkshopEvent)
       .filter((e) => isEventVisibleToConsumers(e))
@@ -463,23 +466,26 @@ export async function fetchWorkshopEvents(
 
     const sorted = expanded.sort(compareWorkshopEventsByStart);
 
-    let result = sorted;
-    if (searchRawWords.length > 0 || searchVendorIds.length > 0) {
-      result = sorted.filter((e) => {
-        if (searchVendorIds.length > 0 && e.vendor_id && searchVendorIds.includes(e.vendor_id))
-          return true;
-        if (searchRawWords.length === 0) return true;
-        return searchRawWords.every(
-          (w) =>
-            (e.title && e.title.toLowerCase().includes(w.toLowerCase())) ||
-            (e.category && e.category.toLowerCase().includes(w.toLowerCase())) ||
-            (e.organizer && e.organizer.toLowerCase().includes(w.toLowerCase())) ||
-            (e.vendor_name && e.vendor_name.toLowerCase().includes(w.toLowerCase()))
-        );
-      });
+    if (searchRawWords.length === 0 && searchVendorIds.length === 0) {
+      return sorted;
     }
 
-    const named = await enrichWorkshopEventsWithVendorNames(result);
+    return sorted.filter((e) => {
+      if (searchVendorIds.length > 0 && e.vendor_id && searchVendorIds.includes(e.vendor_id))
+        return true;
+      if (searchRawWords.length === 0) return true;
+      return searchRawWords.every(
+        (w) =>
+          (e.title && e.title.toLowerCase().includes(w.toLowerCase())) ||
+          (e.category && e.category.toLowerCase().includes(w.toLowerCase())) ||
+          (e.organizer && e.organizer.toLowerCase().includes(w.toLowerCase())) ||
+          (e.vendor_name && e.vendor_name.toLowerCase().includes(w.toLowerCase()))
+      );
+    });
+  };
+
+  const enrichRows = async (rows: WorkshopEventRow[]): Promise<WorkshopEventRow[]> => {
+    const named = await enrichWorkshopEventsWithVendorNames(rows);
     if (skipMapCoords) return named;
     return enrichWorkshopEventsWithMapCoordinates(named);
   };
@@ -494,7 +500,8 @@ export async function fetchWorkshopEvents(
   if (firstData?.length) combined.push(...(firstData as WorkshopEventDbRow[]));
 
   if (onPartial && combined.length > 0) {
-    onPartial(await finish(combined));
+    // Fast first paint: skip network enrichments so taps stay responsive while pages load.
+    onPartial(processRows(combined));
   }
 
   if (combined.length >= firstTake && cap > firstTake) {
@@ -510,9 +517,7 @@ export async function fetchWorkshopEvents(
     }
   }
 
-  const finalRows = await finish(combined);
-  onPartial?.(finalRows);
-  return finalRows;
+  return enrichRows(processRows(combined));
 }
 
 /** Slim columns for map geo scans — hydrate full rows only for surviving pins. */

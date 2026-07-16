@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -153,7 +153,7 @@ function QuickViewTap({
   );
 }
 
-export default function WorkshopBrowseGroupedCard({
+function WorkshopBrowseGroupedCard({
   group,
   profileLocation,
   savedEventIds,
@@ -671,3 +671,24 @@ export default function WorkshopBrowseGroupedCard({
     </>
   );
 }
+
+function savedIdsEqualForGroup(
+  group: WorkshopEventRow[],
+  prev: Set<number>,
+  next: Set<number>
+): boolean {
+  for (const e of group) {
+    const id = Number(e.id);
+    if (!Number.isInteger(id)) continue;
+    if (prev.has(id) !== next.has(id)) return false;
+  }
+  return true;
+}
+
+export default memo(WorkshopBrowseGroupedCard, (prev, next) => {
+  if (prev.group !== next.group) return false;
+  if (prev.profileLocation !== next.profileLocation) return false;
+  if (prev.onSaveChange !== next.onSaveChange) return false;
+  if (prev.onOpenQuickView !== next.onOpenQuickView) return false;
+  return savedIdsEqualForGroup(prev.group, prev.savedEventIds, next.savedEventIds);
+});

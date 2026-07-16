@@ -31,8 +31,17 @@ import type { WorkshopPriceSort } from '@/lib/workshop-price-sort';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  InteractionManager,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const LIST_GAP = 12;
@@ -65,6 +74,139 @@ function browseGroupKey(e: WorkshopEventRow, mode: 'single-day' | 'all-dates'): 
 
 type FilterSheet = 'category' | 'sort' | 'distance' | 'all' | null;
 
+function browseGroupListKey(group: WorkshopEventRow[]): string {
+  const anchor = group[0];
+  if (!anchor) return 'empty';
+  return `${anchor.vendor_id ?? 'nv'}-${anchor.title}-${group.map((g) => g.id).join('-')}`;
+}
+
+type BrowseListProps = {
+  loading: boolean;
+  groupedCount: number;
+  pagedGroups: WorkshopEventRow[][];
+  dayEventsCount: number;
+  selectedYmd: string | null;
+  rangeStart: string | null;
+  rangeEnd: string | null;
+  distanceKm: BrowseDistanceKm;
+  profileLocation: { lat: number; lng: number; postal_code: string | null } | null;
+  savedEventIds: Set<number>;
+  onLoadMore: () => void;
+  onSaveChange: (eventId: number, saved: boolean) => void;
+  onOpenQuickView: (row: WorkshopEventRow) => void;
+};
+
+const BrowseWorkshopList = memo(function BrowseWorkshopList({
+  loading,
+  groupedCount,
+  pagedGroups,
+  dayEventsCount,
+  selectedYmd,
+  rangeStart,
+  rangeEnd,
+  distanceKm,
+  profileLocation,
+  savedEventIds,
+  onLoadMore,
+  onSaveChange,
+  onOpenQuickView,
+}: BrowseListProps) {
+  const renderItem = useCallback(
+    ({ item: group }: { item: WorkshopEventRow[] }) => (
+      <View style={{ width: '100%', marginBottom: LIST_GAP }}>
+        <WorkshopBrowseGroupedCard
+          group={group}
+          profileLocation={profileLocation}
+          savedEventIds={savedEventIds}
+          onSaveChange={onSaveChange}
+          onOpenQuickView={onOpenQuickView}
+        />
+      </View>
+    ),
+    [profileLocation, savedEventIds, onSaveChange, onOpenQuickView]
+  );
+
+  const keyExtractor = useCallback((group: WorkshopEventRow[]) => browseGroupListKey(group), []);
+
+  const listHeader = useMemo(
+    () => (
+      <View>
+        {rangeStart || rangeEnd ? (
+          <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginBottom: 10 }}>
+            Date range: {rangeStart ?? '…'} → {rangeEnd ?? '…'}
+          </Text>
+        ) : null}
+        <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 12 }}>
+          {groupedCount} workshop{groupedCount === 1 ? '' : 's'}
+          {selectedYmd == null && !rangeStart && !rangeEnd
+            ? ' upcoming'
+            : selectedYmd != null
+              ? ' on this day'
+              : ' in this date range'}
+        </Text>
+      </View>
+    ),
+    [groupedCount, selectedYmd, rangeStart, rangeEnd]
+  );
+
+  if (loading && pagedGroups.length === 0) {
+    return (
+      <View style={{ flex: 1, paddingVertical: 40, alignItems: 'center' }}>
+        <ActivityIndicator color={DesignColors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      style={{ flex: 1 }}
+      data={pagedGroups}
+      keyExtractor={keyExtractor}
+      renderItem={renderItem}
+      ListHeaderComponent={listHeader}
+      contentContainerStyle={{
+        paddingHorizontal: DesignSpacing.horizontalPadding,
+        paddingTop: 12,
+        paddingBottom: 32,
+      }}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      removeClippedSubviews
+      initialNumToRender={8}
+      maxToRenderPerBatch={6}
+      windowSize={7}
+      ListEmptyComponent={
+        dayEventsCount === 0 || groupedCount === 0 ? (
+          <Text style={{ color: DesignColors.mediumGray, marginTop: 8 }}>
+            {distanceKm !== 'auto' && profileLocation == null
+              ? 'Add a saved location in your profile to filter by distance.'
+              : selectedYmd == null && !rangeStart && !rangeEnd
+                ? 'No upcoming workshops.'
+                : 'Nothing scheduled for this selection.'}
+          </Text>
+        ) : null
+      }
+      ListFooterComponent={
+        pagedGroups.length < groupedCount ? (
+          <Pressable
+            onPress={onLoadMore}
+            style={{
+              marginTop: 20,
+              paddingVertical: 12,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: DesignColors.lightGreenBorder,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>Load more</Text>
+          </Pressable>
+        ) : null
+      }
+    />
+  );
+});
+
 export default function WorkshopBrowseScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -96,6 +238,8 @@ export default function WorkshopBrowseScreen() {
 
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<WorkshopEventRow[]>([]);
+  const eventsCountRef = useRef(0);
+  eventsCountRef.current = events.length;
   const [listPage, setListPage] = useState(1);
 
   const [savedEventIds, setSavedEventIds] = useState<Set<number>>(new Set());
@@ -194,46 +338,74 @@ export default function WorkshopBrowseScreen() {
 
   const categoriesForQuery = selectedCategories;
 
+  const handleSaveChange = useCallback((eventId: number, saved: boolean) => {
+    setSavedEventIds((prev) => {
+      const next = new Set(prev);
+      if (saved) next.add(eventId);
+      else next.delete(eventId);
+      return next;
+    });
+  }, []);
+
+  const openQuickView = useCallback((row: WorkshopEventRow) => {
+    setQuickViewEvent(row);
+  }, []);
+
+  const loadMoreGroups = useCallback(() => {
+    startTransition(() => setListPage((p) => p + 1));
+  }, []);
+
   const reload = useCallback(async () => {
-    setLoading(true);
+    if (eventsCountRef.current === 0) setLoading(true);
     try {
       const rows = await fetchWorkshopEvents({
         searchTerm,
-        categories: categoriesForQuery,
+        // Category is filtered client-side so toggling filters stays instant.
+        categories: [],
         dateRangeStart: null,
         dateRangeEnd: null,
         light: true,
         onPartial: (partial) => {
-          setEvents(partial);
-          setLoading(false);
+          startTransition(() => {
+            setEvents(partial);
+            setLoading(false);
+          });
         },
       });
-      setEvents(rows);
+      InteractionManager.runAfterInteractions(() => {
+        setEvents(rows);
+        setLoading(false);
+      });
     } catch {
       setEvents([]);
-    } finally {
       setLoading(false);
     }
-  }, [searchTerm, categoriesForQuery]);
+  }, [searchTerm]);
 
   useEffect(() => {
     reload();
   }, [reload]);
 
   useEffect(() => {
-    setListPage(1);
+    startTransition(() => setListPage(1));
   }, [selectedYmd, selectedCategories, searchTerm, priceSort, listSort, distanceKm, rangeStart, rangeEnd]);
+
+  const eventsForBrowse = useMemo(() => {
+    if (categoriesForQuery.length === 0) return events;
+    const allowed = new Set(categoriesForQuery);
+    return events.filter((e) => e.category != null && allowed.has(e.category));
+  }, [events, categoriesForQuery]);
 
   const dayEvents = useMemo(() => {
     if (rangeStart || rangeEnd) {
-      return events.filter((e) => eventMatchesYmdRange(e, rangeStart, rangeEnd));
+      return eventsForBrowse.filter((e) => eventMatchesYmdRange(e, rangeStart, rangeEnd));
     }
     if (selectedYmd != null) {
-      return events.filter((e) => eventMatchesCalendarDay(e, selectedYmd));
+      return eventsForBrowse.filter((e) => eventMatchesCalendarDay(e, selectedYmd));
     }
-    const upcoming = events.filter(eventIsUpcomingToronto);
+    const upcoming = eventsForBrowse.filter(eventIsUpcomingToronto);
     return [...upcoming].sort(compareWorkshopEventsByStart);
-  }, [events, selectedYmd, rangeStart, rangeEnd]);
+  }, [eventsForBrowse, selectedYmd, rangeStart, rangeEnd]);
 
   const profileAnchor = useMemo(
     () => (profileLocation ? { lat: profileLocation.lat, lng: profileLocation.lng } : null),
@@ -270,7 +442,7 @@ export default function WorkshopBrowseScreen() {
     const next = selectedCategories.includes(cat)
       ? selectedCategories.filter((c) => c !== cat)
       : [...selectedCategories, cat];
-    setSelectedCategories(next);
+    startTransition(() => setSelectedCategories(next));
     syncParams({
       q: searchTerm,
       categories: serializeCategoriesParam(next, CATEGORIES),
@@ -278,7 +450,7 @@ export default function WorkshopBrowseScreen() {
   };
 
   const clearCategories = () => {
-    setSelectedCategories([]);
+    startTransition(() => setSelectedCategories([]));
     syncParams({ q: searchTerm, categories: null });
   };
 
@@ -303,11 +475,28 @@ export default function WorkshopBrowseScreen() {
   });
 
   const openDistanceSheet = () => {
-    if (!profileLocation && distanceKm === 'auto') {
-      // Still allow opening so they can see options; filtering no-ops without location.
-    }
-    setFilterSheet('distance');
+    startTransition(() => setFilterSheet('distance'));
   };
+
+  const openFilterSheet = useCallback((sheet: Exclude<FilterSheet, null>) => {
+    startTransition(() => setFilterSheet(sheet));
+  }, []);
+
+  const closeFilterSheet = useCallback(() => {
+    startTransition(() => setFilterSheet(null));
+  }, []);
+
+  const applyListSort = useCallback((sort: BrowseListSort) => {
+    startTransition(() => setListSort(sort));
+  }, []);
+
+  const applyDistanceKm = useCallback((km: BrowseDistanceKm) => {
+    startTransition(() => setDistanceKm(km));
+  }, []);
+
+  const applyPriceSort = useCallback((sort: WorkshopPriceSort) => {
+    startTransition(() => setPriceSort(sort));
+  }, []);
 
   return (
     <>
@@ -322,7 +511,7 @@ export default function WorkshopBrowseScreen() {
           onSearchPress={pushSearch}
           showAllFiltersButton
           allFiltersActive={filtersActive}
-          onAllFiltersPress={() => setFilterSheet('all')}
+          onAllFiltersPress={() => openFilterSheet('all')}
         />
 
         {/* Sticky filter panel — stays visible while the list scrolls */}
@@ -355,13 +544,13 @@ export default function WorkshopBrowseScreen() {
               <WorkshopFilterPill
                 label={categoryPillLabel(selectedCategories)}
                 active={selectedCategories.length > 0}
-                onPress={() => setFilterSheet('category')}
+                onPress={() => openFilterSheet('category')}
                 style={{ flex: 1 }}
               />
               <WorkshopFilterPill
                 label={sortPillLabel(listSort, priceSort)}
                 active={listSort !== 'time' || priceSort !== 'default'}
-                onPress={() => setFilterSheet('sort')}
+                onPress={() => openFilterSheet('sort')}
                 style={{ flex: 1 }}
               />
               <WorkshopFilterPill
@@ -372,7 +561,7 @@ export default function WorkshopBrowseScreen() {
               />
             </View>
             <Pressable
-              onPress={() => setCalendarOpen(true)}
+              onPress={() => startTransition(() => setCalendarOpen(true))}
               accessibilityRole="button"
               accessibilityLabel="Filter by date"
               style={{
@@ -398,9 +587,11 @@ export default function WorkshopBrowseScreen() {
             <View style={{ flexDirection: 'row', gap: 8, paddingRight: 8 }}>
               <Pressable
                 onPress={() => {
-                  setSelectedYmd(null);
-                  setRangeStart(null);
-                  setRangeEnd(null);
+                  startTransition(() => {
+                    setSelectedYmd(null);
+                    setRangeStart(null);
+                    setRangeEnd(null);
+                  });
                 }}
                 style={{
                   paddingHorizontal: 12,
@@ -440,9 +631,11 @@ export default function WorkshopBrowseScreen() {
                   <Pressable
                     key={d.ymd}
                     onPress={() => {
-                      setRangeStart(null);
-                      setRangeEnd(null);
-                      setSelectedYmd(d.ymd);
+                      startTransition(() => {
+                        setRangeStart(null);
+                        setRangeEnd(null);
+                        setSelectedYmd(d.ymd);
+                      });
                     }}
                     style={{
                       paddingHorizontal: 12,
@@ -473,103 +666,35 @@ export default function WorkshopBrowseScreen() {
           </ScrollView>
         </View>
 
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          style={{ flex: 1 }}
-          contentContainerStyle={{
-            paddingHorizontal: DesignSpacing.horizontalPadding,
-            paddingTop: 12,
-            paddingBottom: 32,
-          }}
-          showsVerticalScrollIndicator={false}
-        >
-          {rangeStart || rangeEnd ? (
-            <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginBottom: 10 }}>
-              Date range: {rangeStart ?? '…'} → {rangeEnd ?? '…'}
-            </Text>
-          ) : null}
-
-          {loading ? (
-            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-              <ActivityIndicator color={DesignColors.primary} />
-            </View>
-          ) : (
-            <>
-              <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 12 }}>
-                {groupedForDay.length} workshop{groupedForDay.length === 1 ? '' : 's'}
-                {selectedYmd == null && !rangeStart && !rangeEnd
-                  ? ' upcoming'
-                  : selectedYmd != null
-                    ? ' on this day'
-                    : ' in this date range'}
-              </Text>
-              <View style={{ gap: LIST_GAP }}>
-                {pagedGroups.map((group) => {
-                  const anchor = group[0]!;
-                  return (
-                    <View
-                      key={`${anchor.vendor_id ?? 'nv'}-${anchor.title}-${group.map((g) => g.id).join('-')}`}
-                      style={{ width: '100%' }}
-                    >
-                      <WorkshopBrowseGroupedCard
-                        group={group}
-                        profileLocation={profileLocation}
-                        savedEventIds={savedEventIds}
-                        onSaveChange={(id, saved) => {
-                          setSavedEventIds((prev) => {
-                            const next = new Set(prev);
-                            if (saved) next.add(id);
-                            else next.delete(id);
-                            return next;
-                          });
-                        }}
-                        onOpenQuickView={setQuickViewEvent}
-                      />
-                    </View>
-                  );
-                })}
-              </View>
-              {dayEvents.length === 0 || groupedForDay.length === 0 ? (
-                <Text style={{ color: DesignColors.mediumGray, marginTop: 8 }}>
-                  {distanceKm !== 'auto' && profileLocation == null
-                    ? 'Add a saved location in your profile to filter by distance.'
-                    : selectedYmd == null && !rangeStart && !rangeEnd
-                      ? 'No upcoming workshops.'
-                      : 'Nothing scheduled for this selection.'}
-                </Text>
-              ) : null}
-              {pagedGroups.length < groupedForDay.length ? (
-                <Pressable
-                  onPress={() => setListPage((p) => p + 1)}
-                  style={{
-                    marginTop: 20,
-                    paddingVertical: 12,
-                    borderRadius: 12,
-                    borderWidth: 1,
-                    borderColor: DesignColors.lightGreenBorder,
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>Load more</Text>
-                </Pressable>
-              ) : null}
-            </>
-          )}
-        </ScrollView>
+        <BrowseWorkshopList
+          loading={loading}
+          groupedCount={groupedForDay.length}
+          pagedGroups={pagedGroups}
+          dayEventsCount={dayEvents.length}
+          selectedYmd={selectedYmd}
+          rangeStart={rangeStart}
+          rangeEnd={rangeEnd}
+          distanceKm={distanceKm}
+          profileLocation={profileLocation}
+          savedEventIds={savedEventIds}
+          onLoadMore={loadMoreGroups}
+          onSaveChange={handleSaveChange}
+          onOpenQuickView={openQuickView}
+        />
       </View>
 
       <WorkshopBrowseFilterSheets
         open={filterSheet}
-        onClose={() => setFilterSheet(null)}
+        onClose={closeFilterSheet}
         selectedCategories={selectedCategories}
         onToggleCategory={toggleCategory}
         onClearCategories={clearCategories}
         listSort={listSort}
-        onSelectListSort={setListSort}
+        onSelectListSort={applyListSort}
         distanceKm={distanceKm}
-        onSelectDistanceKm={setDistanceKm}
+        onSelectDistanceKm={applyDistanceKm}
         priceSort={priceSort}
-        onSelectPriceSort={setPriceSort}
+        onSelectPriceSort={applyPriceSort}
         hasProfileLocation={!!profileLocation}
       />
 
@@ -580,9 +705,11 @@ export default function WorkshopBrowseScreen() {
         initialEnd={rangeEnd ?? selectedYmd ?? ''}
         onApply={(start, end) => {
           const next = normalizeCalendarSelection(start, end);
-          setSelectedYmd(next.selectedYmd);
-          setRangeStart(next.rangeStart);
-          setRangeEnd(next.rangeEnd);
+          startTransition(() => {
+            setSelectedYmd(next.selectedYmd);
+            setRangeStart(next.rangeStart);
+            setRangeEnd(next.rangeEnd);
+          });
         }}
       />
 
