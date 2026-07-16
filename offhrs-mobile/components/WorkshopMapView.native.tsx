@@ -261,6 +261,17 @@ export default function WorkshopMapView({
   const loadingRef = useRef(loading);
   loadingRef.current = loading;
 
+  // Upstream react-native-maps + React Native New Architecture bug on iOS: the native layer
+  // can silently drop a subset of markers when an existing MapView's marker set is *updated*
+  // (reconciled) rather than freshly created — the JS-side data and props are correct and
+  // present, but nothing gets drawn for those pins. Keying the MapView on the pin set forces a
+  // full native remount (fresh markers, no reconciliation) whenever the set actually changes,
+  // instead of patching the existing native view in place.
+  const markerSetKey = useMemo(
+    () => withCoords.map((e) => workshopMapMarkerKey(e)).sort().join('|'),
+    [withCoords]
+  );
+
   // First-mount region is computed directly from the pin bounds we already have (when
   // available) so the very first paint is correct-by-construction — no race with the
   // native view's own startup, which is what let `initialRegion` (anchor-only, before
@@ -282,7 +293,7 @@ export default function WorkshopMapView({
   useEffect(() => {
     didFitRef.current = false;
     mapReadyRef.current = false;
-  }, [anchor?.lat, anchor?.lng]);
+  }, [anchor?.lat, anchor?.lng, markerSetKey]);
 
   // Re-fit only once the native map has actually confirmed it's ready (`onMapReady`),
   // instead of guessing with a fixed timeout: on iOS, MapKit's native view can take
@@ -346,6 +357,7 @@ export default function WorkshopMapView({
       onLayout={(e) => setViewHeightPx(e.nativeEvent.layout.height)}
     >
       <MapView
+        key={markerSetKey}
         ref={mapRef}
         style={styles.map}
         initialRegion={initialRegion}
@@ -354,23 +366,27 @@ export default function WorkshopMapView({
         onMapReady={onMapReady}
         onPress={() => onMapPress?.()}
       >
-        {withCoords.map((event) => (
-          <Marker
-            key={workshopMapMarkerKey(event)}
-            coordinate={{
-              latitude: Number(event.lat),
-              longitude: Number(event.lng),
-            }}
-            title={event.title}
-            onPress={() => onEventPress?.(event)}
-          >
-            {!onEventPress && (
-              <Callout tooltip>
-                <MapCalloutCard event={event} />
-              </Callout>
-            )}
-          </Marker>
-        ))}
+        {withCoords.map((event) => {
+          const markerKey = workshopMapMarkerKey(event);
+          return (
+            <Marker
+              key={markerKey}
+              identifier={markerKey}
+              coordinate={{
+                latitude: Number(event.lat),
+                longitude: Number(event.lng),
+              }}
+              title={event.title}
+              onPress={() => onEventPress?.(event)}
+            >
+              {!onEventPress && (
+                <Callout tooltip>
+                  <MapCalloutCard event={event} />
+                </Callout>
+              )}
+            </Marker>
+          );
+        })}
       </MapView>
       {withCoords.length === 0 && !loading && (
         <View style={styles.emptyOverlay}>
