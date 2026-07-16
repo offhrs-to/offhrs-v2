@@ -36,6 +36,16 @@ export async function resolveEventCoordinates(params: {
 
   const loc = (params.location ?? '').trim()
   if (!loc) {
+    const vlat = params.vendorProfileLat
+    const vlng = params.vendorProfileLng
+    if (
+      vlat != null &&
+      vlng != null &&
+      Number.isFinite(vlat) &&
+      Number.isFinite(vlng)
+    ) {
+      return { lat: vlat, lng: vlng }
+    }
     return { lat: null, lng: null }
   }
 
@@ -53,27 +63,26 @@ export async function resolveEventCoordinates(params: {
   const vlat = params.vendorProfileLat
   const vlng = params.vendorProfileLng
   const vaddr = (params.vendorProfileAddress ?? '').trim()
-  if (
-    vlat != null &&
-    vlng != null &&
-    Number.isFinite(vlat) &&
-    Number.isFinite(vlng) &&
-    vaddr &&
-    locationsLikelySame(loc, vaddr)
-  ) {
+  const vendorPinOk =
+    vlat != null && vlng != null && Number.isFinite(vlat) && Number.isFinite(vlng)
+
+  if (vendorPinOk && (!vaddr || !loc || locationsLikelySame(loc, vaddr))) {
     return { lat: vlat, lng: vlng }
   }
 
   const geocoded = await geocodeAddress(loc)
-  if (!geocoded) {
-    return { lat: null, lng: null }
+  if (geocoded) {
+    const lat = parseFloat(geocoded.lat)
+    const lng = parseFloat(geocoded.lng)
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng }
+    }
   }
 
-  const lat = parseFloat(geocoded.lat)
-  const lng = parseFloat(geocoded.lng)
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return { lat: null, lng: null }
+  // Last resort: studio pin even if address strings differ slightly (Places vs typed).
+  if (vendorPinOk) {
+    return { lat: vlat, lng: vlng }
   }
 
-  return { lat, lng }
+  return { lat: null, lng: null }
 }

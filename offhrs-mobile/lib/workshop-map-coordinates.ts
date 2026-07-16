@@ -30,8 +30,9 @@ function locationsLikelySame(eventLocation: string, vendorAddress: string): bool
 }
 
 /**
- * When `events.lat`/`lng` are missing, fall back to the vendor profile pin from onboarding
- * when the workshop address matches the vendor's saved address.
+ * When `events.lat`/`lng` are missing, fall back to the vendor profile pin from onboarding.
+ * Prefer address match when both strings exist; otherwise still use the studio pin so
+ * partner workshops appear on the map when geocoding never populated event coords.
  */
 export async function enrichWorkshopEventsWithMapCoordinates(
   events: WorkshopEventRow[]
@@ -64,10 +65,21 @@ export async function enrichWorkshopEventsWithMapCoordinates(
   return events.map((e) => {
     if (workshopHasMapCoordinates(e) || !e.vendor_profile_id) return e;
     const profile = byId.get(e.vendor_profile_id.trim());
-    if (!profile?.lat || !profile?.lng) return e;
+    if (
+      profile?.lat == null ||
+      profile?.lng == null ||
+      !Number.isFinite(profile.lat) ||
+      !Number.isFinite(profile.lng)
+    ) {
+      return e;
+    }
     const eventLoc = (e.location ?? '').trim();
-    if (!eventLoc) return e;
-    if (profile.address && !locationsLikelySame(eventLoc, profile.address)) {
+    // If both addresses exist and clearly differ, do not override (different venue).
+    if (
+      eventLoc &&
+      profile.address &&
+      !locationsLikelySame(eventLoc, profile.address)
+    ) {
       return e;
     }
     return { ...e, lat: profile.lat, lng: profile.lng };

@@ -464,8 +464,9 @@ export async function fetchWorkshopEvents(
 }
 
 /**
- * Map / geo browse: upcoming visible events with coordinates inside a bbox around the user.
- * Avoids the date-ordered global fetch cap that can hide nearby workshops with later dates.
+ * Map / geo browse: upcoming visible events near the user.
+ * Includes (1) events with lat/lng in the bbox and (2) partner events missing
+ * coords so we can inherit vendor_profiles.location_lat/lng before radius filter.
  */
 export async function fetchWorkshopEventsNearAnchor(
   anchor: { lat: number; lng: number },
@@ -476,25 +477,47 @@ export async function fetchWorkshopEventsNearAnchor(
   const nowIso = new Date().toISOString();
   const box = bboxAround(anchor.lat, anchor.lng, radiusKm);
 
-  const { data, error } = await supabase
-    .from('events')
-    .select(WORKSHOP_EVENT_LIST_SELECT)
-    .not('lat', 'is', null)
-    .not('lng', 'is', null)
-    .gte('lat', box.minLat)
-    .lte('lat', box.maxLat)
-    .gte('lng', box.minLng)
-    .lte('lng', box.maxLng)
-    .or(WORKSHOP_EVENTS_UPCOMING_OR(nowIso))
-    .or(CONSUMER_BOOKING_STATUS_OR)
-    .limit(eventsCap);
+  const baseSelect = () =>
+    supabase
+      .from('events')
+      .select(WORKSHOP_EVENT_LIST_SELECT)
+      .or(WORKSHOP_EVENTS_UPCOMING_OR(nowIso))
+      .or(CONSUMER_BOOKING_STATUS_OR);
 
-  if (error) {
-    if (__DEV__) console.warn('fetchWorkshopEventsNearAnchor', error.message);
-    throw error;
+  const [geoRes, uncoordRes] = await Promise.all([
+    baseSelect()
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+      .gte('lat', box.minLat)
+      .lte('lat', box.maxLat)
+      .gte('lng', box.minLng)
+      .lte('lng', box.maxLng)
+      .limit(eventsCap),
+    // Partner workshops often inherit studio pin only after enrichment — include
+    // them even when events.lat/lng were never written at create time.
+    baseSelect()
+      .is('lat', null)
+      .not('vendor_profile_id', 'is', null)
+      .limit(Math.min(800, eventsCap)),
+  ]);
+
+  if (geoRes.error) {
+    if (__DEV__) console.warn('fetchWorkshopEventsNearAnchor', geoRes.error.message);
+    throw geoRes.error;
+  }
+  if (uncoordRes.error && __DEV__) {
+    console.warn('fetchWorkshopEventsNearAnchor uncoord', uncoordRes.error.message);
   }
 
-  const list = ((data ?? []) as WorkshopEventDbRow[])
+  const byId = new Map<number, WorkshopEventDbRow>();
+  for (const row of (geoRes.data ?? []) as WorkshopEventDbRow[]) {
+    byId.set(row.id, row);
+  }
+  for (const row of (uncoordRes.data ?? []) as WorkshopEventDbRow[]) {
+    if (!byId.has(row.id)) byId.set(row.id, row);
+  }
+
+  const list = [...byId.values()]
     .map(mapDbRowToWorkshopEvent)
     .filter((e) => isEventVisibleToConsumers(e))
     .filter((e) => {
@@ -502,18 +525,21 @@ export async function fetchWorkshopEventsNearAnchor(
       if (e.workshop_series === 'multi_week') return true;
       if (!e.date_iso) return true;
       return e.date_iso >= nowIso;
-    })
-    .filter(
-      (e) =>
-        e.lat != null &&
-        e.lng != null &&
-        !Number.isNaN(Number(e.lat)) &&
-        !Number.isNaN(Number(e.lng))
-    );
+    });
 
-  const withinRadius = list.filter((e) => {
-    const km = haversineKm(anchor.lat, anchor.lng, Number(e.lat), Number(e.lng));
-    return km <= radiusKm;
+  const named = await enrichWorkshopEventsWithVendorNames(list);
+  const withCoords = await enrichWorkshopEventsWithMapCoordinates(named);
+
+  const withinRadius = withCoords.filter((e) => {
+    if (
+      e.lat == null ||
+      e.lng == null ||
+      Number.isNaN(Number(e.lat)) ||
+      Number.isNaN(Number(e.lng))
+    ) {
+      return false;
+    }
+    return haversineKm(anchor.lat, anchor.lng, Number(e.lat), Number(e.lng)) <= radiusKm;
   });
 
   withinRadius.sort((a, b) => {
@@ -522,7 +548,5 @@ export async function fetchWorkshopEventsNearAnchor(
     return da - db;
   });
 
-  const expanded = expandWorkshopEventsForConsumers(withinRadius);
-  const named = await enrichWorkshopEventsWithVendorNames(expanded);
-  return enrichWorkshopEventsWithMapCoordinates(named);
+  return expandWorkshopEventsForConsumers(withinRadius);
 }
