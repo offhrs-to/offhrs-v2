@@ -73,7 +73,7 @@ export default function ContentPolicyPage() {
         <p>
           Content that infringes another party&rsquo;s copyright, trademark, patent, or other intellectual
           property rights. To report suspected infringement, contact{' '}
-          <a href="mailto:support@offhrs.app">support@offhrs.app</a> with enough detail for us to review the
+          <a href="mailto:hello@offhrs.app">hello@offhrs.app</a> with enough detail for us to review the
           claim.
         </p>
 
@@ -214,7 +214,7 @@ export default function ContentPolicyPage() {
         </p>
         <p>
           Contact support:{' '}
-          <a href="mailto:support@offhrs.app">support@offhrs.app</a>
+          <a href="mailto:hello@offhrs.app">hello@offhrs.app</a>
         </p>
       </section>
 

@@ -28,7 +28,7 @@ export default function PrivacyPolicyPage() {
         </p>
         <p>
           If you have any questions or wish to exercise your data rights, contact us at{' '}
-          <a href="mailto:admin@offhrs.app">admin@offhrs.app</a>.
+          <a href="mailto:hello@offhrs.app">hello@offhrs.app</a>.
         </p>
       </section>
 
@@ -185,7 +185,7 @@ export default function PrivacyPolicyPage() {
         <ul>
           <li>
             <strong>Right of access.</strong> Request an export of your profile and booking history at{' '}
-            <a href="mailto:admin@offhrs.app">admin@offhrs.app</a>.
+            <a href="mailto:hello@offhrs.app">hello@offhrs.app</a>.
           </li>
           <li>
             <strong>Right of rectification.</strong> Correct inaccurate records or update tax/postal-code
@@ -226,7 +226,7 @@ export default function PrivacyPolicyPage() {
         <h2>9. Contact</h2>
         <p>
           For privacy requests or questions, email{' '}
-          <a href="mailto:admin@offhrs.app">admin@offhrs.app</a>.
+          <a href="mailto:hello@offhrs.app">hello@offhrs.app</a>.
         </p>
       </section>
     </LegalPageLayout>
