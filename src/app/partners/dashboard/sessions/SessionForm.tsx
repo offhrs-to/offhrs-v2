@@ -614,60 +614,40 @@ export function SessionForm({
           </div>
         </div>
 
-        {/* Price, max spots, booked elsewhere, duration */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Price (CAD) <span className="text-red-500">*</span></label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888] text-sm">$</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.price_cad}
-                onChange={(e) => set('price_cad', e.target.value)}
-                className="w-full pl-7 pr-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-              />
+        {/* Price / max + sale on the left; booked elsewhere / duration on the right */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+                  Price (CAD) <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888] text-sm">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.price_cad}
+                    onChange={(e) => set('price_cad', e.target.value)}
+                    className="w-full pl-7 pr-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+                  Max spots <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={form.max_attendees}
+                  onChange={(e) => set('max_attendees', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                />
+              </div>
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Max spots <span className="text-red-500">*</span></label>
-            <input
-              type="number"
-              min="1"
-              value={form.max_attendees}
-              onChange={(e) => set('max_attendees', e.target.value)}
-              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Booked elsewhere</label>
-            <input
-              type="number"
-              min="0"
-              value={externalBooked}
-              onChange={(e) => setExternalBooked(e.target.value)}
-              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-            />
-            <p className="text-xs text-[#888] mt-1 leading-relaxed">
-              Per session date if you list the same workshop on other platforms (Eventbrite, etc.). Reduces spots
-              available on offhrs only.
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Duration (min) <span className="text-red-500">*</span></label>
-            <input
-              type="number"
-              min="15"
-              step="15"
-              value={form.duration_minutes}
-              onChange={(e) => set('duration_minutes', e.target.value)}
-              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-            />
-          </div>
 
-          {/* Sale: spans Price + Max spots columns so fields are not truncated */}
-          <div className="sm:col-span-2 lg:col-span-2 space-y-3">
             <label className="flex items-start gap-3 cursor-pointer select-none rounded-xl border border-[#E8E4DE] bg-white px-3 py-3 hover:border-[#5D755D]/40 transition-colors">
               <input
                 type="checkbox"
@@ -742,6 +722,36 @@ export function SessionForm({
                 </p>
               </div>
             ) : null}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+            <div>
+              <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Booked elsewhere</label>
+              <input
+                type="number"
+                min="0"
+                value={externalBooked}
+                onChange={(e) => setExternalBooked(e.target.value)}
+                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+              />
+              <p className="text-xs text-[#888] mt-1 leading-relaxed">
+                Per session date if you list the same workshop on other platforms (Eventbrite, etc.). Reduces spots
+                available on offhrs only.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+                Duration (min) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                min="15"
+                step="15"
+                value={form.duration_minutes}
+                onChange={(e) => set('duration_minutes', e.target.value)}
+                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+              />
+            </div>
           </div>
         </div>
 
