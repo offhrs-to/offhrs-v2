@@ -1,6 +1,6 @@
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -176,6 +176,22 @@ const calloutStyles = StyleSheet.create({
   },
 });
 
+/** ~25% padding around pin bounds; floor keeps a single/tight cluster from over-zooming past street level. */
+function regionFittingBounds(coords: { lat: number; lng: number }[]) {
+  const lats = coords.map((c) => c.lat);
+  const lngs = coords.map((c) => c.lng);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLng + maxLng) / 2,
+    latitudeDelta: Math.max((maxLat - minLat) * 1.25, 0.05),
+    longitudeDelta: Math.max((maxLng - minLng) * 1.25, 0.05),
+  };
+}
+
 export default function WorkshopMapView({
   events,
   loading,
@@ -186,6 +202,7 @@ export default function WorkshopMapView({
 }: Props) {
   const mapRef = useRef<MapView | null>(null);
   const didFitRef = useRef(false);
+  const mapReadyRef = useRef(false);
 
   const withCoords = useMemo(() => {
     const filtered = dedupeWorkshopMapMarkerEvents(events.filter(workshopHasMapCoordinates));
@@ -202,53 +219,60 @@ export default function WorkshopMapView({
     return filtered.slice(0, maxMarkers);
   }, [events, maxMarkers, anchor]);
 
-  const initialRegion = useMemo(
-    () =>
-      anchor
-        ? {
-            latitude: anchor.lat,
-            longitude: anchor.lng,
-            latitudeDelta: 0.45,
-            longitudeDelta: 0.45,
-          }
-        : DEFAULT_REGION,
-    [anchor]
-  );
+  const withCoordsRef = useRef(withCoords);
+  withCoordsRef.current = withCoords;
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
+
+  // First-mount region is computed directly from the pin bounds we already have (when
+  // available) so the very first paint is correct-by-construction — no race with the
+  // native view's own startup, which is what let `initialRegion` (anchor-only, before
+  // any pins existed) silently win over a later imperative fit on slower iOS devices.
+  const initialRegion = useMemo(() => {
+    if (withCoords.length > 0) return regionFittingBounds(withCoords.map((e) => ({ lat: Number(e.lat), lng: Number(e.lng) })));
+    if (anchor) {
+      return { latitude: anchor.lat, longitude: anchor.lng, latitudeDelta: 0.45, longitudeDelta: 0.45 };
+    }
+    return DEFAULT_REGION;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     didFitRef.current = false;
+    mapReadyRef.current = false;
   }, [anchor?.lat, anchor?.lng]);
 
+  // Re-fit only once the native map has actually confirmed it's ready (`onMapReady`),
+  // instead of guessing with a fixed timeout: on iOS, MapKit's native view can take
+  // longer than a hardcoded delay to finish applying its own initial region, and an
+  // `animateToRegion` call that lands before that finishes gets silently overridden —
+  // which cropped distant pins (e.g. east-end studios) out of the visible viewport.
+  const attemptFit = useCallback(() => {
+    if (didFitRef.current || !mapReadyRef.current) return;
+    if (loadingRef.current || withCoordsRef.current.length === 0) return;
+    const region = regionFittingBounds(
+      withCoordsRef.current.map((e) => ({ lat: Number(e.lat), lng: Number(e.lng) }))
+    );
+    mapRef.current?.animateToRegion(region, 450);
+    didFitRef.current = true;
+  }, []);
+
+  const onMapReady = useCallback(() => {
+    mapReadyRef.current = true;
+    attemptFit();
+  }, [attemptFit]);
+
   useEffect(() => {
-    if (loading || withCoords.length === 0 || didFitRef.current) return;
-    // Compute the fit region ourselves instead of calling native fitToCoordinates:
-    // on iOS, react-native-maps' fitToCoordinates delegates to Apple MapKit, which
-    // (unlike Google Maps on Android) can clip pins far from the densest cluster and
-    // misbehaves whenever the MapView isn't exactly 100% of the screen height — true
-    // here since a header and draggable list sheet share the screen with the map.
-    // A manually computed region + animateToRegion is layout-independent and renders
-    // identically on both platforms, so distant pins (e.g. east-end studios) always fit.
-    const lats = withCoords.map((e) => Number(e.lat));
-    const lngs = withCoords.map((e) => Number(e.lng));
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    const centerLat = (minLat + maxLat) / 2;
-    const centerLng = (minLng + maxLng) / 2;
-    // ~25% padding around the pin bounds, with a floor so a single/tight cluster of
-    // pins doesn't over-zoom past street level.
-    const latitudeDelta = Math.max((maxLat - minLat) * 1.25, 0.05);
-    const longitudeDelta = Math.max((maxLng - minLng) * 1.25, 0.05);
+    attemptFit();
+    // Safety net: if `onMapReady` never fires in some edge-case environment, assume
+    // readiness after a beat and try anyway rather than leaving the map permanently
+    // un-fitted. `onMapReady` (when it does fire) still wins by arriving first.
     const t = setTimeout(() => {
-      mapRef.current?.animateToRegion(
-        { latitude: centerLat, longitude: centerLng, latitudeDelta, longitudeDelta },
-        450
-      );
-      didFitRef.current = true;
-    }, 350);
+      mapReadyRef.current = true;
+      attemptFit();
+    }, 1200);
     return () => clearTimeout(t);
-  }, [loading, withCoords]);
+  }, [loading, withCoords, attemptFit]);
 
   if (!canMountNativeMapView()) {
     return (
@@ -268,6 +292,7 @@ export default function WorkshopMapView({
         style={styles.map}
         initialRegion={initialRegion}
         showsUserLocation
+        onMapReady={onMapReady}
         onPress={() => onMapPress?.()}
       >
         {withCoords.map((event) => (
