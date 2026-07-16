@@ -75,6 +75,10 @@ const features = [
 
 const faqs = [
   {
+    q: 'How does hosting work?',
+    a: 'We connect local creative experts with guests looking for hands-on experiences—from pottery and floral design to coffee and beyond. You list your workshops, set your availability, and we handle discovery, booking, and payments.',
+  },
+  {
     q: `What happens after my ${PARTNER_TRIAL_LABEL}?`,
     a: 'Your subscription automatically starts at the end of the trial at the Lite or Pro rate you chose. You can cancel anytime before the trial ends with no charge.',
   },
@@ -91,12 +95,16 @@ const faqs = [
     a: 'Google Calendar and Microsoft Outlook. Connect once and all bookings sync automatically in both directions.',
   },
   {
+    q: 'I already list on other platforms. Can I host on offhrs as well?',
+    a: 'Yes. You are welcome to list on multiple platforms—we do not require exclusivity, and there are no programs that reward hosts who list only with us. When capacity is shared across channels, use the “Booked elsewhere” option when creating or editing a workshop to reserve seats already filled outside offhrs.',
+  },
+  {
     q: 'Can I cancel my subscription?',
     a: 'Yes, anytime from your dashboard settings. You keep access until the end of your current billing period.',
   },
   {
-    q: 'What types of workshops can I list?',
-    a: 'Pottery, floral arranging, culinary classes, and more. If you teach a hands-on creative skill in Toronto, offhrs is built for you.',
+    q: 'What types of experiences can I list?',
+    a: 'We focus on social, creative, and hands-on experiences—pottery, floral, painting, coffee, culinary, and more. If you teach a creative skill and want to grow your community in Toronto, we can help you get started.',
   },
 ]
 
