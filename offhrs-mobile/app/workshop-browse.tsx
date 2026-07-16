@@ -1,4 +1,7 @@
+import WorkshopBrowseFilterSheets from '@/components/WorkshopBrowseFilterSheets';
 import WorkshopBrowseGroupedCard from '@/components/WorkshopBrowseGroupedCard';
+import WorkshopDateRangeModal from '@/components/WorkshopDateRangeModal';
+import WorkshopFilterPill from '@/components/WorkshopFilterPill';
 import WorkshopQuickViewModal from '@/components/WorkshopQuickViewModal';
 import WorkshopsChrome from '@/components/WorkshopsChrome';
 import { CATEGORIES } from '@/constants/categories';
@@ -6,11 +9,26 @@ import { DesignColors, DesignSpacing } from '@/constants/design-template';
 import { WORKSHOP_LIST_PAGE_SIZE } from '@/constants/workshops-list';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import {
+  browseFiltersAreActive,
+  categoryPillLabel,
+  distancePillLabel,
+  eventMatchesYmdRange,
+  filterGroupsByDistanceRadius,
+  normalizeCalendarSelection,
+  parseCategoriesParam,
+  serializeCategoriesParam,
+  sortPillLabel,
+  sortWorkshopGroupsForBrowse,
+  type BrowseDistanceKm,
+  type BrowseListSort,
+} from '@/lib/workshop-browse-filters';
 import { buildDateStrip, eventMatchesCalendarDay, getTorontoYmd } from '@/lib/workshop-calendar';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import { fetchWorkshopEvents } from '@/lib/workshops-events-query';
 import { compareWorkshopEventsByStart, workshopEventTorontoYmd } from '@/lib/workshop-event-sort';
-import { sortWorkshopGroupsByPrice, type WorkshopPriceSort } from '@/lib/workshop-price-sort';
+import type { WorkshopPriceSort } from '@/lib/workshop-price-sort';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -45,6 +63,8 @@ function browseGroupKey(e: WorkshopEventRow, mode: 'single-day' | 'all-dates'): 
   return `${ymd}\u0001${workshopGroupKey(e)}`;
 }
 
+type FilterSheet = 'category' | 'sort' | 'distance' | 'all' | null;
+
 export default function WorkshopBrowseScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -56,16 +76,23 @@ export default function WorkshopBrowseScreen() {
 
   const paramQ = parseParamString(params.q);
   const paramCat = parseParamString(params.categories);
-  const initialCategory =
-    paramCat && (CATEGORIES as readonly string[]).includes(paramCat) ? paramCat : null;
+  const initialCategories = parseCategoriesParam(paramCat, CATEGORIES);
 
   const [searchTerm, setSearchTerm] = useState(paramQ);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategory);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategories);
 
   const strip = useMemo(() => buildDateStrip(90), []);
-  /** `null` = show all upcoming dates, chronological (soonest first). */
+  /** `null` = show all upcoming dates (or calendar range), chronological (soonest first). */
   const [selectedYmd, setSelectedYmd] = useState<string | null>(null);
+  const [rangeStart, setRangeStart] = useState<string | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<string | null>(null);
+
+  const [listSort, setListSort] = useState<BrowseListSort>('time');
+  const [distanceKm, setDistanceKm] = useState<BrowseDistanceKm>('auto');
   const [priceSort, setPriceSort] = useState<WorkshopPriceSort>('default');
+
+  const [filterSheet, setFilterSheet] = useState<FilterSheet>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<WorkshopEventRow[]>([]);
@@ -87,9 +114,7 @@ export default function WorkshopBrowseScreen() {
   }, [paramQ]);
 
   useEffect(() => {
-    const next =
-      paramCat && (CATEGORIES as readonly string[]).includes(paramCat) ? paramCat : null;
-    setSelectedCategory(next);
+    setSelectedCategories(parseCategoriesParam(paramCat, CATEGORIES));
   }, [paramCat]);
 
   useFocusEffect(
@@ -167,10 +192,7 @@ export default function WorkshopBrowseScreen() {
     }
   }, [quickViewEvent?.id, quickViewSaving, router, savedEventIds, user?.id]);
 
-  const categoriesForQuery = useMemo(
-    () => (selectedCategory ? [selectedCategory] : [] as string[]),
-    [selectedCategory]
-  );
+  const categoriesForQuery = selectedCategories;
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -195,18 +217,26 @@ export default function WorkshopBrowseScreen() {
 
   useEffect(() => {
     setListPage(1);
-  }, [selectedYmd, selectedCategory, searchTerm, priceSort]);
+  }, [selectedYmd, selectedCategories, searchTerm, priceSort, listSort, distanceKm, rangeStart, rangeEnd]);
 
   const dayEvents = useMemo(() => {
+    if (rangeStart || rangeEnd) {
+      return events.filter((e) => eventMatchesYmdRange(e, rangeStart, rangeEnd));
+    }
     if (selectedYmd != null) {
       return events.filter((e) => eventMatchesCalendarDay(e, selectedYmd));
     }
     const upcoming = events.filter(eventIsUpcomingToronto);
     return [...upcoming].sort(compareWorkshopEventsByStart);
-  }, [events, selectedYmd]);
+  }, [events, selectedYmd, rangeStart, rangeEnd]);
+
+  const profileAnchor = useMemo(
+    () => (profileLocation ? { lat: profileLocation.lat, lng: profileLocation.lng } : null),
+    [profileLocation]
+  );
 
   const groupedForDay = useMemo(() => {
-    const mode = selectedYmd != null ? 'single-day' : 'all-dates';
+    const mode = selectedYmd != null && !rangeStart && !rangeEnd ? 'single-day' : 'all-dates';
     const map = new Map<string, WorkshopEventRow[]>();
     for (const e of dayEvents) {
       const k = browseGroupKey(e, mode);
@@ -214,9 +244,10 @@ export default function WorkshopBrowseScreen() {
       arr.push(e);
       map.set(k, arr);
     }
-    const groups = [...map.values()].map((g) => [...g].sort(compareWorkshopEventsByStart));
-    return sortWorkshopGroupsByPrice(groups, priceSort);
-  }, [dayEvents, selectedYmd, priceSort]);
+    let groups = [...map.values()].map((g) => [...g].sort(compareWorkshopEventsByStart));
+    groups = filterGroupsByDistanceRadius(groups, distanceKm, profileAnchor);
+    return sortWorkshopGroupsForBrowse(groups, listSort, priceSort, profileAnchor);
+  }, [dayEvents, selectedYmd, rangeStart, rangeEnd, distanceKm, listSort, priceSort, profileAnchor]);
 
   const pagedGroups = useMemo(
     () => groupedForDay.slice(0, listPage * WORKSHOP_LIST_PAGE_SIZE),
@@ -230,200 +261,325 @@ export default function WorkshopBrowseScreen() {
     });
   };
 
-  const selectCategory = (cat: string | null) => {
-    setSelectedCategory(cat);
+  const toggleCategory = (cat: string) => {
+    const next = selectedCategories.includes(cat)
+      ? selectedCategories.filter((c) => c !== cat)
+      : [...selectedCategories, cat];
+    setSelectedCategories(next);
     syncParams({
       q: searchTerm,
-      categories: cat,
+      categories: serializeCategoriesParam(next, CATEGORIES),
     });
+  };
+
+  const clearCategories = () => {
+    setSelectedCategories([]);
+    syncParams({ q: searchTerm, categories: null });
   };
 
   const pushSearch = () => {
     const p = new URLSearchParams();
     if (searchTerm) p.set('q', searchTerm);
-    if (selectedCategory) p.set('categories', selectedCategory);
+    const cats = serializeCategoriesParam(selectedCategories, CATEGORIES);
+    if (cats) p.set('categories', cats);
     const qs = p.toString();
     router.push(qs ? `/workshop-search?${qs}` : '/workshop-search');
   };
 
-  const pillCategories = useMemo(() => ['All', ...CATEGORIES] as const, []);
+  const calendarActive = selectedYmd != null || rangeStart != null || rangeEnd != null;
+  const filtersActive = browseFiltersAreActive({
+    selectedCategories,
+    listSort,
+    distanceKm,
+    priceSort,
+    selectedYmd,
+    rangeStart,
+    rangeEnd,
+  });
+
+  const openDistanceSheet = () => {
+    if (!profileLocation && distanceKm === 'auto') {
+      // Still allow opening so they can see options; filtering no-ops without location.
+    }
+    setFilterSheet('distance');
+  };
 
   return (
     <>
-    <View style={{ flex: 1, backgroundColor: DesignColors.creamBg, paddingBottom: insets.bottom }}>
-      <WorkshopsChrome
-        showBack
-        hideDateAndClear
-        onBackPress={() => router.back()}
-        searchAsButton
-        searchPlaceholder="Search workshops…"
-        searchValue={searchTerm}
-        onSearchPress={pushSearch}
-        showPriceFilter
-        priceSort={priceSort}
-        onPriceSortChange={setPriceSort}
-      />
+      <View style={{ flex: 1, backgroundColor: DesignColors.creamBg, paddingBottom: insets.bottom }}>
+        <WorkshopsChrome
+          showBack
+          hideDateAndClear
+          onBackPress={() => router.back()}
+          searchAsButton
+          searchPlaceholder="Search workshops…"
+          searchValue={searchTerm}
+          onSearchPress={pushSearch}
+          showAllFiltersButton
+          allFiltersActive={filtersActive}
+          onAllFiltersPress={() => setFilterSheet('all')}
+        />
 
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingHorizontal: DesignSpacing.horizontalPadding,
-          paddingBottom: 32,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8, marginBottom: 12 }}>
-          <View style={{ flexDirection: 'row', gap: 8, paddingRight: 8 }}>
-            {pillCategories.map((label) => {
-              const isAll = label === 'All';
-              const active = isAll ? selectedCategory == null : selectedCategory === label;
-              return (
-                <Pressable
-                  key={label}
-                  onPress={() => selectCategory(isAll ? null : label)}
-                  style={{
-                    paddingHorizontal: 14,
-                    paddingVertical: 8,
-                    borderRadius: 9999,
-                    backgroundColor: active ? DesignColors.primary : DesignColors.inputBg,
-                    borderWidth: 1,
-                    borderColor: DesignColors.lightGreenBorder,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 13,
-                      fontWeight: '600',
-                      color: active ? '#FFF' : DesignColors.charcoal,
-                    }}
-                  >
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </ScrollView>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', gap: 8, paddingRight: 8 }}>
-            <Pressable
-              onPress={() => setSelectedYmd(null)}
+        {/* Sticky filter panel — stays visible while the list scrolls */}
+        <View
+          style={{
+            flexShrink: 0,
+            backgroundColor: DesignColors.creamBg,
+            paddingHorizontal: DesignSpacing.horizontalPadding,
+            paddingBottom: 10,
+            borderBottomWidth: 1,
+            borderBottomColor: DesignColors.lightGreenBorder,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              marginBottom: 8,
+            }}
+          >
+            <View
               style={{
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                borderRadius: 12,
-                backgroundColor: selectedYmd == null ? DesignColors.heroBg : DesignColors.inputBg,
-                borderWidth: 1,
-                borderColor: selectedYmd == null ? DesignColors.primary : DesignColors.lightGreenBorder,
-                minWidth: 72,
+                flex: 1,
+                flexDirection: 'row',
                 alignItems: 'center',
+                gap: 8,
               }}
             >
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: '700',
-                  color: selectedYmd == null ? DesignColors.primary : DesignColors.charcoal,
-                  textAlign: 'center',
-                }}
-                numberOfLines={2}
-              >
-                All
-              </Text>
-            </Pressable>
-            {strip.map((d) => {
-              const active = d.ymd === selectedYmd;
-              return (
-                <Pressable
-                  key={d.ymd}
-                  onPress={() => setSelectedYmd(d.ymd)}
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    borderRadius: 12,
-                    backgroundColor: active ? DesignColors.heroBg : DesignColors.inputBg,
-                    borderWidth: 1,
-                    borderColor: active ? DesignColors.primary : DesignColors.lightGreenBorder,
-                    minWidth: 72,
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: '700',
-                      color: active ? DesignColors.primary : DesignColors.charcoal,
-                      textAlign: 'center',
-                    }}
-                    numberOfLines={2}
-                  >
-                    {d.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </ScrollView>
-
-        {loading ? (
-          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <ActivityIndicator color={DesignColors.primary} />
-          </View>
-        ) : (
-          <>
-            <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 12 }}>
-              {groupedForDay.length} workshop{groupedForDay.length === 1 ? '' : 's'}
-              {selectedYmd == null ? ' upcoming' : ' on this day'}
-            </Text>
-            <View style={{ gap: LIST_GAP }}>
-              {pagedGroups.map((group) => {
-                const anchor = group[0]!;
-                return (
-                  <View key={`${anchor.vendor_id ?? 'nv'}-${anchor.title}-${group.map((g) => g.id).join('-')}`} style={{ width: '100%' }}>
-                    <WorkshopBrowseGroupedCard
-                      group={group}
-                      profileLocation={profileLocation}
-                      savedEventIds={savedEventIds}
-                      onSaveChange={(id, saved) => {
-                        setSavedEventIds((prev) => {
-                          const next = new Set(prev);
-                          if (saved) next.add(id);
-                          else next.delete(id);
-                          return next;
-                        });
-                      }}
-                      onOpenQuickView={setQuickViewEvent}
-                    />
-                  </View>
-                );
-              })}
+              <WorkshopFilterPill
+                label={categoryPillLabel(selectedCategories)}
+                active={selectedCategories.length > 0}
+                onPress={() => setFilterSheet('category')}
+                style={{ flex: 1 }}
+              />
+              <WorkshopFilterPill
+                label={sortPillLabel(listSort, priceSort)}
+                active={listSort !== 'time' || priceSort !== 'default'}
+                onPress={() => setFilterSheet('sort')}
+                style={{ flex: 1 }}
+              />
+              <WorkshopFilterPill
+                label={distancePillLabel(distanceKm)}
+                active={distanceKm !== 'auto'}
+                onPress={openDistanceSheet}
+                style={{ flex: 1 }}
+              />
             </View>
-            {dayEvents.length === 0 ? (
-              <Text style={{ color: DesignColors.mediumGray, marginTop: 8 }}>
-                {selectedYmd == null ? 'No upcoming workshops.' : 'Nothing scheduled for this day.'}
-              </Text>
-            ) : null}
-            {pagedGroups.length < groupedForDay.length ? (
+            <Pressable
+              onPress={() => setCalendarOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Filter by date"
+              style={{
+                width: 36,
+                height: 36,
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderRadius: 9999,
+                backgroundColor: calendarActive ? DesignColors.heroBg : DesignColors.inputBg,
+                borderWidth: 1,
+                borderColor: calendarActive ? DesignColors.primary : DesignColors.lightGreenBorder,
+              }}
+            >
+              <MaterialCommunityIcons
+                name="calendar-month-outline"
+                size={20}
+                color={calendarActive ? DesignColors.primary : DesignColors.sageGreen}
+              />
+            </Pressable>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={{ flexDirection: 'row', gap: 8, paddingRight: 8 }}>
               <Pressable
-                onPress={() => setListPage((p) => p + 1)}
+                onPress={() => {
+                  setSelectedYmd(null);
+                  setRangeStart(null);
+                  setRangeEnd(null);
+                }}
                 style={{
-                  marginTop: 20,
-                  paddingVertical: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
                   borderRadius: 12,
+                  backgroundColor:
+                    selectedYmd == null && !rangeStart && !rangeEnd
+                      ? DesignColors.heroBg
+                      : DesignColors.inputBg,
                   borderWidth: 1,
-                  borderColor: DesignColors.lightGreenBorder,
+                  borderColor:
+                    selectedYmd == null && !rangeStart && !rangeEnd
+                      ? DesignColors.primary
+                      : DesignColors.lightGreenBorder,
+                  minWidth: 72,
                   alignItems: 'center',
                 }}
               >
-                <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>Load more</Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color:
+                      selectedYmd == null && !rangeStart && !rangeEnd
+                        ? DesignColors.primary
+                        : DesignColors.charcoal,
+                    textAlign: 'center',
+                  }}
+                  numberOfLines={2}
+                >
+                  All
+                </Text>
               </Pressable>
-            ) : null}
-          </>
-        )}
-      </ScrollView>
-    </View>
+              {strip.map((d) => {
+                const active = rangeStart == null && rangeEnd == null && d.ymd === selectedYmd;
+                return (
+                  <Pressable
+                    key={d.ymd}
+                    onPress={() => {
+                      setRangeStart(null);
+                      setRangeEnd(null);
+                      setSelectedYmd(d.ymd);
+                    }}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      borderRadius: 12,
+                      backgroundColor: active ? DesignColors.heroBg : DesignColors.inputBg,
+                      borderWidth: 1,
+                      borderColor: active ? DesignColors.primary : DesignColors.lightGreenBorder,
+                      minWidth: 72,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: '700',
+                        color: active ? DesignColors.primary : DesignColors.charcoal,
+                        textAlign: 'center',
+                      }}
+                      numberOfLines={2}
+                    >
+                      {d.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: DesignSpacing.horizontalPadding,
+            paddingTop: 12,
+            paddingBottom: 32,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          {rangeStart || rangeEnd ? (
+            <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginBottom: 10 }}>
+              Date range: {rangeStart ?? '…'} → {rangeEnd ?? '…'}
+            </Text>
+          ) : null}
+
+          {loading ? (
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <ActivityIndicator color={DesignColors.primary} />
+            </View>
+          ) : (
+            <>
+              <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 12 }}>
+                {groupedForDay.length} workshop{groupedForDay.length === 1 ? '' : 's'}
+                {selectedYmd == null && !rangeStart && !rangeEnd
+                  ? ' upcoming'
+                  : selectedYmd != null
+                    ? ' on this day'
+                    : ' in this date range'}
+              </Text>
+              <View style={{ gap: LIST_GAP }}>
+                {pagedGroups.map((group) => {
+                  const anchor = group[0]!;
+                  return (
+                    <View
+                      key={`${anchor.vendor_id ?? 'nv'}-${anchor.title}-${group.map((g) => g.id).join('-')}`}
+                      style={{ width: '100%' }}
+                    >
+                      <WorkshopBrowseGroupedCard
+                        group={group}
+                        profileLocation={profileLocation}
+                        savedEventIds={savedEventIds}
+                        onSaveChange={(id, saved) => {
+                          setSavedEventIds((prev) => {
+                            const next = new Set(prev);
+                            if (saved) next.add(id);
+                            else next.delete(id);
+                            return next;
+                          });
+                        }}
+                        onOpenQuickView={setQuickViewEvent}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+              {dayEvents.length === 0 || groupedForDay.length === 0 ? (
+                <Text style={{ color: DesignColors.mediumGray, marginTop: 8 }}>
+                  {distanceKm !== 'auto' && profileLocation == null
+                    ? 'Add a saved location in your profile to filter by distance.'
+                    : selectedYmd == null && !rangeStart && !rangeEnd
+                      ? 'No upcoming workshops.'
+                      : 'Nothing scheduled for this selection.'}
+                </Text>
+              ) : null}
+              {pagedGroups.length < groupedForDay.length ? (
+                <Pressable
+                  onPress={() => setListPage((p) => p + 1)}
+                  style={{
+                    marginTop: 20,
+                    paddingVertical: 12,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: DesignColors.lightGreenBorder,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>Load more</Text>
+                </Pressable>
+              ) : null}
+            </>
+          )}
+        </ScrollView>
+      </View>
+
+      <WorkshopBrowseFilterSheets
+        open={filterSheet}
+        onClose={() => setFilterSheet(null)}
+        selectedCategories={selectedCategories}
+        onToggleCategory={toggleCategory}
+        onClearCategories={clearCategories}
+        listSort={listSort}
+        onSelectListSort={setListSort}
+        distanceKm={distanceKm}
+        onSelectDistanceKm={setDistanceKm}
+        priceSort={priceSort}
+        onSelectPriceSort={setPriceSort}
+        hasProfileLocation={!!profileLocation}
+      />
+
+      <WorkshopDateRangeModal
+        visible={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        initialStart={rangeStart ?? selectedYmd ?? ''}
+        initialEnd={rangeEnd ?? selectedYmd ?? ''}
+        onApply={(start, end) => {
+          const next = normalizeCalendarSelection(start, end);
+          setSelectedYmd(next.selectedYmd);
+          setRangeStart(next.rangeStart);
+          setRangeEnd(next.rangeEnd);
+        }}
+      />
 
       <WorkshopQuickViewModal
         visible={!!quickViewEvent}

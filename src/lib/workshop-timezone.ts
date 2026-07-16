@@ -76,3 +76,35 @@ export function formatWorkshopDateTimeShort(date: Date): string {
     timeZoneName: 'short',
   })
 }
+
+/** Today's calendar date in America/Toronto as YYYY-MM-DD. */
+export function getTorontoYmd(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: WORKSHOP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now)
+}
+
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Normalize / validate a partner date input (YYYY-MM-DD). Empty → null. */
+export function normalizeCalendarYmd(value: string | null | undefined): string | null {
+  if (value == null) return null
+  const trimmed = String(value).trim().slice(0, 10)
+  if (!trimmed) return null
+  if (!YMD_RE.test(trimmed)) {
+    throw new Error('Sale dates must use YYYY-MM-DD.')
+  }
+  const [y, m, d] = trimmed.split('-').map(Number)
+  const probe = new Date(Date.UTC(y!, m! - 1, d!))
+  if (
+    probe.getUTCFullYear() !== y ||
+    probe.getUTCMonth() !== m! - 1 ||
+    probe.getUTCDate() !== d
+  ) {
+    throw new Error('Invalid sale date.')
+  }
+  return trimmed
+}

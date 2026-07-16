@@ -1,7 +1,8 @@
 import { DesignColors } from '@/constants/design-template';
+import WorkshopFilterBottomSheet from '@/components/WorkshopFilterBottomSheet';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { createElement, useEffect, useState } from 'react';
-import { Modal, Platform, Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 
 type Props = {
   visible: boolean;
@@ -30,76 +31,110 @@ export default function WorkshopDateRangeModal({
     setActiveDateField(null);
   }, [visible, initialStart, initialEnd]);
 
+  const fieldButton = (
+    value: string,
+    placeholder: string,
+    field: 'from' | 'to'
+  ) => (
+    <Pressable
+      onPress={() => {
+        const d = value.trim().slice(0, 10);
+        setPickerDate(d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d + 'T12:00:00') : new Date());
+        setActiveDateField(field);
+      }}
+      style={{
+        backgroundColor: DesignColors.inputBg,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: DesignColors.lightGreenBorder,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        marginBottom: 12,
+        justifyContent: 'center',
+        minHeight: 40,
+      }}
+    >
+      <Text style={{ fontSize: 14, color: value ? DesignColors.charcoal : DesignColors.mediumGray }}>
+        {value || placeholder}
+      </Text>
+    </Pressable>
+  );
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable
-        style={{
-          flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 24,
-        }}
-        onPress={onClose}
-      >
-        <Pressable
-          style={{
-            width: '100%',
-            maxWidth: 340,
-            backgroundColor: '#FFF',
-            borderRadius: 20,
-            padding: 24,
-          }}
-          onPress={(e) => e.stopPropagation()}
-        >
-          <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal, marginBottom: 16 }}>
-            Filter by date range
-          </Text>
-          <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 6 }}>From</Text>
-          {Platform.OS === 'web' ? (
-            <View style={{ marginBottom: 16 }}>
-              {createElement('input', {
-                type: 'date',
-                value: dateInputStart,
-                onChange: (e: { target: { value: string } }) => setDateInputStart(e.target.value || ''),
-                style: {
-                  width: '100%',
-                  height: 40,
-                  padding: 10,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: DesignColors.lightGreenBorder,
-                  backgroundColor: DesignColors.inputBg,
-                  fontSize: 14,
-                  color: DesignColors.charcoal,
-                },
-              })}
-            </View>
-          ) : (
-            <>
-              <Pressable
-                onPress={() => {
-                  const d = dateInputStart.trim().slice(0, 10);
-                  setPickerDate(d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d + 'T12:00:00') : new Date());
-                  setActiveDateField('from');
-                }}
-                style={{
-                  backgroundColor: DesignColors.inputBg,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: DesignColors.lightGreenBorder,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  marginBottom: 16,
-                  justifyContent: 'center',
-                  minHeight: 40,
-                }}
-              >
-                <Text style={{ fontSize: 14, color: dateInputStart ? DesignColors.charcoal : DesignColors.mediumGray }}>
-                  {dateInputStart || 'YYYY-MM-DD'}
-                </Text>
-              </Pressable>
-              {activeDateField === 'from' && (
+    <WorkshopFilterBottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="Select dates"
+      subtitle="Pick a single day (same From and To) or a date range."
+      maxHeightRatio={0.7}
+      footer={
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Pressable
+            onPress={() => {
+              setDateInputStart('');
+              setDateInputEnd('');
+              onApply(null, null);
+              onClose();
+            }}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: DesignColors.lightGreenBorder,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.sageGreen }}>Clear</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              const from = dateInputStart.trim() ? dateInputStart.trim().slice(0, 10) : null;
+              const to = dateInputEnd.trim() ? dateInputEnd.trim().slice(0, 10) : null;
+              const s = from && /^\d{4}-\d{2}-\d{2}$/.test(from) ? from : null;
+              const e = to && /^\d{4}-\d{2}-\d{2}$/.test(to) ? to : null;
+              onApply(s, e);
+              onClose();
+            }}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              borderRadius: 12,
+              backgroundColor: DesignColors.primary,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFF' }}>Apply</Text>
+          </Pressable>
+        </View>
+      }
+    >
+      <View style={{ paddingHorizontal: 12, paddingBottom: 8 }}>
+        <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 6 }}>From</Text>
+        {Platform.OS === 'web' ? (
+          <View style={{ marginBottom: 16 }}>
+            {createElement('input', {
+              type: 'date',
+              value: dateInputStart,
+              onChange: (e: { target: { value: string } }) => setDateInputStart(e.target.value || ''),
+              style: {
+                width: '100%',
+                height: 40,
+                padding: 10,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+                backgroundColor: DesignColors.inputBg,
+                fontSize: 14,
+                color: DesignColors.charcoal,
+              },
+            })}
+          </View>
+        ) : (
+          <>
+            {fieldButton(dateInputStart, 'YYYY-MM-DD', 'from')}
+            {activeDateField === 'from' && (
+              <View style={{ marginBottom: 12 }}>
                 <DateTimePicker
                   value={pickerDate}
                   mode="date"
@@ -114,116 +149,54 @@ export default function WorkshopDateRangeModal({
                     }
                   }}
                 />
-              )}
-            </>
-          )}
-          <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 6 }}>To</Text>
-          {Platform.OS === 'web' ? (
-            <View style={{ marginBottom: 20 }}>
-              {createElement('input', {
-                type: 'date',
-                value: dateInputEnd,
-                onChange: (e: { target: { value: string } }) => setDateInputEnd(e.target.value || ''),
-                style: {
-                  width: '100%',
-                  height: 40,
-                  padding: 10,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: DesignColors.lightGreenBorder,
-                  backgroundColor: DesignColors.inputBg,
-                  fontSize: 14,
-                  color: DesignColors.charcoal,
-                },
-              })}
-            </View>
-          ) : (
-            <>
-              <Pressable
-                onPress={() => {
-                  const d = dateInputEnd.trim().slice(0, 10);
-                  setPickerDate(d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d + 'T12:00:00') : new Date());
-                  setActiveDateField('to');
-                }}
-                style={{
-                  backgroundColor: DesignColors.inputBg,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: DesignColors.lightGreenBorder,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  marginBottom: activeDateField === 'to' ? 8 : 20,
-                  justifyContent: 'center',
-                  minHeight: 40,
-                }}
-              >
-                <Text style={{ fontSize: 14, color: dateInputEnd ? DesignColors.charcoal : DesignColors.mediumGray }}>
-                  {dateInputEnd || 'YYYY-MM-DD'}
-                </Text>
-              </Pressable>
-              {activeDateField === 'to' && (
-                <View style={{ marginBottom: 24 }}>
-                  <DateTimePicker
-                    value={pickerDate}
-                    mode="date"
-                    display="default"
-                    onChange={(_, selectedDate) => {
-                      setActiveDateField(null);
-                      if (selectedDate) {
-                        const y = selectedDate.getFullYear();
-                        const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                        const day = String(selectedDate.getDate()).padStart(2, '0');
-                        setDateInputEnd(`${y}-${m}-${day}`);
-                      }
-                    }}
-                  />
-                </View>
-              )}
-            </>
-          )}
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-            <Pressable
-              onPress={() => {
-                setDateInputStart('');
-                setDateInputEnd('');
-                onApply(null, null);
-                onClose();
-              }}
-              style={{
-                flex: 1,
-                paddingVertical: 12,
+              </View>
+            )}
+          </>
+        )}
+        <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 6 }}>To</Text>
+        {Platform.OS === 'web' ? (
+          <View style={{ marginBottom: 8 }}>
+            {createElement('input', {
+              type: 'date',
+              value: dateInputEnd,
+              onChange: (e: { target: { value: string } }) => setDateInputEnd(e.target.value || ''),
+              style: {
+                width: '100%',
+                height: 40,
+                padding: 10,
                 borderRadius: 12,
                 borderWidth: 1,
                 borderColor: DesignColors.lightGreenBorder,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.sageGreen }}>Clear dates</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                const from = dateInputStart.trim() ? dateInputStart.trim().slice(0, 10) : null;
-                const to = dateInputEnd.trim() ? dateInputEnd.trim().slice(0, 10) : null;
-                const s =
-                  from && /^\d{4}-\d{2}-\d{2}$/.test(from) ? from : null;
-                const e =
-                  to && /^\d{4}-\d{2}-\d{2}$/.test(to) ? to : null;
-                onApply(s, e);
-                onClose();
-              }}
-              style={{
-                flex: 1,
-                paddingVertical: 12,
-                borderRadius: 12,
-                backgroundColor: DesignColors.primary,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFF' }}>Apply</Text>
-            </Pressable>
+                backgroundColor: DesignColors.inputBg,
+                fontSize: 14,
+                color: DesignColors.charcoal,
+              },
+            })}
           </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+        ) : (
+          <>
+            {fieldButton(dateInputEnd, 'YYYY-MM-DD', 'to')}
+            {activeDateField === 'to' && (
+              <View style={{ marginBottom: 8 }}>
+                <DateTimePicker
+                  value={pickerDate}
+                  mode="date"
+                  display="default"
+                  onChange={(_, selectedDate) => {
+                    setActiveDateField(null);
+                    if (selectedDate) {
+                      const y = selectedDate.getFullYear();
+                      const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                      const day = String(selectedDate.getDate()).padStart(2, '0');
+                      setDateInputEnd(`${y}-${m}-${day}`);
+                    }
+                  }}
+                />
+              </View>
+            )}
+          </>
+        )}
+      </View>
+    </WorkshopFilterBottomSheet>
   );
 }

@@ -20,3 +20,25 @@ export function haversineKm(
   return R * c;
 }
 
+/** Default radius for map / nearby studio geo queries (covers GTA from Toronto). */
+export const WORKSHOP_GEO_RADIUS_KM = 120;
+
+/** Cap on geo-filtered event rows (coords + bbox), not date-ordered global listings. */
+export const WORKSHOP_GEO_EVENTS_CAP = 1500;
+
+export function bboxAround(
+  lat: number,
+  lng: number,
+  radiusKm: number
+): { minLat: number; maxLat: number; minLng: number; maxLng: number } {
+  const latDelta = radiusKm / 111;
+  const cosLat = Math.cos((lat * Math.PI) / 180);
+  const lngDelta = radiusKm / (111 * Math.max(0.2, Math.abs(cosLat)));
+  return {
+    minLat: lat - latDelta,
+    maxLat: lat + latDelta,
+    minLng: lng - lngDelta,
+    maxLng: lng + lngDelta,
+  };
+}
+

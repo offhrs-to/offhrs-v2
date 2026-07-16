@@ -32,6 +32,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
 import {
   fetchVendorProfileEvents,
+  fetchVendorProfileEventsByProfileId,
   type WorkshopEventRow,
 } from '@/lib/workshops-events-query';
 import { workshopEventIsFull } from '@/lib/workshop-event-utils';
@@ -73,12 +74,20 @@ const VendorWorkshopCard = memo(function VendorWorkshopCard({
         opacity: full ? 0.45 : 1,
       }}
     >
-      <View style={{ height: WORKSHOP_CARD_IMAGE_HEIGHT, backgroundColor: DesignColors.inputBg }}>
+      <View
+        style={{
+          height: WORKSHOP_CARD_IMAGE_HEIGHT,
+          backgroundColor: '#FFF',
+          padding: 14,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
         <CategoryFallbackImage
           imageUrl={event.image_url}
           category={event.category}
-          style={{ width: '100%', height: WORKSHOP_CARD_IMAGE_HEIGHT }}
-          contentFit="cover"
+          style={{ width: '100%', height: '100%' }}
+          contentFit="contain"
           recyclingKey={`vendor-event-${event.id}`}
         />
         {event.category ? (
@@ -140,6 +149,7 @@ export default function VendorProfileScreen() {
   const [quickViewSaving, setQuickViewSaving] = useState(false);
   const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
   const [profilePostalCode, setProfilePostalCode] = useState<string | null>(null);
+  const [profileLocation, setProfileLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [vendorBio, setVendorBio] = useState<string | null>(null);
   const [vendorWebsiteUrl, setVendorWebsiteUrl] = useState<string | null>(null);
   const [vendorContactEmail, setVendorContactEmail] = useState<string | null>(null);
@@ -170,18 +180,45 @@ export default function VendorProfileScreen() {
     setLoading(true);
     setEventsLoading(true);
     try {
-      const [vendorRes, reviewsRes, eventRows] = await Promise.all([
-        supabase.from('vendors').select('id, name, slug').eq('id', id).single(),
+      const profileIdHint = (vendorProfileIdParam ?? '').trim() || null;
+
+      const [vendorRes, reviewsRes] = await Promise.all([
+        supabase.from('vendors').select('id, name, slug').eq('id', id).maybeSingle(),
         supabase
           .from('vendor_reviews')
           .select('id, rating, comment, author_name, created_at')
           .eq('vendor_id', id)
           .order('created_at', { ascending: false })
           .limit(30),
-        fetchVendorProfileEvents(id),
       ]);
 
-      setVendor(vendorRes.data ?? null);
+      let eventRows: WorkshopEventRow[] = [];
+      if (vendorRes.data) {
+        setVendor(vendorRes.data);
+        eventRows = await fetchVendorProfileEvents(id);
+        // Partner listings may be linked by vendor_profile_id before legacy vendor_id is populated.
+        if (eventRows.length === 0 && profileIdHint) {
+          eventRows = await fetchVendorProfileEventsByProfileId(profileIdHint);
+        }
+      } else {
+        const profileLookupId = profileIdHint || id;
+        const { data: profile } = await supabase
+          .from('vendor_profiles')
+          .select('id, business_name')
+          .eq('id', profileLookupId)
+          .in('status', ['trialing', 'active', 'past_due'])
+          .maybeSingle();
+        if (profile) {
+          setVendor({
+            id: profile.id,
+            name: profile.business_name?.trim() || 'Partner studio',
+          });
+          eventRows = await fetchVendorProfileEventsByProfileId(profile.id);
+        } else {
+          setVendor(null);
+        }
+      }
+
       setEvents(eventRows);
 
       const revs = (reviewsRes.data ?? []) as Review[];
@@ -193,7 +230,7 @@ export default function VendorProfileScreen() {
       setLoading(false);
       setEventsLoading(false);
     }
-  }, [id]);
+  }, [id, vendorProfileIdParam]);
 
   const reloadAll = useCallback(async () => {
     await Promise.all([loadCoreData(), loadVendorProfile()]);
@@ -286,16 +323,25 @@ export default function VendorProfileScreen() {
       if (!user?.id) {
         setProfileDisplayName(null);
         setProfilePostalCode(null);
+        setProfileLocation(null);
         return;
       }
       supabase
         .from('profiles')
-        .select('display_name, postal_code')
+        .select('display_name, postal_code, location_lat, location_lng')
         .eq('id', user.id)
         .single()
         .then(({ data }) => {
           setProfileDisplayName(data?.display_name?.trim() || null);
           setProfilePostalCode(data?.postal_code?.trim() || null);
+          if (data?.location_lat != null && data?.location_lng != null) {
+            setProfileLocation({
+              lat: Number(data.location_lat),
+              lng: Number(data.location_lng),
+            });
+          } else {
+            setProfileLocation(null);
+          }
         });
     }, [user?.id])
   );
@@ -585,7 +631,7 @@ export default function VendorProfileScreen() {
         saved={quickViewSaved}
         saving={quickViewSaving}
         onToggleSave={handleQuickViewSave}
-        profileLocation={null}
+        profileLocation={profileLocation}
         profilePostalCode={profilePostalCode}
         onBookingComplete={() => void reloadAll()}
       />

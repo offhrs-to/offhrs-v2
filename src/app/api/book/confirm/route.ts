@@ -18,6 +18,7 @@ import { commitWorkshopTaxTransaction } from '@/lib/stripe-workshop-tax'
 import { estimateCanadianStripeFee, fetchRealChargeFee } from '@/lib/stripe-charge-fees'
 import { awardXpForBooking } from '@/lib/workshop-xp'
 import { workshopBookingBlockReason } from '@/lib/workshop-registration-closed'
+import { effectiveWorkshopPriceCad } from '@/lib/workshop-ticket-price'
 
 /** Allow time to await Resend before the serverless function exits. */
 export const maxDuration = 60
@@ -340,7 +341,7 @@ async function handleFreeConfirm(
   const { data: event } = await admin
     .from('events')
     .select(
-      'id, title, available_slots, max_attendees, duration_minutes, location, booking_status, registration_closed, vendor_profile_id, price_cad, date, workshop_series, series_occurrences, partner_series_meta'
+      'id, title, available_slots, max_attendees, duration_minutes, location, booking_status, registration_closed, vendor_profile_id, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, date, workshop_series, series_occurrences, partner_series_meta'
     )
     .eq('id', event_id)
     .single()
@@ -349,7 +350,7 @@ async function handleFreeConfirm(
     return NextResponse.json({ error: 'Event not found' }, { status: 404 })
   }
 
-  if ((event.price_cad ?? 0) > 0) {
+  if (effectiveWorkshopPriceCad(event) > 0) {
     return NextResponse.json({ error: 'This session requires payment' }, { status: 409 })
   }
 

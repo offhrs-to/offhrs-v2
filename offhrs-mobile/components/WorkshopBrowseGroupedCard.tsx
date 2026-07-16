@@ -30,8 +30,9 @@ import {
   type EventSeriesFields,
 } from '@/lib/workshop-series';
 import { supabase } from '@/lib/supabase';
-import { workshopDisplayPrice, workshopBookButtonLabel, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
+import { workshopBookButtonLabel, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
 import { vendorPagePath, workshopVendorDisplayName } from '@/lib/workshop-vendor-display';
+import WorkshopSalePrice from '@/components/WorkshopSalePrice';
 
 /** Compact square thumbnail (top-right of card), Classpass-style — does not span full card height. */
 const THUMB_SIZE = 88;
@@ -198,7 +199,6 @@ export default function WorkshopBrowseGroupedCard({
     [sorted, selectedSessionKey]
   );
 
-  const displayPrice = workshopDisplayPrice(selected) ?? formatPrice(selected?.price);
   const displaySaved = selected != null && savedEventIds.has(selected.id);
   const distanceKm = useMemo(() => {
     if (!profileLocation || selected?.lat == null || selected?.lng == null) return undefined;
@@ -418,16 +418,14 @@ export default function WorkshopBrowseGroupedCard({
               </Text>
             ) : null}
 
-            {displayPrice != null ? (
+            {selected != null ? (
               <QuickViewTap
                 onOpenQuickView={onOpenQuickView}
                 event={selected}
                 label={`View price for ${title}`}
                 style={{ marginTop: 4 }}
               >
-                <Text style={{ fontSize: 12, fontWeight: '600', color: DesignColors.charcoal, textAlign: 'left' }}>
-                  {displayPrice}
-                </Text>
+                <WorkshopSalePrice event={selected} legacyPriceText={formatPrice(selected.price)} />
               </QuickViewTap>
             ) : null}
           </View>

@@ -1,4 +1,5 @@
 import { isRegistrationClosedForSession } from '@/lib/workshop-registration-closed';
+import { effectiveWorkshopPriceCad } from '@/lib/workshop-ticket-price';
 
 /** Partner-hosted (SaaS) listing — book in-app with Stripe, not only external link. */
 export function workshopIsSaasVendorEvent(e: { vendor_profile_id?: string | null }): boolean {
@@ -23,14 +24,15 @@ export function workshopEventIsFull(e: {
   return slots != null && slots <= 0;
 }
 
-/** Price line for cards and quick view (CAD for SaaS, legacy `price` otherwise). */
+/** Price line for cards and quick view (CAD for SaaS, legacy `price` otherwise). Prefer sale when active. */
 export function workshopDisplayPrice(e: {
   price_cad?: number | null;
+  sale_price_cad?: number | null;
   price?: number | string | null;
   vendor_profile_id?: string | null;
 }): string | null {
   if (workshopIsSaasVendorEvent(e)) {
-    const n = e.price_cad != null ? Number(e.price_cad) : NaN;
+    const n = effectiveWorkshopPriceCad(e);
     if (!Number.isNaN(n)) {
       if (n <= 0) return 'Free';
       return `$${n.toFixed(2)}`;

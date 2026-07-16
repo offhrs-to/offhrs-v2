@@ -16,6 +16,7 @@ import { buildPartnerSeriesMeta, resolveWorkshopSeriesDates } from '@/lib/partne
 import { setSeriesAvailabilityFromRules } from '@/lib/partner-event-availability'
 import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
 import { applyWorkshopRichTextFields } from '@/lib/workshop-rich-text'
+import { normalizeSaleDateWindow, normalizeSalePriceCad } from '@/lib/workshop-ticket-price'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 
@@ -32,6 +33,9 @@ const sessionSchema = z.object({
   workshop_skill_level_hidden: z.boolean().optional(),
   category: z.enum(CATEGORY_ENUM),
   price_cad: z.number().min(0).max(10000),
+  sale_price_cad: z.number().min(0).max(10000).nullable().optional(),
+  sale_starts_on: z.string().nullable().optional(),
+  sale_ends_on: z.string().nullable().optional(),
   max_attendees: z.number().int().min(1).max(500),
   duration_minutes: z.number().int().min(15).max(480),
   date: z.string().optional(),
@@ -237,12 +241,34 @@ export async function POST(request: NextRequest) {
       vendorProfileLng: vendor.location_lng as number | null,
     })
 
+    let salePriceCad: number | null = null
+    let saleStartsOn: string | null = null
+    let saleEndsOn: string | null = null
+    try {
+      salePriceCad = normalizeSalePriceCad(body.price_cad, body.sale_price_cad)
+      const window = normalizeSaleDateWindow({
+        hasSalePrice: salePriceCad != null,
+        saleStartsOn: body.sale_starts_on,
+        saleEndsOn: body.sale_ends_on,
+      })
+      saleStartsOn = window.sale_starts_on
+      saleEndsOn = window.sale_ends_on
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : 'Invalid sale price' },
+        { status: 400 }
+      )
+    }
+
     const baseRow = {
       title: body.title,
       vendor_profile_id: vendor.id,
       category: body.category,
       price: body.price_cad > 0 ? `$${body.price_cad} CAD` : 'Free',
       price_cad: body.price_cad,
+      sale_price_cad: salePriceCad,
+      sale_starts_on: saleStartsOn,
+      sale_ends_on: saleEndsOn,
       max_attendees: body.max_attendees,
       duration_minutes: body.duration_minutes,
       location: locationText,

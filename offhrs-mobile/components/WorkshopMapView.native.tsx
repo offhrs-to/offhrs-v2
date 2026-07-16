@@ -13,12 +13,13 @@ import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import { DesignColors } from '@/constants/design-template';
 import { canMountNativeMapView } from '@/lib/android-google-maps';
 import { vendorPagePath } from '@/lib/workshop-vendor-display';
-import { workshopDisplayPrice } from '@/lib/workshop-event-utils';
+import WorkshopSalePrice from '@/components/WorkshopSalePrice';
 import {
   dedupeWorkshopMapMarkerEvents,
   workshopHasMapCoordinates,
   workshopMapMarkerKey,
 } from '@/lib/workshop-map-coordinates';
+import { haversineKm } from '@/lib/distance';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 
 const DEFAULT_REGION = {
@@ -37,13 +38,14 @@ type Props = {
   onMapPress?: () => void;
   /** Max markers to mount (native maps choke on 500+). */
   maxMarkers?: number;
+  /** Prefer closest pins when over maxMarkers (user location or city default). */
+  anchor?: { lat: number; lng: number } | null;
 };
 
 const DEFAULT_MAX_MARKERS = 280;
 
 function MapCalloutCard({ event, onOpenSheet }: { event: WorkshopEventRow; onOpenSheet?: (e: WorkshopEventRow) => void }) {
   const router = useRouter();
-  const displayPrice = workshopDisplayPrice(event);
 
   const handleBook = () => {
     if (onOpenSheet) {
@@ -73,9 +75,9 @@ function MapCalloutCard({ event, onOpenSheet }: { event: WorkshopEventRow; onOpe
         {event.location ? (
           <Text style={calloutStyles.meta} numberOfLines={1}>{event.location}</Text>
         ) : null}
-        {displayPrice != null && (
-          <Text style={calloutStyles.price}>{displayPrice}</Text>
-        )}
+        <View style={{ marginTop: 6 }}>
+          <WorkshopSalePrice event={event} />
+        </View>
         <View style={calloutStyles.actions}>
           {event.vendor_id ? (
             <Pressable
@@ -179,12 +181,35 @@ export default function WorkshopMapView({
   onEventPress,
   onMapPress,
   maxMarkers = DEFAULT_MAX_MARKERS,
+  anchor = null,
 }: Props) {
   const withCoords = useMemo(() => {
     const filtered = dedupeWorkshopMapMarkerEvents(events.filter(workshopHasMapCoordinates));
     if (filtered.length <= maxMarkers) return filtered;
+    if (anchor) {
+      return [...filtered]
+        .sort((a, b) => {
+          const da = haversineKm(anchor.lat, anchor.lng, Number(a.lat), Number(a.lng));
+          const db = haversineKm(anchor.lat, anchor.lng, Number(b.lat), Number(b.lng));
+          return da - db;
+        })
+        .slice(0, maxMarkers);
+    }
     return filtered.slice(0, maxMarkers);
-  }, [events, maxMarkers]);
+  }, [events, maxMarkers, anchor]);
+
+  const initialRegion = useMemo(
+    () =>
+      anchor
+        ? {
+            latitude: anchor.lat,
+            longitude: anchor.lng,
+            latitudeDelta: 0.1,
+            longitudeDelta: 0.1,
+          }
+        : DEFAULT_REGION,
+    [anchor]
+  );
 
   if (!canMountNativeMapView()) {
     return (
@@ -201,7 +226,7 @@ export default function WorkshopMapView({
     <View style={styles.container}>
       <MapView
         style={styles.map}
-        initialRegion={DEFAULT_REGION}
+        initialRegion={initialRegion}
         showsUserLocation
         onPress={() => onMapPress?.()}
       >

@@ -28,12 +28,13 @@ import { provinceFromCanadianPostalCode } from '@/lib/workshop-booking-tax';
 import { shareWorkshopEvent } from '@/lib/share-workshop';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 import {
-  workshopDisplayPrice,
   workshopBookButtonLabel,
   workshopEventIsFull,
   workshopIsSaasVendorEvent,
 } from '@/lib/workshop-event-utils';
 import { vendorPagePath, workshopVendorDisplayName } from '@/lib/workshop-vendor-display';
+import WorkshopSalePrice from '@/components/WorkshopSalePrice';
+import { effectiveWorkshopPriceCad } from '@/lib/workshop-ticket-price';
 
 /** Share of screen below the top inset used for every quick-view sheet. */
 const SHEET_HEIGHT_RATIO = 0.88;
@@ -214,12 +215,12 @@ export default function WorkshopQuickViewModal({
 
   if (!event) return null;
 
-  const priceLine = workshopDisplayPrice(event);
+  const priceLine = workshopIsSaasVendorEvent(event) || event.price != null;
   const full = workshopEventIsFull(event);
   const saas = workshopIsSaasVendorEvent(event);
   const vendorName = workshopVendorDisplayName(event);
   const canOpenVendor = vendorPagePath(event) != null;
-  const isFreeEvent = Number(event.price_cad ?? 0) <= 0;
+  const isFreeEvent = effectiveWorkshopPriceCad(event) <= 0;
 
   const distanceKm =
     profileLocation && event.lat != null && event.lng != null
@@ -424,11 +425,21 @@ export default function WorkshopQuickViewModal({
                   gap: 6,
                 }}
               >
-                {priceLine != null ? (
+                {priceLine ? (
                   <View>
-                    <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.charcoal }}>
-                      {priceLine}
-                    </Text>
+                    <WorkshopSalePrice
+                      event={event}
+                      size="md"
+                      legacyPriceText={
+                        event.price != null
+                          ? typeof event.price === 'string'
+                            ? event.price.startsWith('$')
+                              ? event.price
+                              : `$${event.price}`
+                            : `$${event.price}`
+                          : null
+                      }
+                    />
                     {saas && !isFreeEvent ? (
                       <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginTop: 2 }}>
                         Tax calculated at checkout

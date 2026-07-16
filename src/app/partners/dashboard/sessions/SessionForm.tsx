@@ -33,6 +33,9 @@ interface SessionFormProps {
     title: string
     category: string
     price_cad: number | null
+    sale_price_cad?: number | null
+    sale_starts_on?: string | null
+    sale_ends_on?: string | null
     max_attendees: number | null
     duration_minutes: number | null
     date: string | null
@@ -96,6 +99,9 @@ export function SessionForm({
     title: session?.title ?? '',
     category: normalizePartnerSessionCategory(session?.category),
     price_cad: session?.price_cad?.toString() ?? '0',
+    sale_price_cad: session?.sale_price_cad != null ? String(session.sale_price_cad) : '',
+    sale_starts_on: session?.sale_starts_on ? String(session.sale_starts_on).slice(0, 10) : '',
+    sale_ends_on: session?.sale_ends_on ? String(session.sale_ends_on).slice(0, 10) : '',
     max_attendees: initialMaxAttendees?.toString() ?? '10',
     duration_minutes: session?.duration_minutes?.toString() ?? '90',
     date: session?.date ? formatWorkshopDateTimeLocalValue(session.date) : '',
@@ -115,6 +121,9 @@ export function SessionForm({
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
   const [coverCleared, setCoverCleared] = useState(false)
+  const [saleOpen, setSaleOpen] = useState(
+    () => session?.sale_price_cad != null && Number(session.sale_price_cad) >= 0
+  )
 
   const [externalBooked, setExternalBooked] = useState(
     String((session as { external_booked_count?: number } | null)?.external_booked_count ?? 0)
@@ -347,10 +356,51 @@ export function SessionForm({
         cover_image_url = null
       }
 
+      const listPrice = parseFloat(form.price_cad) || 0
+      let sale_price_cad: number | null = null
+      let sale_starts_on: string | null = null
+      let sale_ends_on: string | null = null
+      if (saleOpen && form.sale_price_cad.trim() !== '') {
+        const sale = parseFloat(form.sale_price_cad)
+        if (!Number.isFinite(sale) || sale < 0) {
+          setError('Enter a valid sale price.')
+          setLoading(false)
+          return
+        }
+        if (listPrice <= 0) {
+          setError('Add a regular price before setting a sale price.')
+          setLoading(false)
+          return
+        }
+        if (sale >= listPrice) {
+          setError('Sale price must be less than the regular price.')
+          setLoading(false)
+          return
+        }
+        const start = form.sale_starts_on.trim()
+        const end = form.sale_ends_on.trim()
+        if (!end) {
+          setError('Choose when the sale ends.')
+          setLoading(false)
+          return
+        }
+        if (start && start > end) {
+          setError('Sale start date must be on or before the end date.')
+          setLoading(false)
+          return
+        }
+        sale_price_cad = sale
+        sale_starts_on = start || null
+        sale_ends_on = end
+      }
+
       const payload: Record<string, unknown> = {
         title: form.title,
         category: form.category,
-        price_cad: parseFloat(form.price_cad) || 0,
+        price_cad: listPrice,
+        sale_price_cad,
+        sale_starts_on,
+        sale_ends_on,
         max_attendees: maxSpots,
         duration_minutes: parseInt(form.duration_minutes) || 90,
         date: form.date || undefined,
@@ -579,6 +629,79 @@ export function SessionForm({
                 className="w-full pl-7 pr-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
               />
             </div>
+            {!saleOpen ? (
+              <button
+                type="button"
+                onClick={() => setSaleOpen(true)}
+                className="mt-2 text-sm font-medium text-[#5D755D] hover:underline"
+              >
+                Sale
+              </button>
+            ) : (
+              <div className="mt-3 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="block text-sm font-medium text-[#1a1a1a]">
+                    Sale Price (CAD)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSaleOpen(false)
+                      setForm((f) => ({
+                        ...f,
+                        sale_price_cad: '',
+                        sale_starts_on: '',
+                        sale_ends_on: '',
+                      }))
+                    }}
+                    className="text-xs font-medium text-[#888] hover:text-[#1a1a1a]"
+                  >
+                    Remove
+                  </button>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888] text-sm">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.sale_price_cad}
+                    onChange={(e) => set('sale_price_cad', e.target.value)}
+                    placeholder="Discounted price"
+                    className="w-full pl-7 pr-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <div>
+                    <label className="block text-xs font-medium text-[#1a1a1a] mb-1">
+                      Sale starts
+                    </label>
+                    <input
+                      type="date"
+                      value={form.sale_starts_on}
+                      onChange={(e) => set('sale_starts_on', e.target.value)}
+                      className="w-full px-3 py-2 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[#1a1a1a] mb-1">
+                      Sale ends <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required={saleOpen}
+                      value={form.sale_ends_on}
+                      min={form.sale_starts_on || undefined}
+                      onChange={(e) => set('sale_ends_on', e.target.value)}
+                      className="w-full px-3 py-2 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-[#888]">
+                  Customers pay the sale price on these dates (inclusive). Leave start blank to begin immediately.
+                </p>
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Max spots <span className="text-red-500">*</span></label>

@@ -527,30 +527,45 @@ export default function ProfileScreen() {
           marginTop: 16,
           paddingVertical: 8,
           paddingHorizontal: 4,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          alignItems: 'center',
         }}
       >
         <Text
           style={{
             fontSize: 11,
             color: DesignColors.mediumGray,
-            textAlign: 'center',
             lineHeight: 16,
           }}
         >
           By continuing you agree to our{' '}
+        </Text>
+        <Pressable
+          onPress={() => void openWebAppPath('/terms')}
+          accessibilityRole="link"
+          accessibilityLabel="Terms and Policies"
+          hitSlop={4}
+        >
           <Text
-            accessibilityRole="link"
-            accessibilityLabel="Terms and Policies"
-            onPress={() => void openWebAppPath('/terms')}
             style={{
               color: DesignColors.primary,
-              textDecorationLine: 'underline',
               fontSize: 11,
               fontWeight: '600',
+              lineHeight: 16,
             }}
           >
             Terms & Policies
           </Text>
+        </Pressable>
+        <Text
+          style={{
+            fontSize: 11,
+            color: DesignColors.mediumGray,
+            lineHeight: 16,
+          }}
+        >
           .
         </Text>
       </View>

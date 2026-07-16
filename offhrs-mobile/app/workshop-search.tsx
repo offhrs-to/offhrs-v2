@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { compareWorkshopEventsByStart, workshopEventTorontoYmd } from '@/lib/workshop-event-sort';
 import { fetchWorkshopEvents, type WorkshopEventRow } from '@/lib/workshops-events-query';
 import { sortWorkshopGroupsByPrice, type WorkshopPriceSort } from '@/lib/workshop-price-sort';
-import { buildVendorNearbyList, type VendorNearbyRow } from '@/lib/workshop-vendors-nearby';
+import { fetchNearbyVendorRows, type VendorNearbyRow } from '@/lib/workshop-vendors-nearby';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -59,7 +59,7 @@ export default function WorkshopSearchScreen() {
   const [locationEntryMode, setLocationEntryMode] = useState(false);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [events, setEvents] = useState<WorkshopEventRow[]>([]);
-  const [vendorNames, setVendorNames] = useState<Record<string, string>>({});
+  const [nearbyRows, setNearbyRows] = useState<VendorNearbyRow[]>([]);
   const [geoBusy, setGeoBusy] = useState(false);
 
   const [savedEventIds, setSavedEventIds] = useState<Set<number>>(new Set());
@@ -160,7 +160,7 @@ export default function WorkshopSearchScreen() {
     };
   }, [profileCoords]);
 
-  const reloadEvents = useCallback(async () => {
+  const reloadSearchEvents = useCallback(async () => {
     setEventsLoading(true);
     try {
       const rows = await fetchWorkshopEvents({
@@ -171,33 +171,39 @@ export default function WorkshopSearchScreen() {
         limit: WORKSHOP_FETCH_LIMIT_SEARCH,
       });
       setEvents(rows);
-      const vids = [...new Set(rows.map((r) => r.vendor_id).filter(Boolean))] as string[];
-      if (vids.length === 0) {
-        setVendorNames({});
-        return;
-      }
-      const { data: vendors } = await supabase.from('vendors').select('id, name').in('id', vids);
-      const map: Record<string, string> = {};
-      (vendors ?? []).forEach((v) => {
-        map[v.id] = v.name ?? 'Vendor';
-      });
-      setVendorNames(map);
+      setNearbyRows([]);
     } catch {
       setEvents([]);
-      setVendorNames({});
     } finally {
       setEventsLoading(false);
     }
   }, [searchTerm]);
 
-  useEffect(() => {
-    reloadEvents();
-  }, [reloadEvents]);
+  const reloadNearbyStudios = useCallback(async () => {
+    if (!anchorCoords) {
+      setNearbyRows([]);
+      setEventsLoading(false);
+      return;
+    }
+    setEventsLoading(true);
+    try {
+      const rows = await fetchNearbyVendorRows(anchorCoords);
+      setNearbyRows(rows);
+      setEvents([]);
+    } catch {
+      setNearbyRows([]);
+    } finally {
+      setEventsLoading(false);
+    }
+  }, [anchorCoords]);
 
-  const nearbyRows = useMemo(() => {
-    if (!anchorCoords || isSearching) return [];
-    return buildVendorNearbyList(events, vendorNames, anchorCoords);
-  }, [events, vendorNames, anchorCoords, isSearching]);
+  useEffect(() => {
+    if (isSearching) {
+      void reloadSearchEvents();
+      return;
+    }
+    void reloadNearbyStudios();
+  }, [isSearching, reloadSearchEvents, reloadNearbyStudios]);
 
   const workshopGroups = useMemo(() => {
     if (!isSearching) return [];
@@ -491,7 +497,9 @@ export default function WorkshopSearchScreen() {
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             <Text style={{ color: DesignColors.mediumGray, paddingVertical: 16 }}>
-              No vendors with locations match your search yet.
+              {anchorCoords
+                ? 'No nearby studios with mapped locations yet.'
+                : 'Set a location above to browse nearby studios.'}
             </Text>
           }
         />

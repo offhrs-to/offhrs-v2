@@ -12,7 +12,8 @@ import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mo
 import { useStrictBookingAck } from '@/lib/use-strict-booking-ack';
 import { supabase } from '@/lib/supabase';
 import { vendorPagePath } from '@/lib/workshop-vendor-display';
-import { workshopDisplayPrice, workshopBookButtonLabel, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
+import { workshopBookButtonLabel, workshopEventIsFull, workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
+import WorkshopSalePrice from '@/components/WorkshopSalePrice';
 
 export interface Event {
   id: number;
@@ -23,6 +24,7 @@ export interface Event {
   price?: number | string | null;
   /** SaaS listing price (CAD) when `vendor_profile_id` is set. */
   price_cad?: number | null;
+  sale_price_cad?: number | null;
   external_link: string;
   vendor_id?: string | null;
   vendor_profile_id?: string | null;
@@ -82,8 +84,6 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
   const [saving, setSaving] = useState(false);
   const [bookingBusy, setBookingBusy] = useState(false);
   const { requestStrictAckIfNeeded, ackModalElement } = useStrictBookingAck();
-  const displayPrice =
-    workshopIsSaasVendorEvent(event) ? workshopDisplayPrice(event) : formatPrice(event.price);
   const isFull = workshopEventIsFull(event);
   const isControlled = savedProp !== undefined;
   const displaySaved = isControlled ? savedProp : internalSaved;
@@ -204,11 +204,7 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
       </View>
       <View style={{ flex: 1, justifyContent: 'center', minHeight: 0 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          {displayPrice != null ? (
-            <Text style={{ fontSize: 12, fontWeight: '600', color: DesignColors.charcoal }}>{displayPrice}</Text>
-          ) : (
-            <View />
-          )}
+          <WorkshopSalePrice event={event} legacyPriceText={formatPrice(event.price)} />
           {distanceKm != null ? (
             <Text style={{ fontSize: 11, color: DesignColors.mediumGray }}>{distanceKm} km</Text>
           ) : null}

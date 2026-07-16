@@ -21,10 +21,14 @@ export type WorkshopsChromeProps = {
   /** Optional back control for stack screens */
   showBack?: boolean;
   onBackPress?: () => void;
-  /** Price sort filter (browse / search list screens). */
+  /** Price sort filter dropdown (search list screens). */
   showPriceFilter?: boolean;
   priceSort?: WorkshopPriceSort;
   onPriceSortChange?: (sort: WorkshopPriceSort) => void;
+  /** Browse: open consolidated filters bottom sheet. */
+  showAllFiltersButton?: boolean;
+  allFiltersActive?: boolean;
+  onAllFiltersPress?: () => void;
 };
 
 export default function WorkshopsChrome({
@@ -42,9 +46,12 @@ export default function WorkshopsChrome({
   showPriceFilter = false,
   priceSort = 'default',
   onPriceSortChange,
+  showAllFiltersButton = false,
+  allFiltersActive = false,
+  onAllFiltersPress,
 }: WorkshopsChromeProps) {
   const [priceMenuOpen, setPriceMenuOpen] = useState(false);
-  const filterActive = priceSort !== 'default';
+  const priceFilterActive = priceSort !== 'default';
 
   return (
     <>
@@ -180,7 +187,30 @@ export default function WorkshopsChrome({
               </Pressable>
             </>
           ) : null}
-          {showPriceFilter && onPriceSortChange ? (
+          {showAllFiltersButton && onAllFiltersPress ? (
+            <Pressable
+              onPress={onAllFiltersPress}
+              accessibilityRole="button"
+              accessibilityLabel="All filters"
+              style={{
+                width: 36,
+                height: 36,
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderRadius: 9999,
+                backgroundColor: allFiltersActive ? DesignColors.heroBg : DesignColors.inputBg,
+                borderWidth: 1,
+                borderColor: allFiltersActive ? DesignColors.primary : DesignColors.lightGreenBorder,
+              }}
+            >
+              <MaterialCommunityIcons
+                name="filter-variant"
+                size={20}
+                color={allFiltersActive ? DesignColors.primary : DesignColors.sageGreen}
+              />
+            </Pressable>
+          ) : null}
+          {!showAllFiltersButton && showPriceFilter && onPriceSortChange ? (
             <Pressable
               onPress={() => setPriceMenuOpen(true)}
               accessibilityRole="button"
@@ -191,21 +221,21 @@ export default function WorkshopsChrome({
                 justifyContent: 'center',
                 alignItems: 'center',
                 borderRadius: 9999,
-                backgroundColor: filterActive ? DesignColors.heroBg : DesignColors.inputBg,
+                backgroundColor: priceFilterActive ? DesignColors.heroBg : DesignColors.inputBg,
                 borderWidth: 1,
-                borderColor: filterActive ? DesignColors.primary : DesignColors.lightGreenBorder,
+                borderColor: priceFilterActive ? DesignColors.primary : DesignColors.lightGreenBorder,
               }}
             >
               <MaterialCommunityIcons
                 name="filter-variant"
                 size={20}
-                color={filterActive ? DesignColors.primary : DesignColors.sageGreen}
+                color={priceFilterActive ? DesignColors.primary : DesignColors.sageGreen}
               />
             </Pressable>
           ) : null}
         </View>
       </View>
-      {showPriceFilter && onPriceSortChange ? (
+      {!showAllFiltersButton && showPriceFilter && onPriceSortChange ? (
         <WorkshopPriceSortMenu
           visible={priceMenuOpen}
           value={priceSort}

@@ -17,6 +17,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { UserCircleIcon } from 'react-native-heroicons/outline';
 
 import InstructorIcon from '@/components/InstructorIcon';
+import FeaturedVendorsCarousel from '@/components/FeaturedVendorsCarousel';
 import UpcomingTorontoCarousel from '@/components/UpcomingTorontoCarousel';
 import WorkshopsNearYouCarousel from '@/components/WorkshopsNearYouCarousel';
 import { CATEGORIES } from '@/constants/categories';
@@ -39,8 +40,8 @@ const AVATAR_SIZE = isAndroid ? 46 : 52;
 const SCROLL_PADDING_TOP = isAndroid ? 4 : 6;
 /** Scroll padding below content — room above floating tab bar. */
 const SCROLL_PADDING_BOTTOM = isAndroid ? 76 : 28;
-const HERO_HEADLINE_FONT_SIZE = isAndroid ? 30 : 34;
-const HERO_HEADLINE_LINE_HEIGHT = isAndroid ? 38 : 42;
+const HERO_HEADLINE_FONT_SIZE = isAndroid ? 26 : 28;
+const HERO_HEADLINE_LINE_HEIGHT = isAndroid ? 32 : 34;
 const ICON_BAR_HEIGHT = isAndroid ? 48 : 56;
 const ICON_CIRCLE_SIZE = isAndroid ? 40 : 44;
 const SECTION_TITLE_FONT_SIZE = isAndroid ? 14 : 15;
@@ -371,15 +372,19 @@ export default function HomeScreen() {
         }
       >
       <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
         style={{
           fontFamily: HERO_SERIF_FONT,
-          fontSize: HERO_HEADLINE_FONT_SIZE,
-          lineHeight: isIPad ? HERO_HEADLINE_LINE_HEIGHT + 8 : HERO_HEADLINE_LINE_HEIGHT,
+          fontSize: isIPad ? HERO_HEADLINE_FONT_SIZE + 4 : HERO_HEADLINE_FONT_SIZE,
+          lineHeight: isIPad ? HERO_HEADLINE_LINE_HEIGHT + 6 : HERO_HEADLINE_LINE_HEIGHT,
           color: CHARCOAL,
           textAlign: 'left',
           fontWeight: '400',
           marginTop: isAndroid ? 2 : 4,
           marginBottom: isIPad ? 20 : isAndroid ? 12 : 16,
+          width: '100%',
         }}
       >
         Discover your new passion
@@ -485,6 +490,19 @@ export default function HomeScreen() {
         })}
       </View>
 
+      <FeaturedVendorsCarousel
+        userLocationAnchor={carouselLocationAnchor}
+        refreshNonce={homeRefreshNonce}
+        sectionTitle="Featured Workshop Hosts"
+        sectionTitleStyle={{
+          color: CHARCOAL,
+          fontSize: SECTION_TITLE_FONT_SIZE,
+          fontWeight: '700',
+          textAlign: 'left',
+          alignSelf: 'stretch',
+        }}
+      />
+
       <Text
         style={{
           color: CHARCOAL,
@@ -492,6 +510,7 @@ export default function HomeScreen() {
           fontWeight: '700',
           textAlign: 'left',
           alignSelf: 'stretch',
+          marginTop: CAROUSEL_SECTION_GAP,
           marginBottom: 6,
         }}
       >

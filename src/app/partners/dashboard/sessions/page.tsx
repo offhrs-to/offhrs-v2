@@ -22,12 +22,16 @@ import { SessionForm } from './SessionForm'
 import { OccurrenceEditModal, type OccurrenceEditTarget } from './OccurrenceEditModal'
 import { formatSeriesDateRangeLabel, parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
 import { spotsFilledLabel } from '@/lib/workshop-spots-label'
+import { workshopHasActiveSale } from '@/lib/workshop-ticket-price'
 
 interface Session {
   id: string
   title: string
   category: string
   price_cad: number | null
+  sale_price_cad?: number | null
+  sale_starts_on?: string | null
+  sale_ends_on?: string | null
   max_attendees: number | null
   available_slots: number | null
   duration_minutes: number | null
@@ -359,7 +363,32 @@ function SessionsPageInner() {
                       {session.price_cad !== null && (
                         <span className="flex items-center gap-1">
                           <DollarSign className="w-3 h-3" />
-                          {session.price_cad === 0 ? 'Free' : `${session.price_cad} CAD`}
+                          {session.price_cad === 0 ? (
+                            'Free'
+                          ) : workshopHasActiveSale(session) ? (
+                            <>
+                              <span className="line-through text-[#aaa]">{session.price_cad} CAD</span>
+                              <span className="text-red-600 font-semibold">
+                                {session.sale_price_cad} CAD
+                              </span>
+                            </>
+                          ) : session.sale_price_cad != null &&
+                            Number(session.sale_price_cad) >= 0 &&
+                            Number(session.sale_price_cad) < Number(session.price_cad) ? (
+                            <>
+                              <span>{session.price_cad} CAD</span>
+                              <span className="text-[#888]">
+                                {' '}
+                                (sale {session.sale_price_cad} CAD
+                                {session.sale_ends_on
+                                  ? ` until ${String(session.sale_ends_on).slice(0, 10)}`
+                                  : ''}
+                                )
+                              </span>
+                            </>
+                          ) : (
+                            `${session.price_cad} CAD`
+                          )}
                         </span>
                       )}
                       {session.max_attendees !== null && (

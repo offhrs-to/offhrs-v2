@@ -14,6 +14,7 @@ import {
 } from '@/lib/stripe-workshop-tax'
 import { estimateCanadianStripeFee } from '@/lib/stripe-charge-fees'
 import { workshopBookingBlockReason } from '@/lib/workshop-registration-closed'
+import { effectiveWorkshopPriceCad } from '@/lib/workshop-ticket-price'
 
 const BOOK_RATE_LIMIT = 15 // per minute per IP
 
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
       const { data: event } = await admin
         .from('events')
         .select(
-          'id, title, vendor_profile_id, price_cad, available_slots, duration_minutes, location, booking_status, registration_closed, date, workshop_series, series_occurrences, partner_series_meta'
+          'id, title, vendor_profile_id, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, available_slots, duration_minutes, location, booking_status, registration_closed, date, workshop_series, series_occurrences, partner_series_meta'
         )
         .eq('id', String(event_id))
         .single()
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Vendor payout account not set up yet' }, { status: 422 })
       }
 
-      const priceCad = (event.price_cad ?? 0) as number
+      const priceCad = effectiveWorkshopPriceCad(event)
 
       // Free sessions — no payment needed
       if (priceCad === 0) {

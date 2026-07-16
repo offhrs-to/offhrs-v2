@@ -22,6 +22,7 @@ import {
 import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
 import { invalidateCachedTaxQuotesForEvent } from '@/lib/workshop-tax-quote-cache'
 import { applyWorkshopRichTextFields } from '@/lib/workshop-rich-text'
+import { normalizeSaleDateWindow, normalizeSalePriceCad } from '@/lib/workshop-ticket-price'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 const ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending', 'booked', 'pending_confirmation'] as const
@@ -39,6 +40,9 @@ const updateSchema = z.object({
   workshop_skill_level_hidden: z.boolean().optional(),
   category: z.enum(CATEGORY_ENUM).optional(),
   price_cad: z.number().min(0).max(10000).optional(),
+  sale_price_cad: z.number().min(0).max(10000).nullable().optional(),
+  sale_starts_on: z.string().nullable().optional(),
+  sale_ends_on: z.string().nullable().optional(),
   max_attendees: z.number().int().min(1).max(500).optional(),
   duration_minutes: z.number().int().min(15).max(480).optional(),
   date: z.string().optional(),
@@ -211,6 +215,57 @@ export async function PUT(request: NextRequest, { params }: Params) {
     if (body.price_cad !== undefined) {
       updatePayload.price_cad = body.price_cad
       updatePayload.price = body.price_cad > 0 ? `$${body.price_cad} CAD` : 'Free'
+    }
+    if (body.sale_price_cad !== undefined || body.price_cad !== undefined) {
+      const nextList =
+        body.price_cad !== undefined
+          ? body.price_cad
+          : Number((session as { price_cad?: number | null }).price_cad ?? 0)
+      const nextSale =
+        body.sale_price_cad !== undefined
+          ? body.sale_price_cad
+          : ((session as { sale_price_cad?: number | null }).sale_price_cad ?? null)
+      try {
+        updatePayload.sale_price_cad = normalizeSalePriceCad(nextList, nextSale)
+      } catch (e) {
+        return NextResponse.json(
+          { error: e instanceof Error ? e.message : 'Invalid sale price' },
+          { status: 400 }
+        )
+      }
+    }
+    if (
+      body.sale_price_cad !== undefined ||
+      body.sale_starts_on !== undefined ||
+      body.sale_ends_on !== undefined ||
+      body.price_cad !== undefined
+    ) {
+      const nextSalePrice =
+        updatePayload.sale_price_cad !== undefined
+          ? (updatePayload.sale_price_cad as number | null)
+          : body.sale_price_cad !== undefined
+            ? body.sale_price_cad
+            : ((session as { sale_price_cad?: number | null }).sale_price_cad ?? null)
+      const existingStarts = (session as { sale_starts_on?: string | null }).sale_starts_on ?? null
+      const existingEnds = (session as { sale_ends_on?: string | null }).sale_ends_on ?? null
+      try {
+        const window = normalizeSaleDateWindow({
+          hasSalePrice: nextSalePrice != null,
+          saleStartsOn:
+            body.sale_starts_on !== undefined ? body.sale_starts_on : existingStarts,
+          saleEndsOn: body.sale_ends_on !== undefined ? body.sale_ends_on : existingEnds,
+        })
+        updatePayload.sale_starts_on = window.sale_starts_on
+        updatePayload.sale_ends_on = window.sale_ends_on
+        if (nextSalePrice == null) {
+          updatePayload.sale_price_cad = null
+        }
+      } catch (e) {
+        return NextResponse.json(
+          { error: e instanceof Error ? e.message : 'Invalid sale dates' },
+          { status: 400 }
+        )
+      }
     }
     if (body.duration_minutes !== undefined) updatePayload.duration_minutes = body.duration_minutes
 

@@ -8,13 +8,14 @@ import {
   WORKSHOP_MAP_MARKER_CAP,
 } from '@/constants/workshops-list';
 import { useAuth } from '@/contexts/AuthContext';
+import { WORKSHOP_GEO_RADIUS_KM } from '@/lib/distance';
 import { fetchVendorRatingMap, type VendorRatingSummary } from '@/lib/vendor-rating-map';
 import { supabase } from '@/lib/supabase';
 import {
   fetchWorkshopEvents,
+  fetchWorkshopEventsNearAnchor,
   type WorkshopEventRow,
 } from '@/lib/workshops-events-query';
-import { workshopDisplayPrice } from '@/lib/workshop-event-utils';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,6 +33,8 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const LIST_THUMB = 56;
+/** Fallback map center when the user has no saved profile location. */
+const TORONTO_DEFAULT = { lat: 43.6532, lng: -79.3832 };
 
 function parseParamString(v: string | string[] | undefined): string {
   if (v == null) return '';
@@ -215,16 +218,29 @@ export default function WorkshopMapScreen() {
     height: listHeight.value,
   }));
 
+  const mapAnchor = useMemo(
+    () =>
+      profileLocation
+        ? { lat: profileLocation.lat, lng: profileLocation.lng }
+        : TORONTO_DEFAULT,
+    [profileLocation]
+  );
+
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await fetchWorkshopEvents({
-        searchTerm,
-        categories: [],
-        dateRangeStart: null,
-        dateRangeEnd: null,
-        limit: WORKSHOP_FETCH_LIMIT_MAP_SCREEN,
-      });
+      const q = searchTerm.trim();
+      const rows = q
+        ? await fetchWorkshopEvents({
+            searchTerm: q,
+            categories: [],
+            dateRangeStart: null,
+            dateRangeEnd: null,
+            limit: WORKSHOP_FETCH_LIMIT_MAP_SCREEN,
+          })
+        : await fetchWorkshopEventsNearAnchor(mapAnchor, {
+            radiusKm: WORKSHOP_GEO_RADIUS_KM,
+          });
       setEvents(rows);
       const vids = [...new Set(rows.map((r) => r.vendor_id).filter(Boolean))] as string[];
       const map = await fetchVendorRatingMap(vids);
@@ -235,7 +251,7 @@ export default function WorkshopMapScreen() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm]);
+  }, [searchTerm, mapAnchor]);
 
   useEffect(() => {
     reload();
@@ -340,6 +356,7 @@ export default function WorkshopMapScreen() {
               events={events}
               loading={loading}
               maxMarkers={WORKSHOP_MAP_MARKER_CAP}
+              anchor={mapAnchor}
               onEventPress={handleMapEventPress}
             />
           </View>
@@ -403,6 +420,7 @@ export default function WorkshopMapScreen() {
               events={events}
               loading={loading}
               maxMarkers={WORKSHOP_MAP_MARKER_CAP}
+              anchor={mapAnchor}
               onEventPress={handleMapEventPress}
             />
           </View>

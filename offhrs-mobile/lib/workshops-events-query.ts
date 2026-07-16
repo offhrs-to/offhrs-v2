@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { CONSUMER_BOOKING_STATUS_OR, isEventVisibleToConsumers } from '@/lib/consumer-event-visibility';
+import { bboxAround, haversineKm, WORKSHOP_GEO_EVENTS_CAP, WORKSHOP_GEO_RADIUS_KM } from '@/lib/distance';
 import { enrichWorkshopEventsWithMapCoordinates } from '@/lib/workshop-map-coordinates';
 import { enrichWorkshopEventsWithVendorNames } from '@/lib/workshop-vendor-display';
 import { WORKSHOP_EVENTS_FETCH_BATCH, WORKSHOP_MAX_UPCOMING_FETCH } from '@/constants/workshops-list';
@@ -21,6 +22,11 @@ export type WorkshopEventRow = {
   price: number | string | null;
   /** SaaS price in CAD when `vendor_profile_id` is set. */
   price_cad: number | null;
+  /** Optional sale price in CAD (strictly below `price_cad` when active). */
+  sale_price_cad: number | null;
+  /** Inclusive sale window (YYYY-MM-DD, America/Toronto). */
+  sale_starts_on: string | null;
+  sale_ends_on: string | null;
   external_link: string;
   lat: number | null;
   lng: number | null;
@@ -84,6 +90,9 @@ export type WorkshopEventDbRow = {
   image_url: string | null;
   price: number | string | null;
   price_cad: number | string | null;
+  sale_price_cad?: number | string | null;
+  sale_starts_on?: string | null;
+  sale_ends_on?: string | null;
   external_link: string | null;
   category: string | null;
   lat: number | null;
@@ -119,6 +128,9 @@ export function mapDbRowToWorkshopEvent(row: WorkshopEventDbRow): WorkshopEventR
     image_url: row.image_url ?? null,
     price: row.price ?? null,
     price_cad: row.price_cad != null ? Number(row.price_cad) : null,
+    sale_price_cad: row.sale_price_cad != null ? Number(row.sale_price_cad) : null,
+    sale_starts_on: row.sale_starts_on ? String(row.sale_starts_on).slice(0, 10) : null,
+    sale_ends_on: row.sale_ends_on ? String(row.sale_ends_on).slice(0, 10) : null,
     external_link: row.external_link ?? '',
     lat: row.lat ?? null,
     lng: row.lng ?? null,
@@ -259,32 +271,54 @@ export type FetchWorkshopEventsOptions = {
 };
 
 export const WORKSHOP_EVENT_LIST_SELECT =
-  'id, title, date, location, image_url, price, price_cad, external_link, category, lat, lng, vendor_id, vendor_profile_id, organizer, recurrence, description, workshop_experience, workshop_experience_hidden, workshop_materials_takeaway, workshop_materials_takeaway_hidden, workshop_skill_level, workshop_skill_level_hidden, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, partner_series_meta, max_attendees';
+  'id, title, date, location, image_url, price, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, external_link, category, lat, lng, vendor_id, vendor_profile_id, organizer, recurrence, description, workshop_experience, workshop_experience_hidden, workshop_materials_takeaway, workshop_materials_takeaway_hidden, workshop_skill_level, workshop_skill_level_hidden, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, partner_series_meta, max_attendees';
 
-/** Lighter payload for vendor profile workshop cards (no description sections). */
-export const VENDOR_PROFILE_EVENT_SELECT =
-  'id, title, date, location, image_url, price_cad, external_link, category, vendor_id, vendor_profile_id, recurrence, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, partner_series_meta, max_attendees';
+/** Same payload as list/quick-view so vendor-profile cards open with full details. */
+export const VENDOR_PROFILE_EVENT_SELECT = WORKSHOP_EVENT_LIST_SELECT;
 
 export const VENDOR_PROFILE_EVENTS_LIMIT = 80;
 
 export const WORKSHOP_EVENTS_UPCOMING_OR = (nowIso: string) =>
   `recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso},workshop_series.eq.multi_week`;
 
-/** Upcoming workshops for a vendor profile page (slim select, DB date filter, capped). */
+/** Upcoming workshops for a vendor profile page (full quick-view payload, DB date filter, capped). */
 export async function fetchVendorProfileEvents(vendorId: string): Promise<WorkshopEventRow[]> {
+  return fetchVendorUpcomingEvents({ vendorId });
+}
+
+/** Upcoming workshops linked to a SaaS `vendor_profiles.id`. */
+export async function fetchVendorProfileEventsByProfileId(
+  vendorProfileId: string
+): Promise<WorkshopEventRow[]> {
+  return fetchVendorUpcomingEvents({ vendorProfileId });
+}
+
+async function fetchVendorUpcomingEvents(opts: {
+  vendorId?: string;
+  vendorProfileId?: string;
+}): Promise<WorkshopEventRow[]> {
   const nowIso = new Date().toISOString();
-  const { data, error } = await supabase
+  let q = supabase
     .from('events')
     .select(VENDOR_PROFILE_EVENT_SELECT)
-    .eq('vendor_id', vendorId)
     .or(CONSUMER_BOOKING_STATUS_OR)
     .or(WORKSHOP_EVENTS_UPCOMING_OR(nowIso))
     .order('date', { ascending: true, nullsFirst: false })
     .limit(VENDOR_PROFILE_EVENTS_LIMIT);
 
+  if (opts.vendorProfileId) {
+    q = q.eq('vendor_profile_id', opts.vendorProfileId);
+  } else if (opts.vendorId) {
+    q = q.eq('vendor_id', opts.vendorId);
+  } else {
+    return [];
+  }
+
+  const { data, error } = await q;
+
   if (error || !data?.length) {
     if (error && __DEV__) {
-      console.warn('fetchVendorProfileEvents failed', error.message);
+      console.warn('fetchVendorUpcomingEvents failed', error.message);
     }
     return [];
   }
@@ -395,5 +429,69 @@ export async function fetchWorkshopEvents(
   }
 
   const named = await enrichWorkshopEventsWithVendorNames(result);
+  return enrichWorkshopEventsWithMapCoordinates(named);
+}
+
+/**
+ * Map / geo browse: upcoming visible events with coordinates inside a bbox around the user.
+ * Avoids the date-ordered global fetch cap that can hide nearby workshops with later dates.
+ */
+export async function fetchWorkshopEventsNearAnchor(
+  anchor: { lat: number; lng: number },
+  options?: { radiusKm?: number; eventsCap?: number }
+): Promise<WorkshopEventRow[]> {
+  const radiusKm = options?.radiusKm ?? WORKSHOP_GEO_RADIUS_KM;
+  const eventsCap = options?.eventsCap ?? WORKSHOP_GEO_EVENTS_CAP;
+  const nowIso = new Date().toISOString();
+  const box = bboxAround(anchor.lat, anchor.lng, radiusKm);
+
+  const { data, error } = await supabase
+    .from('events')
+    .select(WORKSHOP_EVENT_LIST_SELECT)
+    .not('lat', 'is', null)
+    .not('lng', 'is', null)
+    .gte('lat', box.minLat)
+    .lte('lat', box.maxLat)
+    .gte('lng', box.minLng)
+    .lte('lng', box.maxLng)
+    .or(WORKSHOP_EVENTS_UPCOMING_OR(nowIso))
+    .or(CONSUMER_BOOKING_STATUS_OR)
+    .limit(eventsCap);
+
+  if (error) {
+    if (__DEV__) console.warn('fetchWorkshopEventsNearAnchor', error.message);
+    throw error;
+  }
+
+  const list = ((data ?? []) as WorkshopEventDbRow[])
+    .map(mapDbRowToWorkshopEvent)
+    .filter((e) => isEventVisibleToConsumers(e))
+    .filter((e) => {
+      if (e.recurrence === 'daily' || e.recurrence === 'weekly') return true;
+      if (e.workshop_series === 'multi_week') return true;
+      if (!e.date_iso) return true;
+      return e.date_iso >= nowIso;
+    })
+    .filter(
+      (e) =>
+        e.lat != null &&
+        e.lng != null &&
+        !Number.isNaN(Number(e.lat)) &&
+        !Number.isNaN(Number(e.lng))
+    );
+
+  const withinRadius = list.filter((e) => {
+    const km = haversineKm(anchor.lat, anchor.lng, Number(e.lat), Number(e.lng));
+    return km <= radiusKm;
+  });
+
+  withinRadius.sort((a, b) => {
+    const da = haversineKm(anchor.lat, anchor.lng, Number(a.lat), Number(a.lng));
+    const db = haversineKm(anchor.lat, anchor.lng, Number(b.lat), Number(b.lng));
+    return da - db;
+  });
+
+  const expanded = expandWorkshopEventsForConsumers(withinRadius);
+  const named = await enrichWorkshopEventsWithVendorNames(expanded);
   return enrichWorkshopEventsWithMapCoordinates(named);
 }

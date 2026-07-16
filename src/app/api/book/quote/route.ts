@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
 import { workshopBookingBlockReason } from '@/lib/workshop-registration-closed'
+import { effectiveWorkshopPriceCad } from '@/lib/workshop-ticket-price'
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     const { data: event } = await admin
       .from('events')
-      .select('id, vendor_profile_id, price_cad, booking_status, registration_closed, available_slots, location, workshop_series, series_occurrences, partner_series_meta')
+      .select('id, vendor_profile_id, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, booking_status, registration_closed, available_slots, location, workshop_series, series_occurrences, partner_series_meta')
       .eq('id', String(parsed.data.event_id))
       .single()
 
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
     const refundPolicy = resolveVendorRefundPolicy(vendor ?? {})
     const { refundWindowHours, policyLine: refundPolicyLine, strictNoRefund } = refundPolicy
 
-    const priceCad = Number(event.price_cad ?? 0)
+    const priceCad = effectiveWorkshopPriceCad(event)
 
     if (priceCad <= 0) {
       return NextResponse.json({

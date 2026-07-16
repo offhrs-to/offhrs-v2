@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Text, View, ScrollView, Pressable } from 'react-native';
 
 import { DesignColors } from '@/constants/design-template';
+import { haversineKm } from '@/lib/distance';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 
 type Props = {
@@ -10,6 +11,8 @@ type Props = {
   onEventPress?: (event: WorkshopEventRow) => void;
   onMapPress?: () => void;
   maxMarkers?: number;
+  /** Prefer closest pins when over maxMarkers (user location or city default). */
+  anchor?: { lat: number; lng: number } | null;
 };
 
 const DEFAULT_MAX_MARKERS = 280;
@@ -19,14 +22,24 @@ export default function WorkshopMapView({
   loading,
   onEventPress,
   maxMarkers = DEFAULT_MAX_MARKERS,
+  anchor = null,
 }: Props) {
   const withCoords = useMemo(() => {
     const filtered = events.filter(
       (e) => e.lat != null && e.lng != null && !isNaN(Number(e.lat)) && !isNaN(Number(e.lng))
     );
     if (filtered.length <= maxMarkers) return filtered;
+    if (anchor) {
+      return [...filtered]
+        .sort((a, b) => {
+          const da = haversineKm(anchor.lat, anchor.lng, Number(a.lat), Number(a.lng));
+          const db = haversineKm(anchor.lat, anchor.lng, Number(b.lat), Number(b.lng));
+          return da - db;
+        })
+        .slice(0, maxMarkers);
+    }
     return filtered.slice(0, maxMarkers);
-  }, [events, maxMarkers]);
+  }, [events, maxMarkers, anchor]);
 
   if (loading) {
     return (

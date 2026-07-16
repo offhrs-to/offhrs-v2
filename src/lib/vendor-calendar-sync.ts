@@ -14,6 +14,7 @@ import {
 } from '@/lib/microsoft-calendar-api'
 
 import { parseSeriesOccurrences, type SeriesOccurrence } from '@/lib/workshop-series'
+import { workshopHasActiveSale } from '@/lib/workshop-ticket-price'
 
 const DEFAULT_TZ = process.env.VENDOR_CALENDAR_DEFAULT_TZ ?? 'America/Toronto'
 
@@ -28,6 +29,9 @@ type RichEvent = {
   max_attendees: number | null
   available_slots: number | null
   price_cad: number | null
+  sale_price_cad?: number | null
+  sale_starts_on?: string | null
+  sale_ends_on?: string | null
   vendor_profile_id: string | null
   google_calendar_event_id: string | null
   microsoft_outlook_event_id: string | null
@@ -65,7 +69,14 @@ function buildDescriptionForOccurrence(row: RichEvent, series: SeriesOccurrence[
         : ''
     if (cap) lines.push(cap)
   }
-  if (row.price_cad != null) lines.push(`Price: $${row.price_cad} CAD`)
+  if (row.price_cad != null) {
+    const list = Number(row.price_cad)
+    if (workshopHasActiveSale(row)) {
+      lines.push(`Price: $${Number(row.sale_price_cad)} CAD (was $${list} CAD)`)
+    } else {
+      lines.push(`Price: $${row.price_cad} CAD`)
+    }
+  }
   lines.push(`Workshop: ${appBaseUrl()}/workshops/${row.id}`)
   lines.push('Managed by offhrs.')
   return lines.join('\n\n')
@@ -115,7 +126,7 @@ export async function syncVendorSessionToExternalCalendars(
     const { data: row, error } = await admin
       .from('events')
       .select(
-        'id, title, description, date, duration_minutes, booking_status, location, max_attendees, available_slots, price_cad, vendor_profile_id, google_calendar_event_id, microsoft_outlook_event_id, workshop_series, series_occurrences, series_google_calendar_event_ids, series_microsoft_outlook_event_ids'
+        'id, title, description, date, duration_minutes, booking_status, location, max_attendees, available_slots, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, vendor_profile_id, google_calendar_event_id, microsoft_outlook_event_id, workshop_series, series_occurrences, series_google_calendar_event_ids, series_microsoft_outlook_event_ids'
       )
       .eq('id', eventId)
       .eq('vendor_profile_id', vendorId)

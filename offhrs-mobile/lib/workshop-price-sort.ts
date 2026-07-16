@@ -1,19 +1,20 @@
 import { compareWorkshopEventsByStart } from '@/lib/workshop-event-sort';
 import { workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
+import { effectiveWorkshopPriceCad } from '@/lib/workshop-ticket-price';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 
 export type WorkshopPriceSort = 'default' | 'price_high' | 'price_low';
 
-/** Numeric CAD price for sorting; `null` when unknown or unparseable. */
+/** Numeric CAD price for sorting; `null` when unknown or unparseable. Uses sale price when active. */
 export function workshopSortPriceCad(e: {
   price_cad?: number | null;
+  sale_price_cad?: number | null;
   price?: number | string | null;
   vendor_profile_id?: string | null;
 }): number | null {
   if (workshopIsSaasVendorEvent(e)) {
-    const n = e.price_cad != null ? Number(e.price_cad) : NaN;
-    if (!Number.isNaN(n)) return n;
-    return null;
+    if (e.price_cad == null && e.sale_price_cad == null) return null;
+    return effectiveWorkshopPriceCad(e);
   }
   if (e.price == null) return null;
   if (typeof e.price === 'number' && !Number.isNaN(e.price)) return e.price;

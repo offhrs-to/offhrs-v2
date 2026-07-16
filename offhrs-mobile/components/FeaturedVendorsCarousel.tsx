@@ -8,31 +8,40 @@ import {
   NativeScrollEvent,
   useWindowDimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import { DesignColors, isIOSPad } from '@/constants/design-template';
-
-export type HomeCarouselEventItem = {
-  id: number;
-  title: string;
-  priceLabel: string | null;
-  image_url: string | null;
-  locationLine: string | null;
-  category?: string | null;
-};
+import {
+  featuredVendorHref,
+  fetchFeaturedVendors,
+  type FeaturedVendorItem,
+} from '@/lib/featured-vendors';
 
 type Props = {
-  items: HomeCarouselEventItem[];
-  loading: boolean;
+  userLocationAnchor?: { lat: number; lng: number } | null;
+  refreshNonce?: number;
+  /** Section title shown only when there is something to display (or while loading). */
+  sectionTitle?: string;
+  sectionTitleStyle?: object;
 };
 
 /**
- * Horizontal workshop cards for home (shared by Toronto picks and “near you” lists).
+ * Home “Featured” carousel — new partner studios (first 30 days), up to 10 cards.
+ * Same card sizing as Upcoming Toronto / Near you carousels.
  */
-export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
+export default function FeaturedVendorsCarousel({
+  userLocationAnchor = null,
+  refreshNonce = 0,
+  sectionTitle = 'Featured Workshop Hosts',
+  sectionTitleStyle,
+}: Props) {
   const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
+  const [items, setItems] = useState<FeaturedVendorItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
 
   const isAndroid = Platform.OS === 'android';
@@ -41,7 +50,7 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
   const CARD_GAP = 6;
   const PAGE = CARD_WIDTH + CARD_GAP;
   const CARD_IMAGE_HEIGHT = isAndroid ? 99 : isIPad ? 126 : 114;
-  /** Tall enough for descenders (g, y) at fontSize 12 — avoids clipping next to address. */
+  /** Tall enough for descenders (g, y) at fontSize 12 — avoids clipping next to meta. */
   const titleLineHeight = isIPad ? 20 : 17;
   const titleBlockHeight = titleLineHeight;
   const titleToMetaGap = 3;
@@ -58,6 +67,29 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
     cardFooterPaddingBottom;
   const loadingPlaceholderHeight = CARD_IMAGE_HEIGHT + CARD_FOOTER_HEIGHT + 14;
 
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const rows = await fetchFeaturedVendors(userLocationAnchor);
+      setItems(rows);
+    } catch (e) {
+      console.warn('FeaturedVendorsCarousel fetch', e);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [userLocationAnchor]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
+
+  useEffect(() => {
+    if (refreshNonce > 0) void load();
+  }, [load, refreshNonce]);
+
   useEffect(() => {
     setActiveIndex(0);
   }, [items]);
@@ -71,28 +103,17 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
     [items.length, PAGE]
   );
 
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    syncActiveIndex(e.nativeEvent.contentOffset.x);
-  };
-
-  const onMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    syncActiveIndex(e.nativeEvent.contentOffset.x);
-  };
-
-  const handlePress = (id: number) => {
-    // Cache-buster `t` keeps the URL distinct between consecutive taps so the
-    // workshops tab re-reads search params. The workshops tab uses `openEvent`
-    // only - `t` is intentionally a separate name from `openTs` (which means
-    // an event occurrence ISO date) to avoid confusing the matcher.
-    router.push(`/(tabs)/workshops?openEvent=${id}&t=${Date.now()}`);
-  };
-
   if (loading && items.length === 0) {
     return (
-      <View style={{ marginTop: 6, height: loadingPlaceholderHeight, justifyContent: 'center' }}>
-        <Text style={{ fontSize: 12, color: DesignColors.mediumGray, textAlign: 'center' }}>
-          Loading workshops…
-        </Text>
+      <View>
+        {sectionTitle ? (
+          <Text style={[{ marginBottom: 6 }, sectionTitleStyle]}>{sectionTitle}</Text>
+        ) : null}
+        <View style={{ marginTop: 6, height: loadingPlaceholderHeight, justifyContent: 'center' }}>
+          <Text style={{ fontSize: 12, color: DesignColors.mediumGray, textAlign: 'center' }}>
+            Loading featured studios…
+          </Text>
+        </View>
       </View>
     );
   }
@@ -100,22 +121,30 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
   if (items.length === 0) return null;
 
   return (
-    <View style={{ marginTop: 2, marginBottom: 2 }}>
+    <View>
+      {sectionTitle ? (
+        <Text style={[{ marginBottom: 6 }, sectionTitleStyle]}>{sectionTitle}</Text>
+      ) : null}
+      <View style={{ marginTop: 2, marginBottom: 2 }}>
       <FlatList
         data={items}
-        keyExtractor={(it) => String(it.id)}
+        keyExtractor={(it) => it.vendorProfileId}
         horizontal
         showsHorizontalScrollIndicator={false}
         decelerationRate="fast"
         snapToInterval={PAGE}
         snapToAlignment="start"
-        onScroll={onScroll}
-        onMomentumScrollEnd={onMomentumScrollEnd}
+        onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+          syncActiveIndex(e.nativeEvent.contentOffset.x);
+        }}
+        onMomentumScrollEnd={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+          syncActiveIndex(e.nativeEvent.contentOffset.x);
+        }}
         scrollEventThrottle={16}
         renderItem={({ item, index }) => (
           <View style={{ width: CARD_WIDTH, marginRight: index === items.length - 1 ? 0 : CARD_GAP }}>
             <Pressable
-              onPress={() => handlePress(item.id)}
+              onPress={() => router.push(featuredVendorHref(item) as Href)}
               style={{
                 width: CARD_WIDTH,
                 height: CARD_IMAGE_HEIGHT + CARD_FOOTER_HEIGHT,
@@ -126,11 +155,11 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
             >
               <View style={{ height: CARD_IMAGE_HEIGHT, width: '100%', backgroundColor: '#FFF' }}>
                 <CategoryFallbackImage
-                  imageUrl={item.image_url}
-                  category={item.category}
+                  imageUrl={item.imageUrl}
+                  category={item.primaryCategory}
                   style={{ width: '100%', height: '100%' }}
                   contentFit="contain"
-                  recyclingKey={`home-carousel-${item.id}`}
+                  recyclingKey={`featured-vendor-${item.vendorProfileId}`}
                 />
               </View>
               <View
@@ -160,24 +189,22 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
                       ...(isAndroid ? { includeFontPadding: false } : null),
                     }}
                   >
-                    {item.title}
+                    {item.businessName}
                   </Text>
                 </View>
                 <View style={{ height: metaLineHeight, justifyContent: 'center' }}>
-                  {item.locationLine ? (
+                  {item.distanceKm != null ? (
                     <Text numberOfLines={1} style={{ fontSize: 10, color: DesignColors.mediumGray }}>
-                      {item.locationLine}
+                      {item.distanceKm} km
                     </Text>
                   ) : null}
                 </View>
                 <View style={{ height: priceLineHeight, justifyContent: 'center' }}>
-                  {item.priceLabel ? (
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: DesignColors.charcoal }}>
-                      {item.priceLabel}
+                  {item.categoriesLine ? (
+                    <Text numberOfLines={1} style={{ fontSize: 10, color: DesignColors.mediumGray }}>
+                      {item.categoriesLine}
                     </Text>
-                  ) : (
-                    <Text style={{ fontSize: 10, color: DesignColors.mediumGray }}>Price TBD</Text>
-                  )}
+                  ) : null}
                 </View>
               </View>
             </Pressable>
@@ -207,6 +234,7 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
           ))}
         </View>
       ) : null}
+    </View>
     </View>
   );
 }
