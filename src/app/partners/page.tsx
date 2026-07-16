@@ -231,15 +231,15 @@ export default function PartnersLandingPage() {
             Lite or Pro — same booking engine and zero commission on your sales. Upgrade or downgrade anytime from
             billing settings.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto text-left">
-            <div className="rounded-3xl border-2 border-[#E8E6E0] bg-[#FAFAF8] p-8 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto text-left items-stretch">
+            <div className="rounded-3xl border-2 border-[#E8E6E0] bg-[#FAFAF8] p-8 shadow-sm flex flex-col h-full">
               <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Lite</p>
               <div className="flex items-end gap-1 mb-1">
                 <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">{formatPartnerMonthlyAmount('lite')}</span>
                 <span className="text-[#555] text-sm mb-2">CAD / month</span>
               </div>
               <p className="text-xs text-[#5D755D] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
-              <ul className="space-y-3 text-sm text-[#333] mb-8">
+              <ul className="space-y-3 text-sm text-[#333] mb-8 flex-1">
                 {[
                   'Up to 4 active workshops at a time (archive to free a slot)',
                   '0% commission on ticket sales',
@@ -257,19 +257,19 @@ export default function PartnersLandingPage() {
               </ul>
               <Link
                 href="/partners/signup"
-                className="block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
+                className="mt-auto block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
               >
                 Start free trial
               </Link>
             </div>
-            <div className="rounded-3xl border-2 border-[#5D755D] bg-[#FAFAF8] p-8 shadow-sm">
+            <div className="rounded-3xl border-2 border-[#5D755D] bg-[#FAFAF8] p-8 shadow-sm flex flex-col h-full">
               <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Pro</p>
               <div className="flex items-end gap-1 mb-1">
                 <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">{formatPartnerMonthlyAmount('pro')}</span>
                 <span className="text-[#555] text-sm mb-2">CAD / month</span>
               </div>
               <p className="text-xs text-[#5D755D] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
-              <ul className="space-y-3 text-sm text-[#333] mb-8">
+              <ul className="space-y-3 text-sm text-[#333] mb-8 flex-1">
                 {[
                   'Unlimited workshop sessions',
                   '0% commission on ticket sales',
@@ -287,7 +287,7 @@ export default function PartnersLandingPage() {
               </ul>
               <Link
                 href="/partners/signup"
-                className="block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
+                className="mt-auto block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
               >
                 Start free trial
               </Link>
