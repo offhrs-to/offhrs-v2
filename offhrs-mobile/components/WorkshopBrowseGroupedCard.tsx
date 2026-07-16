@@ -49,54 +49,63 @@ function formatPrice(price: number | string | null | undefined): string | null {
   return `$${s}`;
 }
 
+// `toLocaleTimeString`/`toLocaleDateString` with a `timeZone` option (Intl under the hood) is
+// dramatically slower on Android/Hermes than iOS for the same call. These pills are recomputed
+// for every session in every visible/recycled card on every render, so on Android that cost
+// compounds into visible lag that iOS doesn't show. Cache by the raw date string — an event's
+// timestamp never changes, so repeat renders (the overwhelming majority) become a Map lookup.
+const timePillCache = new Map<string, string>();
+const dayLineCache = new Map<string, string>();
+
 function formatTimePill(r: WorkshopEventRow): string {
   const raw = r.date_iso ?? r.date;
+  const cached = timePillCache.get(raw ?? '');
+  if (cached !== undefined) return cached;
+  let result: string;
   try {
     const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return r.date?.slice(0, 16) ?? '—';
-    return d.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZone: 'America/Toronto',
-    });
+    result = Number.isNaN(d.getTime())
+      ? r.date?.slice(0, 16) ?? '—'
+      : d.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZone: 'America/Toronto',
+        });
   } catch {
-    return '—';
+    result = '—';
   }
-}
-
-function formatSessionPill(r: WorkshopEventRow, showDate: boolean): string {
-  if (!showDate) return formatTimePill(r);
-  const raw = r.date_iso ?? r.date;
-  try {
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return formatTimePill(r);
-    const day = d.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      timeZone: 'America/Toronto',
-    });
-    return `${day} · ${formatTimePill(r)}`;
-  } catch {
-    return formatTimePill(r);
-  }
+  timePillCache.set(raw ?? '', result);
+  return result;
 }
 
 /** Calendar day only (no time) — matches strip context for the selected day. */
 function formatDayLine(r: WorkshopEventRow): string {
   const raw = r.date_iso ?? r.date;
+  const cached = dayLineCache.get(raw ?? '');
+  if (cached !== undefined) return cached;
+  let result: string;
   try {
     const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      timeZone: 'America/Toronto',
-    });
+    result = Number.isNaN(d.getTime())
+      ? ''
+      : d.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          timeZone: 'America/Toronto',
+        });
   } catch {
-    return '';
+    result = '';
   }
+  dayLineCache.set(raw ?? '', result);
+  return result;
+}
+
+function formatSessionPill(r: WorkshopEventRow, showDate: boolean): string {
+  if (!showDate) return formatTimePill(r);
+  const day = formatDayLine(r);
+  if (!day) return formatTimePill(r);
+  return `${day} · ${formatTimePill(r)}`;
 }
 
 function neighborhoodLine(loc: string | null | undefined, maxLen = 36): string | null {

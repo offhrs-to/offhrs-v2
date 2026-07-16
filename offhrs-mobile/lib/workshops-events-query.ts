@@ -66,17 +66,24 @@ export function workshopSessionKey(e: {
   return `${e.id}\u0001${e.date_iso ?? e.date ?? ''}`;
 }
 
+// `toLocaleDateString(...)` builds a fresh `Intl.DateTimeFormat` internally on every call, and
+// that construction (not the formatting itself) is the expensive part on Android/Hermes. This
+// runs once per fetched row, so on a browse fetch of hundreds of events that construction cost
+// was a meaningful chunk of "takes a while to load everything" on Android specifically — reusing
+// one formatter across all rows avoids paying it repeatedly.
+const dateTorontoFormatter = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  timeZone: 'America/Toronto',
+});
+
 function formatDateToronto(isoString: string): string {
   try {
     const d = new Date(isoString);
-    return d.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZone: 'America/Toronto',
-    });
+    return dateTorontoFormatter.format(d);
   } catch {
     return isoString;
   }
