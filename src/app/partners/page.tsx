@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { OffhrsLogoLink } from '@/components/offhrs-logo'
+import { PartnerFaqAccordion } from '@/components/partners/PartnerFaqAccordion'
 import {
   formatPartnerMonthlyAmount,
   formatPartnerMonthlyPriceLabel,
@@ -9,6 +10,7 @@ import {
   PARTNER_TRIAL_LABEL,
   PARTNER_TRIAL_LABEL_LONG,
 } from '@/lib/partner-pricing'
+import { flattenPartnerFaqs } from '@/lib/partner-faq'
 import { getSiteUrl } from '@/lib/site'
 
 const site = getSiteUrl()
@@ -73,42 +75,8 @@ const features = [
   },
 ]
 
-const faqs = [
-  {
-    q: 'How does hosting work?',
-    a: 'We connect local creative experts with guests looking for hands-on experiences—from pottery and floral design to coffee and beyond. You list your workshops, set your availability, and we handle discovery, booking, and payments.',
-  },
-  {
-    q: `What happens after my ${PARTNER_TRIAL_LABEL}?`,
-    a: 'Your subscription automatically starts at the end of the trial at the Lite or Pro rate you chose. You can cancel anytime before the trial ends with no charge.',
-  },
-  {
-    q: 'Does offhrs take a commission on my bookings?',
-    a: 'No. offhrs takes 0% commission. You receive 100% of ticket revenue minus Stripe processing fees (2.9% + $0.30 CAD).',
-  },
-  {
-    q: 'How do payouts work?',
-    a: 'Payments go directly from attendees to your Stripe Express account. Payouts arrive in your bank within 2 business days.',
-  },
-  {
-    q: 'Which calendar apps are supported?',
-    a: 'Google Calendar and Microsoft Outlook. Connect once and all bookings sync automatically in both directions.',
-  },
-  {
-    q: 'I already list on other platforms. Can I host on offhrs as well?',
-    a: 'Yes. You are welcome to list on multiple platforms—we do not require exclusivity, and there are no programs that reward hosts who list only with us. When capacity is shared across channels, use the “Booked elsewhere” option when creating or editing a workshop to reserve seats already filled outside offhrs.',
-  },
-  {
-    q: 'Can I cancel my subscription?',
-    a: 'Yes, anytime from your dashboard settings. You keep access until the end of your current billing period.',
-  },
-  {
-    q: 'What types of experiences can I list?',
-    a: 'We focus on social, creative, and hands-on experiences—pottery, floral, painting, coffee, culinary, and more. If you teach a creative skill and want to grow your community in Toronto, we can help you get started.',
-  },
-]
-
 export default function PartnersLandingPage() {
+  const faqs = flattenPartnerFaqs()
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -334,14 +302,7 @@ export default function PartnersLandingPage() {
           <h2 className="font-playfair text-3xl font-bold text-center mb-12">
             Frequently asked questions
           </h2>
-          <div className="space-y-8">
-            {faqs.map((faq) => (
-              <div key={faq.q} className="border-b border-[#E8E6E0] pb-8 last:border-0 last:pb-0">
-                <h3 className="font-semibold text-[#1a1a1a] mb-2">{faq.q}</h3>
-                <p className="text-sm text-[#555] leading-relaxed">{faq.a}</p>
-              </div>
-            ))}
-          </div>
+          <PartnerFaqAccordion />
         </div>
       </section>
 
