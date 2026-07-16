@@ -463,14 +463,96 @@ export async function fetchWorkshopEvents(
   return enrichWorkshopEventsWithMapCoordinates(named);
 }
 
+/** Slim columns for map geo scans — hydrate full rows only for surviving pins. */
+const WORKSHOP_MAP_GEO_SCAN_SELECT =
+  'id, date, lat, lng, vendor_id, vendor_profile_id, booking_status, registration_closed, recurrence, workshop_series';
+
+type WorkshopMapGeoScanRow = {
+  id: number;
+  date: string | null;
+  lat: number | null;
+  lng: number | null;
+  vendor_id: string | null;
+  vendor_profile_id: string | null;
+  booking_status: string | null;
+  registration_closed?: boolean | null;
+  recurrence: string | null;
+  workshop_series?: string | null;
+};
+
+function mapPinKey(lat: number, lng: number): string {
+  return `${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`;
+}
+
+function isUpcomingScanRow(row: WorkshopMapGeoScanRow, nowIso: string): boolean {
+  if (row.recurrence === 'daily' || row.recurrence === 'weekly') return true;
+  if (row.workshop_series === 'multi_week') return true;
+  if (!row.date) return true;
+  return row.date >= nowIso;
+}
+
+function preferSoonerScanRow(
+  a: WorkshopMapGeoScanRow,
+  b: WorkshopMapGeoScanRow
+): WorkshopMapGeoScanRow {
+  if (!a.date) return b;
+  if (!b.date) return a;
+  return a.date <= b.date ? a : b;
+}
+
+/**
+ * Keep one upcoming row per map pin (and per studio when coords are still missing).
+ * Preserves full studio coverage without shipping thousands of same-location sessions.
+ */
+function dedupeMapGeoScanRows(rows: WorkshopMapGeoScanRow[]): WorkshopMapGeoScanRow[] {
+  const byPin = new Map<string, WorkshopMapGeoScanRow>();
+  const byStudio = new Map<string, WorkshopMapGeoScanRow>();
+
+  for (const row of rows) {
+    const lat = row.lat != null ? Number(row.lat) : null;
+    const lng = row.lng != null ? Number(row.lng) : null;
+    if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)) {
+      const key = mapPinKey(lat, lng);
+      const prev = byPin.get(key);
+      byPin.set(key, prev ? preferSoonerScanRow(prev, row) : row);
+      continue;
+    }
+    const studioKey =
+      row.vendor_profile_id?.trim() ||
+      (row.vendor_id?.trim() ? `v:${row.vendor_id.trim()}` : `id:${row.id}`);
+    const prev = byStudio.get(studioKey);
+    byStudio.set(studioKey, prev ? preferSoonerScanRow(prev, row) : row);
+  }
+
+  return [...byPin.values(), ...byStudio.values()];
+}
+
+async function hydrateWorkshopEventsByIds(ids: number[]): Promise<WorkshopEventDbRow[]> {
+  if (ids.length === 0) return [];
+  const batch = WORKSHOP_EVENTS_FETCH_BATCH;
+  const out: WorkshopEventDbRow[] = [];
+  for (let i = 0; i < ids.length; i += batch) {
+    const chunk = ids.slice(i, i + batch);
+    const { data, error } = await supabase
+      .from('events')
+      .select(WORKSHOP_EVENT_LIST_SELECT)
+      .in('id', chunk);
+    if (error) {
+      if (__DEV__) console.warn('hydrateWorkshopEventsByIds', error.message);
+      throw error;
+    }
+    if (data?.length) out.push(...(data as WorkshopEventDbRow[]));
+  }
+  return out;
+}
+
 /**
  * Map / geo browse: upcoming visible events near the user.
- * Includes (1) events with lat/lng in the bbox and (2) partner events missing
- * coords so we can inherit vendor_profiles.location_lat/lng before radius filter.
  *
- * Important: PostgREST caps each response at ~1000 rows. A single `.limit(N)` call
- * silently truncates when the GTA has thousands of one-day sessions, which drops
- * entire studios (e.g. Jam Jam) from the map. We page with `.range` like browse.
+ * Performance: scans all in-bbox sessions with a slim select (paged in parallel so
+ * PostgREST's ~1000-row cap cannot hide studios), keeps one row per pin, then hydrates
+ * full payloads only for those pins. Full map coverage without loading thousands of
+ * duplicate session rows into JS.
  */
 export async function fetchWorkshopEventsNearAnchor(
   anchor: { lat: number; lng: number },
@@ -482,90 +564,175 @@ export async function fetchWorkshopEventsNearAnchor(
   const box = bboxAround(anchor.lat, anchor.lng, radiusKm);
   const batch = WORKSHOP_EVENTS_FETCH_BATCH;
 
-  const baseSelect = () =>
+  const baseScan = () =>
     supabase
       .from('events')
-      .select(WORKSHOP_EVENT_LIST_SELECT)
+      .select(WORKSHOP_MAP_GEO_SCAN_SELECT)
       .or(WORKSHOP_EVENTS_UPCOMING_OR(nowIso))
       .or(CONSUMER_BOOKING_STATUS_OR);
 
-  const byId = new Map<number, WorkshopEventDbRow>();
-
-  for (let offset = 0; offset < eventsCap; offset += batch) {
-    const take = Math.min(batch, eventsCap - offset);
-    const { data, error } = await baseSelect()
+  const geoFilter = (q: ReturnType<typeof baseScan>) =>
+    q
       .not('lat', 'is', null)
       .not('lng', 'is', null)
       .gte('lat', box.minLat)
       .lte('lat', box.maxLat)
       .gte('lng', box.minLng)
-      .lte('lng', box.maxLng)
-      .order('date', { ascending: true, nullsFirst: false })
-      .range(offset, offset + take - 1);
+      .lte('lng', box.maxLng);
 
-    if (error) {
-      if (__DEV__) console.warn('fetchWorkshopEventsNearAnchor', error.message);
-      throw error;
-    }
-    if (!data?.length) break;
-    for (const row of data as WorkshopEventDbRow[]) {
-      byId.set(row.id, row);
-    }
-    if (data.length < take) break;
+  const { count: geoCount, error: countError } = await geoFilter(
+    supabase
+      .from('events')
+      .select('id', { count: 'exact', head: true })
+      .or(WORKSHOP_EVENTS_UPCOMING_OR(nowIso))
+      .or(CONSUMER_BOOKING_STATUS_OR)
+  );
+
+  if (countError && __DEV__) {
+    console.warn('fetchWorkshopEventsNearAnchor count', countError.message);
   }
 
-  // Partner workshops often inherit studio pin only after enrichment — include
-  // them even when events.lat/lng were never written at create time.
-  const uncoordCap = Math.min(2000, eventsCap);
-  for (let offset = 0; offset < uncoordCap; offset += batch) {
-    const take = Math.min(batch, uncoordCap - offset);
-    const { data, error } = await baseSelect()
-      .is('lat', null)
-      .not('vendor_profile_id', 'is', null)
-      .order('date', { ascending: true, nullsFirst: false })
-      .range(offset, offset + take - 1);
+  const totalGeo = Math.min(eventsCap, geoCount != null ? geoCount : eventsCap);
+  const pageCount = Math.max(1, Math.ceil(Math.max(totalGeo, 1) / batch));
 
-    if (error) {
-      if (__DEV__) console.warn('fetchWorkshopEventsNearAnchor uncoord', error.message);
-      break;
+  const geoPages = await Promise.all(
+    Array.from({ length: pageCount }, (_, page) => {
+      const offset = page * batch;
+      const take = Math.min(batch, eventsCap - offset);
+      return geoFilter(baseScan())
+        .order('date', { ascending: true, nullsFirst: false })
+        .order('id', { ascending: true })
+        .range(offset, offset + take - 1);
+    })
+  );
+
+  const scanById = new Map<number, WorkshopMapGeoScanRow>();
+  for (const res of geoPages) {
+    if (res.error) {
+      if (__DEV__) console.warn('fetchWorkshopEventsNearAnchor', res.error.message);
+      throw res.error;
     }
-    if (!data?.length) break;
-    for (const row of data as WorkshopEventDbRow[]) {
-      if (!byId.has(row.id)) byId.set(row.id, row);
+    for (const row of (res.data ?? []) as WorkshopMapGeoScanRow[]) {
+      scanById.set(row.id, row);
     }
-    if (data.length < take) break;
   }
 
-  const list = [...byId.values()]
-    .map(mapDbRowToWorkshopEvent)
-    .filter((e) => isEventVisibleToConsumers(e))
-    .filter((e) => {
-      if (e.recurrence === 'daily' || e.recurrence === 'weekly') return true;
-      if (e.workshop_series === 'multi_week') return true;
-      if (!e.date_iso) return true;
-      return e.date_iso >= nowIso;
-    });
+  // Partner workshops with null event coords: prefer studios whose profile pin is in-bbox.
+  const { data: nearbyProfiles, error: profileErr } = await supabase
+    .from('vendor_profiles')
+    .select('id, location_lat, location_lng')
+    .not('location_lat', 'is', null)
+    .not('location_lng', 'is', null)
+    .gte('location_lat', box.minLat)
+    .lte('location_lat', box.maxLat)
+    .gte('location_lng', box.minLng)
+    .lte('location_lng', box.maxLng)
+    .limit(500);
 
-  const named = await enrichWorkshopEventsWithVendorNames(list);
-  const withCoords = await enrichWorkshopEventsWithMapCoordinates(named);
+  if (profileErr && __DEV__) {
+    console.warn('fetchWorkshopEventsNearAnchor profiles', profileErr.message);
+  }
 
-  const withinRadius = withCoords.filter((e) => {
-    if (
-      e.lat == null ||
-      e.lng == null ||
-      Number.isNaN(Number(e.lat)) ||
-      Number.isNaN(Number(e.lng))
-    ) {
-      return false;
+  const profileCoords = new Map<string, { lat: number; lng: number }>();
+  for (const p of nearbyProfiles ?? []) {
+    const lat = p.location_lat != null ? Number(p.location_lat) : null;
+    const lng = p.location_lng != null ? Number(p.location_lng) : null;
+    if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    if (haversineKm(anchor.lat, anchor.lng, lat, lng) > radiusKm) continue;
+    profileCoords.set(p.id, { lat, lng });
+  }
+
+  const profileIds = [...profileCoords.keys()];
+  const PROFILE_IN_CHUNK = 100;
+  if (profileIds.length > 0) {
+    const profileChunks: string[][] = [];
+    for (let i = 0; i < profileIds.length; i += PROFILE_IN_CHUNK) {
+      profileChunks.push(profileIds.slice(i, i + PROFILE_IN_CHUNK));
     }
-    return haversineKm(anchor.lat, anchor.lng, Number(e.lat), Number(e.lng)) <= radiusKm;
+    const uncoordPages = await Promise.all(
+      profileChunks.map((chunk) =>
+        baseScan()
+          .is('lat', null)
+          .in('vendor_profile_id', chunk)
+          .order('date', { ascending: true, nullsFirst: false })
+          .order('id', { ascending: true })
+          .limit(Math.min(batch, chunk.length * 4))
+      )
+    );
+    for (const res of uncoordPages) {
+      if (res.error) {
+        if (__DEV__) console.warn('fetchWorkshopEventsNearAnchor uncoord', res.error.message);
+        continue;
+      }
+      for (const row of (res.data ?? []) as WorkshopMapGeoScanRow[]) {
+        if (scanById.has(row.id)) continue;
+        const coords = row.vendor_profile_id
+          ? profileCoords.get(row.vendor_profile_id)
+          : undefined;
+        scanById.set(row.id, coords ? { ...row, lat: coords.lat, lng: coords.lng } : row);
+      }
+    }
+  }
+
+  const visibleScan = [...scanById.values()].filter(
+    (row) => isEventVisibleToConsumers(row) && isUpcomingScanRow(row, nowIso)
+  );
+
+  // Inherit coords from another scanned session for the same legacy vendor.
+  const coordsByVendorId = new Map<string, { lat: number; lng: number }>();
+  for (const row of visibleScan) {
+    if (!row.vendor_id?.trim()) continue;
+    const lat = row.lat != null ? Number(row.lat) : null;
+    const lng = row.lng != null ? Number(row.lng) : null;
+    if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    if (!coordsByVendorId.has(row.vendor_id.trim())) {
+      coordsByVendorId.set(row.vendor_id.trim(), { lat, lng });
+    }
+  }
+  const withCoordsScan = visibleScan.map((row) => {
+    if (row.lat != null && row.lng != null) return row;
+    const sibling = row.vendor_id?.trim()
+      ? coordsByVendorId.get(row.vendor_id.trim())
+      : undefined;
+    return sibling ? { ...row, lat: sibling.lat, lng: sibling.lng } : row;
   });
 
-  withinRadius.sort((a, b) => {
+  const withinRadius = withCoordsScan.filter((row) => {
+    if (row.lat == null || row.lng == null) return false;
+    const lat = Number(row.lat);
+    const lng = Number(row.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+    return haversineKm(anchor.lat, anchor.lng, lat, lng) <= radiusKm;
+  });
+
+  const pinRows = dedupeMapGeoScanRows(withinRadius);
+  pinRows.sort((a, b) => {
     const da = haversineKm(anchor.lat, anchor.lng, Number(a.lat), Number(a.lng));
     const db = haversineKm(anchor.lat, anchor.lng, Number(b.lat), Number(b.lng));
     return da - db;
   });
 
-  return expandWorkshopEventsForConsumers(withinRadius);
+  const hydrated = await hydrateWorkshopEventsByIds(pinRows.map((r) => r.id));
+  const hydratedById = new Map(hydrated.map((r) => [r.id, r]));
+
+  // Preserve pin-scan lat/lng when the hydrated row still lacks coords.
+  const list = pinRows
+    .map((scan) => {
+      const full = hydratedById.get(scan.id);
+      if (!full) return null;
+      const mapped = mapDbRowToWorkshopEvent(full);
+      if (
+        (mapped.lat == null || mapped.lng == null) &&
+        scan.lat != null &&
+        scan.lng != null
+      ) {
+        return { ...mapped, lat: Number(scan.lat), lng: Number(scan.lng) };
+      }
+      return mapped;
+    })
+    .filter((e): e is WorkshopEventRow => e != null);
+
+  const named = await enrichWorkshopEventsWithVendorNames(list);
+  const withCoords = await enrichWorkshopEventsWithMapCoordinates(named);
+  return expandWorkshopEventsForConsumers(withCoords);
 }
