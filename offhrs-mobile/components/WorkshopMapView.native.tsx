@@ -1,6 +1,6 @@
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -41,6 +41,13 @@ type Props = {
   maxMarkers?: number;
   /** Prefer closest pins when over maxMarkers (user location or city default). */
   anchor?: { lat: number; lng: number } | null;
+  /**
+   * Pixels of the bottom of this view covered by other UI (e.g. a draggable sheet) that the
+   * map itself has no knowledge of. Without this, fit-to-pins math (and fitToCoordinates) sizes
+   * the camera to the full view frame, so pins can land in the obscured area and appear "missing"
+   * even though they're technically on the map — just hidden behind opaque UI on top of it.
+   */
+  bottomInsetPx?: number;
 };
 
 const DEFAULT_MAX_MARKERS = 280;
@@ -176,19 +183,41 @@ const calloutStyles = StyleSheet.create({
   },
 });
 
-/** ~25% padding around pin bounds; floor keeps a single/tight cluster from over-zooming past street level. */
-function regionFittingBounds(coords: { lat: number; lng: number }[]) {
+/**
+ * ~25% padding around pin bounds; floor keeps a single/tight cluster from over-zooming past
+ * street level.
+ *
+ * `bottomObscuredRatio` (0–1) is the fraction of this view's height covered by other opaque UI
+ * (e.g. a draggable bottom sheet) that the map has no knowledge of. Without accounting for it,
+ * a naive fit centers pins within the *full* view frame, so anything that lands in the bottom
+ * portion of that frame is physically hidden behind the sheet — indistinguishable from a missing
+ * pin to the user, even though it's technically "on the map". We correct for this by growing the
+ * region so the pins occupy only the visible (top) fraction, pushing the extra span south, under
+ * the obscured area, instead of centering it.
+ */
+function regionFittingBounds(coords: { lat: number; lng: number }[], bottomObscuredRatio = 0) {
   const lats = coords.map((c) => c.lat);
   const lngs = coords.map((c) => c.lng);
   const minLat = Math.min(...lats);
   const maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs);
   const maxLng = Math.max(...lngs);
+  const midLat = (minLat + maxLat) / 2;
+  const paddedLatDelta = Math.max((maxLat - minLat) * 1.25, 0.05);
+  const longitudeDelta = Math.max((maxLng - minLng) * 1.25, 0.05);
+
+  const ratio = Math.min(Math.max(bottomObscuredRatio, 0), 0.85);
+  const totalLatDelta = ratio > 0 ? paddedLatDelta / (1 - ratio) : paddedLatDelta;
+  // North (larger latitude) renders toward the top of the screen, so keep the visible portion
+  // anchored at the top of the region and let the extra (obscured) span extend south.
+  const visibleTopLat = midLat + paddedLatDelta / 2;
+  const latitude = visibleTopLat - totalLatDelta / 2;
+
   return {
-    latitude: (minLat + maxLat) / 2,
+    latitude,
     longitude: (minLng + maxLng) / 2,
-    latitudeDelta: Math.max((maxLat - minLat) * 1.25, 0.05),
-    longitudeDelta: Math.max((maxLng - minLng) * 1.25, 0.05),
+    latitudeDelta: totalLatDelta,
+    longitudeDelta,
   };
 }
 
@@ -199,10 +228,18 @@ export default function WorkshopMapView({
   onMapPress,
   maxMarkers = DEFAULT_MAX_MARKERS,
   anchor = null,
+  bottomInsetPx = 0,
 }: Props) {
   const mapRef = useRef<MapView | null>(null);
   const didFitRef = useRef(false);
   const mapReadyRef = useRef(false);
+  const [viewHeightPx, setViewHeightPx] = useState(0);
+
+  // Fraction of our own height covered by other UI on top of the map — used to keep pins
+  // inside the visible (top) portion instead of centering them across the full frame.
+  const bottomObscuredRatio = viewHeightPx > 0 ? bottomInsetPx / viewHeightPx : 0;
+  const bottomObscuredRatioRef = useRef(bottomObscuredRatio);
+  bottomObscuredRatioRef.current = bottomObscuredRatio;
 
   const withCoords = useMemo(() => {
     const filtered = dedupeWorkshopMapMarkerEvents(events.filter(workshopHasMapCoordinates));
@@ -229,7 +266,12 @@ export default function WorkshopMapView({
   // native view's own startup, which is what let `initialRegion` (anchor-only, before
   // any pins existed) silently win over a later imperative fit on slower iOS devices.
   const initialRegion = useMemo(() => {
-    if (withCoords.length > 0) return regionFittingBounds(withCoords.map((e) => ({ lat: Number(e.lat), lng: Number(e.lng) })));
+    if (withCoords.length > 0) {
+      return regionFittingBounds(
+        withCoords.map((e) => ({ lat: Number(e.lat), lng: Number(e.lng) })),
+        bottomObscuredRatioRef.current
+      );
+    }
     if (anchor) {
       return { latitude: anchor.lat, longitude: anchor.lng, latitudeDelta: 0.45, longitudeDelta: 0.45 };
     }
@@ -251,7 +293,8 @@ export default function WorkshopMapView({
     if (didFitRef.current || !mapReadyRef.current) return;
     if (loadingRef.current || withCoordsRef.current.length === 0) return;
     const region = regionFittingBounds(
-      withCoordsRef.current.map((e) => ({ lat: Number(e.lat), lng: Number(e.lng) }))
+      withCoordsRef.current.map((e) => ({ lat: Number(e.lat), lng: Number(e.lng) })),
+      bottomObscuredRatioRef.current
     );
     mapRef.current?.animateToRegion(region, 450);
     didFitRef.current = true;
@@ -261,6 +304,18 @@ export default function WorkshopMapView({
     mapReadyRef.current = true;
     attemptFit();
   }, [attemptFit]);
+
+  // If the container's real height (and thus the obscured-area ratio) wasn't known yet at the
+  // time of the first fit, redo it once it is — otherwise a fit computed with ratio=0 could
+  // still leave pins under the sheet.
+  const didRefitForHeightRef = useRef(false);
+  useEffect(() => {
+    if (viewHeightPx > 0 && !didRefitForHeightRef.current) {
+      didRefitForHeightRef.current = true;
+      didFitRef.current = false;
+      attemptFit();
+    }
+  }, [viewHeightPx, attemptFit]);
 
   useEffect(() => {
     attemptFit();
@@ -286,12 +341,16 @@ export default function WorkshopMapView({
   }
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      onLayout={(e) => setViewHeightPx(e.nativeEvent.layout.height)}
+    >
       <MapView
         ref={mapRef}
         style={styles.map}
         initialRegion={initialRegion}
         showsUserLocation
+        mapPadding={{ top: 0, right: 0, bottom: bottomInsetPx, left: 0 }}
         onMapReady={onMapReady}
         onPress={() => onMapPress?.()}
       >

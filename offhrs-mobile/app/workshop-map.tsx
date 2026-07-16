@@ -175,6 +175,9 @@ export default function WorkshopMapScreen() {
   const listHeight = useSharedValue(280);
   const sheetDragStart = useSharedValue(0);
   const didLayoutInit = useRef(false);
+  // Plain (non-Reanimated) mirror of the default sheet height, so the map can be told how much
+  // of its bottom is covered by the sheet and keep pins fit within the actually-visible area.
+  const [defaultSheetHeightPx, setDefaultSheetHeightPx] = useState(0);
 
   const panGesture = useMemo(
     () =>
@@ -411,6 +414,7 @@ export default function WorkshopMapScreen() {
             containerH.value = h;
             if (!didLayoutInit.current && h > 0) {
               listHeight.value = h * 0.5;
+              setDefaultSheetHeightPx(h * 0.5);
               didLayoutInit.current = true;
             }
           }}
@@ -422,6 +426,7 @@ export default function WorkshopMapScreen() {
               maxMarkers={WORKSHOP_MAP_MARKER_CAP}
               anchor={mapAnchor}
               onEventPress={handleMapEventPress}
+              bottomInsetPx={defaultSheetHeightPx}
             />
           </View>
           <Animated.View

@@ -13,6 +13,8 @@ type Props = {
   maxMarkers?: number;
   /** Prefer closest pins when over maxMarkers (user location or city default). */
   anchor?: { lat: number; lng: number } | null;
+  /** Unused on web (list/map are side-by-side, nothing overlaps the map). */
+  bottomInsetPx?: number;
 };
 
 const DEFAULT_MAX_MARKERS = 280;
