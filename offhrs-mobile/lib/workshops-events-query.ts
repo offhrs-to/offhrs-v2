@@ -335,7 +335,38 @@ async function fetchVendorUpcomingEvents(opts: {
     })
     .map((e) => mapDbRowToWorkshopEvent(e as WorkshopEventDbRow));
 
-  return expandWorkshopEventsForConsumers(eventList);
+  const expanded = expandWorkshopEventsForConsumers(eventList);
+  const named = await enrichWorkshopEventsWithVendorNames(expanded);
+  return enrichWorkshopEventsWithMapCoordinates(named);
+}
+
+/**
+ * Full quick-view payload for a single event id (same columns + enrichments as browse).
+ * Used when opening a workshop from vendor profile so details match list/map quick views.
+ */
+export async function fetchWorkshopEventForQuickView(
+  eventId: number
+): Promise<WorkshopEventRow | null> {
+  if (!Number.isInteger(eventId) || eventId <= 0) return null;
+  const { data, error } = await supabase
+    .from('events')
+    .select(WORKSHOP_EVENT_LIST_SELECT)
+    .eq('id', eventId)
+    .maybeSingle();
+  if (error || !data) {
+    if (error && __DEV__) {
+      console.warn('fetchWorkshopEventForQuickView failed', error.message);
+    }
+    return null;
+  }
+  const mapped = mapDbRowToWorkshopEvent(data as WorkshopEventDbRow);
+  const expanded = expandWorkshopEventsForConsumers([mapped]);
+  // Prefer the occurrence matching this listing if expand produced several; else first.
+  const pick =
+    expanded.find((e) => e.id === eventId) ?? expanded[0] ?? mapped;
+  const named = await enrichWorkshopEventsWithVendorNames([pick]);
+  const withCoords = await enrichWorkshopEventsWithMapCoordinates(named);
+  return withCoords[0] ?? null;
 }
 
 /**

@@ -33,6 +33,7 @@ import { DesignColors, DesignSpacing } from '@/constants/design-template';
 import {
   fetchVendorProfileEvents,
   fetchVendorProfileEventsByProfileId,
+  fetchWorkshopEventForQuickView,
   type WorkshopEventRow,
 } from '@/lib/workshops-events-query';
 import { workshopEventIsFull } from '@/lib/workshop-event-utils';
@@ -351,7 +352,21 @@ export default function VendorProfileScreen() {
     const wantId = Number(eventIdParam);
     if (!Number.isInteger(wantId)) return;
     const found = events.find((e) => e.id === wantId);
-    if (found) setQuickViewEvent(found);
+    if (!found || workshopEventIsFull(found)) return;
+    setQuickViewEvent(found);
+    let cancelled = false;
+    void fetchWorkshopEventForQuickView(wantId).then((full) => {
+      if (cancelled || !full) return;
+      setQuickViewEvent({
+        ...full,
+        date: found.date || full.date,
+        date_iso: found.date_iso || full.date_iso,
+        available_slots: found.available_slots ?? full.available_slots,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [eventsLoading, eventIdParam, events]);
 
   const handleSubmitReview = async () => {
@@ -372,7 +387,25 @@ export default function VendorProfileScreen() {
   };
 
   const openWorkshop = useCallback((event: WorkshopEventRow) => {
-    if (!workshopEventIsFull(event)) setQuickViewEvent(event);
+    if (workshopEventIsFull(event)) return;
+    // Show immediately, then hydrate with the same full payload browse/map use
+    // (description, legacy price, vendor name, lat/lng for distance).
+    setQuickViewEvent(event);
+    const eid = Number(event.id);
+    if (!Number.isInteger(eid)) return;
+    void fetchWorkshopEventForQuickView(eid).then((full) => {
+      if (!full) return;
+      setQuickViewEvent((prev) => {
+        if (!prev || prev.id !== full.id) return prev;
+        // Keep the occurrence the user tapped if expand changed date_iso.
+        return {
+          ...full,
+          date: prev.date || full.date,
+          date_iso: prev.date_iso || full.date_iso,
+          available_slots: prev.available_slots ?? full.available_slots,
+        };
+      });
+    });
   }, []);
 
   const renderWorkshopItem = useCallback(
