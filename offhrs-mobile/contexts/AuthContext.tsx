@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
@@ -57,17 +57,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
-  };
+  }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
-      {children}
-    </AuthContext.Provider>
+  // Memoized so unrelated re-renders (e.g. background token refresh producing a new
+  // `session` object with the same user) don't force every useAuth() consumer app-wide
+  // to re-render — that includes every visible card on screens like workshop browse.
+  const value = useMemo(
+    () => ({ user, session, loading, signOut }),
+    [user, session, loading, signOut]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

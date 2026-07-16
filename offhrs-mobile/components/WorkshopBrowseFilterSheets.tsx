@@ -9,6 +9,7 @@ import {
   type BrowseListSort,
 } from '@/lib/workshop-browse-filters';
 import type { WorkshopPriceSort } from '@/lib/workshop-price-sort';
+import { memo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 type Sheet = 'category' | 'sort' | 'distance' | 'all' | null;
@@ -44,7 +45,7 @@ function DoneFooter({ onPress }: { onPress: () => void }) {
   );
 }
 
-export default function WorkshopBrowseFilterSheets({
+function WorkshopBrowseFilterSheets({
   open,
   onClose,
   selectedCategories,
@@ -229,3 +230,5 @@ function SectionTitle({ children, accentLine }: { children: string; accentLine?:
     </View>
   );
 }
+
+export default memo(WorkshopBrowseFilterSheets);

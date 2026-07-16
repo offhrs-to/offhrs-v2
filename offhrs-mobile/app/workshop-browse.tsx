@@ -80,6 +80,180 @@ function browseGroupListKey(group: WorkshopEventRow[]): string {
   return `${anchor.vendor_id ?? 'nv'}-${anchor.title}-${group.map((g) => g.id).join('-')}`;
 }
 
+type FilterPillsRowProps = {
+  categoryLabel: string;
+  categoryActive: boolean;
+  sortLabel: string;
+  sortActive: boolean;
+  distanceLabel: string;
+  distanceActive: boolean;
+  calendarActive: boolean;
+  onOpenFilterSheet: (sheet: Exclude<FilterSheet, null>) => void;
+  onOpenCalendar: () => void;
+};
+
+/**
+ * Category/sort/distance pills + calendar toggle. Memoized so tapping elsewhere in the
+ * screen (search, list scroll, data reload) doesn't force these ~5 controls to re-render.
+ */
+const FilterPillsRow = memo(function FilterPillsRow({
+  categoryLabel,
+  categoryActive,
+  sortLabel,
+  sortActive,
+  distanceLabel,
+  distanceActive,
+  calendarActive,
+  onOpenFilterSheet,
+  onOpenCalendar,
+}: FilterPillsRowProps) {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 8,
+      }}
+    >
+      <View
+        style={{
+          flex: 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <WorkshopFilterPill
+          label={categoryLabel}
+          active={categoryActive}
+          onPress={() => onOpenFilterSheet('category')}
+          style={{ flex: 1 }}
+        />
+        <WorkshopFilterPill
+          label={sortLabel}
+          active={sortActive}
+          onPress={() => onOpenFilterSheet('sort')}
+          style={{ flex: 1 }}
+        />
+        <WorkshopFilterPill
+          label={distanceLabel}
+          active={distanceActive}
+          onPress={() => onOpenFilterSheet('distance')}
+          style={{ flex: 1 }}
+        />
+      </View>
+      <Pressable
+        onPress={onOpenCalendar}
+        accessibilityRole="button"
+        accessibilityLabel="Filter by date"
+        style={{
+          width: 36,
+          height: 36,
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderRadius: 9999,
+          backgroundColor: calendarActive ? DesignColors.heroBg : DesignColors.inputBg,
+          borderWidth: 1,
+          borderColor: calendarActive ? DesignColors.primary : DesignColors.lightGreenBorder,
+        }}
+      >
+        <MaterialCommunityIcons
+          name="calendar-month-outline"
+          size={20}
+          color={calendarActive ? DesignColors.primary : DesignColors.sageGreen}
+        />
+      </Pressable>
+    </View>
+  );
+});
+
+type DateStripBarProps = {
+  strip: ReturnType<typeof buildDateStrip>;
+  selectedYmd: string | null;
+  rangeStart: string | null;
+  rangeEnd: string | null;
+  onSelectAll: () => void;
+  onSelectDay: (ymd: string) => void;
+};
+
+/**
+ * Horizontal "All" + rolling 90-day strip. Memoized so its ~90 Pressables are only
+ * rebuilt when the selection actually changes, not on every unrelated screen re-render.
+ */
+const DateStripBar = memo(function DateStripBar({
+  strip,
+  selectedYmd,
+  rangeStart,
+  rangeEnd,
+  onSelectAll,
+  onSelectDay,
+}: DateStripBarProps) {
+  const allActive = selectedYmd == null && !rangeStart && !rangeEnd;
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <View style={{ flexDirection: 'row', gap: 8, paddingRight: 8 }}>
+        <Pressable
+          onPress={onSelectAll}
+          style={{
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: 12,
+            backgroundColor: allActive ? DesignColors.heroBg : DesignColors.inputBg,
+            borderWidth: 1,
+            borderColor: allActive ? DesignColors.primary : DesignColors.lightGreenBorder,
+            minWidth: 72,
+            alignItems: 'center',
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: '700',
+              color: allActive ? DesignColors.primary : DesignColors.charcoal,
+              textAlign: 'center',
+            }}
+            numberOfLines={2}
+          >
+            All
+          </Text>
+        </Pressable>
+        {strip.map((d) => {
+          const active = rangeStart == null && rangeEnd == null && d.ymd === selectedYmd;
+          return (
+            <Pressable
+              key={d.ymd}
+              onPress={() => onSelectDay(d.ymd)}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                borderRadius: 12,
+                backgroundColor: active ? DesignColors.heroBg : DesignColors.inputBg,
+                borderWidth: 1,
+                borderColor: active ? DesignColors.primary : DesignColors.lightGreenBorder,
+                minWidth: 72,
+                alignItems: 'center',
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: active ? DesignColors.primary : DesignColors.charcoal,
+                  textAlign: 'center',
+                }}
+                numberOfLines={2}
+              >
+                {d.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </ScrollView>
+  );
+});
+
 type BrowseListProps = {
   loading: boolean;
   groupedCount: number;
@@ -431,37 +605,43 @@ export default function WorkshopBrowseScreen() {
     [groupedForDay, listPage]
   );
 
-  const syncParams = (next: { q?: string; categories?: string | null }) => {
-    router.setParams({
-      q: next.q || undefined,
-      categories: next.categories || undefined,
-    });
-  };
+  const syncParams = useCallback(
+    (next: { q?: string; categories?: string | null }) => {
+      router.setParams({
+        q: next.q || undefined,
+        categories: next.categories || undefined,
+      });
+    },
+    [router]
+  );
 
-  const toggleCategory = (cat: string) => {
-    const next = selectedCategories.includes(cat)
-      ? selectedCategories.filter((c) => c !== cat)
-      : [...selectedCategories, cat];
-    startTransition(() => setSelectedCategories(next));
-    syncParams({
-      q: searchTerm,
-      categories: serializeCategoriesParam(next, CATEGORIES),
-    });
-  };
+  const toggleCategory = useCallback(
+    (cat: string) => {
+      const next = selectedCategories.includes(cat)
+        ? selectedCategories.filter((c) => c !== cat)
+        : [...selectedCategories, cat];
+      startTransition(() => setSelectedCategories(next));
+      syncParams({
+        q: searchTerm,
+        categories: serializeCategoriesParam(next, CATEGORIES),
+      });
+    },
+    [selectedCategories, searchTerm, syncParams]
+  );
 
-  const clearCategories = () => {
+  const clearCategories = useCallback(() => {
     startTransition(() => setSelectedCategories([]));
     syncParams({ q: searchTerm, categories: null });
-  };
+  }, [searchTerm, syncParams]);
 
-  const pushSearch = () => {
+  const pushSearch = useCallback(() => {
     const p = new URLSearchParams();
     if (searchTerm) p.set('q', searchTerm);
     const cats = serializeCategoriesParam(selectedCategories, CATEGORIES);
     if (cats) p.set('categories', cats);
     const qs = p.toString();
     router.push(qs ? `/workshop-search?${qs}` : '/workshop-search');
-  };
+  }, [searchTerm, selectedCategories, router]);
 
   const calendarActive = selectedYmd != null || rangeStart != null || rangeEnd != null;
   const filtersActive = browseFiltersAreActive({
@@ -473,10 +653,6 @@ export default function WorkshopBrowseScreen() {
     rangeStart,
     rangeEnd,
   });
-
-  const openDistanceSheet = () => {
-    startTransition(() => setFilterSheet('distance'));
-  };
 
   const openFilterSheet = useCallback((sheet: Exclude<FilterSheet, null>) => {
     startTransition(() => setFilterSheet(sheet));
@@ -498,13 +674,53 @@ export default function WorkshopBrowseScreen() {
     startTransition(() => setPriceSort(sort));
   }, []);
 
+  const openCalendar = useCallback(() => {
+    startTransition(() => setCalendarOpen(true));
+  }, []);
+
+  const closeCalendar = useCallback(() => setCalendarOpen(false), []);
+
+  const selectAllDates = useCallback(() => {
+    startTransition(() => {
+      setSelectedYmd(null);
+      setRangeStart(null);
+      setRangeEnd(null);
+    });
+  }, []);
+
+  const selectDay = useCallback((ymd: string) => {
+    startTransition(() => {
+      setRangeStart(null);
+      setRangeEnd(null);
+      setSelectedYmd(ymd);
+    });
+  }, []);
+
+  const applyCalendarRange = useCallback((start: string | null, end: string | null) => {
+    const next = normalizeCalendarSelection(start, end);
+    startTransition(() => {
+      setSelectedYmd(next.selectedYmd);
+      setRangeStart(next.rangeStart);
+      setRangeEnd(next.rangeEnd);
+    });
+  }, []);
+
+  const closeQuickView = useCallback(() => setQuickViewEvent(null), []);
+
+  const goBack = useCallback(() => router.back(), [router]);
+
+  const quickViewProfileLocation = useMemo(
+    () => (profileLocation ? { lat: profileLocation.lat, lng: profileLocation.lng } : null),
+    [profileLocation]
+  );
+
   return (
     <>
       <View style={{ flex: 1, backgroundColor: DesignColors.creamBg, paddingBottom: insets.bottom }}>
         <WorkshopsChrome
           showBack
           hideDateAndClear
-          onBackPress={() => router.back()}
+          onBackPress={goBack}
           searchAsButton
           searchPlaceholder="Search workshops…"
           searchValue={searchTerm}
@@ -525,145 +741,26 @@ export default function WorkshopBrowseScreen() {
             borderBottomColor: DesignColors.lightGreenBorder,
           }}
         >
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              marginBottom: 8,
-            }}
-          >
-            <View
-              style={{
-                flex: 1,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              <WorkshopFilterPill
-                label={categoryPillLabel(selectedCategories)}
-                active={selectedCategories.length > 0}
-                onPress={() => openFilterSheet('category')}
-                style={{ flex: 1 }}
-              />
-              <WorkshopFilterPill
-                label={sortPillLabel(listSort, priceSort)}
-                active={listSort !== 'time' || priceSort !== 'default'}
-                onPress={() => openFilterSheet('sort')}
-                style={{ flex: 1 }}
-              />
-              <WorkshopFilterPill
-                label={distancePillLabel(distanceKm)}
-                active={distanceKm !== 'auto'}
-                onPress={openDistanceSheet}
-                style={{ flex: 1 }}
-              />
-            </View>
-            <Pressable
-              onPress={() => startTransition(() => setCalendarOpen(true))}
-              accessibilityRole="button"
-              accessibilityLabel="Filter by date"
-              style={{
-                width: 36,
-                height: 36,
-                justifyContent: 'center',
-                alignItems: 'center',
-                borderRadius: 9999,
-                backgroundColor: calendarActive ? DesignColors.heroBg : DesignColors.inputBg,
-                borderWidth: 1,
-                borderColor: calendarActive ? DesignColors.primary : DesignColors.lightGreenBorder,
-              }}
-            >
-              <MaterialCommunityIcons
-                name="calendar-month-outline"
-                size={20}
-                color={calendarActive ? DesignColors.primary : DesignColors.sageGreen}
-              />
-            </Pressable>
-          </View>
+          <FilterPillsRow
+            categoryLabel={categoryPillLabel(selectedCategories)}
+            categoryActive={selectedCategories.length > 0}
+            sortLabel={sortPillLabel(listSort, priceSort)}
+            sortActive={listSort !== 'time' || priceSort !== 'default'}
+            distanceLabel={distancePillLabel(distanceKm)}
+            distanceActive={distanceKm !== 'auto'}
+            calendarActive={calendarActive}
+            onOpenFilterSheet={openFilterSheet}
+            onOpenCalendar={openCalendar}
+          />
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={{ flexDirection: 'row', gap: 8, paddingRight: 8 }}>
-              <Pressable
-                onPress={() => {
-                  startTransition(() => {
-                    setSelectedYmd(null);
-                    setRangeStart(null);
-                    setRangeEnd(null);
-                  });
-                }}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                  borderRadius: 12,
-                  backgroundColor:
-                    selectedYmd == null && !rangeStart && !rangeEnd
-                      ? DesignColors.heroBg
-                      : DesignColors.inputBg,
-                  borderWidth: 1,
-                  borderColor:
-                    selectedYmd == null && !rangeStart && !rangeEnd
-                      ? DesignColors.primary
-                      : DesignColors.lightGreenBorder,
-                  minWidth: 72,
-                  alignItems: 'center',
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: '700',
-                    color:
-                      selectedYmd == null && !rangeStart && !rangeEnd
-                        ? DesignColors.primary
-                        : DesignColors.charcoal,
-                    textAlign: 'center',
-                  }}
-                  numberOfLines={2}
-                >
-                  All
-                </Text>
-              </Pressable>
-              {strip.map((d) => {
-                const active = rangeStart == null && rangeEnd == null && d.ymd === selectedYmd;
-                return (
-                  <Pressable
-                    key={d.ymd}
-                    onPress={() => {
-                      startTransition(() => {
-                        setRangeStart(null);
-                        setRangeEnd(null);
-                        setSelectedYmd(d.ymd);
-                      });
-                    }}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 10,
-                      borderRadius: 12,
-                      backgroundColor: active ? DesignColors.heroBg : DesignColors.inputBg,
-                      borderWidth: 1,
-                      borderColor: active ? DesignColors.primary : DesignColors.lightGreenBorder,
-                      minWidth: 72,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: '700',
-                        color: active ? DesignColors.primary : DesignColors.charcoal,
-                        textAlign: 'center',
-                      }}
-                      numberOfLines={2}
-                    >
-                      {d.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </ScrollView>
+          <DateStripBar
+            strip={strip}
+            selectedYmd={selectedYmd}
+            rangeStart={rangeStart}
+            rangeEnd={rangeEnd}
+            onSelectAll={selectAllDates}
+            onSelectDay={selectDay}
+          />
         </View>
 
         <BrowseWorkshopList
@@ -700,30 +797,23 @@ export default function WorkshopBrowseScreen() {
 
       <WorkshopDateRangeModal
         visible={calendarOpen}
-        onClose={() => setCalendarOpen(false)}
+        onClose={closeCalendar}
         initialStart={rangeStart ?? selectedYmd ?? ''}
         initialEnd={rangeEnd ?? selectedYmd ?? ''}
-        onApply={(start, end) => {
-          const next = normalizeCalendarSelection(start, end);
-          startTransition(() => {
-            setSelectedYmd(next.selectedYmd);
-            setRangeStart(next.rangeStart);
-            setRangeEnd(next.rangeEnd);
-          });
-        }}
+        onApply={applyCalendarRange}
       />
 
       <WorkshopQuickViewModal
         visible={!!quickViewEvent}
         event={quickViewEvent}
-        onClose={() => setQuickViewEvent(null)}
+        onClose={closeQuickView}
         userId={user?.id}
         userEmail={user?.email ?? undefined}
         attendeeName={profileDisplayName ?? ''}
         saved={quickViewSaved}
         saving={quickViewSaving}
         onToggleSave={handleQuickViewSave}
-        profileLocation={profileLocation ? { lat: profileLocation.lat, lng: profileLocation.lng } : null}
+        profileLocation={quickViewProfileLocation}
         profilePostalCode={profileLocation?.postal_code ?? null}
         onBookingComplete={reload}
       />

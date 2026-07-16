@@ -2,7 +2,7 @@ import WorkshopFilterBottomSheet from '@/components/WorkshopFilterBottomSheet';
 import { DesignColors } from '@/constants/design-template';
 import { getTorontoYmd } from '@/lib/workshop-calendar';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 type Props = {
@@ -57,7 +57,7 @@ function monthTitle(year: number, monthIndex: number): string {
  * First tap sets start; second tap sets end (auto-ordered). Apply with only
  * start selected treats that day as a single-day filter.
  */
-export default function WorkshopDateRangeModal({
+function WorkshopDateRangeModal({
   visible,
   onClose,
   initialStart,
@@ -302,3 +302,5 @@ export default function WorkshopDateRangeModal({
     </WorkshopFilterBottomSheet>
   );
 }
+
+export default memo(WorkshopDateRangeModal);

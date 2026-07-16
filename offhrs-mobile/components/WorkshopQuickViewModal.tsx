@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -58,7 +58,7 @@ export type WorkshopQuickViewModalProps = {
   onBookingComplete?: () => void;
 };
 
-export default function WorkshopQuickViewModal({
+function WorkshopQuickViewModal({
   visible,
   event,
   onClose,
@@ -613,3 +613,5 @@ export default function WorkshopQuickViewModal({
     </>
   );
 }
+
+export default memo(WorkshopQuickViewModal);
