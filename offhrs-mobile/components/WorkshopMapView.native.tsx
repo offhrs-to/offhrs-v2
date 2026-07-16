@@ -221,15 +221,30 @@ export default function WorkshopMapView({
 
   useEffect(() => {
     if (loading || withCoords.length === 0 || didFitRef.current) return;
-    const coords = withCoords.map((e) => ({
-      latitude: Number(e.lat),
-      longitude: Number(e.lng),
-    }));
+    // Compute the fit region ourselves instead of calling native fitToCoordinates:
+    // on iOS, react-native-maps' fitToCoordinates delegates to Apple MapKit, which
+    // (unlike Google Maps on Android) can clip pins far from the densest cluster and
+    // misbehaves whenever the MapView isn't exactly 100% of the screen height — true
+    // here since a header and draggable list sheet share the screen with the map.
+    // A manually computed region + animateToRegion is layout-independent and renders
+    // identically on both platforms, so distant pins (e.g. east-end studios) always fit.
+    const lats = withCoords.map((e) => Number(e.lat));
+    const lngs = withCoords.map((e) => Number(e.lng));
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const centerLat = (minLat + maxLat) / 2;
+    const centerLng = (minLng + maxLng) / 2;
+    // ~25% padding around the pin bounds, with a floor so a single/tight cluster of
+    // pins doesn't over-zoom past street level.
+    const latitudeDelta = Math.max((maxLat - minLat) * 1.25, 0.05);
+    const longitudeDelta = Math.max((maxLng - minLng) * 1.25, 0.05);
     const t = setTimeout(() => {
-      mapRef.current?.fitToCoordinates(coords, {
-        edgePadding: { top: 48, right: 36, bottom: 48, left: 36 },
-        animated: true,
-      });
+      mapRef.current?.animateToRegion(
+        { latitude: centerLat, longitude: centerLng, latitudeDelta, longitudeDelta },
+        450
+      );
       didFitRef.current = true;
     }, 350);
     return () => clearTimeout(t);
