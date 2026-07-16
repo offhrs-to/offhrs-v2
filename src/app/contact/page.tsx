@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { User, GraduationCap, Mail } from 'lucide-react'
 
-const CONTACT_EMAIL = 'offhrs.to@gmail.com'
+const CONTACT_EMAIL = 'hello@offhrs.app'
 
 type Role = 'learner' | 'instructor' | null
 
