@@ -575,18 +575,28 @@ function preferMapScanRow(a: WorkshopMapGeoScanRow, b: WorkshopMapGeoScanRow): W
 }
 
 /**
- * One representative upcoming session per studio (vendor), not per lat/lng.
- * Pin-only dedupe hid studios that shared a rounded coordinate, and picking the
- * soonest row alone often chose a multi-week session that expand later dropped.
+ * One representative upcoming session per map pin (lat/lng).
+ * Prefer bookable one-day sessions so multi-week expand cannot erase the pin later.
  */
 function dedupeMapGeoScanRows(rows: WorkshopMapGeoScanRow[]): WorkshopMapGeoScanRow[] {
-  const byStudio = new Map<string, WorkshopMapGeoScanRow>();
+  const byPin = new Map<string, WorkshopMapGeoScanRow>();
+  const byStudioFallback = new Map<string, WorkshopMapGeoScanRow>();
+
   for (const row of rows) {
+    const lat = row.lat != null ? Number(row.lat) : null;
+    const lng = row.lng != null ? Number(row.lng) : null;
+    if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)) {
+      const key = mapPinKey(lat, lng);
+      const prev = byPin.get(key);
+      byPin.set(key, prev ? preferMapScanRow(prev, row) : row);
+      continue;
+    }
     const key = mapStudioKey(row);
-    const prev = byStudio.get(key);
-    byStudio.set(key, prev ? preferMapScanRow(prev, row) : row);
+    const prev = byStudioFallback.get(key);
+    byStudioFallback.set(key, prev ? preferMapScanRow(prev, row) : row);
   }
-  return [...byStudio.values()];
+
+  return [...byPin.values(), ...byStudioFallback.values()];
 }
 
 async function hydrateWorkshopEventsByIds(ids: number[]): Promise<WorkshopEventDbRow[]> {

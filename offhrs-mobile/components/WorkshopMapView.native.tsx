@@ -1,6 +1,6 @@
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -22,11 +22,12 @@ import {
 import { haversineKm } from '@/lib/distance';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 
+/** ~45km span so GTA pins are visible without hunting. */
 const DEFAULT_REGION = {
   latitude: 43.6532,
   longitude: -79.3832,
-  latitudeDelta: 0.1,
-  longitudeDelta: 0.1,
+  latitudeDelta: 0.45,
+  longitudeDelta: 0.45,
 };
 
 type Props = {
@@ -183,6 +184,9 @@ export default function WorkshopMapView({
   maxMarkers = DEFAULT_MAX_MARKERS,
   anchor = null,
 }: Props) {
+  const mapRef = useRef<MapView | null>(null);
+  const didFitRef = useRef(false);
+
   const withCoords = useMemo(() => {
     const filtered = dedupeWorkshopMapMarkerEvents(events.filter(workshopHasMapCoordinates));
     if (filtered.length <= maxMarkers) return filtered;
@@ -204,12 +208,32 @@ export default function WorkshopMapView({
         ? {
             latitude: anchor.lat,
             longitude: anchor.lng,
-            latitudeDelta: 0.1,
-            longitudeDelta: 0.1,
+            latitudeDelta: 0.45,
+            longitudeDelta: 0.45,
           }
         : DEFAULT_REGION,
     [anchor]
   );
+
+  useEffect(() => {
+    didFitRef.current = false;
+  }, [anchor?.lat, anchor?.lng]);
+
+  useEffect(() => {
+    if (loading || withCoords.length === 0 || didFitRef.current) return;
+    const coords = withCoords.map((e) => ({
+      latitude: Number(e.lat),
+      longitude: Number(e.lng),
+    }));
+    const t = setTimeout(() => {
+      mapRef.current?.fitToCoordinates(coords, {
+        edgePadding: { top: 48, right: 36, bottom: 48, left: 36 },
+        animated: true,
+      });
+      didFitRef.current = true;
+    }, 350);
+    return () => clearTimeout(t);
+  }, [loading, withCoords]);
 
   if (!canMountNativeMapView()) {
     return (
@@ -225,6 +249,7 @@ export default function WorkshopMapView({
   return (
     <View style={styles.container}>
       <MapView
+        ref={mapRef}
         style={styles.map}
         initialRegion={initialRegion}
         showsUserLocation
