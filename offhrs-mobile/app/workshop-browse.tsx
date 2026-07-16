@@ -202,6 +202,11 @@ export default function WorkshopBrowseScreen() {
         categories: categoriesForQuery,
         dateRangeStart: null,
         dateRangeEnd: null,
+        light: true,
+        onPartial: (partial) => {
+          setEvents(partial);
+          setLoading(false);
+        },
       });
       setEvents(rows);
     } catch {

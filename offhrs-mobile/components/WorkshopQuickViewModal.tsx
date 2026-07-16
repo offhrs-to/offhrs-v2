@@ -26,7 +26,10 @@ import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mo
 import { useStrictBookingAck } from '@/lib/use-strict-booking-ack';
 import { provinceFromCanadianPostalCode } from '@/lib/workshop-booking-tax';
 import { shareWorkshopEvent } from '@/lib/share-workshop';
-import type { WorkshopEventRow } from '@/lib/workshops-events-query';
+import {
+  fetchWorkshopEventForQuickView,
+  type WorkshopEventRow,
+} from '@/lib/workshops-events-query';
 import {
   workshopBookButtonLabel,
   workshopEventIsFull,
@@ -75,6 +78,37 @@ export default function WorkshopQuickViewModal({
   const [bookingBusy, setBookingBusy] = useState(false);
   const [refundPolicy, setRefundPolicy] = useState<ConsumerRefundPolicyDisplay | null>(null);
   const { requestStrictAckIfNeeded, ackModalElement } = useStrictBookingAck({ embedded: true });
+  /** Browse/list rows omit description blobs; hydrate full details when the sheet opens. */
+  const [displayEvent, setDisplayEvent] = useState<WorkshopEventRow | null>(event);
+
+  useEffect(() => {
+    if (!visible || !event) {
+      setDisplayEvent(event);
+      return;
+    }
+    setDisplayEvent(event);
+    let cancelled = false;
+    const opened = event;
+    fetchWorkshopEventForQuickView(opened.id)
+      .then((full) => {
+        if (cancelled || !full) return;
+        setDisplayEvent({
+          ...full,
+          // Keep the occurrence the user tapped (multi-week / time pills).
+          date: opened.date,
+          date_iso: opened.date_iso,
+          available_slots: opened.available_slots ?? full.available_slots,
+          registration_closed: opened.registration_closed ?? full.registration_closed,
+          max_attendees: opened.max_attendees ?? full.max_attendees,
+        });
+      })
+      .catch(() => {
+        /* keep light row */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, event?.id, event?.date_iso]);
 
   // Tax is intentionally NOT calculated on modal open. Stripe Tax bills
   // per `tax.calculations.create` (~$0.05) and most modal opens never
@@ -214,17 +248,17 @@ export default function WorkshopQuickViewModal({
   }, [event, onClose, router]);
 
   if (!event) return null;
+  const view = displayEvent ?? event;
 
-  const priceLine = workshopIsSaasVendorEvent(event) || event.price != null;
-  const full = workshopEventIsFull(event);
-  const saas = workshopIsSaasVendorEvent(event);
-  const vendorName = workshopVendorDisplayName(event);
-  const canOpenVendor = vendorPagePath(event) != null;
-  const isFreeEvent = effectiveWorkshopPriceCad(event) <= 0;
-
+  const priceLine = workshopIsSaasVendorEvent(view) || view.price != null;
+  const full = workshopEventIsFull(view);
+  const saas = workshopIsSaasVendorEvent(view);
+  const vendorName = workshopVendorDisplayName(view);
+  const canOpenVendor = vendorPagePath(view) != null;
+  const isFreeEvent = effectiveWorkshopPriceCad(view) <= 0;
   const distanceKm =
-    profileLocation && event.lat != null && event.lng != null
-      ? Math.round(haversineKm(profileLocation.lat, profileLocation.lng, Number(event.lat), Number(event.lng)) * 10) /
+    profileLocation && view.lat != null && view.lng != null
+      ? Math.round(haversineKm(profileLocation.lat, profileLocation.lng, Number(view.lat), Number(view.lng)) * 10) /
         10
       : null;
 
@@ -295,11 +329,11 @@ export default function WorkshopQuickViewModal({
                 style={{ width: '100%', height: '100%' }}
               >
                 <CategoryFallbackImage
-                  imageUrl={event.image_url}
-                  category={event.category}
+                  imageUrl={view.image_url}
+                  category={view.category}
                   style={{ width: '100%', height: '100%' }}
                   contentFit="contain"
-                  recyclingKey={`qv-${event.id}`}
+                  recyclingKey={`qv-${view.id}`}
                 />
               </Pressable>
             <View
@@ -346,7 +380,7 @@ export default function WorkshopQuickViewModal({
               </Pressable>
               <View style={{ flexDirection: 'row', gap: 8 }}>
               <Pressable
-                onPress={() => void shareWorkshopEvent({ id: event.id, title: event.title })}
+                onPress={() => void shareWorkshopEvent({ id: view.id, title: view.title })}
                 accessibilityRole="button"
                 accessibilityLabel="Share workshop"
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -395,9 +429,9 @@ export default function WorkshopQuickViewModal({
                 onPress={canOpenVendor ? openVendorPage : undefined}
                 disabled={!canOpenVendor}
                 accessibilityRole={canOpenVendor ? 'button' : undefined}
-                accessibilityLabel={canOpenVendor ? `View workshop host for ${event.title}` : undefined}
+                accessibilityLabel={canOpenVendor ? `View workshop host for ${view.title}` : undefined}
               >
-                <Text style={{ fontSize: 19, fontWeight: '700', color: DesignColors.charcoal }}>{event.title}</Text>
+                <Text style={{ fontSize: 19, fontWeight: '700', color: DesignColors.charcoal }}>{view.title}</Text>
               </Pressable>
               {vendorName ? (
                 <Pressable
@@ -410,9 +444,9 @@ export default function WorkshopQuickViewModal({
                   <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>{vendorName}</Text>
                 </Pressable>
               ) : null}
-              <Text style={{ marginTop: 8, fontSize: 14, color: DesignColors.mediumGray }}>{event.date}</Text>
-              {event.location ? (
-                <Text style={{ marginTop: 6, fontSize: 13, color: DesignColors.mediumGray }}>{event.location}</Text>
+              <Text style={{ marginTop: 8, fontSize: 14, color: DesignColors.mediumGray }}>{view.date}</Text>
+              {view.location ? (
+                <Text style={{ marginTop: 6, fontSize: 13, color: DesignColors.mediumGray }}>{view.location}</Text>
               ) : null}
 
               <View
@@ -428,15 +462,15 @@ export default function WorkshopQuickViewModal({
                 {priceLine ? (
                   <View>
                     <WorkshopSalePrice
-                      event={event}
+                      event={view}
                       size="md"
                       legacyPriceText={
-                        event.price != null
-                          ? typeof event.price === 'string'
-                            ? event.price.startsWith('$')
-                              ? event.price
-                              : `$${event.price}`
-                            : `$${event.price}`
+                        view.price != null
+                          ? typeof view.price === 'string'
+                            ? view.price.startsWith('$')
+                              ? view.price
+                              : `$${view.price}`
+                            : `$${view.price}`
                           : null
                       }
                     />
@@ -476,13 +510,13 @@ export default function WorkshopQuickViewModal({
               ) : null}
 
               <WorkshopDescriptionCollapsible
-                description={event.description}
-                workshop_experience={event.workshop_experience}
-                workshop_experience_hidden={event.workshop_experience_hidden}
-                workshop_materials_takeaway={event.workshop_materials_takeaway}
-                workshop_materials_takeaway_hidden={event.workshop_materials_takeaway_hidden}
-                workshop_skill_level={event.workshop_skill_level}
-                workshop_skill_level_hidden={event.workshop_skill_level_hidden}
+                description={view.description}
+                workshop_experience={view.workshop_experience}
+                workshop_experience_hidden={view.workshop_experience_hidden}
+                workshop_materials_takeaway={view.workshop_materials_takeaway}
+                workshop_materials_takeaway_hidden={view.workshop_materials_takeaway_hidden}
+                workshop_skill_level={view.workshop_skill_level}
+                workshop_skill_level_hidden={view.workshop_skill_level_hidden}
               />
 
               {saas && refundPolicy?.policyLine ? (
@@ -567,7 +601,7 @@ export default function WorkshopQuickViewModal({
                   adjustsFontSizeToFit
                   minimumFontScale={0.85}
                 >
-                  {workshopBookButtonLabel(event)}
+                  {workshopBookButtonLabel(view)}
                 </Text>
               )}
             </Pressable>

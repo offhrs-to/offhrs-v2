@@ -268,10 +268,29 @@ export type FetchWorkshopEventsOptions = {
   dateRangeStart: string | null;
   dateRangeEnd: string | null;
   limit?: number;
+  /**
+   * Omit long description fields (default true). Cards don't need them; quick view
+   * hydrates via `fetchWorkshopEventForQuickView`.
+   */
+  light?: boolean;
+  /**
+   * Skip vendor lat/lng enrichment (default false). Browse distance filters need coords;
+   * search/hub can skip when unused.
+   */
+  skipMapCoords?: boolean;
+  /** Progressive UI: called after the first page is ready, then again with the full set. */
+  onPartial?: (rows: WorkshopEventRow[]) => void;
 };
 
 export const WORKSHOP_EVENT_LIST_SELECT =
   'id, title, date, location, image_url, price, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, external_link, category, lat, lng, vendor_id, vendor_profile_id, organizer, recurrence, description, workshop_experience, workshop_experience_hidden, workshop_materials_takeaway, workshop_materials_takeaway_hidden, workshop_skill_level, workshop_skill_level_hidden, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, partner_series_meta, max_attendees';
+
+/**
+ * List/browse select — omits long description blobs (hydrated when opening quick view).
+ * Keeps `series_occurrences` so multi-week expand still works.
+ */
+export const WORKSHOP_EVENT_BROWSE_SELECT =
+  'id, title, date, location, image_url, price, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, external_link, category, lat, lng, vendor_id, vendor_profile_id, organizer, recurrence, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, max_attendees';
 
 /** Same payload as list/quick-view so vendor-profile cards open with full details. */
 export const VENDOR_PROFILE_EVENT_SELECT = WORKSHOP_EVENT_LIST_SELECT;
@@ -371,12 +390,22 @@ export async function fetchWorkshopEventForQuickView(
 
 /**
  * Shared Supabase fetch for workshop list/map flows (matches workshops tab logic).
+ * Uses a light column set + parallel pages after the first batch so browse isn't blocked
+ * on thousands of full description payloads.
  */
 export async function fetchWorkshopEvents(
   options: FetchWorkshopEventsOptions
 ): Promise<WorkshopEventRow[]> {
-  const { searchTerm, categories, dateRangeStart, dateRangeEnd, limit = WORKSHOP_MAX_UPCOMING_FETCH } =
-    options;
+  const {
+    searchTerm,
+    categories,
+    dateRangeStart,
+    dateRangeEnd,
+    limit = WORKSHOP_MAX_UPCOMING_FETCH,
+    light = true,
+    skipMapCoords = false,
+    onPartial,
+  } = options;
   let searchRawWords: string[] = [];
   let searchVendorIds: string[] = [];
   let searchOrClause: string | null = null;
@@ -407,8 +436,10 @@ export async function fetchWorkshopEvents(
     searchOrClause = orParts.length > 0 ? orParts.join(',') : 'id.eq.-1';
   }
 
+  const select = light ? WORKSHOP_EVENT_BROWSE_SELECT : WORKSHOP_EVENT_LIST_SELECT;
+
   const makeOrderedQuery = () => {
-    let q = supabase.from('events').select(WORKSHOP_EVENT_LIST_SELECT);
+    let q = supabase.from('events').select(select);
     q = q.or(WORKSHOP_EVENTS_UPCOMING_OR(nowIso));
     q = q.or(CONSUMER_BOOKING_STATUS_OR);
     if (searchOrClause) {
@@ -417,55 +448,76 @@ export async function fetchWorkshopEvents(
     if (categories.length > 0) {
       q = q.in('category', categories);
     }
-    return q.order('date', { ascending: true });
+    return q.order('date', { ascending: true }).order('id', { ascending: true });
+  };
+
+  const finish = async (combined: WorkshopEventDbRow[]): Promise<WorkshopEventRow[]> => {
+    const list = combined
+      .map(mapDbRowToWorkshopEvent)
+      .filter((e) => isEventVisibleToConsumers(e))
+      .filter((e) => eventMatchesDateRange(e, dateRangeStart, dateRangeEnd));
+
+    const expanded = expandWorkshopEventsForConsumers(list).filter((e) =>
+      occurrenceMatchesDateRange(e, dateRangeStart, dateRangeEnd)
+    );
+
+    const sorted = expanded.sort(compareWorkshopEventsByStart);
+
+    let result = sorted;
+    if (searchRawWords.length > 0 || searchVendorIds.length > 0) {
+      result = sorted.filter((e) => {
+        if (searchVendorIds.length > 0 && e.vendor_id && searchVendorIds.includes(e.vendor_id))
+          return true;
+        if (searchRawWords.length === 0) return true;
+        return searchRawWords.every(
+          (w) =>
+            (e.title && e.title.toLowerCase().includes(w.toLowerCase())) ||
+            (e.category && e.category.toLowerCase().includes(w.toLowerCase())) ||
+            (e.organizer && e.organizer.toLowerCase().includes(w.toLowerCase())) ||
+            (e.vendor_name && e.vendor_name.toLowerCase().includes(w.toLowerCase()))
+        );
+      });
+    }
+
+    const named = await enrichWorkshopEventsWithVendorNames(result);
+    if (skipMapCoords) return named;
+    return enrichWorkshopEventsWithMapCoordinates(named);
   };
 
   const cap = Math.min(limit, 15000);
   const batch = WORKSHOP_EVENTS_FETCH_BATCH;
   const combined: WorkshopEventDbRow[] = [];
 
-  for (let offset = 0; offset < cap; offset += batch) {
-    const take = Math.min(batch, cap - offset);
-    const { data, error } = await makeOrderedQuery().range(offset, offset + take - 1);
-    if (error) throw error;
-    if (!data?.length) break;
-    combined.push(...data);
-    if (data.length < take) break;
+  const firstTake = Math.min(batch, cap);
+  const { data: firstData, error: firstError } = await makeOrderedQuery().range(0, firstTake - 1);
+  if (firstError) throw firstError;
+  if (firstData?.length) combined.push(...(firstData as WorkshopEventDbRow[]));
+
+  if (onPartial && combined.length > 0) {
+    onPartial(await finish(combined));
   }
 
-  const list = combined
-    .map(mapDbRowToWorkshopEvent)
-    .filter((e) => isEventVisibleToConsumers(e))
-    .filter((e) => eventMatchesDateRange(e, dateRangeStart, dateRangeEnd));
-
-  const expanded = expandWorkshopEventsForConsumers(list).filter((e) =>
-    occurrenceMatchesDateRange(e, dateRangeStart, dateRangeEnd)
-  );
-
-  const sorted = expanded.sort(compareWorkshopEventsByStart);
-
-  let result = sorted;
-  if (searchRawWords.length > 0 || searchVendorIds.length > 0) {
-    result = sorted.filter((e) => {
-      if (searchVendorIds.length > 0 && e.vendor_id && searchVendorIds.includes(e.vendor_id)) return true;
-      if (searchRawWords.length === 0) return true;
-      return searchRawWords.every(
-        (w) =>
-          (e.title && e.title.toLowerCase().includes(w.toLowerCase())) ||
-          (e.category && e.category.toLowerCase().includes(w.toLowerCase())) ||
-          (e.organizer && e.organizer.toLowerCase().includes(w.toLowerCase())) ||
-          (e.vendor_name && e.vendor_name.toLowerCase().includes(w.toLowerCase()))
-      );
-    });
+  if (combined.length >= firstTake && cap > firstTake) {
+    const remainingPages = [];
+    for (let offset = firstTake; offset < cap; offset += batch) {
+      const take = Math.min(batch, cap - offset);
+      remainingPages.push(makeOrderedQuery().range(offset, offset + take - 1));
+    }
+    const pages = await Promise.all(remainingPages);
+    for (const page of pages) {
+      if (page.error) throw page.error;
+      if (page.data?.length) combined.push(...(page.data as WorkshopEventDbRow[]));
+    }
   }
 
-  const named = await enrichWorkshopEventsWithVendorNames(result);
-  return enrichWorkshopEventsWithMapCoordinates(named);
+  const finalRows = await finish(combined);
+  onPartial?.(finalRows);
+  return finalRows;
 }
 
 /** Slim columns for map geo scans — hydrate full rows only for surviving pins. */
 const WORKSHOP_MAP_GEO_SCAN_SELECT =
-  'id, date, lat, lng, vendor_id, vendor_profile_id, booking_status, registration_closed, recurrence, workshop_series';
+  'id, date, lat, lng, vendor_id, vendor_profile_id, booking_status, registration_closed, recurrence, workshop_series, available_slots';
 
 type WorkshopMapGeoScanRow = {
   id: number;
@@ -478,10 +530,24 @@ type WorkshopMapGeoScanRow = {
   registration_closed?: boolean | null;
   recurrence: string | null;
   workshop_series?: string | null;
+  available_slots?: number | null;
 };
 
 function mapPinKey(lat: number, lng: number): string {
   return `${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`;
+}
+
+function mapStudioKey(row: Pick<WorkshopMapGeoScanRow, 'vendor_profile_id' | 'vendor_id' | 'id' | 'lat' | 'lng'>): string {
+  const profile = row.vendor_profile_id?.trim();
+  if (profile) return `p:${profile}`;
+  const vendor = row.vendor_id?.trim();
+  if (vendor) return `v:${vendor}`;
+  const lat = row.lat != null ? Number(row.lat) : null;
+  const lng = row.lng != null ? Number(row.lng) : null;
+  if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)) {
+    return `pin:${mapPinKey(lat, lng)}`;
+  }
+  return `id:${row.id}`;
 }
 
 function isUpcomingScanRow(row: WorkshopMapGeoScanRow, nowIso: string): boolean {
@@ -491,40 +557,36 @@ function isUpcomingScanRow(row: WorkshopMapGeoScanRow, nowIso: string): boolean 
   return row.date >= nowIso;
 }
 
-function preferSoonerScanRow(
-  a: WorkshopMapGeoScanRow,
-  b: WorkshopMapGeoScanRow
-): WorkshopMapGeoScanRow {
+function scoreMapScanRow(row: WorkshopMapGeoScanRow): number {
+  let score = 0;
+  if (row.registration_closed) score -= 100;
+  if (row.available_slots != null && Number(row.available_slots) <= 0) score -= 50;
+  if (row.workshop_series === 'multi_week') score -= 10;
+  return score;
+}
+
+function preferMapScanRow(a: WorkshopMapGeoScanRow, b: WorkshopMapGeoScanRow): WorkshopMapGeoScanRow {
+  const sa = scoreMapScanRow(a);
+  const sb = scoreMapScanRow(b);
+  if (sa !== sb) return sa > sb ? a : b;
   if (!a.date) return b;
   if (!b.date) return a;
   return a.date <= b.date ? a : b;
 }
 
 /**
- * Keep one upcoming row per map pin (and per studio when coords are still missing).
- * Preserves full studio coverage without shipping thousands of same-location sessions.
+ * One representative upcoming session per studio (vendor), not per lat/lng.
+ * Pin-only dedupe hid studios that shared a rounded coordinate, and picking the
+ * soonest row alone often chose a multi-week session that expand later dropped.
  */
 function dedupeMapGeoScanRows(rows: WorkshopMapGeoScanRow[]): WorkshopMapGeoScanRow[] {
-  const byPin = new Map<string, WorkshopMapGeoScanRow>();
   const byStudio = new Map<string, WorkshopMapGeoScanRow>();
-
   for (const row of rows) {
-    const lat = row.lat != null ? Number(row.lat) : null;
-    const lng = row.lng != null ? Number(row.lng) : null;
-    if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)) {
-      const key = mapPinKey(lat, lng);
-      const prev = byPin.get(key);
-      byPin.set(key, prev ? preferSoonerScanRow(prev, row) : row);
-      continue;
-    }
-    const studioKey =
-      row.vendor_profile_id?.trim() ||
-      (row.vendor_id?.trim() ? `v:${row.vendor_id.trim()}` : `id:${row.id}`);
-    const prev = byStudio.get(studioKey);
-    byStudio.set(studioKey, prev ? preferSoonerScanRow(prev, row) : row);
+    const key = mapStudioKey(row);
+    const prev = byStudio.get(key);
+    byStudio.set(key, prev ? preferMapScanRow(prev, row) : row);
   }
-
-  return [...byPin.values(), ...byStudio.values()];
+  return [...byStudio.values()];
 }
 
 async function hydrateWorkshopEventsByIds(ids: number[]): Promise<WorkshopEventDbRow[]> {
@@ -734,5 +796,11 @@ export async function fetchWorkshopEventsNearAnchor(
 
   const named = await enrichWorkshopEventsWithVendorNames(list);
   const withCoords = await enrichWorkshopEventsWithMapCoordinates(named);
-  return expandWorkshopEventsForConsumers(withCoords);
+
+  // Expand multi-week for nicer callout dates, but never drop a studio pin if expand
+  // emits zero rows (sold-out cohort / no upcoming occurrence).
+  const expanded = expandWorkshopEventsForConsumers(withCoords);
+  const keptIds = new Set(expanded.map((e) => e.id));
+  const rescued = withCoords.filter((e) => !keptIds.has(e.id));
+  return [...expanded, ...rescued];
 }

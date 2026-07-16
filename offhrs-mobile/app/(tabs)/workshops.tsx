@@ -85,6 +85,8 @@ export default function WorkshopsScreen() {
       dateRangeStart: null,
       dateRangeEnd: null,
       limit: WORKSHOP_FETCH_LIMIT_HUB_PREVIEW,
+      light: true,
+      skipMapCoords: false,
     })
       .then(setPreviewEvents)
       .catch(() => setPreviewEvents([]));
@@ -133,6 +135,8 @@ export default function WorkshopsScreen() {
       dateRangeStart: null,
       dateRangeEnd: null,
       limit: WORKSHOP_FETCH_LIMIT_HUB_PREVIEW,
+      light: true,
+      skipMapCoords: false,
     })
       .then((rows) => {
         if (cancelled) return;

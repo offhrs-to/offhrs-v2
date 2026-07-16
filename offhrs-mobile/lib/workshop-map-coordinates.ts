@@ -130,13 +130,16 @@ export async function enrichWorkshopEventsWithMapCoordinates(
   });
 }
 
-/** One pin per physical location (multi-session listings share the same coordinates). */
+/** One marker per studio when possible; fall back to lat/lng for unlinked listings. */
 export function dedupeWorkshopMapMarkerEvents(events: WorkshopEventRow[]): WorkshopEventRow[] {
   const seen = new Set<string>();
   const out: WorkshopEventRow[] = [];
   for (const e of events) {
     if (!workshopHasMapCoordinates(e)) continue;
-    const key = `${Number(e.lat).toFixed(4)},${Number(e.lng).toFixed(4)}`;
+    const studio = e.vendor_profile_id?.trim() || e.vendor_id?.trim();
+    const key = studio
+      ? `s:${studio}`
+      : `${Number(e.lat).toFixed(4)},${Number(e.lng).toFixed(4)}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(e);
