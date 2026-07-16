@@ -629,79 +629,6 @@ export function SessionForm({
                 className="w-full pl-7 pr-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
               />
             </div>
-            {!saleOpen ? (
-              <button
-                type="button"
-                onClick={() => setSaleOpen(true)}
-                className="mt-2 text-sm font-medium text-[#5D755D] hover:underline"
-              >
-                Sale
-              </button>
-            ) : (
-              <div className="mt-3 space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="block text-sm font-medium text-[#1a1a1a]">
-                    Sale Price (CAD)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSaleOpen(false)
-                      setForm((f) => ({
-                        ...f,
-                        sale_price_cad: '',
-                        sale_starts_on: '',
-                        sale_ends_on: '',
-                      }))
-                    }}
-                    className="text-xs font-medium text-[#888] hover:text-[#1a1a1a]"
-                  >
-                    Remove
-                  </button>
-                </div>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888] text-sm">$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.sale_price_cad}
-                    onChange={(e) => set('sale_price_cad', e.target.value)}
-                    placeholder="Discounted price"
-                    className="w-full pl-7 pr-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                  <div>
-                    <label className="block text-xs font-medium text-[#1a1a1a] mb-1">
-                      Sale starts
-                    </label>
-                    <input
-                      type="date"
-                      value={form.sale_starts_on}
-                      onChange={(e) => set('sale_starts_on', e.target.value)}
-                      className="w-full px-3 py-2 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-[#1a1a1a] mb-1">
-                      Sale ends <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      required={saleOpen}
-                      value={form.sale_ends_on}
-                      min={form.sale_starts_on || undefined}
-                      onChange={(e) => set('sale_ends_on', e.target.value)}
-                      className="w-full px-3 py-2 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-[#888]">
-                  Customers pay the sale price on these dates (inclusive). Leave start blank to begin immediately.
-                </p>
-              </div>
-            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Max spots <span className="text-red-500">*</span></label>
@@ -737,6 +664,84 @@ export function SessionForm({
               onChange={(e) => set('duration_minutes', e.target.value)}
               className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
             />
+          </div>
+
+          {/* Sale: spans Price + Max spots columns so fields are not truncated */}
+          <div className="sm:col-span-2 lg:col-span-2 space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer select-none rounded-xl border border-[#E8E4DE] bg-white px-3 py-3 hover:border-[#5D755D]/40 transition-colors">
+              <input
+                type="checkbox"
+                checked={saleOpen}
+                onChange={(e) => {
+                  const on = e.target.checked
+                  setSaleOpen(on)
+                  if (!on) {
+                    setForm((f) => ({
+                      ...f,
+                      sale_price_cad: '',
+                      sale_starts_on: '',
+                      sale_ends_on: '',
+                    }))
+                  }
+                }}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#C8BFB0] text-[#5D755D] focus:ring-[#5D755D]"
+              />
+              <span>
+                <span className="block text-sm font-medium text-[#1a1a1a]">Offer a discounted price</span>
+                <span className="block text-xs text-[#888] mt-0.5 leading-relaxed">
+                  Show a sale price to customers for a limited time. Must be lower than the regular price.
+                </span>
+              </span>
+            </label>
+
+            {saleOpen ? (
+              <div className="rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] p-4 space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+                    Sale price (CAD) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888] text-sm">$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.sale_price_cad}
+                      onChange={(e) => set('sale_price_cad', e.target.value)}
+                      placeholder="Discounted price"
+                      className="w-full pl-7 pr-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-[#1a1a1a] mb-1">Sale starts</label>
+                    <input
+                      type="date"
+                      value={form.sale_starts_on}
+                      onChange={(e) => set('sale_starts_on', e.target.value)}
+                      className="w-full px-3 py-2 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[#1a1a1a] mb-1">
+                      Sale ends <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required={saleOpen}
+                      value={form.sale_ends_on}
+                      min={form.sale_starts_on || undefined}
+                      onChange={(e) => set('sale_ends_on', e.target.value)}
+                      className="w-full px-3 py-2 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-[#888] leading-relaxed">
+                  Customers pay the sale price on these dates (inclusive). Leave start blank to begin immediately.
+                </p>
+              </div>
+            ) : null}
           </div>
         </div>
 
