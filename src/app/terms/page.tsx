@@ -7,7 +7,7 @@ import { POLICY_LAST_UPDATED, POLICY_PAGES, policyHref } from '@/lib/policy-page
 export const metadata: Metadata = {
   title: 'Terms & policies | offhrs',
   description:
-    'Overview of offhrs Terms of Use, Privacy Policy, Service Terms, Data Protection Addendum, and Cookie Policy.',
+    'Overview of offhrs Terms of Use, Privacy Policy, Service Terms, Data Protection Addendum, Cookie Policy, and Content Policy.',
   alternates: { canonical: 'https://offhrs.app/terms' },
 }
 
@@ -92,6 +92,7 @@ export default function TermsOverviewPage() {
               <li><Link href={policyHref('privacy-policy')} className="hover:text-[#4a634a]">Privacy Policy</Link></li>
               <li><Link href={policyHref('service-terms')} className="hover:text-[#4a634a]">Service Terms</Link></li>
               <li><Link href={policyHref('terms-of-use')} className="hover:text-[#4a634a]">Terms of Use</Link></li>
+              <li><Link href={policyHref('content-policy')} className="hover:text-[#4a634a]">Content Policy</Link></li>
               <li><Link href="/disclaimer" className="hover:text-[#4a634a]">Listing disclaimer</Link></li>
             </ul>
           </div>
