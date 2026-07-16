@@ -5,7 +5,9 @@
  *   1. Create a Google Cloud "Maps SDK for Android" API key restricted to package com.offhrs.app.
  *   2. In Expo: Project → Secrets, add secret name GOOGLE_MAPS_API_KEY (same name as env var).
  *      EAS injects project secrets into the build environment; app.config.js reads process.env here.
+ *      Local `.env` may use GOOGLE_MAP_API as a fallback alias (also read by app.config.js).
  *   3. Run a new Android build. OTA updates cannot add the native manifest key — you must rebuild.
+ *      After OTA, MapView still mounts if the binary already has a key (see android-google-maps.ts).
  *
  * Local prebuild / eas build --local: export GOOGLE_MAPS_API_KEY or add to .env loaded before prebuild.
  *
@@ -23,7 +25,11 @@ const path = require('path');
 
 const appJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'app.json'), 'utf8'));
 
-const googleMapsApiKey = (process.env.GOOGLE_MAPS_API_KEY || '').trim();
+const googleMapsApiKey = (
+  process.env.GOOGLE_MAPS_API_KEY ||
+  process.env.GOOGLE_MAP_API ||
+  ''
+).trim();
 
 /** EAS sets this during cloud builds; EXPO_ANDROID_SPLASH=1 for local `expo run:android` (see package.json). */
 const isAndroidSplashTarget =
