@@ -467,6 +467,10 @@ export async function fetchWorkshopEvents(
  * Map / geo browse: upcoming visible events near the user.
  * Includes (1) events with lat/lng in the bbox and (2) partner events missing
  * coords so we can inherit vendor_profiles.location_lat/lng before radius filter.
+ *
+ * Important: PostgREST caps each response at ~1000 rows. A single `.limit(N)` call
+ * silently truncates when the GTA has thousands of one-day sessions, which drops
+ * entire studios (e.g. Jam Jam) from the map. We page with `.range` like browse.
  */
 export async function fetchWorkshopEventsNearAnchor(
   anchor: { lat: number; lng: number },
@@ -476,6 +480,7 @@ export async function fetchWorkshopEventsNearAnchor(
   const eventsCap = options?.eventsCap ?? WORKSHOP_GEO_EVENTS_CAP;
   const nowIso = new Date().toISOString();
   const box = bboxAround(anchor.lat, anchor.lng, radiusKm);
+  const batch = WORKSHOP_EVENTS_FETCH_BATCH;
 
   const baseSelect = () =>
     supabase
@@ -484,37 +489,51 @@ export async function fetchWorkshopEventsNearAnchor(
       .or(WORKSHOP_EVENTS_UPCOMING_OR(nowIso))
       .or(CONSUMER_BOOKING_STATUS_OR);
 
-  const [geoRes, uncoordRes] = await Promise.all([
-    baseSelect()
+  const byId = new Map<number, WorkshopEventDbRow>();
+
+  for (let offset = 0; offset < eventsCap; offset += batch) {
+    const take = Math.min(batch, eventsCap - offset);
+    const { data, error } = await baseSelect()
       .not('lat', 'is', null)
       .not('lng', 'is', null)
       .gte('lat', box.minLat)
       .lte('lat', box.maxLat)
       .gte('lng', box.minLng)
       .lte('lng', box.maxLng)
-      .limit(eventsCap),
-    // Partner workshops often inherit studio pin only after enrichment — include
-    // them even when events.lat/lng were never written at create time.
-    baseSelect()
+      .order('date', { ascending: true, nullsFirst: false })
+      .range(offset, offset + take - 1);
+
+    if (error) {
+      if (__DEV__) console.warn('fetchWorkshopEventsNearAnchor', error.message);
+      throw error;
+    }
+    if (!data?.length) break;
+    for (const row of data as WorkshopEventDbRow[]) {
+      byId.set(row.id, row);
+    }
+    if (data.length < take) break;
+  }
+
+  // Partner workshops often inherit studio pin only after enrichment — include
+  // them even when events.lat/lng were never written at create time.
+  const uncoordCap = Math.min(2000, eventsCap);
+  for (let offset = 0; offset < uncoordCap; offset += batch) {
+    const take = Math.min(batch, uncoordCap - offset);
+    const { data, error } = await baseSelect()
       .is('lat', null)
       .not('vendor_profile_id', 'is', null)
-      .limit(Math.min(800, eventsCap)),
-  ]);
+      .order('date', { ascending: true, nullsFirst: false })
+      .range(offset, offset + take - 1);
 
-  if (geoRes.error) {
-    if (__DEV__) console.warn('fetchWorkshopEventsNearAnchor', geoRes.error.message);
-    throw geoRes.error;
-  }
-  if (uncoordRes.error && __DEV__) {
-    console.warn('fetchWorkshopEventsNearAnchor uncoord', uncoordRes.error.message);
-  }
-
-  const byId = new Map<number, WorkshopEventDbRow>();
-  for (const row of (geoRes.data ?? []) as WorkshopEventDbRow[]) {
-    byId.set(row.id, row);
-  }
-  for (const row of (uncoordRes.data ?? []) as WorkshopEventDbRow[]) {
-    if (!byId.has(row.id)) byId.set(row.id, row);
+    if (error) {
+      if (__DEV__) console.warn('fetchWorkshopEventsNearAnchor uncoord', error.message);
+      break;
+    }
+    if (!data?.length) break;
+    for (const row of data as WorkshopEventDbRow[]) {
+      if (!byId.has(row.id)) byId.set(row.id, row);
+    }
+    if (data.length < take) break;
   }
 
   const list = [...byId.values()]

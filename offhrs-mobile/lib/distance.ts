@@ -23,8 +23,12 @@ export function haversineKm(
 /** Default radius for map / nearby studio geo queries (covers GTA from Toronto). */
 export const WORKSHOP_GEO_RADIUS_KM = 120;
 
-/** Cap on geo-filtered event rows (coords + bbox), not date-ordered global listings. */
-export const WORKSHOP_GEO_EVENTS_CAP = 1500;
+/**
+ * Cap on geo-filtered event rows (coords + bbox), not date-ordered global listings.
+ * Must be high enough that session-heavy studios (many one-day rows at one pin) do not
+ * crowd out other vendors — PostgREST returns max ~1000 per request, so the fetch paginates.
+ */
+export const WORKSHOP_GEO_EVENTS_CAP = 5000;
 
 export function bboxAround(
   lat: number,

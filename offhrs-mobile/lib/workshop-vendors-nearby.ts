@@ -102,6 +102,7 @@ export function buildVendorNearbyList(
 /**
  * Fetch nearby studios by geographic bbox + required coordinates.
  * Avoids the date-ordered global fetch cap that can hide closer vendors with later dates.
+ * Paginates past PostgREST's ~1000-row response cap so session-heavy studios don't crowd others out.
  */
 export async function fetchNearbyVendorRows(
   anchor: { lat: number; lng: number },
@@ -111,27 +112,36 @@ export async function fetchNearbyVendorRows(
   const eventsCap = options?.eventsCap ?? WORKSHOP_GEO_EVENTS_CAP;
   const nowIso = new Date().toISOString();
   const box = bboxAround(anchor.lat, anchor.lng, radiusKm);
+  const batch = 1000;
+  const combined: NearbyEventDbRow[] = [];
 
-  const { data, error } = await supabase
-    .from('events')
-    .select(NEARBY_EVENT_SELECT)
-    .not('vendor_id', 'is', null)
-    .not('lat', 'is', null)
-    .not('lng', 'is', null)
-    .gte('lat', box.minLat)
-    .lte('lat', box.maxLat)
-    .gte('lng', box.minLng)
-    .lte('lng', box.maxLng)
-    .or(WORKSHOP_EVENTS_UPCOMING_OR(nowIso))
-    .or(CONSUMER_BOOKING_STATUS_OR)
-    .limit(eventsCap);
+  for (let offset = 0; offset < eventsCap; offset += batch) {
+    const take = Math.min(batch, eventsCap - offset);
+    const { data, error } = await supabase
+      .from('events')
+      .select(NEARBY_EVENT_SELECT)
+      .not('vendor_id', 'is', null)
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+      .gte('lat', box.minLat)
+      .lte('lat', box.maxLat)
+      .gte('lng', box.minLng)
+      .lte('lng', box.maxLng)
+      .or(WORKSHOP_EVENTS_UPCOMING_OR(nowIso))
+      .or(CONSUMER_BOOKING_STATUS_OR)
+      .order('date', { ascending: true, nullsFirst: false })
+      .range(offset, offset + take - 1);
 
-  if (error) {
-    if (__DEV__) console.warn('fetchNearbyVendorRows', error.message);
-    throw error;
+    if (error) {
+      if (__DEV__) console.warn('fetchNearbyVendorRows', error.message);
+      throw error;
+    }
+    if (!data?.length) break;
+    combined.push(...(data as NearbyEventDbRow[]));
+    if (data.length < take) break;
   }
 
-  const rows = ((data ?? []) as NearbyEventDbRow[]).filter(
+  const rows = combined.filter(
     (r) =>
       isEventVisibleToConsumers(r) &&
       isUpcomingNearby(r, nowIso) &&

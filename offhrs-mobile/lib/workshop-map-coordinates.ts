@@ -30,41 +30,85 @@ function locationsLikelySame(eventLocation: string, vendorAddress: string): bool
 }
 
 /**
- * When `events.lat`/`lng` are missing, fall back to the vendor profile pin from onboarding.
- * Prefer address match when both strings exist; otherwise still use the studio pin so
- * partner workshops appear on the map when geocoding never populated event coords.
+ * When `events.lat`/`lng` are missing:
+ * 1) Copy coords from another loaded event with the same `vendor_id` (legacy studios).
+ * 2) Fall back to the SaaS vendor profile pin from onboarding.
  */
 export async function enrichWorkshopEventsWithMapCoordinates(
   events: WorkshopEventRow[]
 ): Promise<WorkshopEventRow[]> {
-  const needsProfile = events.filter(
-    (e) => !workshopHasMapCoordinates(e) && e.vendor_profile_id?.trim()
-  );
-  if (needsProfile.length === 0) return events;
+  const coordsByVendorId = new Map<string, { lat: number; lng: number }>();
+  for (const e of events) {
+    if (!workshopHasMapCoordinates(e) || !e.vendor_id?.trim()) continue;
+    const id = e.vendor_id.trim();
+    if (!coordsByVendorId.has(id)) {
+      coordsByVendorId.set(id, { lat: Number(e.lat), lng: Number(e.lng) });
+    }
+  }
 
+  const needsCoords = events.filter((e) => !workshopHasMapCoordinates(e));
+  if (needsCoords.length === 0) return events;
+
+  // Legacy vendors: if this batch has no sibling with coords, pull one from DB.
+  const missingVendorIds = [
+    ...new Set(
+      needsCoords
+        .map((e) => e.vendor_id?.trim())
+        .filter((id): id is string => !!id && !coordsByVendorId.has(id))
+    ),
+  ];
+  if (missingVendorIds.length > 0) {
+    const { data: siblingRows } = await supabase
+      .from('events')
+      .select('vendor_id, lat, lng')
+      .in('vendor_id', missingVendorIds)
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+      .limit(Math.min(500, missingVendorIds.length * 3));
+    for (const row of siblingRows ?? []) {
+      const id = row.vendor_id?.trim();
+      if (!id || coordsByVendorId.has(id)) continue;
+      const lat = row.lat != null ? Number(row.lat) : null;
+      const lng = row.lng != null ? Number(row.lng) : null;
+      if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      coordsByVendorId.set(id, { lat, lng });
+    }
+  }
+
+  const needsProfile = needsCoords.filter((e) => e.vendor_profile_id?.trim());
   const profileIds = [
     ...new Set(needsProfile.map((e) => e.vendor_profile_id!.trim())),
   ];
 
-  const { data: profiles } = await supabase
-    .from('vendor_profiles')
-    .select('id, location_address, location_lat, location_lng')
-    .in('id', profileIds);
+  const byProfileId = new Map<
+    string,
+    { address: string; lat: number | null; lng: number | null }
+  >();
+  if (profileIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('vendor_profiles')
+      .select('id, location_address, location_lat, location_lng')
+      .in('id', profileIds);
 
-  const byId = new Map(
-    (profiles ?? []).map((p) => [
-      p.id,
-      {
+    for (const p of profiles ?? []) {
+      byProfileId.set(p.id, {
         address: (p.location_address ?? '').trim(),
         lat: p.location_lat != null ? Number(p.location_lat) : null,
         lng: p.location_lng != null ? Number(p.location_lng) : null,
-      },
-    ])
-  );
+      });
+    }
+  }
 
   return events.map((e) => {
-    if (workshopHasMapCoordinates(e) || !e.vendor_profile_id) return e;
-    const profile = byId.get(e.vendor_profile_id.trim());
+    if (workshopHasMapCoordinates(e)) return e;
+
+    if (e.vendor_id?.trim()) {
+      const sibling = coordsByVendorId.get(e.vendor_id.trim());
+      if (sibling) return { ...e, lat: sibling.lat, lng: sibling.lng };
+    }
+
+    if (!e.vendor_profile_id) return e;
+    const profile = byProfileId.get(e.vendor_profile_id.trim());
     if (
       profile?.lat == null ||
       profile?.lng == null ||
