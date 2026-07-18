@@ -28,11 +28,19 @@ function showXAxisTick(i: number, len: number, range: Range): boolean {
 export function DashboardActivityChart({
   series30,
   spotsRemaining,
+  forcedRange,
+  hideRangeToggle = false,
+  showSpotsRemaining = true,
 }: {
   series30: ActivityDayPoint[]
   spotsRemaining: number
+  /** When set, locks the chart to this window (parent view owns the period). */
+  forcedRange?: Range
+  hideRangeToggle?: boolean
+  showSpotsRemaining?: boolean
 }) {
-  const [range, setRange] = useState<Range>(7)
+  const [rangeState, setRange] = useState<Range>(forcedRange ?? 7)
+  const range = forcedRange ?? rangeState
 
   const data = useMemo(() => {
     if (!series30.length) return []
@@ -58,35 +66,44 @@ export function DashboardActivityChart({
         <div>
           <h2 className="text-sm font-semibold text-[#1a1a1a]">Booking activity</h2>
           <p className="text-xs text-[#888] mt-1 max-w-xl">
-            Grouped bars compare new bookings (green) with refunds and cancellations (rose) by day. Toggle 7 or 30
-            days. Spots left is unsold capacity on published and fully booked workshops right now.
+            Grouped bars compare new bookings (green) with refunds and cancellations (rose) by day
+            {forcedRange
+              ? ` over the last ${forcedRange} days.`
+              : '. Toggle 7 or 30 days.'}
+            {showSpotsRemaining
+              ? ' Spots left is unsold capacity on published and fully booked workshops right now.'
+              : ''}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 sm:flex-col sm:items-end sm:gap-2">
-          <div className="flex rounded-lg border border-[#E8E4DE] p-0.5 bg-[#FAFAF8]">
-            <button
-              type="button"
-              onClick={() => setRange(7)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                range === 7 ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#888] hover:text-[#555]'
-              }`}
-            >
-              7 days
-            </button>
-            <button
-              type="button"
-              onClick={() => setRange(30)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                range === 30 ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#888] hover:text-[#555]'
-              }`}
-            >
-              30 days
-            </button>
-          </div>
-          <div className="text-left sm:text-right">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-[#888]">Spots left to fill</p>
-            <p className="text-2xl font-semibold text-[#5D755D] tabular-nums">{spotsRemaining}</p>
-          </div>
+          {!hideRangeToggle && !forcedRange ? (
+            <div className="flex rounded-lg border border-[#E8E4DE] p-0.5 bg-[#FAFAF8]">
+              <button
+                type="button"
+                onClick={() => setRange(7)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  range === 7 ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#888] hover:text-[#555]'
+                }`}
+              >
+                7 days
+              </button>
+              <button
+                type="button"
+                onClick={() => setRange(30)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  range === 30 ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#888] hover:text-[#555]'
+                }`}
+              >
+                30 days
+              </button>
+            </div>
+          ) : null}
+          {showSpotsRemaining ? (
+            <div className="text-left sm:text-right">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-[#888]">Spots left to fill</p>
+              <p className="text-2xl font-semibold text-[#5D755D] tabular-nums">{spotsRemaining}</p>
+            </div>
+          ) : null}
         </div>
       </div>
 
