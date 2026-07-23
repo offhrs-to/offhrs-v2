@@ -17,7 +17,7 @@ import {
   View,
 } from 'react-native';
 
-const CONTACT_EMAIL = 'offhrs.to@gmail.com';
+const CONTACT_EMAIL = 'hello@offhrs.app';
 
 const INPUT_BORDER = '#E5E7EB';
 const INPUT_PLACEHOLDER = '#9CA3AF';

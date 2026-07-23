@@ -22,12 +22,17 @@ import {
 import { haversineKm } from '@/lib/distance';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 
-/** ~45km span so GTA pins are visible without hunting. */
+/** Downtown Toronto focus (~11km span). Keep the opening view city-centric, not GTA-wide. */
+const DOWNTOWN_TORONTO = { lat: 43.6532, lng: -79.3832 };
+const DEFAULT_DELTA = 0.1;
+/** Cap auto-fit so scattered / suburban pins don't zoom the map out past central Toronto. */
+const MAX_FIT_DELTA = 0.14;
+
 const DEFAULT_REGION = {
-  latitude: 43.6532,
-  longitude: -79.3832,
-  latitudeDelta: 0.45,
-  longitudeDelta: 0.45,
+  latitude: DOWNTOWN_TORONTO.lat,
+  longitude: DOWNTOWN_TORONTO.lng,
+  latitudeDelta: DEFAULT_DELTA,
+  longitudeDelta: DEFAULT_DELTA,
 };
 
 type Props = {
@@ -195,16 +200,31 @@ const calloutStyles = StyleSheet.create({
  * region so the pins occupy only the visible (top) fraction, pushing the extra span south, under
  * the obscured area, instead of centering it.
  */
-function regionFittingBounds(coords: { lat: number; lng: number }[], bottomObscuredRatio = 0) {
+function regionFittingBounds(
+  coords: { lat: number; lng: number }[],
+  bottomObscuredRatio = 0,
+  preferredCenter?: { lat: number; lng: number } | null
+) {
   const lats = coords.map((c) => c.lat);
   const lngs = coords.map((c) => c.lng);
   const minLat = Math.min(...lats);
   const maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs);
   const maxLng = Math.max(...lngs);
-  const midLat = (minLat + maxLat) / 2;
-  const paddedLatDelta = Math.max((maxLat - minLat) * 1.25, 0.05);
-  const longitudeDelta = Math.max((maxLng - minLng) * 1.25, 0.05);
+  let midLat = (minLat + maxLat) / 2;
+  let midLng = (minLng + maxLng) / 2;
+  let paddedLatDelta = Math.max((maxLat - minLat) * 1.25, 0.05);
+  let longitudeDelta = Math.max((maxLng - minLng) * 1.25, 0.05);
+
+  // If pins span beyond central Toronto, stay focused on downtown (or the user anchor)
+  // instead of zooming out to fit every marker.
+  if (paddedLatDelta > MAX_FIT_DELTA || longitudeDelta > MAX_FIT_DELTA) {
+    const center = preferredCenter ?? DOWNTOWN_TORONTO;
+    midLat = center.lat;
+    midLng = center.lng;
+    paddedLatDelta = MAX_FIT_DELTA;
+    longitudeDelta = MAX_FIT_DELTA;
+  }
 
   const ratio = Math.min(Math.max(bottomObscuredRatio, 0), 0.85);
   const totalLatDelta = ratio > 0 ? paddedLatDelta / (1 - ratio) : paddedLatDelta;
@@ -215,7 +235,7 @@ function regionFittingBounds(coords: { lat: number; lng: number }[], bottomObscu
 
   return {
     latitude,
-    longitude: (minLng + maxLng) / 2,
+    longitude: midLng,
     latitudeDelta: totalLatDelta,
     longitudeDelta,
   };
@@ -280,11 +300,17 @@ export default function WorkshopMapView({
     if (withCoords.length > 0) {
       return regionFittingBounds(
         withCoords.map((e) => ({ lat: Number(e.lat), lng: Number(e.lng) })),
-        bottomObscuredRatioRef.current
+        bottomObscuredRatioRef.current,
+        anchor
       );
     }
     if (anchor) {
-      return { latitude: anchor.lat, longitude: anchor.lng, latitudeDelta: 0.45, longitudeDelta: 0.45 };
+      return {
+        latitude: anchor.lat,
+        longitude: anchor.lng,
+        latitudeDelta: DEFAULT_DELTA,
+        longitudeDelta: DEFAULT_DELTA,
+      };
     }
     return DEFAULT_REGION;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -305,11 +331,12 @@ export default function WorkshopMapView({
     if (loadingRef.current || withCoordsRef.current.length === 0) return;
     const region = regionFittingBounds(
       withCoordsRef.current.map((e) => ({ lat: Number(e.lat), lng: Number(e.lng) })),
-      bottomObscuredRatioRef.current
+      bottomObscuredRatioRef.current,
+      anchor
     );
     mapRef.current?.animateToRegion(region, 450);
     didFitRef.current = true;
-  }, []);
+  }, [anchor]);
 
   const onMapReady = useCallback(() => {
     mapReadyRef.current = true;
