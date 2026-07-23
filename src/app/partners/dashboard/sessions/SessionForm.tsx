@@ -18,11 +18,13 @@ import {
   workshopRichTextPlainLength,
   WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH,
 } from '@/lib/workshop-rich-text'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
 const placesInputClass =
-  'w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D] focus:border-transparent disabled:opacity-50'
+  'w-full px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus:border-transparent disabled:opacity-50'
 
 /** Number of weekly occurrences vendors can choose for a recurring series (API allows 2–12). */
 const RECURRING_WEEK_OPTIONS = Array.from({ length: 11 }, (_, i) => i + 2) as readonly number[]
@@ -463,35 +465,37 @@ export function SessionForm({
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <button
+    <div className="mx-auto max-w-2xl p-6">
+      <Button
+        type="button"
+        variant="ghost"
         onClick={onClose}
-        className="flex items-center gap-2 text-sm text-[#888] hover:text-[#1a1a1a] mb-6 transition-colors"
+        className="mb-6 h-auto px-0 text-sm text-muted-foreground hover:bg-transparent hover:text-foreground"
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ArrowLeft className="size-4" />
         Back to workshops
-      </button>
+      </Button>
 
-      <h1 className="text-2xl font-semibold text-[#1a1a1a] mb-6">
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight text-foreground">
         {isEdit ? 'Edit workshop' : 'Create a new workshop'}
       </h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Title */}
         <div>
-          <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Title <span className="text-red-500">*</span></label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Title <span className="text-red-500">*</span></label>
           <input
             value={form.title}
             onChange={(e) => set('title', e.target.value)}
             required
             placeholder="e.g. Beginner Pottery Wheel Class"
-            className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D] focus:border-transparent"
+            className="w-full px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus:border-transparent"
           />
         </div>
 
         {/* General description */}
         <div>
-          <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">General information</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">General information</label>
           <WorkshopRichTextField
             value={form.description}
             onChange={(v) => set('description', v)}
@@ -505,15 +509,15 @@ export function SessionForm({
           const hiddenKey = section.hiddenField as keyof typeof form
           const hidden = Boolean(form[hiddenKey])
           return (
-            <div key={section.key} className="rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] p-4">
+            <div key={section.key} className="rounded-xl border border-partner-border bg-partner-canvas p-4">
               <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
-                <label className="text-sm font-medium text-[#1a1a1a]">{section.title}</label>
-                <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[#666]">
+                <label className="text-sm font-medium text-foreground">{section.title}</label>
+                <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
                     checked={hidden}
                     onChange={(e) => set(hiddenKey, e.target.checked)}
-                    className="rounded border-[#D9D7CF] text-[#5D755D] focus:ring-[#5D755D]"
+                    className="rounded border-partner-border text-primary focus:ring-ring"
                   />
                   Hide section / not applicable
                 </label>
@@ -530,13 +534,13 @@ export function SessionForm({
         })}
 
         <div>
-          <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Workshop image</label>
-          <p className="text-xs text-[#888] mb-3 leading-relaxed">
+          <label className="block text-sm font-medium text-foreground mb-1.5">Workshop image</label>
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
             Optional cover photo for this listing. If you don&apos;t add one, your default workshop image from onboarding
             is used when set; otherwise listings use the category artwork.
           </p>
           {vendorDefaultWorkshopImageUrl.trim() && !coverPreview && !(isEdit && session?.image_url && !coverCleared) && (
-            <p className="text-xs text-[#5D755D] mb-2">Your default workshop image is on file — it will be used unless you upload a different image below.</p>
+            <p className="text-xs text-primary mb-2">Your default workshop image is on file — it will be used unless you upload a different image below.</p>
           )}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
             {(coverPreview || (isEdit && session?.image_url && !coverCleared)) && (
@@ -544,15 +548,15 @@ export function SessionForm({
                 <img
                   src={(coverPreview || session?.image_url) ?? ''}
                   alt=""
-                  className="h-28 w-40 rounded-lg border border-[#E8E4DE] object-cover bg-[#FAFAF8]"
+                  className="h-28 w-40 rounded-lg border border-partner-border object-cover bg-partner-canvas"
                 />
               </div>
             )}
             <div className="flex flex-1 flex-col gap-2">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-[#D9D7CF] bg-[#FAFAF8] px-4 py-3 text-sm text-[#555] transition-colors hover:border-[#5D755D]/50">
-                <ImagePlus className="h-4 w-4 text-[#5D755D]" />
-                <span className="font-medium text-[#1a1a1a]">Choose image</span>
-                <span className="text-xs text-[#888]">JPEG, PNG, WebP · max 2 MB</span>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-partner-border bg-partner-canvas px-4 py-3 text-sm text-muted-foreground transition-colors hover:border-primary/50">
+                <ImagePlus className="h-4 w-4 text-primary" />
+                <span className="font-medium text-foreground">Choose image</span>
+                <span className="text-xs text-muted-foreground">JPEG, PNG, WebP · max 2 MB</span>
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
@@ -578,7 +582,7 @@ export function SessionForm({
                     setCoverFile(null)
                     if (isEdit) setCoverCleared(true)
                   }}
-                  className="self-start text-xs font-medium text-[#5D755D] hover:underline"
+                  className="self-start text-xs font-medium text-primary hover:underline"
                 >
                   {isEdit ? 'Remove custom image (use default workshop image)' : 'Clear selected file'}
                 </button>
@@ -590,11 +594,11 @@ export function SessionForm({
         {/* Category + Status */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Category <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Category <span className="text-red-500">*</span></label>
             <select
               value={form.category}
               onChange={(e) => set('category', e.target.value)}
-              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+              className="w-full px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -602,11 +606,11 @@ export function SessionForm({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Status</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Status</label>
             <select
               value={form.status}
               onChange={(e) => set('status', e.target.value as 'published' | 'draft')}
-              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+              className="w-full px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="published">Published</option>
               <option value="draft">Draft</option>
@@ -619,23 +623,23 @@ export function SessionForm({
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+                <label className="block text-sm font-medium text-foreground mb-1.5">
                   Price (CAD) <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888] text-sm">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={form.price_cad}
                     onChange={(e) => set('price_cad', e.target.value)}
-                    className="w-full pl-7 pr-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                    className="w-full pl-7 pr-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+                <label className="block text-sm font-medium text-foreground mb-1.5">
                   Max spots <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -643,12 +647,12 @@ export function SessionForm({
                   min="1"
                   value={form.max_attendees}
                   onChange={(e) => set('max_attendees', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                  className="w-full px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
             </div>
 
-            <label className="flex items-start gap-3 cursor-pointer select-none rounded-xl border border-[#E8E4DE] bg-white px-3 py-3 hover:border-[#5D755D]/40 transition-colors">
+            <label className="flex items-start gap-3 cursor-pointer select-none rounded-xl border border-partner-border bg-white px-3 py-3 hover:border-primary/40 transition-colors">
               <input
                 type="checkbox"
                 checked={saleOpen}
@@ -664,24 +668,24 @@ export function SessionForm({
                     }))
                   }
                 }}
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#C8BFB0] text-[#5D755D] focus:ring-[#5D755D]"
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-muted-foreground/40 text-primary focus:ring-ring"
               />
               <span>
-                <span className="block text-sm font-medium text-[#1a1a1a]">Offer a discounted price</span>
-                <span className="block text-xs text-[#888] mt-0.5 leading-relaxed">
+                <span className="block text-sm font-medium text-foreground">Offer a discounted price</span>
+                <span className="block text-xs text-muted-foreground mt-0.5 leading-relaxed">
                   Show a sale price to customers for a limited time. Must be lower than the regular price.
                 </span>
               </span>
             </label>
 
             {saleOpen ? (
-              <div className="rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] p-4 space-y-3">
+              <div className="rounded-xl border border-partner-border bg-partner-canvas p-4 space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+                  <label className="block text-sm font-medium text-foreground mb-1.5">
                     Sale price (CAD) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#888] text-sm">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
                     <input
                       type="number"
                       min="0"
@@ -689,22 +693,22 @@ export function SessionForm({
                       value={form.sale_price_cad}
                       onChange={(e) => set('sale_price_cad', e.target.value)}
                       placeholder="Discounted price"
-                      className="w-full pl-7 pr-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                      className="w-full pl-7 pr-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-[#1a1a1a] mb-1">Sale starts</label>
+                    <label className="block text-xs font-medium text-foreground mb-1">Sale starts</label>
                     <input
                       type="date"
                       value={form.sale_starts_on}
                       onChange={(e) => set('sale_starts_on', e.target.value)}
-                      className="w-full px-3 py-2 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                      className="w-full px-3 py-2 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[#1a1a1a] mb-1">
+                    <label className="block text-xs font-medium text-foreground mb-1">
                       Sale ends <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -713,11 +717,11 @@ export function SessionForm({
                       value={form.sale_ends_on}
                       min={form.sale_starts_on || undefined}
                       onChange={(e) => set('sale_ends_on', e.target.value)}
-                      className="w-full px-3 py-2 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                      className="w-full px-3 py-2 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />
                   </div>
                 </div>
-                <p className="text-xs text-[#888] leading-relaxed">
+                <p className="text-xs text-muted-foreground leading-relaxed">
                   Customers pay the sale price on these dates (inclusive). Leave start blank to begin immediately.
                 </p>
               </div>
@@ -726,21 +730,21 @@ export function SessionForm({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
             <div>
-              <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Booked elsewhere</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Booked elsewhere</label>
               <input
                 type="number"
                 min="0"
                 value={externalBooked}
                 onChange={(e) => setExternalBooked(e.target.value)}
-                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                className="w-full px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
-              <p className="text-xs text-[#888] mt-1 leading-relaxed">
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                 Per session date if you list the same workshop on other platforms (Eventbrite, etc.). Reduces spots
                 available on offhrs only.
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+              <label className="block text-sm font-medium text-foreground mb-1.5">
                 Duration (min) <span className="text-red-500">*</span>
               </label>
               <input
@@ -749,7 +753,7 @@ export function SessionForm({
                 step="15"
                 value={form.duration_minutes}
                 onChange={(e) => set('duration_minutes', e.target.value)}
-                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                className="w-full px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
           </div>
@@ -757,24 +761,24 @@ export function SessionForm({
 
         {/* Date */}
         <div>
-          <label className="block text-sm font-medium text-[#1a1a1a] mb-1.5">Date & time</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Date & time</label>
           <input
             type="datetime-local"
             value={form.date}
             onChange={(e) => set('date', e.target.value)}
-            className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+            className="w-full px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
-          <p className="text-xs text-[#888] mt-1">Shown on the public workshop page and in confirmation emails. Leave blank if you coordinate time separately.</p>
+          <p className="text-xs text-muted-foreground mt-1">Shown on the public workshop page and in confirmation emails. Leave blank if you coordinate time separately.</p>
         </div>
 
-        <div className="rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] p-4 space-y-4">
-          <p className="text-sm font-medium text-[#1a1a1a]">Schedule &amp; repeating dates</p>
-          <p className="text-xs text-[#888] leading-relaxed -mt-2">
+        <div className="rounded-xl border border-partner-border bg-partner-canvas p-4 space-y-4">
+          <p className="text-sm font-medium text-foreground">Schedule &amp; repeating dates</p>
+          <p className="text-xs text-muted-foreground leading-relaxed -mt-2">
             One listing can include multiple session times at the same price, location, and duration. Repeats use the
             date &amp; time above as the first occurrence (same clock time for each generated date).
           </p>
           {isEdit && (
-            <p className="text-xs text-[#5D755D] font-medium leading-relaxed">
+            <p className="text-xs text-primary font-medium leading-relaxed">
               You can change how this workshop repeats — save to update dates and availability.
             </p>
           )}
@@ -805,28 +809,28 @@ export function SessionForm({
                 <input
                   type="radio"
                   name="series-pattern"
-                  className="mt-1 h-4 w-4 shrink-0 border-[#C8BFB0] text-[#5D755D] focus:ring-[#5D755D]"
+                  className="mt-1 h-4 w-4 shrink-0 border-muted-foreground/40 text-primary focus:ring-ring"
                   checked={seriesPattern === value}
                   onChange={() => setSeriesPattern(value as SeriesPattern)}
                 />
                 <span>
-                  <span className="text-sm font-medium text-[#1a1a1a]">{title}</span>
-                  <span className="block text-xs text-[#888] mt-0.5 leading-relaxed">{help}</span>
+                  <span className="text-sm font-medium text-foreground">{title}</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5 leading-relaxed">{help}</span>
                 </span>
               </label>
             ))}
           </fieldset>
 
           {seriesPattern === 'weekly_same' && (
-            <div className="pt-2 border-t border-[#E8E4DE] space-y-2">
-              <label htmlFor="recurring-week-count" className="block text-sm font-medium text-[#1a1a1a]">
+            <div className="pt-2 border-t border-partner-border space-y-2">
+              <label htmlFor="recurring-week-count" className="block text-sm font-medium text-foreground">
                 Number of weeks
               </label>
               <select
                 id="recurring-week-count"
                 value={recurringWeekCount}
                 onChange={(e) => setRecurringWeekCount(Number(e.target.value))}
-                className="w-full max-w-xs px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                className="w-full max-w-xs px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {RECURRING_WEEK_OPTIONS.map((n) => (
                   <option key={n} value={n}>
@@ -838,16 +842,16 @@ export function SessionForm({
           )}
 
           {seriesPattern === 'weekly_custom' && (
-            <div className="space-y-4 pt-2 border-t border-[#E8E4DE]">
+            <div className="space-y-4 pt-2 border-t border-partner-border">
               <div>
-                <label htmlFor="recurring-week-count-custom" className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+                <label htmlFor="recurring-week-count-custom" className="block text-sm font-medium text-foreground mb-1.5">
                   Number of sessions
                 </label>
                 <select
                   id="recurring-week-count-custom"
                   value={recurringWeekCount}
                   onChange={(e) => setRecurringWeekCount(Number(e.target.value))}
-                  className="w-full max-w-xs px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                  className="w-full max-w-xs px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {RECURRING_WEEK_OPTIONS.map((n) => (
                     <option key={n} value={n}>
@@ -857,12 +861,12 @@ export function SessionForm({
                 </select>
               </div>
               <div className="space-y-3">
-                <p className="text-xs text-[#888] leading-relaxed">
+                <p className="text-xs text-muted-foreground leading-relaxed">
                   Workshop 1 is the date &amp; time at the top of this form. Fill in workshops 2–{recurringWeekCount}.
                 </p>
                 {multiWeekExtraDates.map((val, idx) => (
                   <div key={idx}>
-                    <label htmlFor={`recurring-extra-${idx}`} className="block text-xs font-medium text-[#555] mb-1">
+                    <label htmlFor={`recurring-extra-${idx}`} className="block text-xs font-medium text-muted-foreground mb-1">
                       Workshop {idx + 2}
                     </label>
                     <input
@@ -874,7 +878,7 @@ export function SessionForm({
                         next[idx] = e.target.value
                         setMultiWeekExtraDates(next)
                       }}
-                      className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D] focus:border-transparent"
+                      className="w-full px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus:border-transparent"
                     />
                   </div>
                 ))}
@@ -883,8 +887,8 @@ export function SessionForm({
           )}
 
           {seriesPattern === 'daily_weekdays' && (
-            <div className="space-y-3 pt-2 border-t border-[#E8E4DE]">
-              <p className="text-xs font-medium text-[#1a1a1a]">Repeat on these days</p>
+            <div className="space-y-3 pt-2 border-t border-partner-border">
+              <p className="text-xs font-medium text-foreground">Repeat on these days</p>
               <div className="flex flex-wrap gap-2">
                 {PARTNER_WEEKDAY_TOGGLE_ORDER.map(({ jsDay, label }) => {
                   const on = dailyWeekdays.has(jsDay)
@@ -903,8 +907,8 @@ export function SessionForm({
                       }
                       className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors min-w-[2.75rem] border ${
                         on
-                          ? 'bg-[#5D755D] text-white border-[#5D755D]'
-                          : 'bg-white text-[#555] border-[#E8E4DE] hover:bg-[#F0EDE8]'
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-white text-muted-foreground border-partner-border hover:bg-partner-muted'
                       }`}
                     >
                       {label}
@@ -912,19 +916,19 @@ export function SessionForm({
                   )
                 })}
               </div>
-              <p className="text-xs text-[#888] leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 All days selected = every calendar day in the window. Tap to exclude — no session on deselected
                 days. Same time of day as the first date above.
               </p>
               <div>
-                <label htmlFor="daily-weeks" className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+                <label htmlFor="daily-weeks" className="block text-sm font-medium text-foreground mb-1.5">
                   Repeat for how many weeks?
                 </label>
                 <select
                   id="daily-weeks"
                   value={dailyWeeks}
                   onChange={(e) => setDailyWeeks(Number(e.target.value))}
-                  className="w-full max-w-xs px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                  className="w-full max-w-xs px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {RECURRING_WEEK_OPTIONS.map((n) => (
                     <option key={n} value={n}>
@@ -934,7 +938,7 @@ export function SessionForm({
                 </select>
               </div>
               {dailyPreviewCount != null && (
-                <p className="text-xs text-[#5D755D] font-medium">
+                <p className="text-xs text-primary font-medium">
                   {dailyPreviewCount} session{dailyPreviewCount === 1 ? '' : 's'} over the next {dailyWeeks}{' '}
                   week{dailyWeeks === 1 ? '' : 's'} (one workshop listing).
                 </p>
@@ -945,7 +949,7 @@ export function SessionForm({
 
         {/* Location */}
         <div>
-          <label className="block text-sm font-medium text-[#1a1a1a] mb-2">Location type <span className="text-red-500">*</span></label>
+          <label className="block text-sm font-medium text-foreground mb-2">Location type <span className="text-red-500">*</span></label>
           <div className="flex gap-3 mb-3">
             {(['in_person', 'virtual'] as const).map((type) => (
               <button
@@ -954,8 +958,8 @@ export function SessionForm({
                 onClick={() => set('location_type', type)}
                 className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors ${
                   form.location_type === type
-                    ? 'border-[#5D755D] bg-[#EDF2ED] text-[#5D755D]'
-                    : 'border-[#E8E4DE] bg-white text-[#555] hover:border-[#C8BFB0]'
+                    ? 'border-primary bg-partner-tint text-primary'
+                    : 'border-partner-border bg-white text-muted-foreground hover:border-muted-foreground/30'
                 }`}
               >
                 {type === 'in_person' ? 'In person' : 'Virtual'}
@@ -983,7 +987,7 @@ export function SessionForm({
                 />
               ) : (
                 <div>
-                  <label htmlFor="workshop-location-fallback" className="block text-sm font-medium text-[#1a1a1a] mb-1.5">
+                  <label htmlFor="workshop-location-fallback" className="block text-sm font-medium text-foreground mb-1.5">
                     Address
                   </label>
                   <input
@@ -995,9 +999,9 @@ export function SessionForm({
                       set('location_address', e.target.value)
                     }}
                     placeholder="123 Main St, Toronto, ON"
-                    className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+                    className="w-full px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
-                  <p className="text-xs text-[#888] mt-1.5">
+                  <p className="text-xs text-muted-foreground mt-1.5">
                     Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable address autocomplete.
                   </p>
                 </div>
@@ -1014,23 +1018,20 @@ export function SessionForm({
               value={form.location_link}
               onChange={(e) => set('location_link', e.target.value)}
               placeholder="https://zoom.us/j/..."
-              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+              className="w-full px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           )}
         </div>
 
         {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>
+          <Alert variant="destructive" className="border-red-200 bg-red-50 text-red-700">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
-        {/* Actions */}
         <div className="flex items-center gap-3 pt-2">
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center gap-2 bg-[#5D755D] text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-[#4d644d] disabled:opacity-60 transition-colors"
-          >
-            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+          <Button type="submit" disabled={loading}>
+            {loading && <Loader2 className="size-4 animate-spin" />}
             {isEdit
               ? seriesPattern === 'single'
                 ? 'Save changes'
@@ -1038,14 +1039,10 @@ export function SessionForm({
               : seriesPattern === 'single'
                 ? 'Create workshop'
                 : `Create workshop (${listingSessionCount} session${listingSessionCount === 1 ? '' : 's'})`}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-sm font-medium text-[#888] hover:text-[#1a1a1a] transition-colors"
-          >
+          </Button>
+          <Button type="button" variant="ghost" onClick={onClose} className="text-muted-foreground">
             Cancel
-          </button>
+          </Button>
         </div>
       </form>
     </div>

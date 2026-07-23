@@ -14,6 +14,9 @@ import {
   startOfWeek,
 } from 'date-fns'
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 type Session = {
   id: string
@@ -141,142 +144,151 @@ export function CalendarClient() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+    <div className="mx-auto max-w-5xl space-y-6 p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-[#1a1a1a] mb-1">Calendar</h1>
-          <p className="text-sm text-[#888] max-w-xl">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Calendar</h1>
+          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
             Month view of your workshops. Connect Google Calendar or Outlook to create and update matching events when
             you publish or change a workshop (published / fully booked only, with a scheduled date).
           </p>
         </div>
-        <Link
-          href="/partners/dashboard/sessions?new=1"
-          className="inline-flex items-center justify-center rounded-xl border border-[#E8E4DE] px-4 py-2 text-sm font-medium text-[#1a1a1a] hover:bg-[#FAFAF8] transition-colors self-start"
-        >
-          New workshop
-        </Link>
+        <Button variant="outline" className="self-start border-partner-border" asChild>
+          <Link href="/partners/dashboard/sessions?new=1">New workshop</Link>
+        </Button>
       </div>
 
       {banner && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{banner}</div>
+        <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+          <AlertDescription>{banner}</AlertDescription>
+        </Alert>
       )}
 
-      <div className="bg-white border border-[#E8E4DE] rounded-xl p-4 sm:p-5">
-        <h2 className="text-xs font-semibold text-[#888] uppercase tracking-wide mb-3">External calendars</h2>
-        <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+      <Card className="gap-0 border-partner-border py-0 shadow-none">
+        <CardHeader className="px-4 py-4 sm:px-5">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            External calendars
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col flex-wrap gap-3 px-4 pb-4 sm:flex-row sm:px-5 sm:pb-5">
           {status?.configured.google && (
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-wrap items-center gap-2">
               {status.google.connected ? (
                 <>
-                  <span className="text-sm text-[#1a1a1a]">
-                    Google: <span className="text-[#5D755D] font-medium">{status.google.email ?? 'connected'}</span>
+                  <span className="text-sm text-foreground">
+                    Google:{' '}
+                    <span className="font-medium text-primary">{status.google.email ?? 'connected'}</span>
                   </span>
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
                     onClick={() => disconnect('google')}
-                    className="text-xs font-medium text-red-600 hover:underline"
+                    className="h-auto p-0 text-xs text-red-600"
                   >
                     Disconnect
-                  </button>
+                  </Button>
                 </>
               ) : (
-                <a
-                  href="/api/partners/calendar/oauth/google/start"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-[#E8E4DE] px-3 py-2 text-sm font-medium text-[#1a1a1a] hover:border-[#5D755D] transition-colors"
-                >
-                  Connect Google Calendar
-                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-                </a>
+                <Button variant="outline" size="sm" className="border-partner-border" asChild>
+                  <a href="/api/partners/calendar/oauth/google/start">
+                    Connect Google Calendar
+                    <ExternalLink className="size-3.5 opacity-60" />
+                  </a>
+                </Button>
               )}
             </div>
           )}
           {status?.configured.microsoft && (
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-wrap items-center gap-2">
               {status.microsoft.connected ? (
                 <>
-                  <span className="text-sm text-[#1a1a1a]">
-                    Outlook: <span className="text-[#5D755D] font-medium">{status.microsoft.email ?? 'connected'}</span>
+                  <span className="text-sm text-foreground">
+                    Outlook:{' '}
+                    <span className="font-medium text-primary">{status.microsoft.email ?? 'connected'}</span>
                   </span>
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
                     onClick={() => disconnect('microsoft')}
-                    className="text-xs font-medium text-red-600 hover:underline"
+                    className="h-auto p-0 text-xs text-red-600"
                   >
                     Disconnect
-                  </button>
+                  </Button>
                 </>
               ) : (
-                <a
-                  href="/api/partners/calendar/oauth/microsoft/start"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-[#E8E4DE] px-3 py-2 text-sm font-medium text-[#1a1a1a] hover:border-[#5D755D] transition-colors"
-                >
-                  Connect Outlook
-                  <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-                </a>
+                <Button variant="outline" size="sm" className="border-partner-border" asChild>
+                  <a href="/api/partners/calendar/oauth/microsoft/start">
+                    Connect Outlook
+                    <ExternalLink className="size-3.5 opacity-60" />
+                  </a>
+                </Button>
               )}
             </div>
           )}
           {status && !status.configured.google && !status.configured.microsoft && (
-            <p className="text-xs text-[#888]">
+            <p className="text-xs text-muted-foreground">
               OAuth is not configured on this deployment. Set Google and/or Microsoft env vars (see .env.example).
             </p>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div className="bg-white border border-[#E8E4DE] rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#F0EDE8]">
-          <button
+      <Card className="gap-0 overflow-hidden border-partner-border py-0 shadow-none">
+        <div className="flex items-center justify-between border-b border-partner-border px-4 py-3">
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={() => setMonth((m) => addMonths(m, -1))}
-            className="p-2 rounded-lg hover:bg-[#F5F2EE] text-[#555]"
             aria-label="Previous month"
+            className="text-muted-foreground"
           >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <h2 className="text-sm font-semibold text-[#1a1a1a]">{monthLabel}</h2>
-          <button
+            <ChevronLeft className="size-5" />
+          </Button>
+          <h2 className="text-sm font-semibold text-foreground">{monthLabel}</h2>
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={() => setMonth((m) => addMonths(m, 1))}
-            className="p-2 rounded-lg hover:bg-[#F5F2EE] text-[#555]"
             aria-label="Next month"
+            className="text-muted-foreground"
           >
-            <ChevronRight className="w-5 h-5" />
-          </button>
+            <ChevronRight className="size-5" />
+          </Button>
         </div>
 
-        <div className="grid grid-cols-7 gap-px bg-[#E8E4DE] text-center text-[10px] sm:text-xs font-medium text-[#888] uppercase tracking-wide">
+        <div className="grid grid-cols-7 gap-px bg-partner-border text-center text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:text-xs">
           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-            <div key={d} className="bg-[#FAFAF8] py-2">
+            <div key={d} className="bg-partner-canvas py-2">
               {d}
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-px bg-[#E8E4DE]">
+        <div className="grid grid-cols-7 gap-px bg-partner-border">
           {gridDays.map((day) => {
             const inMonth = isSameMonth(day, month)
             const list = sessionsOnDay(sessions, day)
             return (
               <div
                 key={day.toISOString()}
-                className={`min-h-[88px] sm:min-h-[100px] bg-white p-1 sm:p-1.5 text-left ${!inMonth ? 'opacity-40' : ''}`}
+                className={`min-h-[88px] bg-white p-1 text-left sm:min-h-[100px] sm:p-1.5 ${!inMonth ? 'opacity-40' : ''}`}
               >
-                <div className="text-xs font-medium text-[#1a1a1a] mb-1">{format(day, 'd')}</div>
+                <div className="mb-1 text-xs font-medium text-foreground">{format(day, 'd')}</div>
                 <div className="space-y-0.5 overflow-hidden">
                   {list.slice(0, 3).map((s) => (
                     <Link
                       key={'calendarRowKey' in s && s.calendarRowKey ? s.calendarRowKey : s.id}
                       href={`/partners/dashboard/sessions?edit=${s.id}`}
-                      className="block truncate rounded px-0.5 py-0.5 text-[10px] sm:text-[11px] font-medium leading-tight bg-[#EDF2ED] text-[#3d523d] hover:bg-[#dfe8df]"
+                      className="block truncate rounded px-1.5 py-1 text-[11px] font-medium leading-tight bg-partner-tint text-primary hover:opacity-80 sm:text-xs"
                       title={s.title}
                     >
                       {s.title}
                     </Link>
                   ))}
                   {list.length > 3 && (
-                    <span className="text-[9px] text-[#aaa]">+{list.length - 3} more</span>
+                    <span className="px-1 text-[10px] text-muted-foreground/70">+{list.length - 3} more</span>
                   )}
                 </div>
               </div>
@@ -284,23 +296,23 @@ export function CalendarClient() {
           })}
         </div>
 
-        {loading && <div className="px-4 py-6 text-center text-sm text-[#888]">Loading…</div>}
+        {loading && <div className="px-4 py-6 text-center text-sm text-muted-foreground">Loading…</div>}
         {!loading && sessions.length === 0 && (
-          <div className="px-4 py-8 text-center text-sm text-[#888]">
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
             No workshops with dates in this month.{' '}
-            <Link href="/partners/dashboard/sessions" className="text-[#5D755D] font-medium hover:underline">
+            <Link href="/partners/dashboard/sessions" className="font-medium text-primary hover:underline">
               Add a workshop
             </Link>
           </div>
         )}
-      </div>
+      </Card>
 
-      <div className="text-xs text-[#888] space-y-1">
+      <div className="space-y-1 text-xs text-muted-foreground">
         <p>
-          <strong className="text-[#555]">Sync rules:</strong> We push to Google/Outlook only when status is
-          Published or Fully booked and the workshop has a date/time. Drafts and archived workshops remove the external
-          event. Multi-week workshops (one listing with several dates) create one calendar event per session date; we
-          update them when you change the workshop.
+          <strong className="text-foreground">Sync rules:</strong> We push to Google/Outlook only when status is
+          Published or Fully booked and the workshop has a date/time. Drafts and archived workshops remove the
+          external event. Multi-week workshops (one listing with several dates) create one calendar event per session
+          date; we update them when you change the workshop.
         </p>
       </div>
     </div>

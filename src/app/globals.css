@@ -50,6 +50,12 @@
   --color-moss-dark: #5A6B56;
   /* Dark green – matches mobile CTA/buttons, used for landing headings */
   --color-heading-dark: #38511B;
+  /* Partner dashboard workspace (warm canvas; primary = moss) */
+  --color-partner-canvas: var(--partner-canvas);
+  --color-partner-border: var(--partner-border);
+  --color-partner-muted: var(--partner-muted);
+  --color-partner-tint: var(--partner-tint);
+  --color-partner-chart-churn: var(--partner-chart-churn);
 }
 
 :root {
@@ -62,7 +68,7 @@
   --card-foreground: #0f172a;
   --popover: #FFFFFF;
   --popover-foreground: #0f172a;
-  --primary: #738A6E; /* moss */
+  --primary: #738A6E; /* moss — single accent for partners + consumer */
   --primary-foreground: #FFFFFF;
   --secondary: #f8fafc; /* slate-50 */
   --secondary-foreground: #0f172a;
@@ -87,6 +93,13 @@
   --sidebar-accent-foreground: #0f172a;
   --sidebar-border: #e2e8f0;
   --sidebar-ring: #738A6E;
+  /* Partner ops UI — warm cream workspace (replaces scattered #5D755D / #FAFAF8 hex) */
+  --partner-canvas: #FAFAF8;
+  --partner-border: #E8E4DE;
+  --partner-muted: #F0EDE8;
+  --partner-tint: #EDF2ED;
+  /* Chart series: refunds / cancellations (not brand moss) */
+  --partner-chart-churn: #B85C5C;
 }
 
 @layer base {

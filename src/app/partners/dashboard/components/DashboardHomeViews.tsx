@@ -2,11 +2,24 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { CalendarDays, Users, DollarSign } from 'lucide-react'
+import { CalendarDays, Users } from 'lucide-react'
 import { DashboardActivityChart } from './DashboardActivityChart'
 import type { ActivityDayPoint } from '@/lib/partner-dashboard-activity'
 import { spotsFilledLabel } from '@/lib/workshop-spots-label'
 import { getTorontoYmd } from '@/lib/workshop-timezone'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PartnerEmptyState } from './PartnerEmptyState'
+import { cn } from '@/lib/utils'
 
 export type DashboardWorkshopRow = {
   id: string
@@ -84,6 +97,117 @@ function readStoredView(): HomeView {
   return 'today'
 }
 
+function MetricsStrip({
+  items,
+}: {
+  items: Array<{
+    label: string
+    value: React.ReactNode
+    caption?: string
+    href?: string
+    emphasize?: boolean
+  }>
+}) {
+  return (
+    <div className="flex flex-col rounded-xl border border-partner-border bg-white sm:flex-row sm:items-stretch">
+      {items.map((item, i) => {
+        const body = (
+          <>
+            <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+            <p
+              className={cn(
+                'mt-1.5 text-2xl font-semibold tabular-nums tracking-tight',
+                item.emphasize ? 'text-primary' : 'text-foreground'
+              )}
+            >
+              {item.value}
+            </p>
+            {item.caption ? (
+              <p className="mt-1 text-[10px] text-muted-foreground">{item.caption}</p>
+            ) : null}
+          </>
+        )
+        return (
+          <div key={item.label} className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-stretch">
+            {i > 0 ? <Separator className="sm:hidden" /> : null}
+            {i > 0 ? (
+              <Separator orientation="vertical" className="hidden h-auto self-stretch sm:block" />
+            ) : null}
+            <div className="min-w-0 flex-1 px-5 py-4">
+              {item.href ? (
+                <Link href={item.href} className="block transition-colors hover:opacity-80">
+                  {body}
+                </Link>
+              ) : (
+                body
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function WorkshopList({
+  workshops,
+  emptyTitle,
+  emptyHref = '/partners/dashboard/sessions?new=1',
+  emptyCta = 'Create a workshop',
+}: {
+  workshops: DashboardWorkshopRow[]
+  emptyTitle: string
+  emptyHref?: string
+  emptyCta?: string
+}) {
+  if (!workshops.length) {
+    return (
+      <PartnerEmptyState
+        compact
+        icon={CalendarDays}
+        title={emptyTitle}
+        action={
+          <Button variant="link" className="h-auto p-0 text-xs text-primary" asChild>
+            <Link href={emptyHref}>{emptyCta}</Link>
+          </Button>
+        }
+      />
+    )
+  }
+
+  return (
+    <ul className="divide-y divide-partner-border/80">
+      {workshops.map((session) => (
+        <li key={session.id}>
+          <Link
+            href="/partners/dashboard/sessions"
+            className="-mx-2 block rounded-lg px-2 py-3.5 transition-colors first:pt-0 hover:bg-partner-canvas"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {session.title ?? 'Untitled workshop'}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">{formatSessionDate(session.date)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {spotsFilledLabel(session.max_attendees, session.available_slots)}
+                  <span className="mx-1.5 text-muted-foreground/40">·</span>
+                  {formatDurationMinutes(session.duration_minutes)}
+                </p>
+              </div>
+              {session.booking_status ? (
+                <Badge variant="outline" className="mt-0.5 shrink-0 text-[10px] uppercase tracking-wide">
+                  {session.booking_status.replace(/_/g, ' ')}
+                </Badge>
+              ) : null}
+            </div>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function DashboardHomeViews({
   activeSessions,
   monthlyBookings,
@@ -107,10 +231,11 @@ export function DashboardHomeViews({
     setView(readStoredView())
   }, [])
 
-  const selectView = (next: HomeView) => {
-    setView(next)
+  const selectView = (next: string) => {
+    const v = next === 'monthly' ? 'monthly' : 'today'
+    setView(v)
     try {
-      window.localStorage.setItem(STORAGE_KEY, next)
+      window.localStorage.setItem(STORAGE_KEY, v)
     } catch {
       /* ignore */
     }
@@ -129,288 +254,171 @@ export function DashboardHomeViews({
     [workshops, todayYmd]
   )
 
-  const kpiCards = [
-    {
-      label: 'Active workshops',
-      value: activeSessions,
-      icon: CalendarDays,
-      href: '/partners/dashboard/sessions',
-    },
-    {
-      label: 'Bookings this month',
-      value: monthlyBookings,
-      icon: Users,
-      href: '/partners/dashboard/bookings',
-    },
-    {
-      label: 'Payouts this month',
-      value: formatCad(monthlyRevenueCad),
-      icon: DollarSign,
-      href: '/partners/dashboard/payouts',
-    },
-  ]
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <Tabs value={view} onValueChange={selectView} className="gap-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-[#888]">Dashboard view</p>
-          <p className="text-sm text-[#555] mt-0.5">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Dashboard view
+          </p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
             {view === 'today'
               ? 'Focus on what needs attention today.'
               : 'Month-to-date performance and your workshop inventory.'}
           </p>
         </div>
-        <div
-          className="flex rounded-lg border border-[#E8E4DE] p-0.5 bg-[#FAFAF8] self-start"
-          role="tablist"
-          aria-label="Dashboard view"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'today'}
-            onClick={() => selectView('today')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              view === 'today' ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#888] hover:text-[#555]'
-            }`}
-          >
+        <TabsList className="self-start border border-partner-border bg-partner-canvas">
+          <TabsTrigger value="today" className="text-xs">
             Today&apos;s Snapshot
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'monthly'}
-            onClick={() => selectView('monthly')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              view === 'monthly' ? 'bg-white text-[#1a1a1a] shadow-sm' : 'text-[#888] hover:text-[#555]'
-            }`}
-          >
+          </TabsTrigger>
+          <TabsTrigger value="monthly" className="text-xs">
             Monthly Overview
-          </button>
-        </div>
+          </TabsTrigger>
+        </TabsList>
       </div>
 
-      {view === 'monthly' ? (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {kpiCards.map((card) => {
-              const Icon = card.icon
-              return (
-                <Link
-                  key={card.label}
-                  href={card.href}
-                  className="bg-white border border-[#E8E4DE] rounded-xl p-5 hover:border-[#5D755D] transition-colors group"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs font-medium text-[#888]">{card.label}</p>
-                    <Icon className="w-4 h-4 text-[#C8BFB0] group-hover:text-[#5D755D] transition-colors" />
-                  </div>
-                  <p className="text-2xl font-semibold text-[#1a1a1a]">{card.value}</p>
-                </Link>
-              )
-            })}
-          </div>
+      <TabsContent value="monthly" className="space-y-6">
+        <MetricsStrip
+          items={[
+            {
+              label: 'Active workshops',
+              value: activeSessions,
+              href: '/partners/dashboard/sessions',
+            },
+            {
+              label: 'Bookings this month',
+              value: monthlyBookings,
+              href: '/partners/dashboard/bookings',
+            },
+            {
+              label: 'Payouts this month',
+              value: formatCad(monthlyRevenueCad),
+              href: '/partners/dashboard/payouts',
+            },
+          ]}
+        />
 
-          <DashboardActivityChart
-            series30={activitySeries30}
-            spotsRemaining={spotsRemaining}
-            forcedRange={30}
-            hideRangeToggle
-            showSpotsRemaining={false}
-          />
+        <DashboardActivityChart
+          series30={activitySeries30}
+          spotsRemaining={spotsRemaining}
+          forcedRange={30}
+          hideRangeToggle
+          showSpotsRemaining={false}
+        />
 
-          <div className="bg-white border border-[#E8E4DE] rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-[#1a1a1a]">Your workshops</h2>
-              <Link
-                href="/partners/dashboard/sessions"
-                className="text-xs text-[#5D755D] font-medium hover:underline"
-              >
-                Manage
-              </Link>
+        <Card className="gap-0 py-0 shadow-none border-partner-border">
+          <CardHeader className="flex-row items-center justify-between space-y-0 px-5 py-4">
+            <div>
+              <CardTitle className="text-sm">Your workshops</CardTitle>
+              <CardDescription className="mt-1 text-xs">
+                {workshops.length >= 100
+                  ? 'Showing your 100 most recent workshops by date (latest first). Open Workshops for the full list.'
+                  : 'Sorted by workshop date (latest first). Counts reflect the latest data when you load this page.'}
+              </CardDescription>
             </div>
-            <p className="text-xs text-[#888] -mt-2 mb-4">
-              {workshops.length >= 100
-                ? 'Showing your 100 most recent workshops by date (latest first). Open Workshops for the full list.'
-                : 'Sorted by workshop date (latest first). Counts reflect the latest data when you load this page.'}
-            </p>
+            <Button variant="link" className="h-auto shrink-0 p-0 text-xs text-primary" asChild>
+              <Link href="/partners/dashboard/sessions">Manage</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="px-5 pb-5">
+            <WorkshopList workshops={workshops} emptyTitle="No workshops yet." />
+          </CardContent>
+        </Card>
+      </TabsContent>
 
-            {!workshops.length ? (
-              <div className="text-center py-8">
-                <CalendarDays className="w-8 h-8 text-[#C8BFB0] mx-auto mb-2" />
-                <p className="text-sm text-[#888]">No workshops yet.</p>
-                <Link
-                  href="/partners/dashboard/sessions?new=1"
-                  className="inline-block mt-3 text-xs font-medium text-[#5D755D] hover:underline"
-                >
-                  Create a workshop →
-                </Link>
+      <TabsContent value="today" className="space-y-6">
+        <MetricsStrip
+          items={[
+            {
+              label: 'Sessions today',
+              value: todaysWorkshops.length,
+            },
+            {
+              label: 'Spots left to fill',
+              value: spotsRemaining,
+              emphasize: true,
+            },
+            {
+              label: 'Recent bookings',
+              value: recentBookings.length,
+              caption: 'Latest on this page',
+              href: '/partners/dashboard/bookings',
+            },
+          ]}
+        />
+
+        <DashboardActivityChart
+          series30={activitySeries30}
+          spotsRemaining={spotsRemaining}
+          forcedRange={7}
+          hideRangeToggle
+          showSpotsRemaining={false}
+        />
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Card className="gap-0 border-partner-border py-0 shadow-none">
+            <CardHeader className="flex-row items-center justify-between space-y-0 px-5 py-4">
+              <div>
+                <CardTitle className="text-sm">Today&apos;s workshops</CardTitle>
+                <CardDescription className="mt-1 text-xs">
+                  Sessions scheduled for {todayYmd} (America/Toronto).
+                </CardDescription>
               </div>
-            ) : (
-              <ul className="space-y-0 divide-y divide-[#F5F2EE]">
-                {workshops.map((session) => (
-                  <li key={session.id}>
-                    <Link
-                      href="/partners/dashboard/sessions"
-                      className="block py-3.5 first:pt-0 hover:bg-[#FAF9F7] -mx-2 px-2 rounded-lg transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-[#1a1a1a] truncate">
-                            {session.title ?? 'Untitled workshop'}
-                          </p>
-                          <p className="text-xs text-[#555] mt-1">{formatSessionDate(session.date)}</p>
-                          <p className="text-xs text-[#888] mt-1">
-                            {spotsFilledLabel(session.max_attendees, session.available_slots)}
-                            <span className="text-[#C8BFB0] mx-1.5">·</span>
-                            {formatDurationMinutes(session.duration_minutes)}
-                          </p>
-                        </div>
-                        {session.booking_status && (
-                          <span className="text-[10px] uppercase tracking-wide font-medium text-[#888] flex-shrink-0 mt-0.5">
-                            {session.booking_status.replace(/_/g, ' ')}
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white border border-[#E8E4DE] rounded-xl p-5">
-              <p className="text-xs font-medium text-[#888] mb-3">Sessions today</p>
-              <p className="text-2xl font-semibold text-[#1a1a1a] tabular-nums">{todaysWorkshops.length}</p>
-            </div>
-            <div className="bg-white border border-[#E8E4DE] rounded-xl p-5">
-              <p className="text-xs font-medium text-[#888] mb-3">Spots left to fill</p>
-              <p className="text-2xl font-semibold text-[#5D755D] tabular-nums">{spotsRemaining}</p>
-            </div>
-            <Link
-              href="/partners/dashboard/bookings"
-              className="bg-white border border-[#E8E4DE] rounded-xl p-5 hover:border-[#5D755D] transition-colors group"
-            >
-              <p className="text-xs font-medium text-[#888] mb-3 group-hover:text-[#5D755D]">Recent bookings</p>
-              <p className="text-2xl font-semibold text-[#1a1a1a] tabular-nums">{recentBookings.length}</p>
-              <p className="text-[10px] text-[#888] mt-1">Latest on this page</p>
-            </Link>
-          </div>
+              <Button variant="link" className="h-auto shrink-0 p-0 text-xs text-primary" asChild>
+                <Link href="/partners/dashboard/calendar">Calendar</Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="px-5 pb-5">
+              <WorkshopList
+                workshops={todaysWorkshops}
+                emptyTitle="No workshops scheduled for today."
+              />
+            </CardContent>
+          </Card>
 
-          <DashboardActivityChart
-            series30={activitySeries30}
-            spotsRemaining={spotsRemaining}
-            forcedRange={7}
-            hideRangeToggle
-            showSpotsRemaining={false}
-          />
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white border border-[#E8E4DE] rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-[#1a1a1a]">Today&apos;s workshops</h2>
-                <Link
-                  href="/partners/dashboard/calendar"
-                  className="text-xs text-[#5D755D] font-medium hover:underline"
-                >
-                  Calendar
-                </Link>
-              </div>
-              <p className="text-xs text-[#888] -mt-2 mb-4">
-                Sessions scheduled for {todayYmd} (America/Toronto).
-              </p>
-
-              {!todaysWorkshops.length ? (
-                <div className="text-center py-8">
-                  <CalendarDays className="w-8 h-8 text-[#C8BFB0] mx-auto mb-2" />
-                  <p className="text-sm text-[#888]">No workshops scheduled for today.</p>
-                  <Link
-                    href="/partners/dashboard/sessions?new=1"
-                    className="inline-block mt-3 text-xs font-medium text-[#5D755D] hover:underline"
-                  >
-                    Create a workshop →
-                  </Link>
-                </div>
-              ) : (
-                <ul className="space-y-0 divide-y divide-[#F5F2EE]">
-                  {todaysWorkshops.map((session) => (
-                    <li key={session.id}>
-                      <Link
-                        href="/partners/dashboard/sessions"
-                        className="block py-3.5 first:pt-0 hover:bg-[#FAF9F7] -mx-2 px-2 rounded-lg transition-colors"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-[#1a1a1a] truncate">
-                              {session.title ?? 'Untitled workshop'}
-                            </p>
-                            <p className="text-xs text-[#555] mt-1">{formatSessionDate(session.date)}</p>
-                            <p className="text-xs text-[#888] mt-1">
-                              {spotsFilledLabel(session.max_attendees, session.available_slots)}
-                              <span className="text-[#C8BFB0] mx-1.5">·</span>
-                              {formatDurationMinutes(session.duration_minutes)}
-                            </p>
-                          </div>
-                          {session.booking_status && (
-                            <span className="text-[10px] uppercase tracking-wide font-medium text-[#888] flex-shrink-0 mt-0.5">
-                              {session.booking_status.replace(/_/g, ' ')}
-                            </span>
-                          )}
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="bg-white border border-[#E8E4DE] rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-[#1a1a1a]">Recent bookings</h2>
-                <Link
-                  href="/partners/dashboard/bookings"
-                  className="text-xs text-[#5D755D] font-medium hover:underline"
-                >
-                  View all
-                </Link>
-              </div>
-
+          <Card className="gap-0 border-partner-border py-0 shadow-none">
+            <CardHeader className="flex-row items-center justify-between space-y-0 px-5 py-4">
+              <CardTitle className="text-sm">Recent bookings</CardTitle>
+              <Button variant="link" className="h-auto shrink-0 p-0 text-xs text-primary" asChild>
+                <Link href="/partners/dashboard/bookings">View all</Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="px-5 pb-5">
               {!recentBookings.length ? (
-                <div className="text-center py-8">
-                  <Users className="w-8 h-8 text-[#C8BFB0] mx-auto mb-2" />
-                  <p className="text-sm text-[#888]">No bookings yet.</p>
-                  <Link
-                    href="/partners/dashboard/sessions?new=1"
-                    className="inline-block mt-3 text-xs font-medium text-[#5D755D] hover:underline"
-                  >
-                    Create your first workshop →
-                  </Link>
-                </div>
+                <PartnerEmptyState
+                  compact
+                  icon={Users}
+                  title="No bookings yet."
+                  action={
+                    <Button variant="link" className="h-auto p-0 text-xs text-primary" asChild>
+                      <Link href="/partners/dashboard/sessions?new=1">Create your first workshop</Link>
+                    </Button>
+                  }
+                />
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-0 divide-y divide-partner-border/80">
                   {recentBookings.map((booking) => {
                     const displayStatus = bookingDisplayStatus(booking)
                     const isRefunded = displayStatus === 'refunded'
                     return (
                       <div
                         key={booking.id}
-                        className="flex items-center justify-between py-2 border-b border-[#F5F2EE] last:border-0"
+                        className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
                       >
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-[#1a1a1a] truncate">
+                          <p className="truncate text-sm font-medium text-foreground">
                             {booking.name || 'Guest'}
                           </p>
-                          <p className="text-xs text-[#888] truncate">
+                          <p className="truncate text-xs text-muted-foreground">
                             {booking.session_title?.title || 'Unknown workshop'}
                           </p>
                         </div>
-                        <div className="text-right flex-shrink-0 ml-3">
+                        <div className="ml-3 shrink-0 text-right">
                           <p
-                            className={`text-sm font-medium ${isRefunded ? 'text-[#888] line-through' : 'text-[#1a1a1a]'}`}
+                            className={cn(
+                              'text-sm font-medium',
+                              isRefunded ? 'text-muted-foreground line-through' : 'text-foreground'
+                            )}
                             title={
                               booking.amount_cad != null
                                 ? `Customer paid ${formatCad(booking.amount_cad)} (incl. tax). Showing payout after Stripe fee.`
@@ -423,7 +431,7 @@ export function DashboardHomeViews({
                                 ? formatCad(booking.amount_cad)
                                 : '—'}
                           </p>
-                          <p className="text-xs text-[#888]">
+                          <p className="text-xs text-muted-foreground">
                             {isRefunded && booking.refunded_at
                               ? `Refunded ${new Date(booking.refunded_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}`
                               : new Date(booking.created_at).toLocaleDateString('en-CA', {
@@ -431,21 +439,24 @@ export function DashboardHomeViews({
                                   day: 'numeric',
                                 })}
                           </p>
-                          {isRefunded && (
-                            <span className="inline-block mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#888] bg-[#F0EDE8] px-1.5 py-0.5 rounded">
+                          {isRefunded ? (
+                            <Badge
+                              variant="secondary"
+                              className="mt-0.5 text-[10px] uppercase tracking-wide"
+                            >
                               Refunded
-                            </span>
-                          )}
+                            </Badge>
+                          ) : null}
                         </div>
                       </div>
                     )
                   })}
                 </div>
               )}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
+            </CardContent>
+          </Card>
+        </div>
+      </TabsContent>
+    </Tabs>
   )
 }

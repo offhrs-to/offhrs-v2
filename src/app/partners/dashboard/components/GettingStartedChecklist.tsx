@@ -27,7 +27,7 @@ export function GettingStartedChecklist({
   return (
     <>
       {showSummary && (
-        <p className="text-xs text-[#888] mb-4">
+        <p className="text-xs text-muted-foreground mb-4">
           {doneCount}/{items.length} complete
           {allDone ? ' — you are all set.' : ''}
         </p>
@@ -36,18 +36,18 @@ export function GettingStartedChecklist({
         {items.map((item) => (
           <div key={item.key} className="flex items-start gap-3">
             {item.done ? (
-              <CheckCircle2 className="w-5 h-5 text-[#5D755D] flex-shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
             ) : (
-              <Circle className="w-5 h-5 text-[#C8BFB0] flex-shrink-0 mt-0.5" />
+              <Circle className="w-5 h-5 text-muted-foreground/40 flex-shrink-0 mt-0.5" />
             )}
             <div className="flex-1 min-w-0">
-              <p className={`text-sm ${item.done ? 'text-[#888] line-through' : 'text-[#1a1a1a]'}`}>{item.label}</p>
+              <p className={`text-sm ${item.done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{item.label}</p>
             </div>
             {!item.done && item.showStripeCta && <ConnectStripeButton compact />}
             {!item.done && item.href && (
               <Link
                 href={item.href}
-                className="text-xs font-medium text-[#5D755D] hover:underline flex-shrink-0"
+                className="text-xs font-medium text-primary hover:underline flex-shrink-0"
               >
                 Go →
               </Link>
@@ -55,9 +55,9 @@ export function GettingStartedChecklist({
           </div>
         ))}
       </div>
-      <div className="mt-6 h-1.5 bg-[#F0EDE8] rounded-full overflow-hidden">
+      <div className="mt-6 h-1.5 bg-partner-muted rounded-full overflow-hidden">
         <div
-          className="h-full bg-[#5D755D] rounded-full transition-all"
+          className="h-full bg-primary rounded-full transition-all"
           style={{ width: `${(doneCount / items.length) * 100}%` }}
         />
       </div>

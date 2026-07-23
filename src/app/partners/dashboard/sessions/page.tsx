@@ -23,6 +23,11 @@ import { OccurrenceEditModal, type OccurrenceEditTarget } from './OccurrenceEdit
 import { formatSeriesDateRangeLabel, parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
 import { spotsFilledLabel } from '@/lib/workshop-spots-label'
 import { workshopHasActiveSale } from '@/lib/workshop-ticket-price'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { PartnerEmptyState } from '../components/PartnerEmptyState'
+import { cn } from '@/lib/utils'
 
 interface Session {
   id: string
@@ -55,10 +60,10 @@ interface Session {
 }
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  published: { label: 'Published', className: 'bg-green-100 text-green-700' },
-  draft: { label: 'Draft', className: 'bg-[#F0EDE8] text-[#888]' },
-  fully_booked: { label: 'Fully Booked', className: 'bg-blue-100 text-blue-700' },
-  archived: { label: 'Archived', className: 'bg-red-50 text-red-400' },
+  published: { label: 'Published', className: 'border-transparent bg-green-100 text-green-700' },
+  draft: { label: 'Draft', className: 'border-transparent bg-partner-muted text-muted-foreground' },
+  fully_booked: { label: 'Fully Booked', className: 'border-transparent bg-blue-100 text-blue-700' },
+  archived: { label: 'Archived', className: 'border-transparent bg-red-50 text-red-400' },
 }
 
 function SessionsPageInner() {
@@ -254,62 +259,65 @@ function SessionsPageInner() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="mx-auto max-w-5xl p-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-[#1a1a1a]">Workshops</h1>
-          <p className="text-sm text-[#888] mt-1">Manage your workshops.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Workshops</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Manage your workshops.</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-[#5D755D] text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-[#4d644d] transition-colors"
-        >
-          <Plus className="w-4 h-4" />
+        <Button type="button" onClick={() => setShowForm(true)} className="self-start">
+          <Plus className="size-4" />
           New workshop
-        </button>
+        </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
+      <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
         {['all', 'published', 'draft', 'fully_booked', 'archived'].map((s) => (
-          <button
+          <Button
             key={s}
+            type="button"
+            variant={statusFilter === s ? 'default' : 'secondary'}
+            size="sm"
             onClick={() => setStatusFilter(s)}
-            className={`text-xs font-medium px-3 py-1.5 rounded-full whitespace-nowrap transition-colors ${
+            className={cn(
+              'h-8 shrink-0 rounded-full text-xs',
               statusFilter === s
-                ? 'bg-[#1a1a1a] text-white'
-                : 'bg-[#F0EDE8] text-[#555] hover:bg-[#E8E4DE]'
-            }`}
+                ? 'bg-foreground text-white hover:bg-foreground/90'
+                : 'bg-partner-muted text-muted-foreground hover:bg-partner-border'
+            )}
           >
             {s === 'all' ? 'All' : STATUS_BADGE[s]?.label ?? s}
-          </button>
+          </Button>
         ))}
       </div>
 
-      {/* Workshop list */}
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 bg-[#F5F2EE] rounded-xl animate-pulse" />
+            <div key={i} className="h-24 animate-pulse rounded-xl bg-partner-muted" />
           ))}
         </div>
       ) : sessions.length === 0 ? (
-        <div className="text-center py-16 bg-white border border-[#E8E4DE] rounded-xl">
-          <CalendarDays className="w-10 h-10 text-[#C8BFB0] mx-auto mb-3" />
-          <p className="text-sm font-medium text-[#1a1a1a]">No workshops yet</p>
-          <p className="text-xs text-[#888] mt-1 mb-4">Create your first workshop to get started.</p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 bg-[#5D755D] text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-[#4d644d] transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Create workshop
-          </button>
-        </div>
+        <Card className="border-partner-border py-0 shadow-none">
+          <PartnerEmptyState
+            icon={CalendarDays}
+            title="No workshops yet"
+            description="Create your first workshop to get started."
+            action={
+              <Button type="button" onClick={() => setShowForm(true)}>
+                <Plus className="size-4" />
+                Create workshop
+              </Button>
+            }
+          />
+        </Card>
       ) : (
         <div className="space-y-3">
           {sessions.map((session) => {
-            const badge = STATUS_BADGE[session.status] ?? { label: session.status, className: 'bg-[#F0EDE8] text-[#888]' }
+            const badge = STATUS_BADGE[session.status] ?? {
+              label: session.status,
+              className: 'border-transparent bg-partner-muted text-muted-foreground',
+            }
             const series = parseSeriesOccurrences(session as EventSeriesFields)
             const isMulti = series.length > 1
             const pattern = session.partner_series_meta?.pattern
@@ -332,34 +340,34 @@ function SessionsPageInner() {
                 }, 0)
               : null
             return (
-              <div
+              <Card
                 key={session.id}
-                className="bg-white border border-[#E8E4DE] rounded-xl hover:border-[#C8BFB0] transition-colors"
+                className="gap-0 border-partner-border py-0 shadow-none transition-colors hover:border-muted-foreground/30"
               >
-                <div className="p-4 flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-semibold text-[#1a1a1a] truncate">{session.title}</h3>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${badge.className}`}>
+                <div className="flex items-center gap-4 p-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <h3 className="truncate text-sm font-semibold text-foreground">{session.title}</h3>
+                      <Badge variant="outline" className={cn('shrink-0', badge.className)}>
                         {badge.label}
-                      </span>
+                      </Badge>
                       {registrationClosed && session.status !== 'archived' && !isPerOccurrenceSeries && (
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 bg-amber-100 text-amber-800">
+                        <Badge className="shrink-0 border-transparent bg-amber-100 text-amber-800">
                           Registration closed
-                        </span>
+                        </Badge>
                       )}
                       {closedOccurrenceCount > 0 && (
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 bg-amber-100 text-amber-800">
+                        <Badge className="shrink-0 border-transparent bg-amber-100 text-amber-800">
                           {closedOccurrenceCount} session{closedOccurrenceCount === 1 ? '' : 's'} closed
-                        </span>
+                        </Badge>
                       )}
                       {countBadgeLabel && (
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 bg-[#EDF2ED] text-[#5D755D]">
+                        <Badge className="shrink-0 border-transparent bg-partner-tint text-primary">
                           {countBadgeLabel}
-                        </span>
+                        </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-[#888]">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       {session.price_cad !== null && (
                         <span className="flex items-center gap-1">
                           <DollarSign className="w-3 h-3" />
@@ -367,7 +375,7 @@ function SessionsPageInner() {
                             'Free'
                           ) : workshopHasActiveSale(session) ? (
                             <>
-                              <span className="line-through text-[#aaa]">{session.price_cad} CAD</span>
+                              <span className="line-through text-muted-foreground/70">{session.price_cad} CAD</span>
                               <span className="text-red-600 font-semibold">
                                 {session.sale_price_cad} CAD
                               </span>
@@ -377,7 +385,7 @@ function SessionsPageInner() {
                             Number(session.sale_price_cad) < Number(session.price_cad) ? (
                             <>
                               <span>{session.price_cad} CAD</span>
-                              <span className="text-[#888]">
+                              <span className="text-muted-foreground">
                                 {' '}
                                 (sale {session.sale_price_cad} CAD
                                 {session.sale_ends_on
@@ -419,22 +427,26 @@ function SessionsPageInner() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                  <div className="flex shrink-0 items-center gap-1">
                     {isPerOccurrenceSeries && (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon-sm"
                         onClick={() => toggleExpanded(session.id)}
                         aria-expanded={expanded}
                         aria-controls={`session-occurrences-${session.id}`}
                         title={expanded ? 'Hide session breakdown' : 'Show per-session capacity'}
-                        className="p-2 rounded-lg text-[#888] hover:bg-[#F0EDE8] hover:text-[#1a1a1a] transition-colors"
+                        className="text-muted-foreground"
                       >
-                        {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
+                        {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                      </Button>
                     )}
                     {!isPerOccurrenceSeries ? (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon-sm"
                         onClick={() => handleToggleRegistrationClosed(session)}
                         title={
                           registrationClosed
@@ -442,52 +454,57 @@ function SessionsPageInner() {
                             : 'Close registration (hide from app, keep existing bookings)'
                         }
                         disabled={session.status === 'archived' || session.status === 'draft'}
-                        className={`p-2 rounded-lg transition-colors ${
+                        className={cn(
                           registrationClosed
-                            ? 'text-amber-700 bg-amber-50 hover:bg-amber-100'
-                            : 'text-[#888] hover:bg-[#F0EDE8] hover:text-[#1a1a1a]'
-                        } disabled:opacity-40 disabled:pointer-events-none`}
-                      >
-                        {registrationClosed ? (
-                          <Lock className="w-4 h-4" />
-                        ) : (
-                          <LockOpen className="w-4 h-4" />
+                            ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                            : 'text-muted-foreground'
                         )}
-                      </button>
+                      >
+                        {registrationClosed ? <Lock className="size-4" /> : <LockOpen className="size-4" />}
+                      </Button>
                     ) : null}
-                    <button
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => handleToggleStatus(session)}
                       title={session.status === 'published' ? 'Unpublish' : 'Publish'}
-                      className="p-2 rounded-lg text-[#888] hover:bg-[#F0EDE8] hover:text-[#1a1a1a] transition-colors"
+                      className="text-muted-foreground"
                       disabled={session.status === 'fully_booked' || session.status === 'archived'}
                     >
-                      {session.status === 'published' ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                    <button
+                      {session.status === 'published' ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => handleEdit(session)}
                       title="Edit"
-                      className="p-2 rounded-lg text-[#888] hover:bg-[#F0EDE8] hover:text-[#1a1a1a] transition-colors"
+                      className="text-muted-foreground"
                     >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => handleDelete(session.id)}
                       title="Archive"
-                      className="p-2 rounded-lg text-[#888] hover:bg-red-50 hover:text-red-500 transition-colors"
+                      className="text-muted-foreground hover:bg-red-50 hover:text-red-500"
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      <Trash2 className="size-4" />
+                    </Button>
                   </div>
                 </div>
                 {isPerOccurrenceSeries && expanded && (
                   <div
                     id={`session-occurrences-${session.id}`}
-                    className="border-t border-[#F0EDE8] px-4 py-3"
+                    className="border-t border-partner-border px-4 py-3"
                   >
-                    <p className="text-xs font-medium text-[#888] uppercase tracking-wide mb-2">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Per-session capacity &amp; registration
                     </p>
-                    <ul className="divide-y divide-[#F5F2EE]">
+                    <ul className="divide-y divide-partner-border/80">
                       {series.map((occ, idx) => {
                         const startDate = new Date(occ.start)
                         const label = Number.isNaN(startDate.getTime())
@@ -506,18 +523,20 @@ function SessionsPageInner() {
                             key={`${session.id}-occ-${idx}-${occ.start}`}
                             className="flex items-center justify-between gap-3 py-1.5 text-xs"
                           >
-                            <span className="text-[#1a1a1a] truncate">{label}</span>
-                            <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="truncate text-foreground">{label}</span>
+                            <div className="flex shrink-0 items-center gap-2">
                               {occ.registration_closed ? (
-                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                                <Badge className="border-transparent bg-amber-100 text-[10px] text-amber-800">
                                   Closed
-                                </span>
+                                </Badge>
                               ) : null}
-                              <span className="text-[#555]">
+                              <span className="text-muted-foreground">
                                 {spotsFilledLabel(occ.max_attendees, occ.available_slots)}
                               </span>
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="icon-sm"
                                 onClick={() =>
                                   handleToggleOccurrenceRegistrationClosed(
                                     session,
@@ -531,20 +550,23 @@ function SessionsPageInner() {
                                     : 'Close registration for this session'
                                 }
                                 disabled={session.status === 'archived'}
-                                className={`p-1.5 rounded-md transition-colors ${
+                                className={cn(
+                                  'size-8',
                                   occ.registration_closed
-                                    ? 'text-amber-700 bg-amber-50 hover:bg-amber-100'
-                                    : 'text-[#888] hover:bg-[#F0EDE8] hover:text-[#1a1a1a]'
-                                } disabled:opacity-40`}
+                                    ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                    : 'text-muted-foreground'
+                                )}
                               >
                                 {occ.registration_closed ? (
-                                  <Lock className="w-3.5 h-3.5" />
+                                  <Lock className="size-3.5" />
                                 ) : (
-                                  <LockOpen className="w-3.5 h-3.5" />
+                                  <LockOpen className="size-3.5" />
                                 )}
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="icon-sm"
                                 onClick={() =>
                                   setOccurrenceEdit({
                                     sessionId: session.id,
@@ -553,10 +575,10 @@ function SessionsPageInner() {
                                   })
                                 }
                                 title="Edit this session"
-                                className="p-1.5 rounded-md text-[#888] hover:bg-[#F0EDE8] hover:text-[#1a1a1a]"
+                                className="size-8 text-muted-foreground"
                               >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
+                                <Pencil className="size-3.5" />
+                              </Button>
                             </div>
                           </li>
                         )
@@ -564,7 +586,7 @@ function SessionsPageInner() {
                     </ul>
                   </div>
                 )}
-              </div>
+              </Card>
             )
           })}
         </div>
@@ -580,7 +602,7 @@ function SessionsPageInner() {
 
 export default function SessionsPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-[#888]">Loading workshops…</div>}>
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading workshops…</div>}>
       <SessionsPageInner />
     </Suspense>
   )

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
 
 export function ConnectStripeButton({ compact = false }: { compact?: boolean }) {
   const [loading, setLoading] = useState(false)
@@ -24,23 +25,28 @@ export function ConnectStripeButton({ compact = false }: { compact?: boolean }) 
 
   if (compact) {
     return (
-      <button
+      <Button
+        type="button"
+        variant="link"
         onClick={handleClick}
         disabled={loading}
-        className="text-xs font-medium text-[#5D755D] hover:underline flex-shrink-0 disabled:opacity-50"
+        className="h-auto shrink-0 p-0 text-xs text-primary"
       >
         {loading ? 'Loading…' : 'Set up →'}
-      </button>
+      </Button>
     )
   }
 
   return (
-    <button
+    <Button
+      type="button"
+      size="sm"
+      variant="secondary"
       onClick={handleClick}
       disabled={loading}
-      className="text-xs font-semibold text-amber-700 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+      className="h-8 shrink-0 bg-amber-100 text-amber-800 hover:bg-amber-200"
     >
       {loading ? 'Loading…' : 'Set up payouts'}
-    </button>
+    </Button>
   )
 }

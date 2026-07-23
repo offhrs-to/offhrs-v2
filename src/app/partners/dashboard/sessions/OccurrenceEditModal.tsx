@@ -5,6 +5,10 @@ import { Lock, LockOpen, X } from 'lucide-react'
 import { formatWorkshopDateTimeLocalValue } from '@/lib/workshop-timezone'
 import { spotsFilledLabel } from '@/lib/workshop-spots-label'
 import type { SeriesOccurrence } from '@/lib/workshop-series'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 
 export type OccurrenceEditTarget = {
   sessionId: string
@@ -170,117 +174,114 @@ export function OccurrenceEditModal({ target, onClose, onSaved }: OccurrenceEdit
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="occurrence-edit-title"
     >
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0EDE8]">
+      <div className="w-full max-w-md overflow-hidden rounded-xl border border-partner-border bg-white shadow-none">
+        <div className="flex items-center justify-between border-b border-partner-border px-5 py-4">
           <div>
-            <h2 id="occurrence-edit-title" className="text-base font-semibold text-[#1a1a1a]">
+            <h2 id="occurrence-edit-title" className="text-base font-semibold text-foreground">
               Edit session
             </h2>
-            <p className="text-xs text-[#888] mt-0.5 truncate max-w-[280px]">{target.sessionTitle}</p>
+            <p className="mt-0.5 max-w-[280px] truncate text-xs text-muted-foreground">{target.sessionTitle}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-lg text-[#888] hover:bg-[#F0EDE8]"
-            aria-label="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
+            <X className="size-4" />
+          </Button>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
-          <p className="text-xs text-[#555]">
+        <div className="space-y-4 px-5 py-4">
+          <p className="text-xs text-muted-foreground">
             {spotsFilledLabel(occ?.max_attendees, occ?.available_slots)}
             {filled > 0 ? ' — refund bookings before canceling this session.' : ''}
           </p>
 
           <div>
-            <label htmlFor="occ-start" className="block text-sm font-medium text-[#1a1a1a] mb-1">
+            <Label htmlFor="occ-start" className="mb-1">
               Date &amp; time
-            </label>
-            <input
+            </Label>
+            <Input
               id="occ-start"
               type="datetime-local"
               value={startLocal}
               onChange={(e) => setStartLocal(e.target.value)}
-              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+              className="h-10 border-partner-border shadow-none"
             />
           </div>
 
           <div>
-            <label htmlFor="occ-max" className="block text-sm font-medium text-[#1a1a1a] mb-1">
+            <Label htmlFor="occ-max" className="mb-1">
               Max spots (this session only)
-            </label>
-            <input
+            </Label>
+            <Input
               id="occ-max"
               type="number"
               min={1}
               max={500}
               value={maxAttendees}
               onChange={(e) => setMaxAttendees(e.target.value)}
-              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+              className="h-10 border-partner-border shadow-none"
             />
           </div>
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-          <div className="rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] p-3">
-            <p className="text-xs font-medium text-[#555] mb-2">Registration</p>
-            <p className="text-xs text-[#888] mb-3 leading-relaxed">
+          <div className="rounded-xl border border-partner-border bg-partner-canvas p-3">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Registration</p>
+            <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
               {occ?.registration_closed
                 ? 'This session is hidden from the app. Existing bookings are kept.'
                 : 'Close registration to hide this session from the app without refunding bookings.'}
             </p>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => void handleToggleRegistration()}
               disabled={loading || cancelLoading || registrationLoading}
-              className={`inline-flex items-center gap-2 text-sm font-semibold px-3 py-2 rounded-lg border transition-colors ${
+              className={cn(
                 occ?.registration_closed
-                  ? 'border-amber-200 text-amber-800 bg-amber-50 hover:bg-amber-100'
-                  : 'border-[#E8E4DE] text-[#1a1a1a] bg-white hover:bg-[#F0EDE8]'
-              } disabled:opacity-60`}
+                  ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  : 'border-partner-border'
+              )}
             >
               {registrationLoading ? (
                 'Updating…'
               ) : occ?.registration_closed ? (
                 <>
-                  <LockOpen className="w-4 h-4" />
+                  <LockOpen className="size-4" />
                   Reopen registration
                 </>
               ) : (
                 <>
-                  <Lock className="w-4 h-4" />
+                  <Lock className="size-4" />
                   Close registration
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
-        <div className="px-5 py-4 border-t border-[#F0EDE8] flex flex-col gap-2">
-          <button
+        <div className="flex flex-col gap-2 border-t border-partner-border px-5 py-4">
+          <Button
             type="button"
             onClick={() => void handleSave()}
             disabled={loading || cancelLoading || registrationLoading}
-            className="w-full py-2.5 rounded-xl bg-[#5D755D] text-white text-sm font-semibold hover:bg-[#4d644d] disabled:opacity-60"
           >
             {loading ? 'Saving…' : 'Save session'}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
             onClick={() => void handleCancelSession()}
             disabled={loading || cancelLoading || registrationLoading || filled > 0}
             title={filled > 0 ? 'Refund active bookings before canceling this session' : 'Remove this session from the series'}
-            className="w-full py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="border-red-200 text-red-600 hover:bg-red-50"
           >
             {cancelLoading ? 'Canceling…' : 'Cancel this session'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

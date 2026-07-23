@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bell, BellRing } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { PartnerEmptyState } from './PartnerEmptyState'
+import { cn } from '@/lib/utils'
 
 const POLL_MS = 90_000
 const SEEN_KEY = 'partner-notifications-seen-ids'
@@ -117,57 +120,60 @@ export function PartnerNotificationsBell({
       className={gettingStartedOpen ? 'relative z-0' : 'relative z-[110]'}
       ref={wrapRef}
     >
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="icon"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="true"
         title={open ? 'Close notifications' : 'Notifications'}
-        className={`relative flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
+        className={cn(
+          'relative size-9 rounded-full',
           open
-            ? 'border-[#5D755D] bg-[#EDF2ED] text-[#5D755D]'
-            : 'border-[#E8E4DE] bg-white text-[#555] hover:border-[#C8BFB0] hover:text-[#1a1a1a]'
-        }`}
+            ? 'border-primary bg-partner-tint text-primary'
+            : 'border-partner-border bg-white text-muted-foreground'
+        )}
       >
-        {unread > 0 ? <BellRing className="w-4 h-4" aria-hidden /> : <Bell className="w-4 h-4" aria-hidden />}
+        {unread > 0 ? <BellRing className="size-4" aria-hidden /> : <Bell className="size-4" aria-hidden />}
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 flex items-center justify-center rounded-full bg-[#8B4D4D] text-[10px] font-bold text-white leading-none">
+          <span className="absolute -top-0.5 -right-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-none text-white">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
-      </button>
+      </Button>
 
       {open && (
         <div
-          className="absolute right-0 top-[calc(100%+8px)] z-[120] w-[min(calc(100vw-2rem),22rem)] rounded-xl border border-[#E8E4DE] bg-white shadow-xl overflow-hidden"
+          className="absolute right-0 top-[calc(100%+8px)] z-[120] w-[min(calc(100vw-2rem),22rem)] overflow-hidden rounded-xl border border-partner-border bg-white shadow-xl"
           role="menu"
         >
-          <div className="border-b border-[#F0EDE8] px-4 py-3 bg-[#FAFAF8]">
-            <p className="text-sm font-semibold text-[#1a1a1a]">Notifications</p>
-            <p className="text-xs text-[#888] mt-0.5">
+          <div className="border-b border-partner-border bg-partner-canvas px-4 py-3">
+            <p className="text-sm font-semibold text-foreground">Notifications</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
               Bookings, refunds, publishes, tax setup, and tomorrow&apos;s workshops
             </p>
           </div>
           <div className="max-h-[min(70vh,420px)] overflow-y-auto">
             {items.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-[#888]">No recent activity.</p>
+              <PartnerEmptyState compact title="No recent activity." />
             ) : (
-              <ul className="divide-y divide-[#F5F2EE]">
+              <ul className="divide-y divide-partner-border/80">
                 {items.map((n) => {
                   const isNew = !seen.has(n.id)
                   const inner = (
-                    <div className={`px-4 py-3 text-left transition-colors ${isNew ? 'bg-[#FAFAF8]' : 'hover:bg-[#FAFAF8]'}`}>
+                    <div className={`px-4 py-3 text-left transition-colors ${isNew ? 'bg-partner-canvas' : 'hover:bg-partner-canvas'}`}>
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium text-[#1a1a1a] leading-snug">{n.title}</p>
-                        <span className="text-[10px] text-[#aaa] whitespace-nowrap flex-shrink-0">{formatWhen(n.createdAt)}</span>
+                        <p className="text-sm font-medium text-foreground leading-snug">{n.title}</p>
+                        <span className="text-[10px] text-muted-foreground/70 whitespace-nowrap flex-shrink-0">{formatWhen(n.createdAt)}</span>
                       </div>
-                      <p className="text-xs text-[#555] mt-1 leading-relaxed">{n.message}</p>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.message}</p>
                     </div>
                   )
                   return (
                     <li key={n.id}>
                       {n.href ? (
-                        <Link href={n.href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#5D755D]" onClick={() => setOpen(false)}>
+                        <Link href={n.href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" onClick={() => setOpen(false)}>
                           {inner}
                         </Link>
                       ) : (

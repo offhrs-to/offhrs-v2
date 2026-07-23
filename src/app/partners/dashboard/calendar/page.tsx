@@ -17,7 +17,7 @@ export default async function CalendarPage() {
   if (!vendor) redirect('/partners/signup')
 
   return (
-    <Suspense fallback={<div className="p-6 max-w-5xl mx-auto text-sm text-[#888]">Loading calendar…</div>}>
+    <Suspense fallback={<div className="p-6 max-w-5xl mx-auto text-sm text-muted-foreground">Loading calendar…</div>}>
       <CalendarClient />
     </Suspense>
   )

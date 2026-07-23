@@ -33,27 +33,27 @@ export function GettingStartedPanel({
   const doneCount = items.filter((i) => i.done).length
 
   return (
-    <div className="bg-white border border-[#E8E4DE] rounded-xl overflow-hidden">
+    <div className="bg-white border border-partner-border rounded-xl overflow-hidden">
       <button
         type="button"
         onClick={toggle}
-        className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-[#FAF9F7] transition-colors"
+        className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-partner-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-[#1a1a1a]">Getting started</h2>
-          <p className="text-xs text-[#888] mt-0.5">
+          <h2 className="text-sm font-semibold text-foreground">Getting started</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
             {doneCount}/{items.length} complete
             {allDone ? ' — you are all set.' : ''}
           </p>
         </div>
-        <span className="text-xs font-medium text-[#5D755D] flex items-center gap-1 flex-shrink-0">
+        <span className="text-xs font-medium text-primary flex items-center gap-1 flex-shrink-0">
           {collapsed ? 'Show' : 'Hide'}
           {collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
         </span>
       </button>
 
       {!collapsed && (
-        <div className="px-5 pb-5 pt-0 border-t border-[#F5F2EE]">
+        <div className="px-5 pb-5 pt-0 border-t border-partner-border/80">
           <div className="pt-4">
             <GettingStartedChecklist items={items} allDone={allDone} showSummary={false} />
           </div>

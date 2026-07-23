@@ -13,6 +13,8 @@ import { repairOrphanedStripeRefundsForVendor } from '@/lib/booking-refund'
 import { reconcileVendorEventSlots } from '@/lib/event-slot-reconcile'
 import { reconcileStripeConnectStatus } from '@/lib/stripe-connect-reconcile'
 import { buildActivitySeriesFromBookings, type BookingActivityRow } from '@/lib/partner-dashboard-activity'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 
 interface VendorProfile {
   id: string
@@ -230,14 +232,15 @@ export default async function DashboardPage({
   }, 0)
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      {/* Header */}
+    <div className="mx-auto max-w-5xl space-y-6 p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-[#1a1a1a]">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Welcome back, {vendor.business_name}
           </h1>
-          <p className="text-sm text-[#888] mt-1">Here's what's happening with your workshops.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Here&apos;s what&apos;s happening with your workshops.
+          </p>
         </div>
         <PartnerDashboardHeaderActions
           items={checklistItems}
@@ -247,31 +250,33 @@ export default async function DashboardPage({
         />
       </div>
 
-      {/* Status banners */}
       {vendor.status === 'past_due' && (
-        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
-          <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
-          <div className="flex-1 text-sm">
-            <span className="font-semibold text-red-700">Payment failed.</span>{' '}
-            <span className="text-red-600">Please update your payment method to avoid suspension.</span>
-          </div>
-          <Link
-            href="/partners/dashboard/settings"
-            className="text-xs font-semibold text-red-700 bg-red-100 hover:bg-red-200 px-3 py-1.5 rounded-lg transition-colors"
-          >
-            Update card
-          </Link>
-        </div>
+        <Alert variant="destructive" className="border-red-200 bg-red-50 text-red-800">
+          <AlertTriangle />
+          <AlertTitle>Payment failed</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p>Please update your payment method to avoid suspension.</p>
+            <Button
+              asChild
+              size="sm"
+              variant="secondary"
+              className="h-8 shrink-0 bg-red-100 text-red-800 hover:bg-red-200"
+            >
+              <Link href="/partners/dashboard/settings">Update card</Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {!vendor.stripe_connect_completed && vendor.stripe_checkout_completed && (
-        <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
-          <div className="flex-1 text-sm text-amber-700">
-            <span className="font-semibold">Set up your payout account</span> to receive payments from bookings.
-          </div>
-          <ConnectStripeButton />
-        </div>
+        <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+          <AlertTriangle className="text-amber-600" />
+          <AlertTitle>Set up your payout account</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p>Connect Stripe to receive payments from bookings.</p>
+            <ConnectStripeButton />
+          </AlertDescription>
+        </Alert>
       )}
 
       <DashboardHomeViews

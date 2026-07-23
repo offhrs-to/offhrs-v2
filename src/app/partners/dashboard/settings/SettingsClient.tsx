@@ -5,6 +5,11 @@ import { formatGstHstRegistrationNumberForDisplay } from '@/lib/vendor-gst-hst'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter } from 'next/navigation'
 import { Loader2, AlertTriangle, CalendarX } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 
 interface Vendor {
   id: string
@@ -292,95 +297,98 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
   const subscriptionActive = !subscriptionEnded && !cancellationScheduled
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-8">
+    <div className="mx-auto max-w-2xl space-y-8 p-6">
       <div>
-        <h1 className="text-2xl font-semibold text-[#1a1a1a]">Settings</h1>
-        <p className="text-sm text-[#888] mt-1">Manage your business profile and account preferences.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Manage your business profile and account preferences.</p>
       </div>
 
       {/* Business profile */}
-      <section className="bg-white border border-[#E8E4DE] rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-[#1a1a1a] mb-4">Business profile</h2>
+      <Card className="gap-0 border-partner-border py-0 shadow-none">
+        <CardContent className="space-y-4 p-5">
+        <h2 className="text-sm font-semibold text-foreground mb-4">Business profile</h2>
         <form onSubmit={saveProfile} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-[#555] mb-1.5">Business name</label>
-              <input
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Business name</label>
+              <Input
                 value={profile.business_name}
                 onChange={(e) => setP('business_name', e.target.value)}
-                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-              />
+                className="h-10 border-partner-border bg-white shadow-none"
+               />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-[#555] mb-1.5">Bio</label>
-              <textarea
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Bio</label>
+              <Textarea
                 value={profile.bio}
                 onChange={(e) => setP('bio', e.target.value)}
                 rows={3}
                 placeholder="Tell consumers about your studio and teaching style..."
-                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D] resize-none"
+                className="min-h-[5rem] border-partner-border bg-white shadow-none resize-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-[#555] mb-1.5">Website URL</label>
-              <input
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Website URL</label>
+              <Input
                 type="url"
                 value={profile.website_url}
                 onChange={(e) => setP('website_url', e.target.value)}
                 placeholder="https://yourstudio.com"
-                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-              />
+                className="h-10 border-partner-border bg-white shadow-none"
+               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-[#555] mb-1.5">Phone</label>
-              <input
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Phone</label>
+              <Input
                 type="tel"
                 value={profile.phone}
                 onChange={(e) => setP('phone', e.target.value)}
                 placeholder="+1 (416) 555-0100"
-                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-              />
+                className="h-10 border-partner-border bg-white shadow-none"
+               />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-[#555] mb-1.5">Studio address</label>
-              <input
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Studio address</label>
+              <Input
                 value={profile.location_address}
                 onChange={(e) => setP('location_address', e.target.value)}
                 placeholder="123 Main St, Toronto, ON M5V 1A1"
-                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-              />
+                className="h-10 border-partner-border bg-white shadow-none"
+               />
             </div>
             <div className="col-span-2">
-              <p className="block text-xs font-medium text-[#555] mb-2">Cancellation policy</p>
-              <p className="text-xs text-[#888] mb-3 leading-relaxed">
+              <p className="block text-xs font-medium text-muted-foreground mb-2">Cancellation policy</p>
+              <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
                 Applies to all of your workshops. Customers see this before they book.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setStrictNoRefund(false)}
-                  className={`rounded-xl border p-4 text-left transition-colors ${
+                  className={cn(
+                    'rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                     !strictNoRefund
-                      ? 'border-[#5D755D] bg-[#5D755D]/5 ring-2 ring-[#5D755D]/20'
-                      : 'border-[#E8E4DE] bg-white hover:border-[#C8BFB0]'
-                  }`}
+                      ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                      : 'border-partner-border bg-white hover:border-muted-foreground/40'
+                  )}
                 >
-                  <p className="text-sm font-semibold text-[#1a1a1a]">Flexible refunds</p>
-                  <p className="text-xs text-[#888] mt-1 leading-relaxed">
+                  <p className="text-sm font-semibold text-foreground">Flexible refunds</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                     Customers can cancel for a full refund before your cutoff time.
                   </p>
                 </button>
                 <button
                   type="button"
                   onClick={() => setStrictNoRefund(true)}
-                  className={`rounded-xl border p-4 text-left transition-colors ${
+                  className={cn(
+                    'rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                     strictNoRefund
-                      ? 'border-[#5D755D] bg-[#5D755D]/5 ring-2 ring-[#5D755D]/20'
-                      : 'border-[#E8E4DE] bg-white hover:border-[#C8BFB0]'
-                  }`}
+                      ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                      : 'border-partner-border bg-white hover:border-muted-foreground/40'
+                  )}
                 >
-                  <p className="text-sm font-semibold text-[#1a1a1a]">Strict — no refunds</p>
-                  <p className="text-xs text-[#888] mt-1 leading-relaxed">
+                  <p className="text-sm font-semibold text-foreground">Strict — no refunds</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                     Paid bookings are non-refundable once purchased.
                   </p>
                 </button>
@@ -388,17 +396,17 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
             </div>
             {!strictNoRefund ? (
               <div>
-                <label className="block text-xs font-medium text-[#555] mb-1.5">
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                   Refund window (hours before workshop)
                 </label>
-                <input
+                <Input
                   type="number"
                   min={24}
                   value={profile.refund_window_hours}
                   onChange={(e) => setP('refund_window_hours', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-                />
-                <p className="text-xs text-[#888] mt-1">Minimum 24 hours (platform policy).</p>
+                  className="h-10 border-partner-border bg-white shadow-none"
+                 />
+                <p className="text-xs text-muted-foreground mt-1">Minimum 24 hours (platform policy).</p>
               </div>
             ) : (
               <div className="col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -422,22 +430,20 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
           )}
 
           <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={profileLoading}
-              className="flex items-center gap-2 bg-[#5D755D] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#4d644d] disabled:opacity-60 transition-colors"
-            >
-              {profileLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+            <Button type="submit" disabled={profileLoading}>
+              {profileLoading && <Loader2 className="size-4 animate-spin" />}
               Save profile
-            </button>
+            </Button>
           </div>
         </form>
-      </section>
+      </CardContent>
+      </Card>
 
       {/* Workshop sales tax (GST/HST) */}
-      <section className="bg-white border border-[#E8E4DE] rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Workshop sales tax (GST/HST)</h2>
-        <p className="text-xs text-[#888] mb-4 leading-relaxed">
+      <Card className="gap-0 border-partner-border py-0 shadow-none">
+        <CardContent className="space-y-4 p-5">
+        <h2 className="text-sm font-semibold text-foreground mb-1">Workshop sales tax (GST/HST)</h2>
+        <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
           You are the seller of record for workshop tickets. offhrs only adds GST/HST at checkout when
           you confirm you are registered with the CRA. If you are a small supplier (generally under
           $30,000 in taxable sales over four quarters), leave this off and do not charge tax on
@@ -445,23 +451,23 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
         </p>
         <form onSubmit={saveTaxSettings} className="space-y-4">
           <label className="flex items-start gap-3 cursor-pointer">
-            <input
+            <Input
               type="checkbox"
               checked={taxRegistered}
               onChange={(e) => {
                 setTaxRegistered(e.target.checked)
                 setTaxMsg(null)
               }}
-              className="mt-1 h-4 w-4 rounded border-[#E8E4DE] text-[#5D755D] focus:ring-[#5D755D]"
+              className="mt-1 h-4 w-4 rounded border-partner-border text-primary focus:ring-ring"
             />
-            <span className="text-sm text-[#555] leading-relaxed">
+            <span className="text-sm text-muted-foreground leading-relaxed">
               I am registered for GST/HST with the CRA and authorized to charge tax on my workshop
               sales.
             </span>
           </label>
           {taxRegistered && (
             <div>
-              <label className="block text-xs font-medium text-[#555] mb-1.5">
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                 GST/HST registration number
               </label>
               <input
@@ -471,8 +477,8 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
                   setTaxMsg(null)
                 }}
                 placeholder="123456789 RT 0001"
-                className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-              />
+                className="h-10 border-partner-border bg-white shadow-none"
+               />
             </div>
           )}
           {taxMsg && (
@@ -489,71 +495,73 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
             </p>
           )}
           <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={taxLoading}
-              className="flex items-center gap-2 bg-[#5D755D] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#4d644d] disabled:opacity-60 transition-colors"
-            >
-              {taxLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+            <Button type="submit" disabled={taxLoading}>
+              {taxLoading && <Loader2 className="size-4 animate-spin" />}
               Save tax settings
-            </button>
+            </Button>
           </div>
         </form>
-      </section>
+      </CardContent>
+      </Card>
 
       {/* Subscription */}
-      <section className="bg-white border border-[#E8E4DE] rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-[#1a1a1a] mb-1">Subscription</h2>
-        <p className="text-xs text-[#888] mb-4">Manage your billing, invoices, and payment method.</p>
+      <Card className="gap-0 border-partner-border py-0 shadow-none">
+        <CardContent className="space-y-4 p-5">
+        <h2 className="text-sm font-semibold text-foreground mb-1">Subscription</h2>
+        <p className="text-xs text-muted-foreground mb-4">Manage your billing, invoices, and payment method.</p>
         <div className="flex items-center justify-between gap-4">
-          <div className="text-sm text-[#555]">
+          <div className="text-sm text-muted-foreground">
             {subscriptionEnded ? (
               <span className="font-medium text-red-700">Subscription ended</span>
             ) : cancellationScheduled ? (
               <>
                 <span className="font-medium text-amber-700">Cancellation scheduled</span>
                 {periodEnd && (
-                  <span className="text-[#888]"> · access until {periodEnd}</span>
+                  <span className="text-muted-foreground"> · access until {periodEnd}</span>
                 )}
               </>
             ) : (
               <>
-                <span className="capitalize font-medium text-[#1a1a1a]">{vendor.status}</span>
+                <span className="capitalize font-medium text-foreground">{vendor.status}</span>
                 {periodEnd && (
-                  <span className="text-[#888]"> · renews {periodEnd}</span>
+                  <span className="text-muted-foreground"> · renews {periodEnd}</span>
                 )}
               </>
             )}
           </div>
-          <button
+          <Button
+            type="button"
+            variant="outline"
             onClick={openBillingPortal}
             disabled={portalLoading}
-            className="flex items-center gap-2 text-sm font-semibold text-[#5D755D] border border-[#5D755D] px-4 py-2 rounded-xl hover:bg-[#EDF2ED] disabled:opacity-50 transition-colors"
+            className="border-primary text-primary hover:bg-partner-tint"
           >
-            {portalLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            {portalLoading ? <Loader2 className="size-4 animate-spin" /> : null}
             {portalLoading ? 'Opening…' : 'Manage billing'}
-          </button>
+          </Button>
         </div>
-      </section>
+      </CardContent>
+      </Card>
 
       {/* Account */}
-      <section className="bg-white border border-[#E8E4DE] rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-[#1a1a1a] mb-4">Account</h2>
-        <div className="mb-4 text-sm text-[#555]">
-          <span className="text-xs font-medium text-[#888]">Email</span>
+      <Card className="gap-0 border-partner-border py-0 shadow-none">
+        <CardContent className="space-y-4 p-5">
+        <h2 className="text-sm font-semibold text-foreground mb-4">Account</h2>
+        <div className="mb-4 text-sm text-muted-foreground">
+          <span className="text-xs font-medium text-muted-foreground">Email</span>
           <p className="mt-0.5">{email}</p>
         </div>
         <form onSubmit={saveInstagramHandle} className="mb-6 space-y-3">
           <div>
-            <label className="block text-xs font-medium text-[#888] mb-1.5">Instagram handle</label>
-            <input
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Instagram handle</label>
+            <Input
               type="text"
               value={instagramHandle}
               onChange={(e) => setInstagramHandle(e.target.value)}
               placeholder="@yourstudio"
-              className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-            />
-            <p className="text-xs text-[#888] mt-1 leading-relaxed">
+              className="h-10 border-partner-border bg-white shadow-none"
+             />
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               Optional. Shown on your vendor profile in the offhrs app. Leave blank to hide the Instagram link.
             </p>
           </div>
@@ -568,31 +576,27 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
               {instagramMsg.text}
             </p>
           )}
-          <button
-            type="submit"
-            disabled={instagramLoading}
-            className="flex items-center gap-2 text-sm font-semibold text-[#1a1a1a] border border-[#E8E4DE] px-4 py-2 rounded-xl hover:bg-[#F0EDE8] disabled:opacity-50 transition-colors"
-          >
-            {instagramLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+          <Button type="submit" variant="outline" disabled={instagramLoading} className="border-partner-border">
+            {instagramLoading && <Loader2 className="size-4 animate-spin" />}
             Save Instagram
-          </button>
+          </Button>
         </form>
         <form onSubmit={changePassword} className="space-y-3">
-          <p className="text-xs font-semibold text-[#555]">Change password</p>
-          <input
+          <p className="text-xs font-semibold text-muted-foreground">Change password</p>
+          <Input
             type="password"
             placeholder="New password"
             value={passwords.next}
             onChange={(e) => setPasswords((p) => ({ ...p, next: e.target.value }))}
-            className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-          />
-          <input
+            className="h-10 border-partner-border bg-white shadow-none"
+           />
+          <Input
             type="password"
             placeholder="Confirm new password"
             value={passwords.confirm}
             onChange={(e) => setPasswords((p) => ({ ...p, confirm: e.target.value }))}
-            className="w-full px-4 py-2.5 border border-[#E8E4DE] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
-          />
+            className="h-10 border-partner-border bg-white shadow-none"
+           />
           {passwordMsg && (
             <p className={`text-sm px-4 py-3 rounded-xl ${
               passwordMsg.type === 'success'
@@ -602,19 +606,17 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
               {passwordMsg.text}
             </p>
           )}
-          <button
-            type="submit"
-            disabled={passwordLoading}
-            className="flex items-center gap-2 text-sm font-semibold text-[#1a1a1a] border border-[#E8E4DE] px-4 py-2 rounded-xl hover:bg-[#F0EDE8] disabled:opacity-50 transition-colors"
-          >
-            {passwordLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+          <Button type="submit" variant="outline" disabled={passwordLoading} className="border-partner-border">
+            {passwordLoading && <Loader2 className="size-4 animate-spin" />}
             Update password
-          </button>
+          </Button>
         </form>
-      </section>
+      </CardContent>
+      </Card>
 
       {/* Danger zone */}
-      <section className="bg-white border border-red-200 rounded-xl p-5">
+      <Card className="gap-0 border-red-200 py-0 shadow-none">
+        <CardContent className="p-5">
         <div className="flex items-center gap-2 mb-3">
           <AlertTriangle className="w-4 h-4 text-red-500" />
           <h2 className="text-sm font-semibold text-red-700">Danger zone</h2>
@@ -650,30 +652,34 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
 
         {subscriptionActive ? (
           <>
-            <p className="text-xs text-[#888] mb-4">
+            <p className="text-xs text-muted-foreground mb-4">
               Canceling your subscription retains access until the end of your current billing period.
               Your data is kept for 30 days after cancellation.
             </p>
-            <button
+            <Button
+              type="button"
+              variant="outline"
               onClick={openBillingPortal}
               disabled={portalLoading}
-              className="text-sm font-semibold text-red-600 border border-red-200 px-4 py-2 rounded-xl hover:bg-red-50 disabled:opacity-50 transition-colors"
+              className="border-red-200 text-red-600 hover:bg-red-50"
             >
               Cancel subscription
-            </button>
+            </Button>
           </>
         ) : (
-          <button
+          <Button
+            type="button"
+            variant="outline"
             onClick={openBillingPortal}
             disabled={portalLoading}
-            className="text-sm font-semibold text-[#5D755D] border border-[#5D755D] px-4 py-2 rounded-xl hover:bg-[#EDF2ED] disabled:opacity-50 transition-colors"
+            className="border-primary text-primary hover:bg-partner-tint"
           >
             {portalLoading ? 'Opening…' : 'Manage subscription'}
-          </button>
+          </Button>
         )}
 
         <div className="mt-4 border-t border-red-100 pt-4">
-          <p className="text-xs text-[#888] mb-3">
+          <p className="mb-3 text-xs text-muted-foreground">
             Deleting your vendor account cancels your subscription right away, refunds active paid
             bookings, and permanently removes your business profile, workshops, bookings, payout
             records, and calendar connections. Funds already in your Stripe Express account still
@@ -682,13 +688,15 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
             okay refunding upcoming paid bookings, and export your Bookings CSV if you need records.
             If you also use the offhrs mobile app with the same email, your consumer account is kept.
           </p>
-          <button
+          <Button
+            type="button"
+            variant="outline"
             onClick={deleteAccount}
             disabled={deleteLoading}
-            className="w-full text-sm font-semibold text-red-700 border border-red-200 px-4 py-2 rounded-xl hover:bg-red-50 disabled:opacity-50 transition-colors"
+            className="w-full border-red-200 text-red-700 hover:bg-red-50"
           >
             {deleteLoading ? 'Deleting…' : 'Delete vendor account'}
-          </button>
+          </Button>
           {deleteMsg && (
             <p
               className={`mt-3 text-sm px-4 py-3 rounded-xl ${
@@ -701,7 +709,8 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
             </p>
           )}
         </div>
-      </section>
+      </CardContent>
+      </Card>
     </div>
   )
 }

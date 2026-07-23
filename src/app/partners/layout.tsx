@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 export default function PartnersLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`${playfair.variable} bg-[#FAFAF8] min-h-screen`}>
+    <div className={`${playfair.variable} bg-partner-canvas min-h-screen`}>
       {children}
     </div>
   )

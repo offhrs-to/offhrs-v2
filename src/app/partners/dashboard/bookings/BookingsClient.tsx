@@ -2,6 +2,12 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Download, Users, RefreshCw, RotateCcw } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { PartnerEmptyState } from '../components/PartnerEmptyState'
+import { cn } from '@/lib/utils'
 
 interface Booking {
   id: string
@@ -18,14 +24,20 @@ interface Booking {
   events: { title?: string } | null
 }
 
-interface Session { id: string; title: string }
+interface Session {
+  id: string
+  title: string
+}
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  confirmed: { label: 'Confirmed', className: 'bg-green-100 text-green-700' },
-  cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-600' },
-  pending: { label: 'Pending', className: 'bg-amber-100 text-amber-700' },
-  refunded: { label: 'Refunded', className: 'bg-[#F0EDE8] text-[#888]' },
+  confirmed: { label: 'Confirmed', className: 'border-transparent bg-green-100 text-green-700' },
+  cancelled: { label: 'Cancelled', className: 'border-transparent bg-red-100 text-red-600' },
+  pending: { label: 'Pending', className: 'border-transparent bg-amber-100 text-amber-700' },
+  refunded: { label: 'Refunded', className: 'border-transparent bg-partner-muted text-muted-foreground' },
 }
+
+const selectClass =
+  'h-9 rounded-md border border-partner-border bg-white px-3 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 function formatCad(n: number) {
   return new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(n)
@@ -55,7 +67,9 @@ export function BookingsClient({
     setLoading(false)
   }, [statusFilter, sessionFilter])
 
-  useEffect(() => { fetchBookings() }, [fetchBookings])
+  useEffect(() => {
+    fetchBookings()
+  }, [fetchBookings])
 
   async function handleExportCsv() {
     const params = new URLSearchParams({ format: 'csv' })
@@ -90,37 +104,34 @@ export function BookingsClient({
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="mx-auto max-w-6xl p-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-[#1a1a1a]">Bookings</h1>
-          <p className="text-sm text-[#888] mt-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Bookings</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             {bookings.length} booking{bookings.length !== 1 ? 's' : ''} found
           </p>
         </div>
-        <button
-          onClick={handleExportCsv}
-          className="flex items-center gap-2 text-sm font-semibold text-[#5D755D] border border-[#5D755D] px-4 py-2.5 rounded-xl hover:bg-[#EDF2ED] transition-colors"
-        >
-          <Download className="w-4 h-4" />
+        <Button type="button" variant="outline" onClick={handleExportCsv} className="self-start border-primary text-primary hover:bg-partner-tint">
+          <Download className="size-4" />
           Export CSV
-        </button>
+        </Button>
       </div>
 
       {strictNoRefund ? (
-        <p className="mb-5 text-xs text-[#888] leading-relaxed rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] px-4 py-3">
-          Strict cancellation policy is on — paid bookings are non-refundable in the app. Manual refunds
-          are disabled here (workshop archive still refunds active bookings).
-        </p>
+        <Alert className="mb-5 border-partner-border bg-partner-canvas">
+          <AlertDescription className="text-xs text-muted-foreground">
+            Strict cancellation policy is on — paid bookings are non-refundable in the app. Manual refunds are
+            disabled here (workshop archive still refunds active bookings).
+          </AlertDescription>
+        </Alert>
       ) : null}
 
-      {/* Filters */}
-      <div className="flex gap-3 mb-5 flex-wrap">
+      <div className="mb-5 flex flex-wrap gap-3">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="text-sm border border-[#E8E4DE] rounded-xl px-3 py-2 bg-white text-[#1a1a1a] focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+          className={cn(selectClass, 'w-full sm:w-auto')}
         >
           <option value="all">All statuses</option>
           <option value="confirmed">Confirmed</option>
@@ -132,40 +143,39 @@ export function BookingsClient({
         <select
           value={sessionFilter}
           onChange={(e) => setSessionFilter(e.target.value)}
-          className="text-sm border border-[#E8E4DE] rounded-xl px-3 py-2 bg-white text-[#1a1a1a] focus:outline-none focus:ring-2 focus:ring-[#5D755D]"
+          className={cn(selectClass, 'w-full min-w-0 sm:w-auto sm:min-w-[12rem]')}
         >
           <option value="all">All workshops</option>
           {sessions.map((s) => (
-            <option key={s.id} value={s.id}>{s.title}</option>
+            <option key={s.id} value={s.id}>
+              {s.title}
+            </option>
           ))}
         </select>
 
-        <button
-          onClick={fetchBookings}
-          className="flex items-center gap-1.5 text-sm text-[#888] border border-[#E8E4DE] px-3 py-2 rounded-xl hover:bg-[#F5F2EE] transition-colors"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
+        <Button type="button" variant="outline" size="sm" onClick={fetchBookings} className="h-9 border-partner-border">
+          <RefreshCw className="size-3.5" />
           Refresh
-        </button>
+        </Button>
       </div>
 
-      {/* Table */}
       {loading ? (
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-14 bg-[#F5F2EE] rounded-xl animate-pulse" />
+            <div key={i} className="h-14 animate-pulse rounded-xl bg-partner-muted" />
           ))}
         </div>
       ) : !bookings.length ? (
-        <div className="text-center py-16 bg-white border border-[#E8E4DE] rounded-xl">
-          <Users className="w-10 h-10 text-[#C8BFB0] mx-auto mb-3" />
-          <p className="text-sm font-medium text-[#1a1a1a]">No bookings found</p>
-          <p className="text-xs text-[#888] mt-1">Try adjusting your filters.</p>
-        </div>
+        <Card className="border-partner-border py-0 shadow-none">
+          <PartnerEmptyState
+            icon={Users}
+            title="No bookings found"
+            description="Try adjusting your filters."
+          />
+        </Card>
       ) : (
-        <div className="bg-white border border-[#E8E4DE] rounded-xl overflow-hidden">
-          {/* Desktop header */}
-          <div className="hidden md:grid grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr] gap-3 px-5 py-3 border-b border-[#F0EDE8] text-xs font-medium text-[#888]">
+        <Card className="gap-0 overflow-hidden border-partner-border py-0 shadow-none">
+          <div className="hidden grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr] gap-3 border-b border-partner-border px-5 py-3 text-xs font-medium text-muted-foreground md:grid">
             <span>Attendee</span>
             <span>Workshop</span>
             <span>Date</span>
@@ -178,37 +188,33 @@ export function BookingsClient({
           {bookings.map((b) => {
             const effectiveStatus =
               b.refunded_at || (b.status ?? '').toLowerCase() === 'refunded' ? 'refunded' : (b.status ?? '')
-            const badge = STATUS_BADGE[effectiveStatus] ?? { label: effectiveStatus || '—', className: 'bg-[#F0EDE8] text-[#888]' }
-            const canRefund =
-              effectiveStatus === 'confirmed' && !b.refunded_at && !strictNoRefund
+            const badge = STATUS_BADGE[effectiveStatus] ?? {
+              label: effectiveStatus || '—',
+              className: 'border-transparent bg-partner-muted text-muted-foreground',
+            }
+            const canRefund = effectiveStatus === 'confirmed' && !b.refunded_at && !strictNoRefund
             const stripeFee = Number(b.stripe_fee_cad ?? 0)
             const amountPaid = b.amount_cad != null ? Number(b.amount_cad) : null
-            const payoutAmount = b.net_vendor_cad != null
-              ? Number(b.net_vendor_cad)
-              : amountPaid
+            const payoutAmount = b.net_vendor_cad != null ? Number(b.net_vendor_cad) : amountPaid
             return (
               <div
                 key={b.id}
-                className="grid grid-cols-1 md:grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr] gap-3 px-5 py-3.5 border-b border-[#F5F2EE] last:border-0 items-center"
+                className="grid grid-cols-1 items-center gap-3 border-b border-partner-border/80 px-5 py-3.5 last:border-0 md:grid-cols-[2fr_2fr_1fr_1fr_1fr_1fr]"
               >
-                {/* Attendee */}
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-[#1a1a1a] truncate">{b.name ?? 'Guest'}</p>
-                  <p className="text-xs text-[#888] truncate">{b.email ?? ''}</p>
+                  <p className="truncate text-sm font-medium text-foreground">{b.name ?? 'Guest'}</p>
+                  <p className="truncate text-xs text-muted-foreground">{b.email ?? ''}</p>
                 </div>
 
-                {/* Workshop */}
-                <p className="text-sm text-[#555] truncate">{b.events?.title ?? '—'}</p>
+                <p className="truncate text-sm text-muted-foreground">{b.events?.title ?? '—'}</p>
 
-                {/* Date */}
-                <p className="text-sm text-[#555]">
+                <p className="text-sm text-muted-foreground">
                   {new Date(b.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
                 </p>
 
-                {/* Payout (net of Stripe fee — what's deposited to vendor) */}
                 <div>
                   <p
-                    className="text-sm font-semibold text-[#1a1a1a]"
+                    className="text-sm font-semibold text-foreground"
                     title={
                       amountPaid != null && b.stripe_fee_cad != null
                         ? effectiveStatus === 'refunded'
@@ -220,42 +226,44 @@ export function BookingsClient({
                     {payoutAmount != null ? formatCad(payoutAmount) : '—'}
                   </p>
                   {effectiveStatus === 'refunded' && amountPaid != null ? (
-                    <p className="text-[11px] text-[#888] leading-tight mt-0.5">
-                      {formatCad(amountPaid)} refunded · {stripeFee > 0
+                    <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
+                      {formatCad(amountPaid)} refunded ·{' '}
+                      {stripeFee > 0
                         ? `${formatCad(stripeFee)} Stripe fee absorbed per policy`
                         : 'Stripe fee handled per policy'}
                     </p>
                   ) : amountPaid != null && stripeFee > 0 ? (
-                    <p className="text-[11px] text-[#888] leading-tight mt-0.5">
+                    <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
                       {formatCad(amountPaid)} paid · -{formatCad(stripeFee)} fee
                     </p>
                   ) : null}
                 </div>
 
-                {/* Status */}
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-fit ${badge.className}`}>
+                <Badge variant="outline" className={cn('w-fit', badge.className)}>
                   {badge.label}
-                </span>
+                </Badge>
 
-                {/* Refund */}
                 <div>
                   {canRefund ? (
-                    <button
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => handleRefund(b.id, b.name ?? 'Guest')}
                       disabled={refundingId === b.id}
-                      className="flex items-center gap-1.5 text-xs font-semibold text-red-600 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
+                      className="h-8 border-red-200 text-xs text-red-600 hover:bg-red-50"
                     >
-                      <RotateCcw className="w-3 h-3" />
+                      <RotateCcw className="size-3" />
                       {refundingId === b.id ? 'Processing…' : 'Refund'}
-                    </button>
+                    </Button>
                   ) : (
-                    <span className="text-xs text-[#C8BFB0]">—</span>
+                    <span className="text-xs text-muted-foreground/40">—</span>
                   )}
                 </div>
               </div>
             )
           })}
-        </div>
+        </Card>
       )}
     </div>
   )

@@ -9,12 +9,12 @@ export const metadata: Metadata = {
 
 export default function PartnerFaqPage() {
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 sm:py-10">
-      <header className="mb-8">
-        <h1 className="text-2xl font-bold text-[#1a1a1a]">Partner FAQ</h1>
-        <p className="text-sm text-[#555] mt-2 leading-relaxed">
-          Answers to common questions about plans, payouts, fees, taxes, refunds, and managing your
-          workshops on offhrs. Still stuck? Reach out to the offhrs team and we&apos;ll help.
+    <div className="mx-auto max-w-3xl p-6">
+      <header className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Partner FAQ</h1>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          Answers to common questions about plans, payouts, fees, taxes, refunds, and managing your workshops on
+          offhrs. Still stuck? Reach out to the offhrs team and we&apos;ll help.
         </p>
       </header>
 

@@ -1,5 +1,6 @@
 import { ChevronDown } from 'lucide-react'
 import { PARTNER_FAQ_SECTIONS, type PartnerFaqSection } from '@/lib/partner-faq'
+import { cn } from '@/lib/utils'
 
 type Props = {
   /** Defaults to the shared partner FAQ sections. */
@@ -15,13 +16,13 @@ export function PartnerFaqAccordion({
   className = '',
 }: Props) {
   return (
-    <div className={`space-y-10 ${className}`.trim()}>
+    <div className={cn('space-y-10', className)}>
       {sections.map((section) => (
         <section key={section.id} aria-labelledby={`faq-${section.id}`}>
           {showSectionTitles ? (
             <h3
               id={`faq-${section.id}`}
-              className="text-xs font-semibold uppercase tracking-wide text-[#5D755D] mb-3"
+              className="mb-3 text-xs font-semibold uppercase tracking-wide text-primary"
             >
               {section.title}
             </h3>
@@ -30,13 +31,13 @@ export function PartnerFaqAccordion({
             {section.items.map((item) => (
               <details
                 key={item.q}
-                className="group bg-white border border-[#E8E4DE] rounded-xl overflow-hidden"
+                className="group overflow-hidden rounded-xl border border-partner-border bg-white"
               >
-                <summary className="flex items-center justify-between gap-3 cursor-pointer list-none px-4 py-3.5 text-sm font-medium text-[#1a1a1a] hover:bg-[#FAFAF8] transition-colors [&::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3.5 text-sm font-medium text-foreground transition-colors hover:bg-partner-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
                   <span>{item.q}</span>
-                  <ChevronDown className="w-4 h-4 flex-shrink-0 text-[#888] transition-transform group-open:rotate-180" />
+                  <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                 </summary>
-                <div className="px-4 pb-4 pt-0 text-sm text-[#555] leading-relaxed">
+                <div className="px-4 pb-4 pt-0 text-sm leading-relaxed text-muted-foreground">
                   {item.a ?? <p>{item.aText}</p>}
                 </div>
               </details>

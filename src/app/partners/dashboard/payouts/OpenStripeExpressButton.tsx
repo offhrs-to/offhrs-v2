@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ExternalLink } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 export function OpenStripeExpressButton() {
   const [loading, setLoading] = useState(false)
@@ -24,13 +25,15 @@ export function OpenStripeExpressButton() {
   }
 
   return (
-    <button
+    <Button
+      type="button"
+      variant="outline"
       onClick={handleClick}
       disabled={loading}
-      className="flex items-center gap-2 text-sm font-semibold text-[#5D755D] border border-[#5D755D] px-4 py-2.5 rounded-xl hover:bg-[#EDF2ED] disabled:opacity-50 transition-colors"
+      className="border-primary text-primary hover:bg-partner-tint"
     >
-      <ExternalLink className="w-4 h-4" />
+      <ExternalLink className="size-4" />
       {loading ? 'Opening…' : 'Open Stripe dashboard'}
-    </button>
+    </Button>
   )
 }

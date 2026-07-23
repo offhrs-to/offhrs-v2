@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ClipboardList, Clock, X } from 'lucide-react'
 import { GettingStartedChecklist, type ChecklistItemProps } from './GettingStartedChecklist'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export function GettingStartedRail({
   items,
@@ -68,28 +70,30 @@ export function GettingStartedRail({
           role="dialog"
           aria-modal={open}
           aria-labelledby="getting-started-rail-title"
-          className={`absolute right-0 top-0 z-10 h-full w-full max-w-md border-l border-[#E8E4DE] bg-[#FAFAF8] shadow-[-12px_0_40px_rgba(0,0,0,0.1)] flex flex-col transition-transform duration-300 ease-out ${
+          className={`absolute right-0 top-0 z-10 h-full w-full max-w-md border-l border-partner-border bg-partner-canvas shadow-[-12px_0_40px_rgba(0,0,0,0.1)] flex flex-col transition-transform duration-300 ease-out ${
             open ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
-          <div className="flex items-start justify-between gap-3 border-b border-[#E8E4DE] bg-white px-4 py-4">
+          <div className="flex items-start justify-between gap-3 border-b border-partner-border bg-white px-4 py-4">
             <div className="min-w-0">
-              <h2 id="getting-started-rail-title" className="text-sm font-semibold text-[#1a1a1a]">
+              <h2 id="getting-started-rail-title" className="text-sm font-semibold text-foreground">
                 Getting started
               </h2>
-              <p className="text-xs text-[#888] mt-0.5">Your partner onboarding checklist</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Your partner onboarding checklist</p>
             </div>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={close}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#888] hover:bg-[#F0EDE8] hover:text-[#1a1a1a] transition-colors"
+              className="shrink-0 text-muted-foreground"
               aria-label="Close getting started"
             >
-              <X className="w-5 h-5" />
-            </button>
+              <X className="size-5" />
+            </Button>
           </div>
           <div className="flex-1 overflow-y-auto p-5">
-            <div className="rounded-xl border border-[#E8E4DE] bg-white p-4">
+            <div className="rounded-xl border border-partner-border bg-white p-4">
               <GettingStartedChecklist items={items} allDone={allDone} />
             </div>
           </div>
@@ -102,28 +106,31 @@ export function GettingStartedRail({
   return (
     <>
       {overlay}
-      <div className="relative flex items-center gap-2 flex-shrink-0">
-        <button
+      <div className="relative flex flex-shrink-0 items-center gap-2">
+        <Button
           type="button"
+          variant="outline"
+          size="icon"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-controls="partner-getting-started-rail"
           title={open ? 'Hide getting started checklist' : 'Open getting started checklist'}
-          className={`flex h-9 w-9 items-center justify-center rounded-full border transition-colors ${
+          className={cn(
+            'size-9 rounded-full',
             open
-              ? 'border-[#5D755D] bg-[#EDF2ED] text-[#5D755D]'
-              : 'border-[#E8E4DE] bg-white text-[#555] hover:border-[#C8BFB0] hover:text-[#1a1a1a]'
-          }`}
+              ? 'border-primary bg-partner-tint text-primary'
+              : 'border-partner-border bg-white text-muted-foreground'
+          )}
         >
-          <ClipboardList className="w-4 h-4" aria-hidden />
-        </button>
+          <ClipboardList className="size-4" aria-hidden />
+        </Button>
 
         {trialDays !== null && (
           <div
             className={`text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5 ${
               trialDays <= 3
                 ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                : 'bg-[#EDF2ED] text-[#5D755D]'
+                : 'bg-partner-tint text-primary'
             }`}
           >
             <Clock className="w-3.5 h-3 shrink-0" aria-hidden />

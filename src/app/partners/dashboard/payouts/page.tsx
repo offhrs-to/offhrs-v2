@@ -5,6 +5,11 @@ import { ExternalLink, DollarSign } from 'lucide-react'
 import { OpenStripeExpressButton } from './OpenStripeExpressButton'
 import { ConnectStripeButton } from '../components/ConnectStripeButton'
 import { reconcileStripeConnectStatus } from '@/lib/stripe-connect-reconcile'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { PartnerEmptyState } from '../components/PartnerEmptyState'
+import { cn } from '@/lib/utils'
 
 interface Payout {
   id: string
@@ -16,10 +21,10 @@ interface Payout {
 }
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  pending: { label: 'Pending', className: 'bg-amber-100 text-amber-700' },
-  paid: { label: 'Paid', className: 'bg-green-100 text-green-700' },
-  failed: { label: 'Failed', className: 'bg-red-100 text-red-600' },
-  canceled: { label: 'Canceled', className: 'bg-[#F0EDE8] text-[#888]' },
+  pending: { label: 'Pending', className: 'border-transparent bg-amber-100 text-amber-700' },
+  paid: { label: 'Paid', className: 'border-transparent bg-green-100 text-green-700' },
+  failed: { label: 'Failed', className: 'border-transparent bg-red-100 text-red-600' },
+  canceled: { label: 'Canceled', className: 'border-transparent bg-partner-muted text-muted-foreground' },
 }
 
 function formatCad(amount: number): string {
@@ -28,25 +33,27 @@ function formatCad(amount: number): string {
 
 export default async function PayoutsPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) redirect('/partners/login')
 
   const admin = createAdminClient()
   if (!admin) return <div className="p-8 text-red-500">Server configuration error</div>
 
-  const { data: vendor } = await admin
+  const { data: vendor } = (await admin
     .from('vendor_profiles')
     .select('id, stripe_account_id, stripe_connect_completed, location_address, gst_hst_registered')
     .eq('user_id', user.id)
-    .single() as {
-      data: {
-        id: string
-        stripe_account_id: string | null
-        stripe_connect_completed: boolean
-        location_address: string | null
-        gst_hst_registered: boolean
-      } | null
-    }
+    .single()) as {
+    data: {
+      id: string
+      stripe_account_id: string | null
+      stripe_connect_completed: boolean
+      location_address: string | null
+      gst_hst_registered: boolean
+    } | null
+  }
 
   if (!vendor) redirect('/partners/signup')
 
@@ -55,70 +62,96 @@ export default async function PayoutsPage() {
     vendor.stripe_connect_completed = true
   }
 
-  const { data: payouts } = await admin
+  const { data: payouts } = (await admin
     .from('vendor_payouts')
     .select('*')
     .eq('vendor_id', vendor.id)
     .order('arrival_date', { ascending: false })
-    .limit(50) as { data: Payout[] | null }
+    .limit(50)) as { data: Payout[] | null }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+    <div className="mx-auto max-w-3xl p-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-[#1a1a1a]">Payouts</h1>
-          <p className="text-sm text-[#888] mt-1">Your payout history from workshop bookings.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Payouts</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Your payout history from workshop bookings.</p>
         </div>
         {vendor.stripe_connect_completed && <OpenStripeExpressButton />}
       </div>
 
       {!vendor.stripe_connect_completed ? (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 flex gap-4">
-          <ExternalLink className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-amber-800 mb-1">Payout account not set up</p>
-            <p className="text-sm text-amber-700 mb-4">
-              You need to complete Stripe Connect onboarding before you can receive payouts.
-              This takes about 2 minutes.
+        <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+          <ExternalLink className="text-amber-500" />
+          <AlertTitle>Payout account not set up</AlertTitle>
+          <AlertDescription className="space-y-4">
+            <p>
+              You need to complete Stripe Connect onboarding before you can receive payouts. This takes about 2
+              minutes.
             </p>
             <ConnectStripeButton />
-          </div>
-        </div>
+          </AlertDescription>
+        </Alert>
       ) : !payouts?.length ? (
-        <div className="text-center py-16 bg-white border border-[#E8E4DE] rounded-xl">
-          <DollarSign className="w-10 h-10 text-[#C8BFB0] mx-auto mb-3" />
-          <p className="text-sm font-medium text-[#1a1a1a]">No payouts yet</p>
-          <p className="text-xs text-[#888] mt-1">Payouts appear here once bookings are completed.</p>
-        </div>
+        <Card className="border-partner-border py-0 shadow-none">
+          <PartnerEmptyState
+            icon={DollarSign}
+            title="No payouts yet"
+            description="Payouts appear here once bookings are completed."
+          />
+        </Card>
       ) : (
-        <div className="bg-white border border-[#E8E4DE] rounded-xl overflow-hidden">
-          <div className="grid grid-cols-4 gap-4 px-5 py-3 border-b border-[#F0EDE8] text-xs font-medium text-[#888]">
+        <Card className="gap-0 overflow-hidden border-partner-border py-0 shadow-none">
+          <div className="hidden grid-cols-4 gap-4 border-b border-partner-border px-5 py-3 text-xs font-medium text-muted-foreground sm:grid">
             <span>Amount</span>
             <span>Arrival date</span>
             <span>Status</span>
             <span>Payout ID</span>
           </div>
           {payouts.map((payout) => {
-            const badge = STATUS_BADGE[payout.status] ?? { label: payout.status, className: 'bg-[#F0EDE8] text-[#888]' }
+            const badge = STATUS_BADGE[payout.status] ?? {
+              label: payout.status,
+              className: 'border-transparent bg-partner-muted text-muted-foreground',
+            }
+            const arrival = new Date(payout.arrival_date).toLocaleDateString('en-CA', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })
             return (
               <div
                 key={payout.id}
-                className="grid grid-cols-4 gap-4 px-5 py-3.5 border-b border-[#F5F2EE] last:border-0 items-center"
+                className="grid grid-cols-1 gap-2 border-b border-partner-border/80 px-5 py-3.5 last:border-0 sm:grid-cols-4 sm:items-center sm:gap-4"
               >
-                <span className="text-sm font-semibold text-[#1a1a1a]">{formatCad(payout.amount_cad)}</span>
-                <span className="text-sm text-[#555]">
-                  {new Date(payout.arrival_date).toLocaleDateString('en-CA', {
-                    year: 'numeric', month: 'short', day: 'numeric',
-                  })}
-                </span>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-fit ${badge.className}`}>
-                  {badge.label}
-                </span>
-                <span className="text-xs text-[#888] font-mono truncate">{payout.stripe_payout_id}</span>
+                <div className="flex items-center justify-between gap-3 sm:block">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">
+                    Amount
+                  </span>
+                  <span className="text-sm font-semibold text-foreground">{formatCad(payout.amount_cad)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 sm:block">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">
+                    Arrival
+                  </span>
+                  <span className="text-sm text-muted-foreground">{arrival}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 sm:block">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">
+                    Status
+                  </span>
+                  <Badge variant="outline" className={cn('w-fit', badge.className)}>
+                    {badge.label}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between gap-3 sm:block">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">
+                    Payout ID
+                  </span>
+                  <span className="truncate font-mono text-xs text-muted-foreground">{payout.stripe_payout_id}</span>
+                </div>
               </div>
             )
           })}
-        </div>
+        </Card>
       )}
     </div>
   )
