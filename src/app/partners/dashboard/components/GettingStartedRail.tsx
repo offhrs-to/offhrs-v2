@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ClipboardList, Clock, X } from 'lucide-react'
+import { Clock, X } from 'lucide-react'
 import { GettingStartedChecklist, type ChecklistItemProps } from './GettingStartedChecklist'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -107,33 +107,31 @@ export function GettingStartedRail({
     <>
       {overlay}
       <div className="relative flex flex-shrink-0 items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          aria-controls="partner-getting-started-rail"
-          title={open ? 'Hide getting started checklist' : 'Open getting started checklist'}
-          className={cn(
-            'size-9 rounded-full',
-            open
-              ? 'border-primary bg-partner-tint text-primary'
-              : 'border-partner-border bg-white text-muted-foreground'
-          )}
-        >
-          <ClipboardList className="size-4" aria-hidden />
-        </Button>
+        {!allDone ? (
+          <Button
+            type="button"
+            variant="link"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-controls="partner-getting-started-rail"
+            className={cn(
+              'h-auto px-0 text-sm font-medium text-muted-foreground hover:text-foreground',
+              open && 'text-primary'
+            )}
+          >
+            Getting started
+          </Button>
+        ) : null}
 
         {trialDays !== null && (
           <div
-            className={`text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5 ${
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
               trialDays <= 3
-                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                ? 'border border-amber-200 bg-amber-50 text-amber-700'
                 : 'bg-partner-tint text-primary'
             }`}
           >
-            <Clock className="w-3.5 h-3 shrink-0" aria-hidden />
+            <Clock className="h-3 w-3.5 shrink-0" aria-hidden />
             {trialDays === 0 ? 'Trial ends today' : `${trialDays} days left in trial`}
           </div>
         )}

@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
@@ -65,13 +64,36 @@ function formatSessionDate(iso: string | null): string {
   })
 }
 
-function formatDurationMinutes(minutes: number | null): string {
+function formatSessionTimeRange(iso: string | null, durationMinutes: number | null): string {
+  if (!iso) return 'Time TBD'
+  const start = new Date(iso)
+  if (Number.isNaN(start.getTime())) return 'Time TBD'
+  const startLabel = start.toLocaleString('en-CA', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'America/Toronto',
+  })
+  if (durationMinutes == null || durationMinutes <= 0) return startLabel
+  const end = new Date(start.getTime() + durationMinutes * 60_000)
+  const endLabel = end.toLocaleString('en-CA', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'America/Toronto',
+  })
+  return `${startLabel} – ${endLabel}`
+}
+
+function formatDurationLabel(minutes: number | null): string {
   if (minutes == null || minutes <= 0) return '—'
+  if (minutes % 60 === 0) {
+    const h = minutes / 60
+    return h === 1 ? '1 hr' : `${h} hrs`
+  }
+  if (minutes < 60) return `${minutes} min`
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
-  if (h === 0) return `${m} min`
-  if (m === 0) return h === 1 ? '1 hr' : `${h} hr`
-  return `${h} hr ${m} min`
+  const hours = h === 1 ? '1 hr' : `${h} hrs`
+  return `${hours} ${m} min`
 }
 
 function bookingDisplayStatus(booking: { status?: string | null; refunded_at?: string | null }): string {
@@ -154,11 +176,14 @@ function WorkshopList({
   emptyTitle,
   emptyHref = '/partners/dashboard/sessions?new=1',
   emptyCta = 'Create a workshop',
+  timeStyle = 'datetime',
 }: {
   workshops: DashboardWorkshopRow[]
   emptyTitle: string
   emptyHref?: string
   emptyCta?: string
+  /** `time` matches Overview sample (start–end only). */
+  timeStyle?: 'datetime' | 'time'
 }) {
   if (!workshops.length) {
     return (
@@ -188,15 +213,22 @@ function WorkshopList({
                 <p className="truncate text-sm font-medium text-foreground">
                   {session.title ?? 'Untitled workshop'}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">{formatSessionDate(session.date)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {timeStyle === 'time'
+                    ? formatSessionTimeRange(session.date, session.duration_minutes)
+                    : formatSessionDate(session.date)}
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {spotsFilledLabel(session.max_attendees, session.available_slots)}
                   <span className="mx-1.5 text-muted-foreground/40">·</span>
-                  {formatDurationMinutes(session.duration_minutes)}
+                  {formatDurationLabel(session.duration_minutes)}
                 </p>
               </div>
               {session.booking_status ? (
-                <Badge variant="outline" className="mt-0.5 shrink-0 text-[10px] uppercase tracking-wide">
+                <Badge
+                  variant="outline"
+                  className="mt-0.5 shrink-0 rounded-md text-[10px] font-medium capitalize tracking-wide"
+                >
                   {session.booking_status.replace(/_/g, ' ')}
                 </Badge>
               ) : null}
@@ -256,26 +288,20 @@ export function DashboardHomeViews({
 
   return (
     <Tabs value={view} onValueChange={selectView} className="gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Dashboard view
-          </p>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {view === 'today'
-              ? 'Focus on what needs attention today.'
-              : 'Month-to-date performance and your workshop inventory.'}
-          </p>
-        </div>
-        <TabsList className="self-start border border-partner-border bg-partner-canvas">
-          <TabsTrigger value="today" className="text-xs">
-            Today&apos;s Snapshot
-          </TabsTrigger>
-          <TabsTrigger value="monthly" className="text-xs">
-            Monthly Overview
-          </TabsTrigger>
-        </TabsList>
-      </div>
+      <TabsList className="h-10 w-full justify-start gap-1 self-start border border-partner-border bg-partner-canvas p-1 sm:w-auto">
+        <TabsTrigger
+          value="today"
+          className="flex-1 px-4 text-sm data-[state=active]:shadow-none sm:flex-none"
+        >
+          Today&apos;s Snapshot
+        </TabsTrigger>
+        <TabsTrigger
+          value="monthly"
+          className="flex-1 px-4 text-sm data-[state=active]:shadow-none sm:flex-none"
+        >
+          Monthly Overview
+        </TabsTrigger>
+      </TabsList>
 
       <TabsContent value="monthly" className="space-y-6">
         <MetricsStrip
@@ -304,20 +330,14 @@ export function DashboardHomeViews({
           forcedRange={30}
           hideRangeToggle
           showSpotsRemaining={false}
+          variant="line"
         />
 
-        <Card className="gap-0 py-0 shadow-none border-partner-border">
+        <Card className="gap-0 border-partner-border py-0 shadow-none">
           <CardHeader className="flex-row items-center justify-between space-y-0 px-5 py-4">
-            <div>
-              <CardTitle className="text-sm">Your workshops</CardTitle>
-              <CardDescription className="mt-1 text-xs">
-                {workshops.length >= 100
-                  ? 'Showing your 100 most recent workshops by date (latest first). Open Workshops for the full list.'
-                  : 'Sorted by workshop date (latest first). Counts reflect the latest data when you load this page.'}
-              </CardDescription>
-            </div>
+            <CardTitle className="text-sm font-semibold">Your workshops</CardTitle>
             <Button variant="link" className="h-auto shrink-0 p-0 text-xs text-primary" asChild>
-              <Link href="/partners/dashboard/sessions">Manage</Link>
+              <Link href="/partners/dashboard/sessions">Manage →</Link>
             </Button>
           </CardHeader>
           <CardContent className="px-5 pb-5">
@@ -353,34 +373,28 @@ export function DashboardHomeViews({
           forcedRange={7}
           hideRangeToggle
           showSpotsRemaining={false}
+          variant="line"
         />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card className="gap-0 border-partner-border py-0 shadow-none">
-            <CardHeader className="flex-row items-center justify-between space-y-0 px-5 py-4">
-              <div>
-                <CardTitle className="text-sm">Today&apos;s workshops</CardTitle>
-                <CardDescription className="mt-1 text-xs">
-                  Sessions scheduled for {todayYmd} (America/Toronto).
-                </CardDescription>
-              </div>
-              <Button variant="link" className="h-auto shrink-0 p-0 text-xs text-primary" asChild>
-                <Link href="/partners/dashboard/calendar">Calendar</Link>
-              </Button>
+            <CardHeader className="space-y-0 px-5 py-4">
+              <CardTitle className="text-sm font-semibold">Today&apos;s workshops</CardTitle>
             </CardHeader>
             <CardContent className="px-5 pb-5">
               <WorkshopList
                 workshops={todaysWorkshops}
                 emptyTitle="No workshops scheduled for today."
+                timeStyle="time"
               />
             </CardContent>
           </Card>
 
           <Card className="gap-0 border-partner-border py-0 shadow-none">
             <CardHeader className="flex-row items-center justify-between space-y-0 px-5 py-4">
-              <CardTitle className="text-sm">Recent bookings</CardTitle>
+              <CardTitle className="text-sm font-semibold">Recent bookings</CardTitle>
               <Button variant="link" className="h-auto shrink-0 p-0 text-xs text-primary" asChild>
-                <Link href="/partners/dashboard/bookings">View all</Link>
+                <Link href="/partners/dashboard/bookings">View all →</Link>
               </Button>
             </CardHeader>
             <CardContent className="px-5 pb-5">
@@ -437,6 +451,7 @@ export function DashboardHomeViews({
                               : new Date(booking.created_at).toLocaleDateString('en-CA', {
                                   month: 'short',
                                   day: 'numeric',
+                                  year: 'numeric',
                                 })}
                           </p>
                           {isRefunded ? (
