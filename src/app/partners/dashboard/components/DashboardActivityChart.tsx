@@ -41,6 +41,7 @@ function showXAxisTick(i: number, len: number, range: Range): boolean {
 }
 
 function niceMax(m: number): number {
+  if (m <= 0) return 0
   if (m <= 1) return 1
   if (m <= 4) return 4
   if (m <= 8) return 8
@@ -48,6 +49,18 @@ function niceMax(m: number): number {
   if (m <= 16) return 16
   const step = Math.ceil(m / 4)
   return step * 4
+}
+
+/** Descending unique Y labels (top → bottom) for the line chart axis. */
+function yAxisTicks(maxY: number): number[] {
+  if (maxY <= 0) return [0]
+  if (maxY === 1) return [1, 0]
+  const steps = 4
+  const ticks: number[] = []
+  for (let i = 0; i <= steps; i++) {
+    ticks.push(Math.round((maxY * (steps - i)) / steps))
+  }
+  return [...new Set(ticks)]
 }
 
 export function DashboardActivityChart({
@@ -78,18 +91,24 @@ export function DashboardActivityChart({
     return range === 7 ? series30.slice(-Math.min(7, series30.length)) : series30
   }, [series30, range])
 
-  const maxY = useMemo(() => {
-    let m = 1
+  const hasActivity = useMemo(() => {
+    return data.some((d) => d.bookings > 0 || (variant === 'bars' && d.churn > 0))
+  }, [data, variant])
+
+  const rawMax = useMemo(() => {
+    let m = 0
     for (const d of data) {
       m = Math.max(m, d.bookings, variant === 'bars' ? d.churn : 0)
     }
-    return niceMax(m)
+    return m
   }, [data, variant])
+
+  const maxY = niceMax(rawMax)
 
   const gridCols = data.length > 0 ? `repeat(${data.length}, minmax(0, 1fr))` : undefined
 
   const lineGeometry = useMemo(() => {
-    if (variant !== 'line' || data.length === 0) return null
+    if (variant !== 'line' || data.length === 0 || !hasActivity || maxY <= 0) return null
     const w = 100
     const innerH = LINE_CHART_H - LINE_PAD_TOP - LINE_PAD_BOTTOM
     const pts = data.map((d, i) => {
@@ -102,9 +121,14 @@ export function DashboardActivityChart({
     })
     const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
     const area = `${line} L ${pts[pts.length - 1].x} ${LINE_PAD_TOP + innerH} L ${pts[0].x} ${LINE_PAD_TOP + innerH} Z`
-    const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => Math.round(maxY * (1 - t)))
+    const ticks = yAxisTicks(maxY)
     return { pts, line, area, ticks, innerH }
-  }, [data, maxY, variant])
+  }, [data, maxY, variant, hasActivity])
+
+  const emptyMessage =
+    data.length === 0
+      ? 'No activity data for this range yet.'
+      : 'No bookings in this range yet.'
 
   return (
     <Card className="gap-0 overflow-x-auto border-partner-border py-0 shadow-none">
@@ -167,7 +191,7 @@ export function DashboardActivityChart({
       </CardHeader>
 
       <CardContent className="px-5 pb-5">
-        {variant === 'bars' ? (
+        {variant === 'bars' && hasActivity ? (
           <div className="mb-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <span className="size-2.5 rounded-sm bg-primary" aria-hidden />
@@ -180,10 +204,8 @@ export function DashboardActivityChart({
           </div>
         ) : null}
 
-        {data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            No activity data for this range yet.
-          </p>
+        {!hasActivity ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">{emptyMessage}</p>
         ) : variant === 'line' && lineGeometry ? (
           <div className="min-w-0">
             <div className="flex gap-3">
@@ -192,8 +214,8 @@ export function DashboardActivityChart({
                 style={{ height: LINE_CHART_H }}
                 aria-hidden
               >
-                {lineGeometry.ticks.map((t, i) => (
-                  <span key={`${t}-${i}`}>{t}</span>
+                {lineGeometry.ticks.map((t) => (
+                  <span key={t}>{t}</span>
                 ))}
               </div>
               <div className="min-w-0 flex-1">
@@ -203,11 +225,11 @@ export function DashboardActivityChart({
                   role="img"
                   aria-label={`Booking activity over the last ${range} days`}
                 >
-                  {[0, 0.25, 0.5, 0.75, 1].map((t) => {
-                    const y = LINE_PAD_TOP + lineGeometry.innerH * t
+                  {lineGeometry.ticks.map((tick) => {
+                    const y = LINE_PAD_TOP + lineGeometry.innerH * (1 - tick / maxY)
                     return (
                       <line
-                        key={t}
+                        key={tick}
                         x1={LINE_PAD_X}
                         x2={100 - LINE_PAD_X}
                         y1={y}
