@@ -30,6 +30,7 @@ export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountRes
     let res = await fetch(`${BOOK_API_BASE}/api/account/delete`, {
       method: 'POST',
       headers: await buildBookingApiHeaders(session.access_token),
+      body: JSON.stringify({}),
     });
 
     if (res.status === 401) {
@@ -41,6 +42,7 @@ export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountRes
       res = await fetch(`${BOOK_API_BASE}/api/account/delete`, {
         method: 'POST',
         headers: await buildBookingApiHeaders(session.access_token),
+        body: JSON.stringify({}),
       });
     }
 

@@ -3,7 +3,7 @@ import { processBookingRefund } from '@/lib/booking-refund'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { logSecurityEvent } from '@/lib/security-monitor'
-import { resolveApiUser } from '@/lib/resolve-api-user'
+import { resolveApiUser, extractBearerToken } from '@/lib/resolve-api-user'
 import { NextRequest, NextResponse } from 'next/server'
 
 const ACTIVE_BOOKING_STATUSES = new Set([
@@ -36,7 +36,15 @@ export async function POST(request: NextRequest) {
     const user = await resolveApiUser(request)
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      const hadBearer = !!extractBearerToken(request)
+      return NextResponse.json(
+        {
+          error: hadBearer
+            ? 'Could not verify your session. Sign out, sign in again, and retry.'
+            : 'Unauthorized',
+        },
+        { status: 401 }
+      )
     }
 
     const userRl = consumeRateLimit(`account-delete-user:${user.id}`, 3)
