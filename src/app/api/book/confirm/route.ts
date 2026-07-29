@@ -13,7 +13,7 @@ import {
   retryBookingConfirmationEmailsIfNeeded,
 } from '@/lib/booking-confirm-emails'
 import { computeSlotDecrementForEvent } from '@/lib/workshop-series'
-import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
+import { scheduleVendorSessionCalendarSync } from '@/lib/vendor-calendar-sync'
 import { commitWorkshopTaxTransaction } from '@/lib/stripe-workshop-tax'
 import { estimateCanadianStripeFee, fetchRealChargeFee } from '@/lib/stripe-charge-fees'
 import { awardXpForBooking } from '@/lib/workshop-xp'
@@ -280,7 +280,7 @@ export async function POST(request: NextRequest) {
 
     await admin.from('events').update(eventUpdate).eq('id', eventId)
 
-    void syncVendorSessionToExternalCalendars(admin, vendorId, String(eventId)).catch(() => {})
+    scheduleVendorSessionCalendarSync(admin, vendorId, String(eventId))
 
     try {
       await awardXpForBooking(admin, booking.id)
@@ -430,7 +430,7 @@ async function handleFreeConfirm(
 
   await admin.from('events').update(eventUpdate).eq('id', event_id)
 
-  void syncVendorSessionToExternalCalendars(admin, vendorId, String(event_id)).catch(() => {})
+  scheduleVendorSessionCalendarSync(admin, vendorId, String(event_id))
 
   try {
     await awardXpForBooking(admin, booking.id)

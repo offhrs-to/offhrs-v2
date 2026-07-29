@@ -11,7 +11,7 @@ import {
   parseSeriesOccurrences,
   type EventSeriesFields,
 } from '@/lib/workshop-series'
-import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
+import { scheduleVendorSessionCalendarSync } from '@/lib/vendor-calendar-sync'
 import { reverseWorkshopTaxTransaction } from '@/lib/stripe-workshop-tax'
 import { clawBackXpForBooking } from '@/lib/workshop-xp'
 import {
@@ -454,9 +454,7 @@ export async function processBookingRefund(
       console.error('Event slot increment after refund failed:', eventUpdateError)
       await reconcileEventSlotsFromBookings(admin, row.event_id, eventRow)
     } else if (row.vendor_id) {
-      void syncVendorSessionToExternalCalendars(admin, row.vendor_id, String(row.event_id)).catch(
-        () => {}
-      )
+      scheduleVendorSessionCalendarSync(admin, row.vendor_id, String(row.event_id))
     }
   } else if (row.event_id != null) {
     const { error: rpcError } = await admin

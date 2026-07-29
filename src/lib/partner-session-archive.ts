@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { processBookingRefund } from '@/lib/booking-refund'
-import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
+import { scheduleVendorSessionCalendarSync } from '@/lib/vendor-calendar-sync'
 
 const ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending', 'booked', 'pending_confirmation'] as const
 
@@ -88,9 +88,7 @@ export async function archivePartnerSession(
     return { ok: false, error: 'Could not archive workshop', status: 500 }
   }
 
-  void syncVendorSessionToExternalCalendars(admin, vendorProfileId, String(eventId)).catch((e) =>
-    console.error('[sessions] calendar sync', e)
-  )
+  scheduleVendorSessionCalendarSync(admin, vendorProfileId, String(eventId))
 
   return { ok: true, refunded: refundedCount }
 }

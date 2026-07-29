@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
-import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
+import { scheduleVendorSessionCalendarSync } from '@/lib/vendor-calendar-sync'
 import {
   applyCohortAvailability,
   buildSeriesOccurrencesFromDateIsos,
@@ -357,9 +357,7 @@ export async function POST(request: NextRequest) {
       .eq('first_session_created', false)
 
     if (created?.id) {
-      void syncVendorSessionToExternalCalendars(admin, vendor.id, String(created.id)).catch((e) =>
-        console.error('[sessions] calendar sync', e)
-      )
+      scheduleVendorSessionCalendarSync(admin, vendor.id, String(created.id))
     }
 
     const row = { ...created, status: created.booking_status }

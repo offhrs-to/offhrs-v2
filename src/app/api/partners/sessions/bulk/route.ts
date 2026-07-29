@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { archivePartnerSession } from '@/lib/partner-session-archive'
-import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
+import { scheduleVendorSessionCalendarSyncBatch } from '@/lib/vendor-calendar-sync'
 
 const bulkSchema = z.object({
   ids: z.array(z.coerce.string().min(1)).min(1).max(100),
@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
     const succeeded: string[] = []
     const skipped: { id: string; reason: string }[] = []
     const failed: { id: string; error: string }[] = []
+    const calendarSyncIds: string[] = []
     let totalRefunded = 0
 
     for (const id of uniqueIds) {
@@ -121,11 +122,11 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      void syncVendorSessionToExternalCalendars(admin, vendor.id, id).catch((e) =>
-        console.error('[sessions bulk] calendar sync', e)
-      )
+      calendarSyncIds.push(id)
       succeeded.push(id)
     }
+
+    scheduleVendorSessionCalendarSyncBatch(admin, vendor.id, calendarSyncIds)
 
     return NextResponse.json({
       action,

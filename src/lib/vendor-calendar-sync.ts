@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { after } from 'next/server'
 import { encrypt, decrypt } from '@/lib/token-encryption'
 import {
   googleRefreshAccessToken,
@@ -330,6 +331,43 @@ export async function syncVendorSessionToExternalCalendars(
   } catch (e) {
     console.error('[calendar-sync] fatal', eventId, e)
   }
+}
+
+/**
+ * Run calendar sync after the HTTP response is sent (Vercel-safe).
+ * Do not `void syncVendorSessionToExternalCalendars` — the serverless runtime often
+ * freezes before unawaited work finishes.
+ */
+export function scheduleVendorSessionCalendarSync(
+  admin: SupabaseClient,
+  vendorId: string,
+  eventId: string
+): void {
+  after(async () => {
+    try {
+      await syncVendorSessionToExternalCalendars(admin, vendorId, eventId)
+    } catch (e) {
+      console.error('[calendar-sync] scheduled', eventId, e)
+    }
+  })
+}
+
+/** Batch variant for bulk publish/archive flows. */
+export function scheduleVendorSessionCalendarSyncBatch(
+  admin: SupabaseClient,
+  vendorId: string,
+  eventIds: string[]
+): void {
+  if (eventIds.length === 0) return
+  after(async () => {
+    for (const eventId of eventIds) {
+      try {
+        await syncVendorSessionToExternalCalendars(admin, vendorId, eventId)
+      } catch (e) {
+        console.error('[calendar-sync] scheduled batch', eventId, e)
+      }
+    }
+  })
 }
 
 export async function upsertVendorCalendarConnection(

@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
-import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
+import { scheduleVendorSessionCalendarSync } from '@/lib/vendor-calendar-sync'
 import type { PartnerSessionSeriesBody } from '@/lib/partner-session-series-resolve'
 import { buildPartnerSeriesMeta, resolveWorkshopSeriesDates } from '@/lib/partner-session-series-resolve'
 import {
@@ -419,9 +419,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
 
     if (updated?.id) {
-      void syncVendorSessionToExternalCalendars(admin, vendor.id, String(updated.id)).catch((e) =>
-        console.error('[sessions] calendar sync', e)
-      )
+      scheduleVendorSessionCalendarSync(admin, vendor.id, String(updated.id))
     }
 
     return NextResponse.json({

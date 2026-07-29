@@ -4,7 +4,7 @@ import {
   cancelRepeatingDaysOccurrence,
   patchRepeatingDaysOccurrence,
 } from '@/lib/partner-series-occurrence-mutation'
-import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
+import { scheduleVendorSessionCalendarSync } from '@/lib/vendor-calendar-sync'
 import { findOccurrenceIndexByStart, parseSeriesOccurrences } from '@/lib/workshop-series'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -133,9 +133,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    void syncVendorSessionToExternalCalendars(admin, vendor.id, id).catch((e) =>
-      console.error('[occurrences] calendar sync', e)
-    )
+      scheduleVendorSessionCalendarSync(admin, vendor.id, id)
 
     return NextResponse.json({
       session: updated ? { ...updated, status: updated.booking_status } : null,
@@ -194,9 +192,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    void syncVendorSessionToExternalCalendars(admin, vendor.id, id).catch((e) =>
-      console.error('[occurrences] calendar sync', e)
-    )
+      scheduleVendorSessionCalendarSync(admin, vendor.id, id)
 
     return NextResponse.json({
       session: updated ? { ...updated, status: updated.booking_status } : null,
