@@ -456,7 +456,15 @@ export async function fetchWorkshopEvents(
       q = q.or(searchOrClause);
     }
     if (categories.length > 0) {
-      q = q.in('category', categories);
+      // Include retired label so filters work before/while DB migration runs.
+      const categoryFilter = [
+        ...new Set(
+          categories.flatMap((c) =>
+            c === 'Scent & Candle' ? ['Scent & Candle', 'Beauty & Fragrance'] : [c]
+          )
+        ),
+      ];
+      q = q.in('category', categoryFilter);
     }
     return q.order('date', { ascending: true }).order('id', { ascending: true });
   };
@@ -587,28 +595,20 @@ function preferMapScanRow(a: WorkshopMapGeoScanRow, b: WorkshopMapGeoScanRow): W
 }
 
 /**
- * One representative upcoming session per map pin (lat/lng).
+ * One representative upcoming session per studio/vendor.
  * Prefer bookable one-day sessions so multi-week expand cannot erase the pin later.
+ * (Lat/lng-only keys would collapse distinct vendors that share a building.)
  */
 function dedupeMapGeoScanRows(rows: WorkshopMapGeoScanRow[]): WorkshopMapGeoScanRow[] {
-  const byPin = new Map<string, WorkshopMapGeoScanRow>();
-  const byStudioFallback = new Map<string, WorkshopMapGeoScanRow>();
+  const byStudio = new Map<string, WorkshopMapGeoScanRow>();
 
   for (const row of rows) {
-    const lat = row.lat != null ? Number(row.lat) : null;
-    const lng = row.lng != null ? Number(row.lng) : null;
-    if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)) {
-      const key = mapPinKey(lat, lng);
-      const prev = byPin.get(key);
-      byPin.set(key, prev ? preferMapScanRow(prev, row) : row);
-      continue;
-    }
     const key = mapStudioKey(row);
-    const prev = byStudioFallback.get(key);
-    byStudioFallback.set(key, prev ? preferMapScanRow(prev, row) : row);
+    const prev = byStudio.get(key);
+    byStudio.set(key, prev ? preferMapScanRow(prev, row) : row);
   }
 
-  return [...byPin.values(), ...byStudioFallback.values()];
+  return [...byStudio.values()];
 }
 
 async function hydrateWorkshopEventsByIds(ids: number[]): Promise<WorkshopEventDbRow[]> {
@@ -634,9 +634,9 @@ async function hydrateWorkshopEventsByIds(ids: number[]): Promise<WorkshopEventD
  * Map / geo browse: upcoming visible events near the user.
  *
  * Performance: scans all in-bbox sessions with a slim select (paged in parallel so
- * PostgREST's ~1000-row cap cannot hide studios), keeps one row per pin, then hydrates
- * full payloads only for those pins. Full map coverage without loading thousands of
- * duplicate session rows into JS.
+ * PostgREST's ~1000-row cap cannot hide studios), keeps one row per vendor/studio, then
+ * hydrates full payloads only for those studios. Full map coverage without loading
+ * thousands of duplicate session rows into JS.
  */
 export async function fetchWorkshopEventsNearAnchor(
   anchor: { lat: number; lng: number },

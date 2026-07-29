@@ -18,6 +18,7 @@ import {
 import type { Category } from '@/constants/categories'
 import { CATEGORIES } from '@/constants/categories'
 import { GooglePlacesField } from './GooglePlacesField'
+import { TurnstileWidget } from './TurnstileWidget'
 import { createClient as createBrowserSupabaseClient } from '@/lib/supabase/browser'
 import {
   formatPartnerMonthlyAmount,
@@ -25,9 +26,10 @@ import {
 } from '@/lib/partner-pricing'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+const TURNSTILE_ENABLED = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
 
 const CATEGORY_ICON: Record<Category, React.ElementType> = {
-  'Beauty & Fragrance': Sparkles,
+  'Scent & Candle': Sparkles,
   Culinary: UtensilsCrossed,
   Coffee: Coffee,
   Floral: Flower2,
@@ -102,6 +104,7 @@ export function PartnerSignupWizard() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mapsAuthError, setMapsAuthError] = useState<string | null>(null)
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
 
   useEffect(() => {
     if (step === 'location') setMapsAuthError(null)
@@ -225,7 +228,8 @@ export function PartnerSignupWizard() {
       case 'account':
         return (
           /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
-          password.length >= 8
+          password.length >= 8 &&
+          (!TURNSTILE_ENABLED || Boolean(turnstileToken))
         )
       case 'billing':
         return emailVerifiedForBilling
@@ -280,6 +284,7 @@ export function PartnerSignupWizard() {
           password,
           phone: phone.trim() || undefined,
           workshop_logo,
+          turnstile_token: turnstileToken ?? undefined,
         }),
       })
       const data = await res.json()
@@ -639,6 +644,9 @@ export function PartnerSignupWizard() {
                 className={inputClass}
               />
             </div>
+            {TURNSTILE_ENABLED && (
+              <TurnstileWidget onToken={setTurnstileToken} />
+            )}
           </div>
         )}
 

@@ -20,6 +20,12 @@ import { normalizeSaleDateWindow, normalizeSalePriceCad } from '@/lib/workshop-t
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 
+// Dates are interpolated into a PostgREST `.or()` filter string below, so
+// restrict them to a strict ISO date/datetime shape (no free-form filter syntax).
+const dateFilterParamSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/)
+
 const optionalWorkshopSectionText = z.string().max(6000).optional()
 
 const sessionSchema = z.object({
@@ -78,8 +84,15 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
-    const from = searchParams.get('from')
-    const to = searchParams.get('to')
+    const rawFrom = searchParams.get('from')
+    const rawTo = searchParams.get('to')
+    const fromParsed = rawFrom ? dateFilterParamSchema.safeParse(rawFrom) : null
+    const toParsed = rawTo ? dateFilterParamSchema.safeParse(rawTo) : null
+    if ((rawFrom && !fromParsed?.success) || (rawTo && !toParsed?.success)) {
+      return NextResponse.json({ error: 'Invalid from/to date' }, { status: 400 })
+    }
+    const from = fromParsed?.success ? fromParsed.data : null
+    const to = toParsed?.success ? toParsed.data : null
     const excludeArchived = searchParams.get('exclude_archived') !== '0'
     const calendarRange = Boolean(from && to)
 

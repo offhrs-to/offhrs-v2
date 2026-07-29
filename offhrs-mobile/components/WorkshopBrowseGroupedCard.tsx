@@ -17,6 +17,7 @@ import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
 import { DesignColors } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import { haversineKm } from '@/lib/distance';
+import { emitEventSaveChanged } from '@/lib/event-saves';
 import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mobile';
 import { useStrictBookingAck } from '@/lib/use-strict-booking-ack';
 import { shareWorkshopEvent } from '@/lib/share-workshop';
@@ -233,6 +234,7 @@ function WorkshopBrowseGroupedCard({
           Alert.alert("Couldn't update", error.message ?? 'Please try again.');
           return;
         }
+        emitEventSaveChanged(eventId, false);
         onSaveChange(eventId, false);
       } else {
         const { error } = await supabase.from('user_event_saves').insert({ user_id: user.id, event_id: eventId });
@@ -240,6 +242,7 @@ function WorkshopBrowseGroupedCard({
           Alert.alert("Couldn't save", error.message ?? 'Please try again.');
           return;
         }
+        emitEventSaveChanged(eventId, true);
         onSaveChange(eventId, true);
       }
     } finally {

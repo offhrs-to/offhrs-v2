@@ -8,6 +8,7 @@ import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import { DesignColors } from '@/constants/design-template';
 import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
 import { useAuth } from '@/contexts/AuthContext';
+import { emitEventSaveChanged, subscribeEventSavesChanged } from '@/lib/event-saves';
 import { postLegacyBookTap, runPaidWorkshopBooking } from '@/lib/saas-booking-mobile';
 import { useStrictBookingAck } from '@/lib/use-strict-booking-ack';
 import { supabase } from '@/lib/supabase';
@@ -99,6 +100,13 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
       .then(({ data }) => setInternalSaved(!!data));
   }, [user?.id, event.id, isControlled]);
 
+  useEffect(() => {
+    if (isControlled || event.id == null) return;
+    return subscribeEventSavesChanged(({ eventId, saved }) => {
+      if (eventId === event.id) setInternalSaved(saved);
+    });
+  }, [isControlled, event.id]);
+
   const handleSave = async () => {
     if (!user || event.id == null || saving) return;
     setSaving(true);
@@ -113,6 +121,7 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
           Alert.alert("Couldn't update", error.message ?? 'Please try again.');
           return;
         }
+        emitEventSaveChanged(event.id, false);
         if (onSaveChange) onSaveChange(event.id, false);
         else setInternalSaved(false);
       } else {
@@ -123,6 +132,7 @@ export function EventCard({ event, distanceKm, onPress, saved: savedProp, onSave
           Alert.alert("Couldn't save", error.message ?? 'Please try again.');
           return;
         }
+        emitEventSaveChanged(event.id, true);
         if (onSaveChange) onSaveChange(event.id, true);
         else setInternalSaved(true);
       }

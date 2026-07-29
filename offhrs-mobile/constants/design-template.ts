@@ -19,8 +19,8 @@ export const DesignColors = {
   lightGreenBorder: '#A8C4A0',
   /** Hero / reflection card background */
   heroBg: '#E8F0E5',
-  /** Page and card background (cream) */
-  creamBg: '#FDFCF8',
+  /** Page and card background */
+  creamBg: '#FFFFFF',
   /** Primary text (headings, body) */
   charcoal: '#2C2C2C',
   /** Muted / secondary text */
@@ -32,6 +32,10 @@ export const DesignColors = {
   /** Profile/avatar placeholder */
   placeholderGray: '#E0E0E0',
 } as const;
+
+/** Re-export app typeface for screens that set fontFamily explicitly. */
+export { AppFonts } from '@/lib/nunito-sans';
+
 
 // ─── Spacing ────────────────────────────────────────────────────────────
 export const DesignSpacing = {

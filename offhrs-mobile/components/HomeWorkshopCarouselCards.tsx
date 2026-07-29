@@ -3,15 +3,17 @@ import {
   Text,
   Pressable,
   FlatList,
-  Platform,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
   useWindowDimensions,
+  ActivityIndicator,
+  Platform,
+  StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
-import { DesignColors, isIOSPad } from '@/constants/design-template';
+import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
+import { DesignColors } from '@/constants/design-template';
+import { useSavedEventIds } from '@/hooks/useSavedEventIds';
+import { getHomeCarouselCardMetrics } from '@/lib/home-carousel-layout';
 
 export type HomeCarouselEventItem = {
   id: number;
@@ -27,57 +29,33 @@ type Props = {
   loading: boolean;
 };
 
+const HEART_SIZE = 28;
+
 /**
  * Horizontal workshop cards for home (shared by Toronto picks and “near you” lists).
+ * Square media; two cards fully visible with a slight peek of the next.
+ * Heart save control syncs via `user_event_saves` + app-wide save events.
  */
 export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
   const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  const isAndroid = Platform.OS === 'android';
-  const isIPad = isIOSPad();
-  const CARD_WIDTH = Math.round(windowWidth * (isAndroid ? 0.45 : 0.48));
-  const CARD_GAP = 6;
-  const PAGE = CARD_WIDTH + CARD_GAP;
-  const CARD_IMAGE_HEIGHT = isAndroid ? 99 : isIPad ? 126 : 114;
-  /** Tall enough for descenders (g, y) at fontSize 12 — avoids clipping next to address. */
-  const titleLineHeight = isIPad ? 20 : 17;
-  const titleBlockHeight = titleLineHeight;
-  const titleToMetaGap = 3;
-  const metaLineHeight = 15;
-  const priceLineHeight = 17;
-  const cardFooterPaddingTop = 4;
-  const cardFooterPaddingBottom = isAndroid ? 12 : 8;
-  const CARD_FOOTER_HEIGHT =
-    cardFooterPaddingTop +
-    titleBlockHeight +
-    titleToMetaGap +
-    metaLineHeight +
-    priceLineHeight +
-    cardFooterPaddingBottom;
-  const loadingPlaceholderHeight = CARD_IMAGE_HEIGHT + CARD_FOOTER_HEIGHT + 14;
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [items]);
-
-  const syncActiveIndex = useCallback(
-    (x: number) => {
-      if (items.length === 0) return;
-      const idx = Math.round(Math.max(0, x) / PAGE);
-      setActiveIndex(Math.max(0, Math.min(idx, items.length - 1)));
-    },
-    [items.length, PAGE]
-  );
-
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    syncActiveIndex(e.nativeEvent.contentOffset.x);
-  };
-
-  const onMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    syncActiveIndex(e.nativeEvent.contentOffset.x);
-  };
+  const { savedEventIds, toggleSave, isSaving } = useSavedEventIds();
+  const {
+    isAndroid,
+    CARD_WIDTH,
+    CARD_GAP,
+    PAGE,
+    CARD_IMAGE_HEIGHT,
+    titleLineHeight,
+    titleBlockHeight,
+    titleToMetaGap,
+    metaLineHeight,
+    priceLineHeight,
+    cardFooterPaddingTop,
+    cardFooterPaddingBottom,
+    CARD_FOOTER_HEIGHT,
+    loadingPlaceholderHeight,
+  } = getHomeCarouselCardMetrics(windowWidth);
 
   const handlePress = (id: number) => {
     // Cache-buster `t` keeps the URL distinct between consecutive taps so the
@@ -109,104 +87,158 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
         decelerationRate="fast"
         snapToInterval={PAGE}
         snapToAlignment="start"
-        onScroll={onScroll}
-        onMomentumScrollEnd={onMomentumScrollEnd}
-        scrollEventThrottle={16}
-        renderItem={({ item, index }) => (
-          <View style={{ width: CARD_WIDTH, marginRight: index === items.length - 1 ? 0 : CARD_GAP }}>
-            <Pressable
-              onPress={() => handlePress(item.id)}
-              style={{
-                width: CARD_WIDTH,
-                height: CARD_IMAGE_HEIGHT + CARD_FOOTER_HEIGHT,
-                borderRadius: 10,
-                backgroundColor: DesignColors.heroBg,
-                overflow: 'hidden',
-              }}
-            >
-              <View style={{ height: CARD_IMAGE_HEIGHT, width: '100%', backgroundColor: '#FFF' }}>
-                <CategoryFallbackImage
-                  imageUrl={item.image_url}
-                  category={item.category}
-                  style={{ width: '100%', height: '100%' }}
-                  contentFit="contain"
-                  recyclingKey={`home-carousel-${item.id}`}
-                />
-              </View>
+        renderItem={({ item, index }) => {
+          const saved = savedEventIds.has(item.id);
+          const saving = isSaving(item.id);
+          return (
+            <View style={{ width: CARD_WIDTH, marginRight: index === items.length - 1 ? 0 : CARD_GAP }}>
               <View
                 style={{
-                  height: CARD_FOOTER_HEIGHT,
-                  paddingHorizontal: 8,
-                  paddingTop: cardFooterPaddingTop,
-                  paddingBottom: cardFooterPaddingBottom,
+                  width: CARD_WIDTH,
+                  height: CARD_IMAGE_HEIGHT + CARD_FOOTER_HEIGHT,
+                  borderRadius: 12,
+                  backgroundColor: DesignColors.creamBg,
+                  borderWidth: 1,
+                  borderColor: '#E8E8E8',
+                  overflow: 'hidden',
                 }}
               >
                 <View
                   style={{
-                    height: titleBlockHeight,
-                    overflow: 'hidden',
+                    height: CARD_IMAGE_HEIGHT,
+                    width: CARD_WIDTH,
+                    // Neutral image well — sage letterboxing clashes with white logos.
+                    backgroundColor: DesignColors.inputBg,
+                    alignItems: 'center',
                     justifyContent: 'center',
-                    marginBottom: titleToMetaGap,
                   }}
                 >
-                  <Text
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
+                  <Pressable
+                    onPress={() => handlePress(item.id)}
+                    style={styles.imagePressable}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${item.title}`}
+                  >
+                    <CategoryFallbackImage
+                      imageUrl={item.image_url}
+                      category={item.category}
+                      style={styles.image}
+                      contentFit="contain"
+                      recyclingKey={`home-carousel-${item.id}`}
+                    />
+                  </Pressable>
+
+                  {/*
+                    Full-bleed overlay + flex-end — avoids NativeWind dropping StyleSheet `right`.
+                    Heart sits flush on the top-right of the square image frame.
+                  */}
+                  <View pointerEvents="box-none" style={styles.heartOverlay}>
+                    <Pressable
+                      onPress={() => void toggleSave(item.id)}
+                      disabled={saving}
+                      accessibilityRole="button"
+                      accessibilityLabel={saved ? 'Remove from saved workshops' : 'Save workshop'}
+                      hitSlop={6}
+                      style={({ pressed }) => [styles.heartButton, pressed ? styles.heartPressed : null]}
+                    >
+                      {saving ? (
+                        <ActivityIndicator size="small" color={DesignColors.primary} />
+                      ) : (
+                        <EventSaveHeartIcon saved={saved} size={17} />
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+
+                <Pressable
+                  onPress={() => handlePress(item.id)}
+                  style={{
+                    height: CARD_FOOTER_HEIGHT,
+                    paddingHorizontal: 8,
+                    paddingTop: cardFooterPaddingTop,
+                    paddingBottom: cardFooterPaddingBottom,
+                  }}
+                >
+                  <View
                     style={{
-                      fontSize: 12,
-                      lineHeight: titleLineHeight,
-                      fontWeight: '700',
-                      color: DesignColors.charcoal,
-                      ...(isAndroid ? { includeFontPadding: false } : null),
+                      height: titleBlockHeight,
+                      overflow: 'hidden',
+                      justifyContent: 'center',
+                      marginBottom: titleToMetaGap,
                     }}
                   >
-                    {item.title}
-                  </Text>
-                </View>
-                <View style={{ height: metaLineHeight, justifyContent: 'center' }}>
-                  {item.locationLine ? (
-                    <Text numberOfLines={1} style={{ fontSize: 10, color: DesignColors.mediumGray }}>
-                      {item.locationLine}
+                    <Text
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      style={{
+                        fontSize: 12,
+                        lineHeight: titleLineHeight,
+                        fontWeight: '700',
+                        color: DesignColors.charcoal,
+                        ...(isAndroid ? { includeFontPadding: false } : null),
+                      }}
+                    >
+                      {item.title}
                     </Text>
-                  ) : null}
-                </View>
-                <View style={{ height: priceLineHeight, justifyContent: 'center' }}>
-                  {item.priceLabel ? (
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: DesignColors.charcoal }}>
-                      {item.priceLabel}
-                    </Text>
-                  ) : (
-                    <Text style={{ fontSize: 10, color: DesignColors.mediumGray }}>Price TBD</Text>
-                  )}
-                </View>
+                  </View>
+                  <View style={{ height: metaLineHeight, justifyContent: 'center' }}>
+                    {item.locationLine ? (
+                      <Text numberOfLines={1} style={{ fontSize: 10, color: DesignColors.mediumGray }}>
+                        {item.locationLine}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={{ height: priceLineHeight, justifyContent: 'center' }}>
+                    {item.priceLabel ? (
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: DesignColors.charcoal }}>
+                        {item.priceLabel}
+                      </Text>
+                    ) : (
+                      <Text style={{ fontSize: 10, color: DesignColors.mediumGray }}>Price TBD</Text>
+                    )}
+                  </View>
+                </Pressable>
               </View>
-            </Pressable>
-          </View>
-        )}
+            </View>
+          );
+        }}
       />
-      {items.length > 1 ? (
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: 4,
-            marginTop: 6,
-          }}
-        >
-          {items.map((_, i) => (
-            <View
-              key={i}
-              style={{
-                width: 5,
-                height: 5,
-                borderRadius: 2.5,
-                backgroundColor: i === activeIndex ? DesignColors.charcoal : '#CFCFCF',
-              }}
-            />
-          ))}
-        </View>
-      ) : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  imagePressable: {
+    width: '100%',
+    height: '100%',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  heartOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
+    paddingTop: 3,
+    paddingRight: 4,
+    zIndex: 10,
+  },
+  heartButton: {
+    width: HEART_SIZE,
+    height: HEART_SIZE,
+    borderRadius: HEART_SIZE / 2,
+    marginRight: 0,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.18,
+    shadowRadius: 2,
+    elevation: Platform.OS === 'android' ? 6 : 0,
+  },
+  heartPressed: {
+    opacity: 0.85,
+  },
+});

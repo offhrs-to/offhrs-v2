@@ -1,6 +1,14 @@
 import { supabase } from '@/lib/supabase';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
-import { workshopSessionKey } from '@/lib/workshops-events-query';
+
+/** Local copy — avoid importing value exports from workshops-events-query (require cycle). */
+function workshopSessionKey(e: {
+  id: number;
+  date_iso?: string | null;
+  date?: string;
+}): string {
+  return `${e.id}\u0001${e.date_iso ?? e.date ?? ''}`;
+}
 
 export function workshopHasMapCoordinates(
   e: Pick<WorkshopEventRow, 'lat' | 'lng'>
@@ -136,9 +144,14 @@ export function dedupeWorkshopMapMarkerEvents(events: WorkshopEventRow[]): Works
   const out: WorkshopEventRow[] = [];
   for (const e of events) {
     if (!workshopHasMapCoordinates(e)) continue;
-    const key = `${Number(e.lat).toFixed(4)},${Number(e.lng).toFixed(4)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    // Prefer one pin per vendor so every studio in the map list gets a marker.
+    // Fall back to rounded coords when vendor ids are missing.
+    const vendorKey =
+      e.vendor_profile_id?.trim() ||
+      e.vendor_id?.trim() ||
+      `${Number(e.lat).toFixed(4)},${Number(e.lng).toFixed(4)}`;
+    if (seen.has(vendorKey)) continue;
+    seen.add(vendorKey);
     out.push(e);
   }
   return out;
@@ -146,5 +159,7 @@ export function dedupeWorkshopMapMarkerEvents(events: WorkshopEventRow[]): Works
 
 export function workshopMapMarkerKey(e: WorkshopEventRow): string {
   if (!workshopHasMapCoordinates(e)) return workshopSessionKey(e);
+  const vendorKey = e.vendor_profile_id?.trim() || e.vendor_id?.trim();
+  if (vendorKey) return `v:${vendorKey}`;
   return `${e.id}:${Number(e.lat).toFixed(4)},${Number(e.lng).toFixed(4)}`;
 }

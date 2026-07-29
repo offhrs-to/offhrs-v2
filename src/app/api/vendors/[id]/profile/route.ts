@@ -1,7 +1,10 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
+import { logSecurityEvent } from '@/lib/security-monitor'
 import { NextRequest, NextResponse } from 'next/server'
 
 const ACTIVE_STATUSES = ['trialing', 'active', 'past_due'] as const
+const VENDOR_PROFILE_RATE_LIMIT = 60 // per minute per IP
 
 async function contactEmailForUserId(
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
@@ -27,6 +30,16 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rlKey = getRateLimitKey(request)
+  const rl = consumeRateLimit(`vendor-profile:${rlKey}`, VENDOR_PROFILE_RATE_LIMIT)
+  if (!rl.allowed) {
+    logSecurityEvent('warn', { type: 'rate_limited', route: '/api/vendors/[id]/profile', ipKey: rlKey })
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+    )
+  }
+
   const { id: legacyVendorId } = await params
   const vendorProfileId = request.nextUrl.searchParams.get('vendorProfileId')?.trim() || null
 

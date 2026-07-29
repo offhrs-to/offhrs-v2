@@ -3,6 +3,10 @@ import { Text, View, ScrollView, Pressable } from 'react-native';
 
 import { DesignColors } from '@/constants/design-template';
 import { haversineKm } from '@/lib/distance';
+import {
+  dedupeWorkshopMapMarkerEvents,
+  workshopHasMapCoordinates,
+} from '@/lib/workshop-map-coordinates';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 
 type Props = {
@@ -27,9 +31,7 @@ export default function WorkshopMapView({
   anchor = null,
 }: Props) {
   const withCoords = useMemo(() => {
-    const filtered = events.filter(
-      (e) => e.lat != null && e.lng != null && !isNaN(Number(e.lat)) && !isNaN(Number(e.lng))
-    );
+    const filtered = dedupeWorkshopMapMarkerEvents(events.filter(workshopHasMapCoordinates));
     if (filtered.length <= maxMarkers) return filtered;
     if (anchor) {
       return [...filtered]

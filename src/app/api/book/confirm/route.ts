@@ -19,9 +19,14 @@ import { estimateCanadianStripeFee, fetchRealChargeFee } from '@/lib/stripe-char
 import { awardXpForBooking } from '@/lib/workshop-xp'
 import { workshopBookingBlockReason } from '@/lib/workshop-registration-closed'
 import { effectiveWorkshopPriceCad } from '@/lib/workshop-ticket-price'
+import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
+import { isKillSwitchActive, killSwitchResponse } from '@/lib/kill-switch'
+import { logSecurityEvent } from '@/lib/security-monitor'
 
 /** Allow time to await Resend before the serverless function exits. */
 export const maxDuration = 60
+
+const CONFIRM_RATE_LIMIT = 20 // per minute per IP
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
@@ -58,7 +63,19 @@ async function resolveApiUser(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (isKillSwitchActive()) return killSwitchResponse('/api/book/confirm')
+
   try {
+    const rlKey = getRateLimitKey(request)
+    const rl = consumeRateLimit(`book-confirm:${rlKey}`, CONFIRM_RATE_LIMIT)
+    if (!rl.allowed) {
+      logSecurityEvent('warn', { type: 'rate_limited', route: '/api/book/confirm', ipKey: rlKey })
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      )
+    }
+
     const raw = await request.json()
     const admin = createAdminClient()
     if (!admin) return NextResponse.json({ error: 'Server error' }, { status: 500 })

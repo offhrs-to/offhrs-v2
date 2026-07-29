@@ -5,8 +5,9 @@ export function categoryKey(category: string | null | undefined): string {
 }
 
 /**
- * Walks `sorted` in order and keeps up to `n` rows whose categories have not been seen yet.
- * Preserves sort priority (e.g. soonest first or closest first).
+ * Walks `sorted` in order and keeps up to `n` rows.
+ * Prefers one listing per category first, then fills remaining slots with the next
+ * best rows (still unique by id) so carousels can reach the full cap.
  */
 export function pickFirstNUniqueCategory<T extends { category: string | null; id: number }>(
   sorted: T[],
@@ -15,6 +16,7 @@ export function pickFirstNUniqueCategory<T extends { category: string | null; id
   const usedCat = new Set<string>();
   const usedId = new Set<number>();
   const out: T[] = [];
+
   for (const row of sorted) {
     if (usedId.has(row.id)) continue;
     const k = categoryKey(row.category);
@@ -22,8 +24,15 @@ export function pickFirstNUniqueCategory<T extends { category: string | null; id
     usedCat.add(k);
     usedId.add(row.id);
     out.push(row);
+    if (out.length >= n) return out;
+  }
+
+  for (const row of sorted) {
+    if (usedId.has(row.id)) continue;
+    usedId.add(row.id);
+    out.push(row);
     if (out.length >= n) break;
   }
+
   return out;
 }
-

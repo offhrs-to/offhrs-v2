@@ -5,8 +5,12 @@ import { Resend } from 'resend'
 import { z } from 'zod'
 import { uploadVendorWorkshopImage } from '@/lib/vendor-workshop-image-storage'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
+import { verifyTurnstileToken } from '@/lib/turnstile'
+import { logSecurityEvent } from '@/lib/security-monitor'
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024
+const SIGNUP_RATE_LIMIT_PER_MINUTE = 5
 
 const signupSchema = z
   .object({
@@ -26,6 +30,7 @@ const signupSchema = z
         mime_type: z.enum(['image/jpeg', 'image/png', 'image/webp']),
       })
       .optional(),
+    turnstile_token: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.categories.includes('Other') && !data.category_other_detail?.trim()) {
@@ -129,6 +134,21 @@ function hasPasswordIdentity(user: {
 export async function POST(request: NextRequest) {
   try {
     const appUrl = getAppUrl(request)
+
+    const rateLimitKey = getRateLimitKey(request)
+    const rl = consumeRateLimit(`partner-signup:${rateLimitKey}`, SIGNUP_RATE_LIMIT_PER_MINUTE)
+    if (!rl.allowed) {
+      logSecurityEvent('warn', {
+        type: 'rate_limited',
+        route: '/api/partners/signup',
+        ipKey: rateLimitKey,
+      })
+      return NextResponse.json(
+        { error: 'Too many signup attempts. Please wait a minute and try again.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      )
+    }
+
     const raw = await request.json()
     const parsed = signupSchema.safeParse(raw)
     if (!parsed.success) {
@@ -151,7 +171,22 @@ export async function POST(request: NextRequest) {
       password,
       phone,
       workshop_logo,
+      turnstile_token,
     } = parsed.data
+
+    const turnstileResult = await verifyTurnstileToken(turnstile_token, rateLimitKey)
+    if (!turnstileResult.ok) {
+      logSecurityEvent('warn', {
+        type: 'bot_check_failed',
+        route: '/api/partners/signup',
+        ipKey: rateLimitKey,
+        details: { reason: turnstileResult.reason },
+      })
+      return NextResponse.json(
+        { error: 'Bot verification failed. Please refresh the page and try again.' },
+        { status: 400 }
+      )
+    }
 
     let logoBuffer: Buffer | null = null
     if (workshop_logo) {

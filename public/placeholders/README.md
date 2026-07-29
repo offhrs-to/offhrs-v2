@@ -6,7 +6,7 @@ Add images here to replace the gray placeholder boxes on the landing page.
 
 One image per category. Use these filenames (replace with your assets):
 
-- `category-beauty.jpg` – Beauty & Fragrance
+- `category-beauty.jpg` – Scent & Candle
 - `category-culinary.jpg` – Culinary
 - `category-coffee.jpg` – Coffee
 - `category-floral.jpg` – Floral

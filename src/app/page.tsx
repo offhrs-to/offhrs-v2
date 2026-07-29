@@ -9,7 +9,7 @@ import { motion, useScroll, useTransform, useMotionValue } from 'framer-motion'
 import { CATEGORY_NOVICE_ICONS } from '@/constants/categories'
 // Master your skills section: categories with Other last
 const LANDING_CATEGORIES: string[] = [
-  'Beauty & Fragrance',
+  'Scent & Candle',
   'Culinary',
   'Coffee',
   'Floral',

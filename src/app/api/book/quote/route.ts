@@ -18,6 +18,13 @@ import Stripe from 'stripe'
 import { z } from 'zod'
 import { workshopBookingBlockReason } from '@/lib/workshop-registration-closed'
 import { effectiveWorkshopPriceCad } from '@/lib/workshop-ticket-price'
+import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
+import { consumeDailyQuota } from '@/lib/daily-quota'
+import { isKillSwitchActive, killSwitchResponse } from '@/lib/kill-switch'
+import { logSecurityEvent } from '@/lib/security-monitor'
+
+const QUOTE_RATE_LIMIT = 20 // per minute per IP(+user) — this calls paid Stripe Tax API
+const QUOTE_DAILY_LIMIT = 150 // per day per IP(+user)
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
@@ -37,6 +44,8 @@ const quoteSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  if (isKillSwitchActive()) return killSwitchResponse('/api/book/quote')
+
   try {
     const supabase = await createClient()
     let user = (await supabase.auth.getUser()).data.user
@@ -51,6 +60,25 @@ export async function POST(request: NextRequest) {
         { global: { headers: { Authorization: `Bearer ${token}` } } }
       )
       user = (await client.auth.getUser()).data.user
+    }
+
+    const rlKey = getRateLimitKey(request, user?.id)
+    const rl = consumeRateLimit(`book-quote:${rlKey}`, QUOTE_RATE_LIMIT)
+    if (!rl.allowed) {
+      logSecurityEvent('warn', { type: 'rate_limited', route: '/api/book/quote', ipKey: rlKey })
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      )
+    }
+
+    const daily = await consumeDailyQuota(`book-quote:${rlKey}`, QUOTE_DAILY_LIMIT)
+    if (!daily.allowed) {
+      logSecurityEvent('warn', { type: 'daily_quota_exceeded', route: '/api/book/quote', ipKey: rlKey })
+      return NextResponse.json(
+        { error: 'Daily limit reached. Please try again tomorrow.' },
+        { status: 429 }
+      )
     }
 
     const parsed = quoteSchema.safeParse(await request.json())

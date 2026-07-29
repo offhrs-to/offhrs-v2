@@ -5,6 +5,7 @@ import {
 } from '@/constants/design-template';
 import { Image } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { useState } from 'react';
 import {
@@ -56,6 +57,7 @@ const FOOTER_FONT_SIZE = isAndroid ? 12 : 13;
 type Role = 'learner' | 'instructor' | null;
 
 export default function ContactScreen() {
+  const router = useRouter();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -79,7 +81,6 @@ export default function ContactScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFF' }}>
-      {/* Fixed header: logo */}
       <View
         style={{
           paddingTop: DesignSpacing.contentPaddingTop,
@@ -106,24 +107,47 @@ export default function ContactScreen() {
           style={{ flex: 1 }}
           contentContainerStyle={{
             flexGrow: 1,
-            paddingBottom: Platform.OS === 'android' ? 128 : DesignSpacing.contentPaddingBottom,
+            paddingBottom: DesignSpacing.contentPaddingBottom,
             paddingHorizontal: DesignSpacing.horizontalPadding,
           }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Title */}
-          <Text
+          <View
             style={{
-              fontSize: TITLE_FONT_SIZE,
-              fontWeight: '700',
-              color: DesignColors.charcoal,
-              textAlign: 'center',
+              flexDirection: 'row',
+              alignItems: 'center',
               marginBottom: TITLE_MARGIN_BOTTOM,
             }}
           >
-            Let's grow together
-          </Text>
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              style={{
+                width: 32,
+                height: Math.max(TITLE_FONT_SIZE + 4, 36),
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 22, color: DesignColors.primary, lineHeight: 26 }}>‹</Text>
+            </Pressable>
+            <Text
+              style={{
+                flex: 1,
+                fontSize: TITLE_FONT_SIZE,
+                fontWeight: '700',
+                color: DesignColors.charcoal,
+                textAlign: 'center',
+              }}
+            >
+              Let's grow together
+            </Text>
+            {/* Balance the back control so the title stays visually centered. */}
+            <View style={{ width: 32 }} />
+          </View>
           <Text
             style={{
               fontSize: SUBTITLE_FONT_SIZE,
@@ -136,7 +160,6 @@ export default function ContactScreen() {
             Have a workshop to list? We'd love to hear from you.
           </Text>
 
-          {/* Email button */}
           <Pressable
             onPress={() => Linking.openURL(`mailto:${CONTACT_EMAIL}`)}
             style={{
@@ -175,7 +198,6 @@ export default function ContactScreen() {
             </Text>
           </Pressable>
 
-          {/* Form: minimalist underline-only inputs */}
           <View style={{ marginBottom: FORM_MARGIN_BOTTOM }}>
             <View style={{ flexDirection: 'row', gap: INPUT_ROW_GAP, marginBottom: INPUT_ROW_MARGIN_BOTTOM }}>
               <TextInput
@@ -244,7 +266,6 @@ export default function ContactScreen() {
             />
           </View>
 
-          {/* Role selection */}
           <Text
             style={{
               fontSize: ROLE_LABEL_FONT_SIZE,
@@ -341,7 +362,6 @@ export default function ContactScreen() {
             </Pressable>
           </View>
 
-          {/* Get in touch – primary CTA */}
           <Pressable
             onPress={handleGetInTouch}
             style={{

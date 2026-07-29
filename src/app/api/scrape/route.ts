@@ -1,13 +1,18 @@
 import { scrapeBodySchema } from '@/lib/api-validation'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
+import { consumeDailyQuota } from '@/lib/daily-quota'
+import { isKillSwitchActive, killSwitchResponse } from '@/lib/kill-switch'
 import { logSecurityEvent } from '@/lib/security-monitor'
 import { NextResponse } from 'next/server'
 import * as cheerio from 'cheerio'
 
 const SCRAPE_RATE_LIMIT = 15 // per minute per IP (expensive endpoint)
+const SCRAPE_DAILY_LIMIT = 200 // per day per IP
 const SCRAPE_TIMEOUT_MS = 12_000
 
 export async function POST(request: Request) {
+  if (isKillSwitchActive()) return killSwitchResponse('/api/scrape')
+
   try {
     const key = getRateLimitKey(request)
     const rl = consumeRateLimit(`scrape:${key}`, SCRAPE_RATE_LIMIT)
@@ -20,6 +25,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Too many requests' },
         { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      )
+    }
+
+    const daily = await consumeDailyQuota(`scrape:${key}`, SCRAPE_DAILY_LIMIT)
+    if (!daily.allowed) {
+      logSecurityEvent('warn', { type: 'daily_quota_exceeded', route: '/api/scrape', ipKey: key })
+      return NextResponse.json(
+        { error: 'Daily limit reached. Please try again tomorrow.' },
+        { status: 429 }
       )
     }
 

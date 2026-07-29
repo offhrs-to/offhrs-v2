@@ -1,15 +1,13 @@
-import { verifyAdminBasicAuth, verifyAdminCookie, getAdminCookieName } from '@/lib/admin-auth'
-import { cookies, headers } from 'next/headers'
+import { verifyAdminCookie, getAdminCookieName } from '@/lib/admin-auth'
+import { cookies } from 'next/headers'
 
-/** Require a valid admin session cookie or Basic auth (server actions / RSC). */
+/** Require a valid admin session cookie (server actions / RSC). */
 export async function requireAdminSession(): Promise<void> {
   const cookieStore = await cookies()
-  const headerStore = await headers()
   const session = cookieStore.get(getAdminCookieName())?.value
   const cookieHeader = session ? `${getAdminCookieName()}=${session}` : null
-  const authHeader = headerStore.get('authorization')
 
-  if (!verifyAdminCookie(cookieHeader) && !verifyAdminBasicAuth(authHeader)) {
+  if (!verifyAdminCookie(cookieHeader)) {
     throw new Error('Unauthorized')
   }
 }

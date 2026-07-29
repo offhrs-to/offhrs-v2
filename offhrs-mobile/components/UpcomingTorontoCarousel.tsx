@@ -88,10 +88,10 @@ function distanceToAnchor(r: DbEventRow, anchor: { lat: number; lng: number }): 
   return haversineKm(anchor.lat, anchor.lng, Number(r.lat), Number(r.lng));
 }
 
-const CAROUSEL_COUNT = 5;
+const CAROUSEL_COUNT = 10;
 
 /**
- * Up to 5 upcoming events, each from a different category when possible.
+ * Up to 10 upcoming events, each from a different category when possible.
  * GTA/Toronto-area rows are considered first (soonest start, then distance to anchor); then other upcoming rows.
  */
 function pickNextFiveToronto(
@@ -134,11 +134,14 @@ type Props = {
   horizontalPadding?: number;
   userLocationAnchor?: { lat: number; lng: number } | null;
   refreshNonce?: number;
+  /** Notifies parent of the current carousel IDs (for “see all” browse). */
+  onItemsChange?: (items: HomeCarouselEventItem[]) => void;
 };
 
 export default function UpcomingTorontoCarousel({
   userLocationAnchor = null,
   refreshNonce = 0,
+  onItemsChange,
 }: Props) {
   const [items, setItems] = useState<HomeCarouselEventItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,6 +170,10 @@ export default function UpcomingTorontoCarousel({
       setLoading(false);
     }
   }, [userLocationAnchor]);
+
+  useEffect(() => {
+    onItemsChange?.(items);
+  }, [items, onItemsChange]);
 
   useFocusEffect(
     useCallback(() => {

@@ -20,6 +20,7 @@ type Props = {
   selectedCategories: string[];
   onToggleCategory: (cat: string) => void;
   onClearCategories: () => void;
+  onClearAllFilters: () => void;
   listSort: BrowseListSort;
   onSelectListSort: (s: BrowseListSort) => void;
   distanceKm: BrowseDistanceKm;
@@ -51,6 +52,7 @@ function WorkshopBrowseFilterSheets({
   selectedCategories,
   onToggleCategory,
   onClearCategories,
+  onClearAllFilters,
   listSort,
   onSelectListSort,
   distanceKm,
@@ -143,6 +145,28 @@ function WorkshopBrowseFilterSheets({
         maxHeightRatio={0.78}
         footer={<DoneFooter onPress={onClose} />}
       >
+        <Pressable
+          onPress={onClearAllFilters}
+          accessibilityRole="button"
+          accessibilityLabel="Clear all filters"
+          style={{
+            marginHorizontal: 12,
+            marginTop: 4,
+            marginBottom: 8,
+            paddingVertical: 11,
+            paddingHorizontal: 14,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: DesignColors.lightGreenBorder,
+            backgroundColor: DesignColors.inputBg,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>
+            Clear all filters
+          </Text>
+        </Pressable>
+
         <SectionTitle>Category</SectionTitle>
         <WorkshopFilterRadioRow
           label="All categories"

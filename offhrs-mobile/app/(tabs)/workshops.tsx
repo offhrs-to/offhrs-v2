@@ -8,6 +8,11 @@ import {
 } from '@/constants/design-template';
 import { WORKSHOP_FETCH_LIMIT_HUB_PREVIEW } from '@/constants/workshops-list';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  patchSavedEventIds,
+  subscribeEventSavesChanged,
+  toggleUserEventSave,
+} from '@/lib/event-saves';
 import { openWebAppPath } from '@/lib/web-app-links';
 import { supabase } from '@/lib/supabase';
 import { isEventVisibleToConsumers } from '@/lib/consumer-event-visibility';
@@ -19,7 +24,7 @@ import {
   type WorkshopEventRow,
 } from '@/lib/workshops-events-query';
 import { enrichWorkshopEventsWithVendorNames } from '@/lib/workshop-vendor-display';
-import { getCategoryMasterImageSource } from '@/lib/category-master-images';
+import { getCategoryTileImageSource } from '@/lib/category-master-images';
 import { Image } from 'expo-image';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -43,14 +48,8 @@ const TILE_WIDTH =
 const TILE_HEIGHT = Math.round(TILE_WIDTH * 0.74);
 /** Reserved strip for category title; image sits above so artwork is not cropped by the label. */
 const CATEGORY_TILE_LABEL_H = 30;
-const CATEGORY_TILE_UPPER_H = TILE_HEIGHT - CATEGORY_TILE_LABEL_H;
-/** Same inner box for all 6 category tiles — larger art, still contained with `contain`. */
-const CATEGORY_TILE_IMAGE_W = Math.round(TILE_WIDTH);
-const CATEGORY_TILE_IMAGE_H = Math.round(CATEGORY_TILE_UPPER_H);
-/** Slightly oversize layout vs the upper cell so masters read larger (centered; tile clips). */
-const CATEGORY_TILE_IMAGE_LAYOUT_SCALE = 1.04;
-/** Pottery artwork sits lighter in the frame than other category masters. */
-const CATEGORY_TILE_POTTERY_IMAGE_SCALE = 1.14;
+/** Match home carousel card border. */
+const CATEGORY_TILE_BORDER = '#E8E8E8';
 
 export default function WorkshopsScreen() {
   const params = useLocalSearchParams<{
@@ -97,6 +96,7 @@ export default function WorkshopsScreen() {
       if (!user?.id) {
         setProfileLocation(null);
         setProfileDisplayName(null);
+        setSavedEventIds(new Set());
         return;
       }
       supabase
@@ -125,6 +125,12 @@ export default function WorkshopsScreen() {
         });
     }, [user?.id])
   );
+
+  useEffect(() => {
+    return subscribeEventSavesChanged(({ eventId, saved }) => {
+      setSavedEventIds((prev) => patchSavedEventIds(prev, eventId, saved));
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -235,39 +241,16 @@ export default function WorkshopsScreen() {
     setQuickViewSaving(true);
     try {
       const isCurrentlySaved = savedEventIds.has(eid);
-      if (isCurrentlySaved) {
-        const { error } = await supabase
-          .from('user_event_saves')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('event_id', eid);
-        if (error) {
-          Alert.alert("Couldn't update", error.message ?? 'Please try again.');
-        } else {
-          setSavedEventIds((prev) => {
-            const next = new Set(prev);
-            next.delete(eid);
-            return next;
-          });
-          const { data } = await supabase
-            .from('user_event_saves')
-            .select('event_id')
-            .eq('user_id', user.id);
-          if (data) setSavedEventIds(new Set(data.map((r) => Number(r.event_id))));
-        }
-      } else {
-        const { error } = await supabase.from('user_event_saves').insert({ user_id: user.id, event_id: eid });
-        if (error) {
-          Alert.alert("Couldn't save", error.message ?? 'Please try again.');
-        } else {
-          setSavedEventIds((prev) => new Set(prev).add(eid));
-          const { data } = await supabase
-            .from('user_event_saves')
-            .select('event_id')
-            .eq('user_id', user.id);
-          if (data) setSavedEventIds(new Set(data.map((r) => Number(r.event_id))));
-        }
+      const result = await toggleUserEventSave({
+        userId: user.id,
+        eventId: eid,
+        currentlySaved: isCurrentlySaved,
+      });
+      if (!result.ok) {
+        Alert.alert(isCurrentlySaved ? "Couldn't update" : "Couldn't save", result.message);
+        return;
       }
+      setSavedEventIds((prev) => patchSavedEventIds(prev, eid, result.saved));
     } finally {
       setQuickViewSaving(false);
     }
@@ -350,7 +333,6 @@ export default function WorkshopsScreen() {
           }}
         >
           {CATEGORY_LIST.map((cat) => {
-            const iconScale = cat === 'Pottery' ? CATEGORY_TILE_POTTERY_IMAGE_SCALE : 1;
             return (
             <Pressable
               key={cat}
@@ -361,28 +343,25 @@ export default function WorkshopsScreen() {
                 borderRadius: 14,
                 overflow: 'hidden',
                 borderWidth: 1,
-                borderColor: DesignColors.lightGreenBorder,
-                backgroundColor: DesignColors.inputBg,
+                borderColor: CATEGORY_TILE_BORDER,
+                backgroundColor: DesignColors.creamBg,
               }}
             >
               <View
                 style={{
                   height: TILE_HEIGHT - CATEGORY_TILE_LABEL_H,
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  width: TILE_WIDTH,
+                  overflow: 'hidden',
+                  backgroundColor: DesignColors.inputBg,
                 }}
               >
                 <Image
-                  source={getCategoryMasterImageSource(cat)}
+                  source={getCategoryTileImageSource(cat)}
                   style={{
-                    width: Math.round(
-                      CATEGORY_TILE_IMAGE_W * CATEGORY_TILE_IMAGE_LAYOUT_SCALE * iconScale
-                    ),
-                    height: Math.round(
-                      CATEGORY_TILE_IMAGE_H * CATEGORY_TILE_IMAGE_LAYOUT_SCALE * iconScale
-                    ),
+                    width: TILE_WIDTH,
+                    height: TILE_HEIGHT - CATEGORY_TILE_LABEL_H,
                   }}
-                  contentFit="contain"
+                  contentFit="cover"
                 />
               </View>
               <View
@@ -392,14 +371,21 @@ export default function WorkshopsScreen() {
                   right: 0,
                   bottom: 0,
                   height: CATEGORY_TILE_LABEL_H,
-                  paddingHorizontal: 6,
+                  paddingHorizontal: 8,
                   paddingVertical: 3,
                   justifyContent: 'center',
-                  backgroundColor: 'rgba(0,0,0,0.35)',
+                  backgroundColor: DesignColors.creamBg,
+                  borderTopWidth: 1,
+                  borderTopColor: CATEGORY_TILE_BORDER,
                 }}
               >
                 <Text
-                  style={{ fontSize: 10, fontWeight: '700', color: '#FFF', lineHeight: 12 }}
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '700',
+                    color: DesignColors.charcoal,
+                    lineHeight: 12,
+                  }}
                   numberOfLines={2}
                 >
                   {cat}

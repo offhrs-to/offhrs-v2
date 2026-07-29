@@ -6,6 +6,7 @@ import {
   stripWorkshopRichTextPlain,
   workshopRichTextHtmlDocument,
 } from '@/lib/workshop-rich-text';
+import { AppFonts } from '@/lib/nunito-sans';
 
 type Props = {
   content: string;
@@ -17,6 +18,7 @@ const bodyStyle = {
   fontSize: 13,
   color: '#444',
   lineHeight: 20,
+  fontFamily: AppFonts.regular,
 } as const;
 
 export default function WorkshopRichTextContent({
@@ -36,14 +38,20 @@ export default function WorkshopRichTextContent({
       contentWidth={Math.max(200, width - contentWidthPadding)}
       source={{ html: workshopRichTextHtmlDocument(raw) }}
       defaultTextProps={{ selectable: true }}
+      systemFonts={[
+        AppFonts.regular,
+        AppFonts.semiBold,
+        AppFonts.bold,
+        AppFonts.medium,
+      ]}
       tagsStyles={{
         body: bodyStyle,
         p: { marginTop: 0, marginBottom: 8, ...bodyStyle },
         li: { marginBottom: 4, ...bodyStyle },
         ul: { marginBottom: 8, paddingLeft: 4 },
         ol: { marginBottom: 8, paddingLeft: 4 },
-        b: { fontWeight: '700' as const },
-        strong: { fontWeight: '700' as const },
+        b: { fontFamily: AppFonts.bold, fontWeight: '700' as const },
+        strong: { fontFamily: AppFonts.bold, fontWeight: '700' as const },
         i: { fontStyle: 'italic' as const },
         em: { fontStyle: 'italic' as const },
         u: { textDecorationLine: 'underline' as const },

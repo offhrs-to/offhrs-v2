@@ -1,6 +1,10 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
+import { logSecurityEvent } from '@/lib/security-monitor'
 import { NextRequest, NextResponse } from 'next/server'
+
+const VERIFY_EMAIL_RATE_LIMIT = 20 // per minute per IP — mitigates OTP guessing
 
 function getAppUrl(request: NextRequest): string {
   const url = new URL(request.url)
@@ -16,6 +20,16 @@ function getAppUrl(request: NextRequest): string {
 
 export async function GET(request: NextRequest) {
   try {
+    const rlKey = getRateLimitKey(request)
+    const rl = consumeRateLimit(`verify-email:${rlKey}`, VERIFY_EMAIL_RATE_LIMIT)
+    if (!rl.allowed) {
+      logSecurityEvent('warn', { type: 'rate_limited', route: '/api/partners/verify-email', ipKey: rlKey })
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      )
+    }
+
     const appUrl = getAppUrl(request)
     const { searchParams } = new URL(request.url)
     const token = searchParams.get('token')

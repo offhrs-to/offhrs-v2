@@ -18,6 +18,7 @@ import { UserCircleIcon } from 'react-native-heroicons/outline';
 
 import InstructorIcon from '@/components/InstructorIcon';
 import FeaturedVendorsCarousel from '@/components/FeaturedVendorsCarousel';
+import HomeCarouselSectionHeader from '@/components/HomeCarouselSectionHeader';
 import UpcomingTorontoCarousel from '@/components/UpcomingTorontoCarousel';
 import WorkshopsNearYouCarousel from '@/components/WorkshopsNearYouCarousel';
 import { CATEGORIES } from '@/constants/categories';
@@ -25,10 +26,9 @@ import { DesignColors, DesignSizes, DesignSpacing, isIOSPad } from '@/constants/
 import { useAuth } from '@/contexts/AuthContext';
 import { PROFILE_UPDATED_EVENT } from '@/lib/profile-events';
 import { supabase } from '@/lib/supabase';
+import type { HomeCarouselEventItem } from '@/components/HomeWorkshopCarouselCards';
 
-const CREAM_BG = '#FDFCF8';
-/** Display serif for hero headline (elegant, close to reference). */
-const HERO_SERIF_FONT = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
+const CREAM_BG = DesignColors.creamBg;
 const CHARCOAL = '#2C2C2C';
 const MEDIUM_GRAY = '#6B6B6B';
 
@@ -36,12 +36,10 @@ const HORIZONTAL_PADDING = 24;
 
 const isAndroid = Platform.OS === 'android';
 const AVATAR_SIZE = isAndroid ? 46 : 52;
-/** Space below header divider before hero — keep small so headline sits close to grey line. */
+/** Space below header divider before content — keep small so mastery sits close to grey line. */
 const SCROLL_PADDING_TOP = isAndroid ? 4 : 6;
 /** Scroll padding below content — room above floating tab bar. */
 const SCROLL_PADDING_BOTTOM = isAndroid ? 76 : 28;
-const HERO_HEADLINE_FONT_SIZE = isAndroid ? 26 : 28;
-const HERO_HEADLINE_LINE_HEIGHT = isAndroid ? 32 : 34;
 const ICON_BAR_HEIGHT = isAndroid ? 48 : 56;
 const ICON_CIRCLE_SIZE = isAndroid ? 40 : 44;
 const SECTION_TITLE_FONT_SIZE = isAndroid ? 14 : 15;
@@ -114,8 +112,8 @@ const COFFEE_ICONS: Record<string, any> = {
 const getCoffeeIconSource = (level: string) =>
   COFFEE_ICONS[level] ?? COFFEE_ICONS.Novice;
 
-// Beauty & Fragrance category uses bespoke icons per level (Novice → Master)
-const BEAUTY_FRAGRANCE_ICONS: Record<string, any> = {
+// Scent & Candle category uses bespoke icons per level (Novice → Master)
+const SCENT_CANDLE_ICONS: Record<string, any> = {
   Novice: require('@/assets/images/beauty-fragrance-novice.png'),
   Intermediate: require('@/assets/images/beauty-fragrance-intermediate.png'),
   Advanced: require('@/assets/images/beauty-fragrance-advanced.png'),
@@ -123,8 +121,8 @@ const BEAUTY_FRAGRANCE_ICONS: Record<string, any> = {
   Master: require('@/assets/images/beauty-fragrance-master.png'),
 };
 
-const getBeautyFragranceIconSource = (level: string) =>
-  BEAUTY_FRAGRANCE_ICONS[level] ?? BEAUTY_FRAGRANCE_ICONS.Novice;
+const getScentCandleIconSource = (level: string) =>
+  SCENT_CANDLE_ICONS[level] ?? SCENT_CANDLE_ICONS.Novice;
 
 // Other category uses bespoke icons per level (Novice → Master)
 const OTHER_ICONS: Record<string, any> = {
@@ -164,6 +162,28 @@ export default function HomeScreen() {
   const [popupCategory, setPopupCategory] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [homeRefreshNonce, setHomeRefreshNonce] = useState(0);
+  const [torontoCarouselItems, setTorontoCarouselItems] = useState<HomeCarouselEventItem[]>([]);
+  const [nearYouCarouselItems, setNearYouCarouselItems] = useState<HomeCarouselEventItem[]>([]);
+
+  const onTorontoItemsChange = useCallback((items: HomeCarouselEventItem[]) => {
+    setTorontoCarouselItems(items);
+  }, []);
+
+  const onNearYouItemsChange = useCallback((items: HomeCarouselEventItem[]) => {
+    setNearYouCarouselItems(items);
+  }, []);
+
+  const openCarouselBrowse = useCallback(
+    (items: HomeCarouselEventItem[], heading: string, opts?: { sort?: 'time' | 'distance' }) => {
+      if (items.length === 0) return;
+      const p = new URLSearchParams();
+      p.set('ids', items.map((it) => String(it.id)).join(','));
+      p.set('heading', heading);
+      if (opts?.sort) p.set('sort', opts.sort);
+      router.push(`/workshop-browse?${p.toString()}`);
+    },
+    [router]
+  );
 
   const levelCategories = CATEGORIES;
   const instructorCategories = profile?.instructor_categories ?? [];
@@ -372,31 +392,13 @@ export default function HomeScreen() {
         }
       >
       <Text
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.7}
-        style={{
-          fontFamily: HERO_SERIF_FONT,
-          fontSize: isIPad ? HERO_HEADLINE_FONT_SIZE + 4 : HERO_HEADLINE_FONT_SIZE,
-          lineHeight: isIPad ? HERO_HEADLINE_LINE_HEIGHT + 6 : HERO_HEADLINE_LINE_HEIGHT,
-          color: CHARCOAL,
-          textAlign: 'left',
-          fontWeight: '400',
-          marginTop: isAndroid ? 2 : 4,
-          marginBottom: isIPad ? 20 : isAndroid ? 12 : 16,
-          width: '100%',
-        }}
-      >
-        Discover your new passion
-      </Text>
-
-      <Text
         style={{
           color: CHARCOAL,
           fontSize: SECTION_TITLE_FONT_SIZE,
           fontWeight: '700',
           textAlign: 'left',
           alignSelf: 'stretch',
+          marginTop: isAndroid ? 2 : 4,
           marginBottom: isIPad ? 10 : isAndroid ? 6 : 8,
         }}
       >
@@ -468,10 +470,10 @@ export default function HomeScreen() {
                     contentFit="cover"
                   />
                 </View>
-              ) : cat === 'Beauty & Fragrance' ? (
+              ) : cat === 'Scent & Candle' ? (
                 <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
                   <Image
-                    source={getBeautyFragranceIconSource(catLevel)}
+                    source={getScentCandleIconSource(catLevel)}
                     style={{ width: circleSize + 18, height: circleSize + 18, position: 'absolute', left: -9, top: -9 }}
                     contentFit="cover"
                   />
@@ -503,53 +505,55 @@ export default function HomeScreen() {
         }}
       />
 
-      <Text
-        style={{
+      <HomeCarouselSectionHeader
+        title="Upcoming workshops in Toronto"
+        titleStyle={{
           color: CHARCOAL,
           fontSize: SECTION_TITLE_FONT_SIZE,
           fontWeight: '700',
           textAlign: 'left',
-          alignSelf: 'stretch',
-          marginTop: CAROUSEL_SECTION_GAP,
-          marginBottom: 6,
         }}
-      >
-        Upcoming workshops in Toronto
-      </Text>
+        titleMarginTop={CAROUSEL_SECTION_GAP}
+        titleMarginBottom={6}
+        onPressSeeAll={() =>
+          openCarouselBrowse(torontoCarouselItems, 'Upcoming workshops in Toronto')
+        }
+        seeAllEnabled={torontoCarouselItems.length > 0}
+      />
       <UpcomingTorontoCarousel
         userLocationAnchor={carouselLocationAnchor}
         refreshNonce={homeRefreshNonce}
+        onItemsChange={onTorontoItemsChange}
       />
 
-      <Text
-        style={{
+      <HomeCarouselSectionHeader
+        title="Workshops near you"
+        subtitle="Explore nearby classes"
+        titleStyle={{
           color: CHARCOAL,
           fontSize: SECTION_TITLE_FONT_SIZE,
           fontWeight: '700',
           textAlign: 'left',
-          alignSelf: 'stretch',
-          marginTop: CAROUSEL_SECTION_GAP,
-          marginBottom: 4,
         }}
-      >
-        Workshops near you
-      </Text>
-      <Text
-        style={{
+        subtitleStyle={{
           color: MEDIUM_GRAY,
           fontSize: SECTION_SUBTITLE_FONT_SIZE,
           fontWeight: '400',
           textAlign: 'left',
           alignSelf: 'stretch',
-          marginBottom: 6,
         }}
-      >
-        Explore nearby classes
-      </Text>
+        titleMarginTop={CAROUSEL_SECTION_GAP}
+        titleMarginBottom={6}
+        onPressSeeAll={() =>
+          openCarouselBrowse(nearYouCarouselItems, 'Workshops near you', { sort: 'distance' })
+        }
+        seeAllEnabled={nearYouCarouselItems.length > 0}
+      />
       <WorkshopsNearYouCarousel
         userLocationAnchor={carouselLocationAnchor}
         showHintWhenNoLocation
         refreshNonce={homeRefreshNonce}
+        onItemsChange={onNearYouItemsChange}
       />
       </ScrollView>
 

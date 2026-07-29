@@ -7,6 +7,7 @@ const PUBLIC_PARTNER_PATHS = [
   '/partners/verify-email',
   '/partners/reset-password',
   '/partners/auth/callback',
+  '/partners/update-password',
 ]
 
 export async function proxy(request: NextRequest) {
@@ -37,39 +38,10 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // ── Admin: Basic Auth protection ────────────────────────────────────────────
-  if (pathname.startsWith('/admin')) {
-    const adminUser = process.env.ADMIN_USER
-    const adminPassword = process.env.ADMIN_PASSWORD
-
-    if (!adminUser || !adminPassword) {
-      return new NextResponse('Admin credentials not configured', { status: 500 })
-    }
-
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader?.startsWith('Basic ')) {
-      return new NextResponse('Authentication required', {
-        status: 401,
-        headers: { 'WWW-Authenticate': 'Basic realm="Secure Area"' },
-      })
-    }
-
-    try {
-      const credentials = Buffer.from(authHeader.split(' ')[1], 'base64').toString('utf-8')
-      const [username, password] = credentials.split(':')
-      if (!username || !password || username !== adminUser || password !== adminPassword) {
-        return new NextResponse('Invalid credentials', {
-          status: 401,
-          headers: { 'WWW-Authenticate': 'Basic realm="Secure Area"' },
-        })
-      }
-    } catch {
-      return new NextResponse('Authentication required', {
-        status: 401,
-        headers: { 'WWW-Authenticate': 'Basic realm="Secure Area"' },
-      })
-    }
-  }
+  // ── Admin: the /admin page itself is a client component that shows a login
+  // form (cookie-session based, via /api/admin/login) when unauthenticated,
+  // same pattern as /partners/login. All actual data access is gated
+  // server-side per-route by verifyAdmin() (cookie-only — see src/lib/admin-auth.ts).
 
   // ── Consumer: protect /profile ──────────────────────────────────────────────
   if (!user && pathname.startsWith('/profile')) {

@@ -5,6 +5,10 @@ module.exports = function (api) {
       ['babel-preset-expo', { jsxImportSource: 'nativewind' }],
       'nativewind/babel',
     ],
-    plugins: ['react-native-reanimated/plugin'],
+    plugins: [
+      './babel-plugin-nunito-text.js',
+      // Reanimated plugin must be listed last.
+      'react-native-reanimated/plugin',
+    ],
   };
 };

@@ -4,7 +4,6 @@ import {
   getAdminCookieName,
   signAdminSession,
   verifyAdmin,
-  verifyAdminBasicAuth,
   verifyAdminCookie,
 } from '@/lib/admin-auth'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
@@ -15,7 +14,7 @@ import { NextResponse } from 'next/server'
 
 const ADMIN_LOGIN_LIMIT = 8 // per minute per ip+username
 
-export { getAdminCookieName, verifyAdmin, verifyAdminBasicAuth, verifyAdminCookie }
+export { getAdminCookieName, verifyAdmin, verifyAdminCookie }
 
 export async function POST(request: NextRequest) {
   try {

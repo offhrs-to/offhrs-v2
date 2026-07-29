@@ -12,6 +12,7 @@ import MapView, { Marker } from 'react-native-maps';
 const DEFAULT_REGION = {
   latitude: 43.6532,
   longitude: -79.3832,
+  /** Keep in sync with `WorkshopMapView.native` downtown opening zoom. */
   latitudeDelta: 0.12,
   longitudeDelta: 0.12,
 };

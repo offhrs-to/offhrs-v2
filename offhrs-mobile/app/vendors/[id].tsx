@@ -28,6 +28,11 @@ import {
 } from '@/lib/vendor-profile-bio';
 import { supabase } from '@/lib/supabase';
 import { instagramProfileUrl } from '@/lib/instagram-handle';
+import {
+  patchSavedEventIds,
+  subscribeEventSavesChanged,
+  toggleUserEventSave,
+} from '@/lib/event-saves';
 import { useAuth } from '@/contexts/AuthContext';
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
 import {
@@ -267,7 +272,10 @@ export default function VendorProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setSavedEventIds(new Set());
+        return;
+      }
       supabase
         .from('user_event_saves')
         .select('event_id')
@@ -277,6 +285,12 @@ export default function VendorProfileScreen() {
         });
     }, [user?.id])
   );
+
+  useEffect(() => {
+    return subscribeEventSavesChanged(({ eventId, saved }) => {
+      setSavedEventIds((prev) => patchSavedEventIds(prev, eventId, saved));
+    });
+  }, []);
 
   const eventIdNum = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
   const quickViewSaved = eventIdNum != null && savedEventIds.has(eventIdNum);
@@ -291,29 +305,16 @@ export default function VendorProfileScreen() {
     setQuickViewSaving(true);
     try {
       const isCurrentlySaved = savedEventIds.has(eid);
-      if (isCurrentlySaved) {
-        const { error } = await supabase
-          .from('user_event_saves')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('event_id', eid);
-        if (error) {
-          Alert.alert("Couldn't update", error.message ?? 'Please try again.');
-        } else {
-          setSavedEventIds((prev) => {
-            const next = new Set(prev);
-            next.delete(eid);
-            return next;
-          });
-        }
-      } else {
-        const { error } = await supabase.from('user_event_saves').insert({ user_id: user.id, event_id: eid });
-        if (error) {
-          Alert.alert("Couldn't save", error.message ?? 'Please try again.');
-        } else {
-          setSavedEventIds((prev) => new Set(prev).add(eid));
-        }
+      const result = await toggleUserEventSave({
+        userId: user.id,
+        eventId: eid,
+        currentlySaved: isCurrentlySaved,
+      });
+      if (!result.ok) {
+        Alert.alert(isCurrentlySaved ? "Couldn't update" : "Couldn't save", result.message);
+        return;
       }
+      setSavedEventIds((prev) => patchSavedEventIds(prev, eid, result.saved));
     } finally {
       setQuickViewSaving(false);
     }

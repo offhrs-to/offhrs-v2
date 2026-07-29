@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { ExternalLink, Edit, Trash2, Loader2, LogOut, ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import Link from 'next/link'
 import Navbar from '@/components/navbar'
-import { adminFetch, clearAdminBasicAuth, storeAdminBasicAuth } from '@/lib/admin-fetch'
+import { adminFetch } from '@/lib/admin-fetch'
 import { EventImageFallback } from '@/components/event-image-fallback'
 import { getVisiblePageNumbers } from '@/lib/pagination'
 
@@ -136,7 +136,6 @@ export default function AdminPage() {
       credentials: 'include',
     })
     if (res.ok) {
-      storeAdminBasicAuth(username, password)
       setIsAuthenticated(true)
       fetchEvents()
     } else {
@@ -365,7 +364,6 @@ export default function AdminPage() {
             <button
               type="button"
               onClick={async () => {
-                clearAdminBasicAuth()
                 await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
                 setIsAuthenticated(false)
               }}

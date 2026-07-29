@@ -7,6 +7,11 @@ import { WORKSHOP_FETCH_LIMIT_SEARCH } from '@/constants/workshops-list';
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
 import { geocodeAddress } from '@/lib/geocode';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  patchSavedEventIds,
+  subscribeEventSavesChanged,
+  toggleUserEventSave,
+} from '@/lib/event-saves';
 import { supabase } from '@/lib/supabase';
 import { compareWorkshopEventsByStart, workshopEventTorontoYmd } from '@/lib/workshop-event-sort';
 import { fetchWorkshopEvents, type WorkshopEventRow } from '@/lib/workshops-events-query';
@@ -218,6 +223,12 @@ export default function WorkshopSearchScreen() {
     return sortWorkshopGroupsByPrice(groups, priceSort);
   }, [events, isSearching, priceSort]);
 
+  useEffect(() => {
+    return subscribeEventSavesChanged(({ eventId, saved }) => {
+      setSavedEventIds((prev) => patchSavedEventIds(prev, eventId, saved));
+    });
+  }, []);
+
   const quickViewEventId = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
   const quickViewSaved = quickViewEventId != null && savedEventIds.has(quickViewEventId);
 
@@ -231,29 +242,16 @@ export default function WorkshopSearchScreen() {
     setQuickViewSaving(true);
     try {
       const isCurrentlySaved = savedEventIds.has(eid);
-      if (isCurrentlySaved) {
-        const { error } = await supabase
-          .from('user_event_saves')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('event_id', eid);
-        if (error) {
-          Alert.alert("Couldn't update", error.message ?? 'Please try again.');
-        } else {
-          setSavedEventIds((prev) => {
-            const next = new Set(prev);
-            next.delete(eid);
-            return next;
-          });
-        }
-      } else {
-        const { error } = await supabase.from('user_event_saves').insert({ user_id: user.id, event_id: eid });
-        if (error) {
-          Alert.alert("Couldn't save", error.message ?? 'Please try again.');
-        } else {
-          setSavedEventIds((prev) => new Set(prev).add(eid));
-        }
+      const result = await toggleUserEventSave({
+        userId: user.id,
+        eventId: eid,
+        currentlySaved: isCurrentlySaved,
+      });
+      if (!result.ok) {
+        Alert.alert(isCurrentlySaved ? "Couldn't update" : "Couldn't save", result.message);
+        return;
       }
+      setSavedEventIds((prev) => patchSavedEventIds(prev, eid, result.saved));
     } finally {
       setQuickViewSaving(false);
     }

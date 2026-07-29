@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { openWebAppPath } from '@/lib/web-app-links';
 import { Image as ExpoImage } from 'expo-image';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
@@ -33,6 +34,7 @@ export function SignInForm({
   onBack,
   showHeaderLogo = false,
 }: Props) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -207,7 +209,7 @@ export function SignInForm({
             borderWidth: 1,
             borderColor: '#000',
             backgroundColor: '#000',
-            marginBottom: 24,
+            marginBottom: 12,
           }}
         >
           {loading ? (
@@ -220,6 +222,28 @@ export function SignInForm({
               </Text>
             </View>
           )}
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push('/contact')}
+          disabled={loading}
+          accessibilityRole="button"
+          accessibilityLabel="Contact us"
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 14,
+            borderRadius: 9999,
+            borderWidth: 1,
+            borderColor: DesignColors.lightGreenBorder,
+            backgroundColor: DesignColors.inputBg,
+            marginBottom: 24,
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.primary }}>
+            Contact us
+          </Text>
         </Pressable>
 
         <View style={{ marginTop: 14, alignSelf: 'stretch' }}>

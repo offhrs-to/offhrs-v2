@@ -39,7 +39,7 @@ If something here does not match what you see in your dashboard, contact support
 Sign up at **partners.offhrs.app** through the partner signup wizard. You will provide:
 
 - **Business name** (2–100 characters)
-- **Workshop categories** — choose 1 to 4 categories; your first selection is your primary category. Available categories: Beauty & Fragrance, Culinary, Coffee, Floral, Pottery, and Other. If you choose Other, you must add a short description (up to 200 characters).
+- **Workshop categories** — choose 1 to 4 categories; your first selection is your primary category. Available categories: Scent & Candle, Culinary, Coffee, Floral, Pottery, and Other. If you choose Other, you must add a short description (up to 200 characters).
 - **Business location** — your primary in-person address, selected from the address search (this is used for your public profile and as the default location when you create workshops).
 - **Account details** — email, password (minimum 8 characters), and optional phone number.
 - **Optional:** website URL, workshop logo (JPEG, PNG, or WebP, up to 2 MB).
@@ -318,7 +318,7 @@ Go to **Workshops** in your dashboard and click to add a new workshop. You can s
 |-------|---------|
 | Title | 2–120 characters |
 | Description | Up to 2,000 characters |
-| Category | One of: Beauty & Fragrance, Culinary, Coffee, Floral, Pottery, Other |
+| Category | One of: Scent & Candle, Culinary, Coffee, Floral, Pottery, Other |
 | Price | $0–$10,000 CAD ($0 = free) |
 | Capacity | 1–500 attendees |
 | Duration | 15–480 minutes |

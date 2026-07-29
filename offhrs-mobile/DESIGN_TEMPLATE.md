@@ -39,7 +39,7 @@ This document describes the design template used on the Home page. Use it to kee
 - Height: `68`, padding H `20` V `12`, `borderRadius: 9999`.
 - Inactive: cream bg, sage green border, sage green text.
 - Active: sage green bg, white text.
-- Gap: `12`. Text: center, `alignSelf: 'stretch'` for wrap (e.g. "Beauty & Fragrance").
+- Gap: `12`. Text: center, `alignSelf: 'stretch'` for wrap (e.g. "Scent & Candle").
 
 ## Primary CTA (e.g. Browse Workshops)
 

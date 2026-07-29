@@ -138,26 +138,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 })
   }
 
-  // Determine which secret to use (billing vs. connect webhook)
-  const isConnect = request.headers.get('stripe-signature')?.includes('connect') ?? false
-  const webhookSecret = isConnect
-    ? process.env.STRIPE_CONNECT_WEBHOOK_SECRET!
-    : process.env.STRIPE_WEBHOOK_SECRET!
+  // Billing and Connect webhooks are both delivered to this same URL with
+  // different signing secrets. Try each configured secret in turn — Stripe's
+  // signature header doesn't identify which secret to use, so there's no way
+  // to pick one without attempting verification.
+  const candidateSecrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_CONNECT_WEBHOOK_SECRET,
+  ].filter((secret): secret is string => Boolean(secret))
 
-  let event: Stripe.Event
-  try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret)
-  } catch (err) {
-    // Try the other secret if first fails (both endpoints share same URL)
+  let event: Stripe.Event | null = null
+  let lastError: unknown = null
+  for (const secret of candidateSecrets) {
     try {
-      const altSecret = isConnect
-        ? process.env.STRIPE_WEBHOOK_SECRET!
-        : process.env.STRIPE_CONNECT_WEBHOOK_SECRET!
-      event = stripe.webhooks.constructEvent(rawBody, signature, altSecret)
-    } catch {
-      console.error('Stripe webhook signature verification failed:', err)
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+      event = stripe.webhooks.constructEvent(rawBody, signature, secret)
+      break
+    } catch (err) {
+      lastError = err
     }
+  }
+
+  if (!event) {
+    console.error('Stripe webhook signature verification failed:', lastError)
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
   const admin = createAdminClient()

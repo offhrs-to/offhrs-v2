@@ -1,13 +1,13 @@
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import MapView, { Callout, Marker } from 'react-native-maps';
+import MapView, { Callout, Marker, type Region } from 'react-native-maps';
 
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import { DesignColors } from '@/constants/design-template';
@@ -22,13 +22,18 @@ import {
 import { haversineKm } from '@/lib/distance';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
 
-/** Downtown Toronto focus (~11km span). Keep the opening view city-centric, not GTA-wide. */
-const DOWNTOWN_TORONTO = { lat: 43.6532, lng: -79.3832 };
-const DEFAULT_DELTA = 0.1;
-/** Cap auto-fit so scattered / suburban pins don't zoom the map out past central Toronto. */
-const MAX_FIT_DELTA = 0.14;
+/**
+ * Default full-map focus: north of the waterfront so the visible pane (above the list sheet)
+ * frames downtown streets — City Hall (~43.65) sits too close to the lake once the sheet
+ * covers the bottom half and `mapPadding` recenters the camera.
+ */
+const DOWNTOWN_TORONTO = { lat: 43.6705, lng: -79.386 };
+/** City-scale opening zoom — wide enough for core + near-downtown studios. */
+const DEFAULT_DELTA = 0.16;
+/** Cap auto-fit so we don't zoom out to lake-wide GTA, but still include most city pins. */
+const MAX_FIT_DELTA = 0.2;
 
-const DEFAULT_REGION = {
+const DEFAULT_REGION: Region = {
   latitude: DOWNTOWN_TORONTO.lat,
   longitude: DOWNTOWN_TORONTO.lng,
   latitudeDelta: DEFAULT_DELTA,
@@ -148,12 +153,6 @@ const calloutStyles = StyleSheet.create({
     fontSize: 12,
     color: DesignColors.mediumGray,
   },
-  price: {
-    marginTop: 6,
-    fontSize: 13,
-    fontWeight: '600',
-    color: DesignColors.charcoal,
-  },
   actions: {
     flexDirection: 'row',
     gap: 8,
@@ -188,58 +187,88 @@ const calloutStyles = StyleSheet.create({
   },
 });
 
-/**
- * ~25% padding around pin bounds; floor keeps a single/tight cluster from over-zooming past
- * street level.
- *
- * `bottomObscuredRatio` (0–1) is the fraction of this view's height covered by other opaque UI
- * (e.g. a draggable bottom sheet) that the map has no knowledge of. Without accounting for it,
- * a naive fit centers pins within the *full* view frame, so anything that lands in the bottom
- * portion of that frame is physically hidden behind the sheet — indistinguishable from a missing
- * pin to the user, even though it's technically "on the map". We correct for this by growing the
- * region so the pins occupy only the visible (top) fraction, pushing the extra span south, under
- * the obscured area, instead of centering it.
- */
 function regionFittingBounds(
   coords: { lat: number; lng: number }[],
-  bottomObscuredRatio = 0,
+  _bottomObscuredRatio = 0,
   preferredCenter?: { lat: number; lng: number } | null
-) {
+): Region {
   const lats = coords.map((c) => c.lat);
   const lngs = coords.map((c) => c.lng);
   const minLat = Math.min(...lats);
   const maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs);
   const maxLng = Math.max(...lngs);
+
   let midLat = (minLat + maxLat) / 2;
   let midLng = (minLng + maxLng) / 2;
-  let paddedLatDelta = Math.max((maxLat - minLat) * 1.25, 0.05);
+  let latitudeDelta = Math.max((maxLat - minLat) * 1.25, 0.05);
   let longitudeDelta = Math.max((maxLng - minLng) * 1.25, 0.05);
 
-  // If pins span beyond central Toronto, stay focused on downtown (or the user anchor)
-  // instead of zooming out to fit every marker.
-  if (paddedLatDelta > MAX_FIT_DELTA || longitudeDelta > MAX_FIT_DELTA) {
-    const center = preferredCenter ?? DOWNTOWN_TORONTO;
+  const center = preferredCenter ?? DOWNTOWN_TORONTO;
+  if (latitudeDelta > MAX_FIT_DELTA || longitudeDelta > MAX_FIT_DELTA) {
     midLat = center.lat;
     midLng = center.lng;
-    paddedLatDelta = MAX_FIT_DELTA;
+    latitudeDelta = MAX_FIT_DELTA;
     longitudeDelta = MAX_FIT_DELTA;
+  } else {
+    midLat = midLat * 0.35 + center.lat * 0.65;
+    midLng = midLng * 0.35 + center.lng * 0.65;
+    latitudeDelta = Math.min(Math.max(latitudeDelta, DEFAULT_DELTA * 0.85), MAX_FIT_DELTA);
+    longitudeDelta = Math.min(Math.max(longitudeDelta, DEFAULT_DELTA * 0.85), MAX_FIT_DELTA);
   }
 
-  const ratio = Math.min(Math.max(bottomObscuredRatio, 0), 0.85);
-  const totalLatDelta = ratio > 0 ? paddedLatDelta / (1 - ratio) : paddedLatDelta;
-  // North (larger latitude) renders toward the top of the screen, so keep the visible portion
-  // anchored at the top of the region and let the extra (obscured) span extend south.
-  const visibleTopLat = midLat + paddedLatDelta / 2;
-  const latitude = visibleTopLat - totalLatDelta / 2;
-
   return {
-    latitude,
+    latitude: midLat,
     longitude: midLng,
-    latitudeDelta: totalLatDelta,
+    latitudeDelta,
     longitudeDelta,
   };
 }
+
+/**
+ * Default native pin only — no custom Marker children.
+ * Custom views + dynamic add/remove during zoom crash Expo Go (Fabric insertObject:nil).
+ */
+const VendorPinMarker = memo(function VendorPinMarker({
+  id,
+  latitude,
+  longitude,
+  title,
+  event,
+  onEventPress,
+}: {
+  id: string;
+  latitude: number;
+  longitude: number;
+  title: string;
+  event: WorkshopEventRow;
+  onEventPress?: (event: WorkshopEventRow) => void;
+}) {
+  if (onEventPress) {
+    return (
+      <Marker
+        identifier={id}
+        coordinate={{ latitude, longitude }}
+        title={title}
+        tracksViewChanges={false}
+        onPress={() => onEventPress(event)}
+      />
+    );
+  }
+
+  return (
+    <Marker
+      identifier={id}
+      coordinate={{ latitude, longitude }}
+      title={title}
+      tracksViewChanges={false}
+    >
+      <Callout tooltip>
+        <MapCalloutCard event={event} />
+      </Callout>
+    </Marker>
+  );
+});
 
 export default function WorkshopMapView({
   events,
@@ -251,12 +280,14 @@ export default function WorkshopMapView({
   bottomInsetPx = 0,
 }: Props) {
   const mapRef = useRef<MapView | null>(null);
-  const didFitRef = useRef(false);
   const mapReadyRef = useRef(false);
+  const [mapReady, setMapReady] = useState(false);
   const [viewHeightPx, setViewHeightPx] = useState(0);
+  const didOpeningFitRef = useRef(false);
+  const didPadFitRef = useRef(false);
+  const fitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fraction of our own height covered by other UI on top of the map — used to keep pins
-  // inside the visible (top) portion instead of centering them across the full frame.
   const bottomObscuredRatio = viewHeightPx > 0 ? bottomInsetPx / viewHeightPx : 0;
   const bottomObscuredRatioRef = useRef(bottomObscuredRatio);
   bottomObscuredRatioRef.current = bottomObscuredRatio;
@@ -278,25 +309,21 @@ export default function WorkshopMapView({
 
   const withCoordsRef = useRef(withCoords);
   withCoordsRef.current = withCoords;
-  const loadingRef = useRef(loading);
-  loadingRef.current = loading;
 
-  // Upstream react-native-maps + React Native New Architecture bug on iOS: the native layer
-  // can silently drop a subset of markers when an existing MapView's marker set is *updated*
-  // (reconciled) rather than freshly created — the JS-side data and props are correct and
-  // present, but nothing gets drawn for those pins. Keying the MapView on the pin set forces a
-  // full native remount (fresh markers, no reconciliation) whenever the set actually changes,
-  // instead of patching the existing native view in place.
-  const markerSetKey = useMemo(
+  /**
+   * Stable pin list for the native map. Built once per pin-set; never rebuilt from camera
+   * region. Region-driven clustering was crashing Expo Go when the opening zoom-out swapped
+   * markers mid-animation.
+   */
+  const pinSignature = useMemo(
     () => withCoords.map((e) => workshopMapMarkerKey(e)).sort().join('|'),
     [withCoords]
   );
 
-  // First-mount region is computed directly from the pin bounds we already have (when
-  // available) so the very first paint is correct-by-construction — no race with the
-  // native view's own startup, which is what let `initialRegion` (anchor-only, before
-  // any pins existed) silently win over a later imperative fit on slower iOS devices.
-  const initialRegion = useMemo(() => {
+  const [mountedPins, setMountedPins] = useState<WorkshopEventRow[]>([]);
+  const lastMountedSignatureRef = useRef('');
+
+  const openingRegion = useMemo(() => {
     if (withCoords.length > 0) {
       return regionFittingBounds(
         withCoords.map((e) => ({ lat: Number(e.lat), lng: Number(e.lng) })),
@@ -313,59 +340,91 @@ export default function WorkshopMapView({
       };
     }
     return DEFAULT_REGION;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [withCoords, anchor]);
 
-  useEffect(() => {
-    didFitRef.current = false;
-    mapReadyRef.current = false;
-  }, [anchor?.lat, anchor?.lng, markerSetKey]);
-
-  // Re-fit only once the native map has actually confirmed it's ready (`onMapReady`),
-  // instead of guessing with a fixed timeout: on iOS, MapKit's native view can take
-  // longer than a hardcoded delay to finish applying its own initial region, and an
-  // `animateToRegion` call that lands before that finishes gets silently overridden —
-  // which cropped distant pins (e.g. east-end studios) out of the visible viewport.
-  const attemptFit = useCallback(() => {
-    if (didFitRef.current || !mapReadyRef.current) return;
-    if (loadingRef.current || withCoordsRef.current.length === 0) return;
+  const runOpeningFit = useCallback(() => {
+    if (!mapRef.current || withCoordsRef.current.length === 0) return;
     const region = regionFittingBounds(
       withCoordsRef.current.map((e) => ({ lat: Number(e.lat), lng: Number(e.lng) })),
       bottomObscuredRatioRef.current,
       anchor
     );
-    mapRef.current?.animateToRegion(region, 450);
-    didFitRef.current = true;
+    mapRef.current.animateToRegion(region, 400);
   }, [anchor]);
+
+  // Mount every vendor pin in one transaction after MapKit is ready — then fit once.
+  // Do not add/remove markers afterward based on zoom (that path crashes Fabric).
+  useEffect(() => {
+    if (!mapReady || loading || withCoords.length === 0) {
+      if (!loading && withCoords.length === 0) {
+        setMountedPins([]);
+        lastMountedSignatureRef.current = '';
+        didOpeningFitRef.current = false;
+      }
+      return;
+    }
+
+    if (lastMountedSignatureRef.current === pinSignature && mountedPins.length > 0) {
+      return;
+    }
+
+    if (mountTimerRef.current) clearTimeout(mountTimerRef.current);
+    if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
+
+    mountTimerRef.current = setTimeout(() => {
+      lastMountedSignatureRef.current = pinSignature;
+      setMountedPins(withCoordsRef.current);
+      didOpeningFitRef.current = false;
+
+      // Fit after pins are committed — camera-only, marker set stays fixed.
+      fitTimerRef.current = setTimeout(() => {
+        if (didOpeningFitRef.current) return;
+        didOpeningFitRef.current = true;
+        runOpeningFit();
+      }, 120);
+    }, 80);
+
+    return () => {
+      if (mountTimerRef.current) clearTimeout(mountTimerRef.current);
+      if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
+    };
+  }, [mapReady, loading, pinSignature, withCoords.length, mountedPins.length, runOpeningFit]);
+
+  // Sheet height arrives after first paint — adjust camera only (markers untouched).
+  useEffect(() => {
+    if (!mapReady || mountedPins.length === 0 || bottomInsetPx <= 0 || didPadFitRef.current) {
+      return;
+    }
+    didPadFitRef.current = true;
+    const t = setTimeout(() => {
+      runOpeningFit();
+    }, 100);
+    return () => clearTimeout(t);
+  }, [bottomInsetPx, mapReady, mountedPins.length, runOpeningFit]);
+
+  useEffect(() => {
+    didPadFitRef.current = false;
+    didOpeningFitRef.current = false;
+    mapReadyRef.current = false;
+    setMapReady(false);
+    setMountedPins([]);
+    lastMountedSignatureRef.current = '';
+  }, [anchor?.lat, anchor?.lng]);
 
   const onMapReady = useCallback(() => {
     mapReadyRef.current = true;
-    attemptFit();
-  }, [attemptFit]);
-
-  // If the container's real height (and thus the obscured-area ratio) wasn't known yet at the
-  // time of the first fit, redo it once it is — otherwise a fit computed with ratio=0 could
-  // still leave pins under the sheet.
-  const didRefitForHeightRef = useRef(false);
-  useEffect(() => {
-    if (viewHeightPx > 0 && !didRefitForHeightRef.current) {
-      didRefitForHeightRef.current = true;
-      didFitRef.current = false;
-      attemptFit();
-    }
-  }, [viewHeightPx, attemptFit]);
+    setMapReady(true);
+  }, []);
 
   useEffect(() => {
-    attemptFit();
-    // Safety net: if `onMapReady` never fires in some edge-case environment, assume
-    // readiness after a beat and try anyway rather than leaving the map permanently
-    // un-fitted. `onMapReady` (when it does fire) still wins by arriving first.
     const t = setTimeout(() => {
-      mapReadyRef.current = true;
-      attemptFit();
-    }, 1200);
+      if (!mapReadyRef.current) {
+        mapReadyRef.current = true;
+        setMapReady(true);
+      }
+    }, 1500);
     return () => clearTimeout(t);
-  }, [loading, withCoords, attemptFit]);
+  }, []);
 
   if (!canMountNativeMapView()) {
     return (
@@ -383,35 +442,31 @@ export default function WorkshopMapView({
       style={styles.container}
       onLayout={(e) => setViewHeightPx(e.nativeEvent.layout.height)}
     >
+      {/*
+        Never remount MapView via changing `key`. Never rebuild the Marker list from camera
+        region. Both patterns abort Expo Go / Fabric (insertObject:atIndex: nil / OOB).
+      */}
       <MapView
-        key={markerSetKey}
         ref={mapRef}
         style={styles.map}
-        initialRegion={initialRegion}
+        initialRegion={openingRegion}
         showsUserLocation
         mapPadding={{ top: 0, right: 0, bottom: bottomInsetPx, left: 0 }}
         onMapReady={onMapReady}
         onPress={() => onMapPress?.()}
       >
-        {withCoords.map((event) => {
-          const markerKey = workshopMapMarkerKey(event);
+        {mountedPins.map((event) => {
+          const id = workshopMapMarkerKey(event);
           return (
-            <Marker
-              key={markerKey}
-              identifier={markerKey}
-              coordinate={{
-                latitude: Number(event.lat),
-                longitude: Number(event.lng),
-              }}
+            <VendorPinMarker
+              key={id}
+              id={id}
+              latitude={Number(event.lat)}
+              longitude={Number(event.lng)}
               title={event.title}
-              onPress={() => onEventPress?.(event)}
-            >
-              {!onEventPress && (
-                <Callout tooltip>
-                  <MapCalloutCard event={event} />
-                </Callout>
-              )}
-            </Marker>
+              event={event}
+              onEventPress={onEventPress}
+            />
           );
         })}
       </MapView>

@@ -1,8 +1,10 @@
 import '../global.css';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as Linking from 'expo-linking';
+import * as SplashScreen from 'expo-splash-screen';
 import * as WebBrowser from 'expo-web-browser';
 import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
@@ -21,11 +23,49 @@ import PilotLaunchNoticeModal, {
 import { AuthProvider } from '@/contexts/AuthContext';
 import { processAuthCallbackUrl } from '@/lib/auth-callback-url';
 import { completeOAuthBrowserSession } from '@/lib/auth-session-cleanup';
+import {
+  AppFonts,
+  nunitoSansFontMap,
+} from '@/lib/nunito-sans';
+import {
+  isOnboardingModalOpen,
+  subscribeOnboardingModalOpen,
+} from '@/lib/onboarding-modal-gate';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* already prevented / not available */
+});
 
 const HAS_SEEN_APP_INTRO_KEY = '@offhrs/hasSeenAppIntro';
 
-const ROOT_BG = '#ECEFE5';
+const ROOT_BG = '#FFFFFF';
+
+const AppNavigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: ROOT_BG,
+  },
+  fonts: {
+    regular: {
+      fontFamily: AppFonts.regular,
+      fontWeight: '400' as const,
+    },
+    medium: {
+      fontFamily: AppFonts.medium,
+      fontWeight: '500' as const,
+    },
+    bold: {
+      fontFamily: AppFonts.bold,
+      fontWeight: '600' as const,
+    },
+    heavy: {
+      fontFamily: AppFonts.extraBold,
+      fontWeight: '700' as const,
+    },
+  },
+};
 
 function resolveStripePublishableKey(): string {
   const extra = (
@@ -61,10 +101,24 @@ export const unstable_settings = {
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
+  const [fontsLoaded, fontError] = useFonts(nunitoSansFontMap);
   const [showAppIntro, setShowAppIntro] = useState(false);
   const [showPilotLaunchNotice, setShowPilotLaunchNotice] = useState(false);
   /** Blocks pilot notice until intro slides are done or were already seen this install. */
   const [introGate, setIntroGate] = useState<'loading' | 'needs_intro' | 'done'>('loading');
+  /** Avoid stacking pilot notice on top of OnboardingModal (iOS Modal touch issues). */
+  const [onboardingModalOpen, setOnboardingModalOpenState] = useState(isOnboardingModalOpen());
+
+  useEffect(() => {
+    if (!fontsLoaded && !fontError) return;
+    SplashScreen.hideAsync().catch(() => {
+      /* already hidden */
+    });
+  }, [fontsLoaded, fontError]);
+
+  useEffect(() => subscribeOnboardingModalOpen(() => {
+    setOnboardingModalOpenState(isOnboardingModalOpen());
+  }), []);
 
   // Always-current snapshot of navigation segments accessible inside async closures.
   const segmentsRef = useRef<readonly string[]>(segments);
@@ -212,14 +266,21 @@ export default function RootLayout() {
   };
 
   const showPilotLaunchModal =
-    introGate === 'done' && showPilotLaunchNotice && !showAppIntro;
+    introGate === 'done' &&
+    showPilotLaunchNotice &&
+    !showAppIntro &&
+    !onboardingModalOpen;
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StripeRoot>
           <AuthProvider>
-            <ThemeProvider value={DefaultTheme}>
+            <ThemeProvider value={AppNavigationTheme}>
               <Stack
                 screenOptions={{
                   contentStyle: { backgroundColor: ROOT_BG },
@@ -232,6 +293,7 @@ export default function RootLayout() {
                 <Stack.Screen name="workshop-search" options={{ headerShown: false }} />
                 <Stack.Screen name="workshop-map" options={{ headerShown: false }} />
                 <Stack.Screen name="workshop-browse" options={{ headerShown: false }} />
+                <Stack.Screen name="contact" options={{ headerShown: false }} />
                 <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
               </Stack>
               {/* Android: keep Modal mounted with `visible` to avoid touch ghost after intro.

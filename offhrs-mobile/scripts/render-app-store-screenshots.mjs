@@ -170,7 +170,7 @@ function buildWorkshopsHub(logoHref) {
   const th = Math.round(tw * 0.74);
   const gridY = 920;
   const cats = [
-    ['Beauty & Fragrance', 'cg1'],
+    ['Scent & Candle', 'cg1'],
     ['Culinary', 'cg2'],
     ['Coffee', 'cg3'],
     ['Floral', 'cg4'],

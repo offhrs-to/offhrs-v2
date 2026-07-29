@@ -8,9 +8,15 @@ import {
   WORKSHOP_MAP_MARKER_CAP,
 } from '@/constants/workshops-list';
 import { useAuth } from '@/contexts/AuthContext';
-import { WORKSHOP_GEO_RADIUS_KM } from '@/lib/distance';
+import { haversineKm, WORKSHOP_GEO_RADIUS_KM } from '@/lib/distance';
+import {
+  patchSavedEventIds,
+  subscribeEventSavesChanged,
+  toggleUserEventSave,
+} from '@/lib/event-saves';
 import { fetchVendorRatingMap, type VendorRatingSummary } from '@/lib/vendor-rating-map';
 import { supabase } from '@/lib/supabase';
+import { dedupeWorkshopMapMarkerEvents } from '@/lib/workshop-map-coordinates';
 import {
   fetchWorkshopEvents,
   fetchWorkshopEventsNearAnchor,
@@ -33,8 +39,8 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const LIST_THUMB = 56;
-/** Fallback map center when the user has no saved profile location. */
-const TORONTO_DEFAULT = { lat: 43.6532, lng: -79.3832 };
+/** Fallback map center when the user has no saved profile location — north of the waterfront. */
+const TORONTO_DEFAULT = { lat: 43.6705, lng: -79.386 };
 
 function parseParamString(v: string | string[] | undefined): string {
   if (v == null) return '';
@@ -260,6 +266,19 @@ export default function WorkshopMapScreen() {
     reload();
   }, [reload]);
 
+  /** One list row per map pin (vendor/studio) so the sheet matches what the map shows. */
+  const mapPinEvents = useMemo(() => {
+    const pins = dedupeWorkshopMapMarkerEvents(events);
+    if (pins.length <= WORKSHOP_MAP_MARKER_CAP) return pins;
+    return [...pins]
+      .sort((a, b) => {
+        const da = haversineKm(mapAnchor.lat, mapAnchor.lng, Number(a.lat), Number(a.lng));
+        const db = haversineKm(mapAnchor.lat, mapAnchor.lng, Number(b.lat), Number(b.lng));
+        return da - db;
+      })
+      .slice(0, WORKSHOP_MAP_MARKER_CAP);
+  }, [events, mapAnchor]);
+
   const pushBrowse = () => {
     const p = new URLSearchParams();
     if (searchTerm) p.set('q', searchTerm);
@@ -294,6 +313,12 @@ export default function WorkshopMapScreen() {
     []
   );
 
+  useEffect(() => {
+    return subscribeEventSavesChanged(({ eventId, saved }) => {
+      setSavedEventIds((prev) => patchSavedEventIds(prev, eventId, saved));
+    });
+  }, []);
+
   const eventIdNum = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
   const quickViewSaved = eventIdNum != null && savedEventIds.has(eventIdNum);
 
@@ -307,29 +332,16 @@ export default function WorkshopMapScreen() {
     setQuickViewSaving(true);
     try {
       const isCurrentlySaved = savedEventIds.has(eid);
-      if (isCurrentlySaved) {
-        const { error } = await supabase
-          .from('user_event_saves')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('event_id', eid);
-        if (error) {
-          Alert.alert("Couldn't update", error.message ?? 'Please try again.');
-        } else {
-          setSavedEventIds((prev) => {
-            const next = new Set(prev);
-            next.delete(eid);
-            return next;
-          });
-        }
-      } else {
-        const { error } = await supabase.from('user_event_saves').insert({ user_id: user.id, event_id: eid });
-        if (error) {
-          Alert.alert("Couldn't save", error.message ?? 'Please try again.');
-        } else {
-          setSavedEventIds((prev) => new Set(prev).add(eid));
-        }
+      const result = await toggleUserEventSave({
+        userId: user.id,
+        eventId: eid,
+        currentlySaved: isCurrentlySaved,
+      });
+      if (!result.ok) {
+        Alert.alert(isCurrentlySaved ? "Couldn't update" : "Couldn't save", result.message);
+        return;
       }
+      setSavedEventIds((prev) => patchSavedEventIds(prev, eid, result.saved));
     } finally {
       setQuickViewSaving(false);
     }
@@ -356,7 +368,7 @@ export default function WorkshopMapScreen() {
         <View style={{ flex: 1, minHeight: 0 }}>
           <View style={{ flex: 1, minHeight: 0 }}>
             <WorkshopMapView
-              events={events}
+              events={mapPinEvents}
               loading={loading}
               maxMarkers={WORKSHOP_MAP_MARKER_CAP}
               anchor={mapAnchor}
@@ -394,7 +406,7 @@ export default function WorkshopMapScreen() {
             ) : (
               <FlatList
                 style={{ flex: 1 }}
-                data={events}
+                data={mapPinEvents}
                 keyExtractor={keyExtractor}
                 keyboardShouldPersistTaps="handled"
                 initialNumToRender={12}
@@ -421,7 +433,7 @@ export default function WorkshopMapScreen() {
         >
           <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
             <WorkshopMapView
-              events={events}
+              events={mapPinEvents}
               loading={loading}
               maxMarkers={WORKSHOP_MAP_MARKER_CAP}
               anchor={mapAnchor}
@@ -488,7 +500,7 @@ export default function WorkshopMapScreen() {
               ) : (
                 <FlatList
                   style={{ flex: 1 }}
-                  data={events}
+                  data={mapPinEvents}
                   keyExtractor={keyExtractor}
                   keyboardShouldPersistTaps="handled"
                   initialNumToRender={12}

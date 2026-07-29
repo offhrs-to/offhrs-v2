@@ -13,6 +13,17 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
@@ -39,9 +50,12 @@ import { vendorPagePath, workshopVendorDisplayName } from '@/lib/workshop-vendor
 import WorkshopSalePrice from '@/components/WorkshopSalePrice';
 import { effectiveWorkshopPriceCad } from '@/lib/workshop-ticket-price';
 
-/** Share of screen below the top inset used for every quick-view sheet. */
-const SHEET_HEIGHT_RATIO = 0.88;
 const QUICK_VIEW_IMAGE_ASPECT = 4 / 3;
+/** Drag distance / velocity that closes the full-screen quick view. */
+const DISMISS_DISTANCE = 140;
+const DISMISS_VELOCITY = 1100;
+
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 export type WorkshopQuickViewModalProps = {
   visible: boolean;
@@ -80,6 +94,73 @@ function WorkshopQuickViewModal({
   const { requestStrictAckIfNeeded, ackModalElement } = useStrictBookingAck({ embedded: true });
   /** Browse/list rows omit description blobs; hydrate full details when the sheet opens. */
   const [displayEvent, setDisplayEvent] = useState<WorkshopEventRow | null>(event);
+
+  const translateY = useSharedValue(0);
+  const scrollY = useSharedValue(0);
+  const dragStartY = useSharedValue(0);
+
+  const finishClose = useCallback(() => {
+    translateY.value = 0;
+    onClose();
+  }, [onClose, translateY]);
+
+  const dismissSheet = useCallback(() => {
+    translateY.value = withTiming(windowHeight, { duration: 220 }, (finished) => {
+      if (finished) runOnJS(finishClose)();
+    });
+  }, [finishClose, translateY, windowHeight]);
+
+  useEffect(() => {
+    if (visible) {
+      translateY.value = 0;
+      scrollY.value = 0;
+    }
+  }, [visible, scrollY, translateY]);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollY.value = e.contentOffset.y;
+    },
+  });
+
+  const panGesture = Gesture.Pan()
+    .activeOffsetY(10)
+    .failOffsetY(-12)
+    .onStart(() => {
+      dragStartY.value = translateY.value;
+    })
+    .onUpdate((e) => {
+      // Only pull the sheet down when the scroll view is at (or past) the top.
+      if (scrollY.value <= 1 && e.translationY > 0) {
+        translateY.value = dragStartY.value + e.translationY;
+      } else if (translateY.value > 0) {
+        translateY.value = Math.max(0, dragStartY.value + e.translationY);
+      }
+    })
+    .onEnd((e) => {
+      const shouldDismiss =
+        translateY.value > DISMISS_DISTANCE || e.velocityY > DISMISS_VELOCITY;
+      if (shouldDismiss) {
+        translateY.value = withTiming(windowHeight, { duration: 220 }, (finished) => {
+          if (finished) runOnJS(finishClose)();
+        });
+      } else {
+        translateY.value = withSpring(0, { damping: 28, stiffness: 320 });
+      }
+    });
+
+  const sheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      translateY.value,
+      [0, windowHeight * 0.45],
+      [1, 0],
+      Extrapolation.CLAMP
+    ),
+  }));
 
   useEffect(() => {
     if (!visible || !event) {
@@ -262,47 +343,77 @@ function WorkshopQuickViewModal({
         10
       : null;
 
-  // Android draws this transparent modal edge-to-edge (see `edgeToEdgeEnabled: true`
-  // in app.json), so the sheet's top edge can graze the system status bar. Reserve
-  // the status-bar height plus a little breathing room above the sheet on Android
-  // only; iOS layout must stay exactly as-is.
-  const sheetTopPadding = Platform.OS === 'android' ? insets.top + 12 : 0;
-  const sheetTopRadius = 20;
-  const sheetHeight = Math.round((windowHeight - sheetTopPadding) * SHEET_HEIGHT_RATIO);
   const imageHeight = Math.round(windowWidth / QUICK_VIEW_IMAGE_ASPECT);
 
   return (
     <>
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, justifyContent: 'flex-end', paddingTop: sheetTopPadding, position: 'relative' }}>
-        <Pressable
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.45)',
-          }}
-          onPress={onClose}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={dismissSheet}
+      {...(Platform.OS === 'ios' ? { presentationStyle: 'overFullScreen' as const } : {})}
+      statusBarTranslucent
+    >
+      <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.45)',
+            },
+            backdropStyle,
+          ]}
         />
-        <View
-          style={{
-            height: sheetHeight,
-            backgroundColor: '#FFF',
-            borderTopLeftRadius: sheetTopRadius,
-            borderTopRightRadius: sheetTopRadius,
-            overflow: 'hidden',
-            paddingBottom: Math.max(insets.bottom, 12),
-          }}
-        >
-          <ScrollView
+        <GestureDetector gesture={panGesture}>
+          <Animated.View
+            style={[
+              {
+                flex: 1,
+                width: '100%',
+                height: windowHeight,
+                backgroundColor: '#FFF',
+                overflow: 'hidden',
+                paddingBottom: Math.max(insets.bottom, 12),
+              },
+              sheetStyle,
+            ]}
+          >
+            {/* Drag affordance — swipe down anywhere (when scrolled to top) to go back. */}
+            <View
+              accessibilityRole="adjustable"
+              accessibilityLabel="Drag down to close"
+              style={{
+                alignItems: 'center',
+                paddingTop: Math.max(insets.top, 8),
+                paddingBottom: 6,
+                backgroundColor: '#FFF',
+              }}
+            >
+              <View
+                style={{
+                  width: 40,
+                  height: 5,
+                  borderRadius: 3,
+                  backgroundColor: DesignColors.placeholderGray,
+                }}
+              />
+            </View>
+
+          <AnimatedScrollView
             style={{ flex: 1 }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator
-            bounces={false}
+            bounces
             alwaysBounceVertical={false}
             overScrollMode="never"
+            onScroll={scrollHandler}
+            scrollEventThrottle={16}
             contentContainerStyle={{ paddingBottom: 8, flexGrow: 1 }}
           >
             <View
@@ -312,8 +423,6 @@ function WorkshopQuickViewModal({
                 flexShrink: 0,
                 backgroundColor: DesignColors.inputBg,
                 position: 'relative',
-                borderTopLeftRadius: sheetTopRadius,
-                borderTopRightRadius: sheetTopRadius,
                 overflow: 'hidden',
               }}
             >
@@ -350,18 +459,13 @@ function WorkshopQuickViewModal({
                 flexDirection: 'row',
                 justifyContent: 'space-between',
                 alignItems: 'flex-start',
-                // Padding from the top of the image area (NOT the screen). The
-                // modal sheet itself is already offset below the status bar by
-                // sheetTopPadding on Android, so adding androidTopInset here
-                // would push the icons into the middle of the image. Keep the
-                // value platform-agnostic.
                 paddingTop: 12,
                 paddingLeft: 12,
                 paddingRight: 12,
               }}
             >
               <Pressable
-                onPress={onClose}
+                onPress={dismissSheet}
                 accessibilityRole="button"
                 accessibilityLabel="Close workshop preview"
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -548,7 +652,7 @@ function WorkshopQuickViewModal({
                   : "You'll open the host's site. Their price, availability, and terms apply."}
               </Text>
             </View>
-          </ScrollView>
+          </AnimatedScrollView>
 
           <View
             style={{
@@ -606,7 +710,8 @@ function WorkshopQuickViewModal({
               )}
             </Pressable>
           </View>
-        </View>
+          </Animated.View>
+        </GestureDetector>
         {ackModalElement}
       </View>
     </Modal>

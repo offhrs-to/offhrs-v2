@@ -26,6 +26,7 @@ import {
 import { SignInForm } from '@/components/SignInForm';
 import { openWebAppPath } from '@/lib/web-app-links';
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
+import { subscribeEventSavesChanged } from '@/lib/event-saves';
 import { normalizeProfilePhone } from '@/lib/profile-phone';
 import { geocodeAddress, reverseGeocodeCanadianPostal } from '@/lib/geocode';
 import { deleteAuthenticatedUserAccount } from '@/lib/delete-account';
@@ -104,7 +105,9 @@ export default function ProfileScreen() {
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
+  const savedModalVisibleRef = useRef(false);
   const insets = useSafeAreaInsets();
+  savedModalVisibleRef.current = savedModalVisible;
 
   useEffect(() => {
     if (!user?.id) return;
@@ -221,6 +224,19 @@ export default function ProfileScreen() {
     setSavedEventsCount(list.length);
     setSavedEventsLoading(false);
   }, [user?.id]);
+
+  useEffect(() => {
+    return subscribeEventSavesChanged(({ eventId, saved }) => {
+      setSavedEventsCount((c) => Math.max(0, c + (saved ? 1 : -1)));
+      setSavedEvents((prev) => {
+        if (!saved) return prev.filter((e) => e.id !== eventId);
+        return prev;
+      });
+      if (saved && savedModalVisibleRef.current) {
+        void fetchSavedEvents();
+      }
+    });
+  }, [fetchSavedEvents]);
 
   const fetchMyReviews = useCallback(async () => {
     if (!user?.id) return;
@@ -519,6 +535,26 @@ export default function ProfileScreen() {
           <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>{email}</Text>
         </View>
       </View>
+
+      <Pressable
+        onPress={() => router.push('/contact')}
+        accessibilityRole="button"
+        accessibilityLabel="Contact us"
+        style={{
+          marginTop: 16,
+          paddingVertical: 14,
+          borderRadius: 9999,
+          borderWidth: 1,
+          borderColor: DesignColors.lightGreenBorder,
+          backgroundColor: DesignColors.inputBg,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.primary }}>
+          Contact us
+        </Text>
+      </Pressable>
 
       {/* Consent footer: same wording as the signed-out sign-in form so users
           always see how to reach the consolidated Terms overview. */}

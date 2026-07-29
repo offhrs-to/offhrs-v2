@@ -5,12 +5,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import {
-  CalendarDaysIcon,
-  DocumentMagnifyingGlassIcon,
-  EnvelopeIcon,
+  CalendarIcon,
   HomeIcon,
-  UserCircleIcon,
-} from 'react-native-heroicons/solid';
+  MagnifyingGlassIcon,
+  UserIcon,
+} from 'react-native-heroicons/outline';
 
 import OnboardingModal from '@/components/OnboardingModal';
 import { DesignColors, isIOSPad } from '@/constants/design-template';
@@ -71,10 +70,9 @@ const ICON_WRAP_SIZE = 40;
 
 const ICON_MAP: Record<string, typeof HomeIcon> = {
   index: HomeIcon,
-  workshops: DocumentMagnifyingGlassIcon,
-  bookings: CalendarDaysIcon,
-  contact: EnvelopeIcon,
-  profile: UserCircleIcon,
+  workshops: MagnifyingGlassIcon,
+  bookings: CalendarIcon,
+  profile: UserIcon,
 };
 
 function TabIcon({
@@ -525,7 +523,7 @@ export default function TabLayout() {
         options={{
           title: 'Workshops',
           tabBarIcon: ({ focused }) => (
-            <TabIcon IconComponent={DocumentMagnifyingGlassIcon} focused={focused} />
+            <TabIcon IconComponent={MagnifyingGlassIcon} focused={focused} />
           ),
         }}
       />
@@ -534,16 +532,7 @@ export default function TabLayout() {
         options={{
           title: 'Bookings',
           tabBarIcon: ({ focused }) => (
-            <TabIcon IconComponent={CalendarDaysIcon} focused={focused} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="contact"
-        options={{
-          title: 'Contact',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon IconComponent={EnvelopeIcon} focused={focused} />
+            <TabIcon IconComponent={CalendarIcon} focused={focused} />
           ),
         }}
       />
@@ -552,7 +541,7 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ focused }) => (
-            <TabIcon IconComponent={UserCircleIcon} focused={focused} />
+            <TabIcon IconComponent={UserIcon} focused={focused} />
           ),
         }}
       />

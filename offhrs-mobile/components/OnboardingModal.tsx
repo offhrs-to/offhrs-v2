@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,7 @@ import { CATEGORIES } from '@/constants/categories';
 import { DesignColors } from '@/constants/design-template';
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
 import { geocodeAddress, reverseGeocodeCanadianPostal } from '@/lib/geocode';
+import { setOnboardingModalOpen } from '@/lib/onboarding-modal-gate';
 
 // Points align with level progression: each level = 8 pts (Novice 0, Intermediate 8, Advanced 16, Expert 24, Master 32)
 const EXPERIENCE_OPTIONS = [
@@ -57,6 +58,16 @@ export default function OnboardingModal({
         : { padH: 16, padV: 10, font: 14, gap: 10, scrollMax: 360 },
     [windowHeight]
   );
+  /** Cap experience options so shorter phones / Dynamic Type can still scroll and tap. */
+  const experienceScrollMax = useMemo(
+    () => Math.min(520, Math.round(windowHeight * 0.58)),
+    [windowHeight]
+  );
+
+  useEffect(() => {
+    setOnboardingModalOpen(true);
+    return () => setOnboardingModalOpen(false);
+  }, []);
 
   const [step, setStep] = useState(0);
   const [experienceCategoryIndex, setExperienceCategoryIndex] = useState(0);
@@ -301,6 +312,7 @@ export default function OnboardingModal({
       transparent
       animationType="fade"
       statusBarTranslucent
+      {...(Platform.OS === 'ios' ? { presentationStyle: 'overFullScreen' as const } : {})}
       onRequestClose={() => {}}
     >
       <View
@@ -549,69 +561,76 @@ export default function OnboardingModal({
 
         {step === 2 ? (
           <>
-            {error && (
-              <View style={{ marginBottom: 16, padding: 12, backgroundColor: '#FEE2E2', borderRadius: 8 }}>
-                <Text style={{ fontSize: 14, color: '#B91C1C' }}>{error}</Text>
-              </View>
-            )}
-            {learnerCategories.length === 0 ? (
-              <Text style={{ fontSize: 15, color: DesignColors.mediumGray, marginBottom: 24 }}>
-                You didn&apos;t select any learning interests. You can update this later in your profile.
-              </Text>
-            ) : currentExperienceCategory ? (
-              <>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: '600',
-                    color: DesignColors.mediumGray,
-                    marginBottom: 4,
-                  }}
-                >
-                  {experienceCategoryIndex + 1} of {learnerCategories.length}
+            <ScrollView
+              style={{ maxHeight: experienceScrollMax }}
+              contentContainerStyle={Platform.OS === 'android' ? { paddingBottom: 12 } : undefined}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={Platform.OS === 'android'}
+              keyboardShouldPersistTaps="handled"
+            >
+              {error && (
+                <View style={{ marginBottom: 16, padding: 12, backgroundColor: '#FEE2E2', borderRadius: 8 }}>
+                  <Text style={{ fontSize: 14, color: '#B91C1C' }}>{error}</Text>
+                </View>
+              )}
+              {learnerCategories.length === 0 ? (
+                <Text style={{ fontSize: 15, color: DesignColors.mediumGray, marginBottom: 8 }}>
+                  You didn&apos;t select any learning interests. You can update this later in your profile.
                 </Text>
-                <Text
-                  style={{
-                    fontSize: 18,
-                    fontWeight: '600',
-                    color: DesignColors.charcoal,
-                    marginBottom: 16,
-                  }}
-                >
-                  What&apos;s your experience level for {currentExperienceCategory}?
-                </Text>
-                <View style={{ gap: 8 }}>
-                  {EXPERIENCE_OPTIONS.map((opt) => {
-                    const isActive = experienceByCategory[currentExperienceCategory] === opt.value;
-                    return (
-                      <Pressable
-                        key={opt.value}
-                        onPress={() => setExperienceForCategory(currentExperienceCategory, opt.value)}
-                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                        style={{
-                          paddingVertical: 12,
-                          paddingHorizontal: 16,
-                          borderRadius: 12,
-                          backgroundColor: isActive ? DesignColors.primary : DesignColors.inputBg,
-                          borderWidth: 1,
-                          borderColor: DesignColors.lightGreenBorder,
-                        }}
-                      >
-                        <Text
+              ) : currentExperienceCategory ? (
+                <>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '600',
+                      color: DesignColors.mediumGray,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {experienceCategoryIndex + 1} of {learnerCategories.length}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 18,
+                      fontWeight: '600',
+                      color: DesignColors.charcoal,
+                      marginBottom: 16,
+                    }}
+                  >
+                    What&apos;s your experience level for {currentExperienceCategory}?
+                  </Text>
+                  <View style={{ gap: 8 }}>
+                    {EXPERIENCE_OPTIONS.map((opt) => {
+                      const isActive = experienceByCategory[currentExperienceCategory] === opt.value;
+                      return (
+                        <Pressable
+                          key={opt.value}
+                          onPress={() => setExperienceForCategory(currentExperienceCategory, opt.value)}
                           style={{
-                            fontSize: 15,
-                            fontWeight: '500',
-                            color: isActive ? '#FFF' : DesignColors.charcoal,
+                            paddingVertical: 12,
+                            paddingHorizontal: 16,
+                            borderRadius: 12,
+                            backgroundColor: isActive ? DesignColors.primary : DesignColors.inputBg,
+                            borderWidth: 1,
+                            borderColor: DesignColors.lightGreenBorder,
                           }}
                         >
-                          {opt.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </>
-            ) : null}
+                          <Text
+                            style={{
+                              fontSize: 15,
+                              fontWeight: '500',
+                              color: isActive ? '#FFF' : DesignColors.charcoal,
+                            }}
+                          >
+                            {opt.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              ) : null}
+            </ScrollView>
             {learnerCategories.length > 0 && (
               <Pressable
                 onPress={() => {
@@ -621,7 +640,6 @@ export default function OnboardingModal({
                 disabled={
                   isLastExperienceCategory ? !canComplete || loading : !hasSelectionForCurrent
                 }
-                hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
                 style={{
                   marginTop: 24,
                   paddingVertical: 14,

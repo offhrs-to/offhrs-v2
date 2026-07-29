@@ -8,6 +8,11 @@ import { CATEGORIES } from '@/constants/categories';
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
 import { WORKSHOP_LIST_PAGE_SIZE } from '@/constants/workshops-list';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  patchSavedEventIds,
+  subscribeEventSavesChanged,
+  toggleUserEventSave,
+} from '@/lib/event-saves';
 import { supabase } from '@/lib/supabase';
 import {
   browseFiltersAreActive,
@@ -49,6 +54,21 @@ const LIST_GAP = 12;
 function parseParamString(v: string | string[] | undefined): string {
   if (v == null) return '';
   return typeof v === 'string' ? v : v[0] ?? '';
+}
+
+/** Comma-separated event IDs from home carousel “see all” (preserves order). */
+function parseEventIdsParam(v: string | string[] | undefined): number[] {
+  const raw = parseParamString(v);
+  if (!raw.trim()) return [];
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const part of raw.split(',')) {
+    const n = Number(part.trim());
+    if (!Number.isInteger(n) || n <= 0 || seen.has(n)) continue;
+    seen.add(n);
+    out.push(n);
+  }
+  return out;
 }
 
 /** Same workshop listing (vendor + title) on the same calendar day → one card with multiple time pills. */
@@ -388,10 +408,17 @@ export default function WorkshopBrowseScreen() {
   const params = useLocalSearchParams<{
     q?: string;
     categories?: string;
+    ids?: string;
+    heading?: string;
+    sort?: string;
   }>();
 
   const paramQ = parseParamString(params.q);
   const paramCat = parseParamString(params.categories);
+  const pinnedEventIds = useMemo(() => parseEventIdsParam(params.ids), [params.ids]);
+  const browseHeading = parseParamString(params.heading).trim();
+  const paramSort = parseParamString(params.sort);
+  const initialListSort: BrowseListSort = paramSort === 'distance' ? 'distance' : 'time';
   const initialCategories = parseCategoriesParam(paramCat, CATEGORIES);
 
   const [searchTerm, setSearchTerm] = useState(paramQ);
@@ -403,7 +430,7 @@ export default function WorkshopBrowseScreen() {
   const [rangeStart, setRangeStart] = useState<string | null>(null);
   const [rangeEnd, setRangeEnd] = useState<string | null>(null);
 
-  const [listSort, setListSort] = useState<BrowseListSort>('time');
+  const [listSort, setListSort] = useState<BrowseListSort>(initialListSort);
   const [distanceKm, setDistanceKm] = useState<BrowseDistanceKm>('auto');
   const [priceSort, setPriceSort] = useState<WorkshopPriceSort>('default');
 
@@ -434,6 +461,12 @@ export default function WorkshopBrowseScreen() {
   useEffect(() => {
     setSelectedCategories(parseCategoriesParam(paramCat, CATEGORIES));
   }, [paramCat]);
+
+  useEffect(() => {
+    if (paramSort === 'distance' || paramSort === 'time') {
+      startTransition(() => setListSort(paramSort));
+    }
+  }, [paramSort]);
 
   useFocusEffect(
     useCallback(() => {
@@ -468,6 +501,12 @@ export default function WorkshopBrowseScreen() {
     }, [user?.id])
   );
 
+  useEffect(() => {
+    return subscribeEventSavesChanged(({ eventId, saved }) => {
+      setSavedEventIds((prev) => patchSavedEventIds(prev, eventId, saved));
+    });
+  }, []);
+
   const quickViewEventId = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
   const quickViewSaved =
     quickViewEventId != null && Number.isInteger(quickViewEventId) && savedEventIds.has(quickViewEventId);
@@ -482,29 +521,16 @@ export default function WorkshopBrowseScreen() {
     setQuickViewSaving(true);
     try {
       const isCurrentlySaved = savedEventIds.has(eid);
-      if (isCurrentlySaved) {
-        const { error } = await supabase
-          .from('user_event_saves')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('event_id', eid);
-        if (error) {
-          Alert.alert("Couldn't update", error.message ?? 'Please try again.');
-        } else {
-          setSavedEventIds((prev) => {
-            const next = new Set(prev);
-            next.delete(eid);
-            return next;
-          });
-        }
-      } else {
-        const { error } = await supabase.from('user_event_saves').insert({ user_id: user.id, event_id: eid });
-        if (error) {
-          Alert.alert("Couldn't save", error.message ?? 'Please try again.');
-        } else {
-          setSavedEventIds((prev) => new Set(prev).add(eid));
-        }
+      const result = await toggleUserEventSave({
+        userId: user.id,
+        eventId: eid,
+        currentlySaved: isCurrentlySaved,
+      });
+      if (!result.ok) {
+        Alert.alert(isCurrentlySaved ? "Couldn't update" : "Couldn't save", result.message);
+        return;
       }
+      setSavedEventIds((prev) => patchSavedEventIds(prev, eid, result.saved));
     } finally {
       setQuickViewSaving(false);
     }
@@ -513,12 +539,7 @@ export default function WorkshopBrowseScreen() {
   const categoriesForQuery = selectedCategories;
 
   const handleSaveChange = useCallback((eventId: number, saved: boolean) => {
-    setSavedEventIds((prev) => {
-      const next = new Set(prev);
-      if (saved) next.add(eventId);
-      else next.delete(eventId);
-      return next;
-    });
+    setSavedEventIds((prev) => patchSavedEventIds(prev, eventId, saved));
   }, []);
 
   const openQuickView = useCallback((row: WorkshopEventRow) => {
@@ -565,10 +586,17 @@ export default function WorkshopBrowseScreen() {
   }, [selectedYmd, selectedCategories, searchTerm, priceSort, listSort, distanceKm, rangeStart, rangeEnd]);
 
   const eventsForBrowse = useMemo(() => {
-    if (categoriesForQuery.length === 0) return events;
+    let scoped = events;
+    if (pinnedEventIds.length > 0) {
+      const byId = new Map(events.map((e) => [Number(e.id), e]));
+      scoped = pinnedEventIds
+        .map((id) => byId.get(id))
+        .filter((e): e is WorkshopEventRow => e != null);
+    }
+    if (categoriesForQuery.length === 0) return scoped;
     const allowed = new Set(categoriesForQuery);
-    return events.filter((e) => e.category != null && allowed.has(e.category));
-  }, [events, categoriesForQuery]);
+    return scoped.filter((e) => e.category != null && allowed.has(e.category));
+  }, [events, categoriesForQuery, pinnedEventIds]);
 
   const dayEvents = useMemo(() => {
     if (rangeStart || rangeEnd) {
@@ -606,13 +634,17 @@ export default function WorkshopBrowseScreen() {
   );
 
   const syncParams = useCallback(
-    (next: { q?: string; categories?: string | null }) => {
+    (next: { q?: string; categories?: string | null; sort?: BrowseListSort }) => {
+      const sortValue = next.sort ?? listSort;
       router.setParams({
         q: next.q || undefined,
         categories: next.categories || undefined,
+        ids: pinnedEventIds.length > 0 ? pinnedEventIds.join(',') : undefined,
+        heading: browseHeading || undefined,
+        sort: sortValue === 'distance' ? 'distance' : undefined,
       });
     },
-    [router]
+    [router, pinnedEventIds, browseHeading, listSort]
   );
 
   const toggleCategory = useCallback(
@@ -632,6 +664,16 @@ export default function WorkshopBrowseScreen() {
   const clearCategories = useCallback(() => {
     startTransition(() => setSelectedCategories([]));
     syncParams({ q: searchTerm, categories: null });
+  }, [searchTerm, syncParams]);
+
+  const clearAllFilters = useCallback(() => {
+    startTransition(() => {
+      setSelectedCategories([]);
+      setListSort('time');
+      setPriceSort('default');
+      setDistanceKm('auto');
+    });
+    syncParams({ q: searchTerm, categories: null, sort: 'time' });
   }, [searchTerm, syncParams]);
 
   const pushSearch = useCallback(() => {
@@ -662,9 +704,13 @@ export default function WorkshopBrowseScreen() {
     startTransition(() => setFilterSheet(null));
   }, []);
 
-  const applyListSort = useCallback((sort: BrowseListSort) => {
-    startTransition(() => setListSort(sort));
-  }, []);
+  const applyListSort = useCallback(
+    (sort: BrowseListSort) => {
+      startTransition(() => setListSort(sort));
+      syncParams({ q: searchTerm, categories: serializeCategoriesParam(selectedCategories, CATEGORIES), sort });
+    },
+    [searchTerm, selectedCategories, syncParams]
+  );
 
   const applyDistanceKm = useCallback((km: BrowseDistanceKm) => {
     startTransition(() => setDistanceKm(km));
@@ -722,7 +768,7 @@ export default function WorkshopBrowseScreen() {
           hideDateAndClear
           onBackPress={goBack}
           searchAsButton
-          searchPlaceholder="Search workshops…"
+          searchPlaceholder={browseHeading || 'Search workshops…'}
           searchValue={searchTerm}
           onSearchPress={pushSearch}
           showAllFiltersButton
@@ -786,6 +832,7 @@ export default function WorkshopBrowseScreen() {
         selectedCategories={selectedCategories}
         onToggleCategory={toggleCategory}
         onClearCategories={clearCategories}
+        onClearAllFilters={clearAllFilters}
         listSort={listSort}
         onSelectListSort={applyListSort}
         distanceKm={distanceKm}
