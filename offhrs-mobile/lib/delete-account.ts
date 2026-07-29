@@ -11,10 +11,26 @@ export type DeleteAccountResult =
  */
 export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountResult> {
   let {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) {
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.error || !refreshed.data.user) {
+      return { ok: false, error: 'Not signed in' };
+    }
+    user = refreshed.data.user;
+  }
+
+  let {
     data: { session },
   } = await supabase.auth.getSession();
   if (!session?.access_token) {
-    return { ok: false, error: 'Not signed in' };
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.error || !refreshed.data.session?.access_token) {
+      return { ok: false, error: 'Session expired. Please sign in again.' };
+    }
+    session = refreshed.data.session;
   }
 
   const expiresAtMs = session.expires_at ? session.expires_at * 1000 : 0;

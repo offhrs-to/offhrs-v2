@@ -48,6 +48,46 @@ async function fetchUserViaAuthApi(jwt: string): Promise<User | null> {
   }
 }
 
+function serverProjectRef(): string | null {
+  const url = supabaseProjectUrl()
+  if (!url) return null
+  const match = url.match(/https:\/\/([^.]+)\.supabase\.co/)
+  return match?.[1] ?? null
+}
+
+function jwtProjectRef(jwt: string): string | null {
+  try {
+    const segment = jwt.split('.')[1]
+    if (!segment) return null
+    const payload = JSON.parse(Buffer.from(segment, 'base64url').toString('utf8')) as {
+      iss?: string
+    }
+    const iss = payload.iss ?? ''
+    const match = iss.match(/https:\/\/([^.]+)\.supabase\.co/)
+    return match?.[1] ?? null
+  } catch {
+    return null
+  }
+}
+
+/** Same pattern as /api/book and /api/book/confirm — proven for mobile Bearer auth. */
+async function fetchUserViaGlobalAuthHeader(jwt: string, apiKey: string): Promise<User | null> {
+  const baseUrl = supabaseProjectUrl()
+  if (!baseUrl) return null
+
+  const client = createSupabaseClient(baseUrl, apiKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${jwt}` } },
+  })
+
+  const { data: { user }, error } = await client.auth.getUser()
+  if (error) {
+    console.warn('resolveApiUser: global header getUser failed', error.message)
+    return null
+  }
+  return user ?? null
+}
+
 async function fetchUserViaSupabaseClient(jwt: string, apiKey: string): Promise<User | null> {
   const baseUrl = supabaseProjectUrl()
   if (!baseUrl) return null
@@ -77,6 +117,12 @@ export async function resolveApiUser(request: NextRequest): Promise<User | null>
   const bearerToken = extractBearerToken(request)
   if (!bearerToken) return null
 
+  const anonKey = supabaseApiKey()
+  if (anonKey) {
+    const viaGlobalHeader = await fetchUserViaGlobalAuthHeader(bearerToken, anonKey)
+    if (viaGlobalHeader) return viaGlobalHeader
+  }
+
   const admin = createAdminClient()
   if (admin) {
     const { data: { user }, error } = await admin.auth.getUser(bearerToken)
@@ -89,10 +135,17 @@ export async function resolveApiUser(request: NextRequest): Promise<User | null>
   const viaAuthApi = await fetchUserViaAuthApi(bearerToken)
   if (viaAuthApi) return viaAuthApi
 
-  const anonKey = supabaseApiKey()
   if (anonKey) {
     const viaAnon = await fetchUserViaSupabaseClient(bearerToken, anonKey)
     if (viaAnon) return viaAnon
+  }
+
+  const jwtRef = jwtProjectRef(bearerToken)
+  const serverRef = serverProjectRef()
+  if (jwtRef && serverRef && jwtRef !== serverRef) {
+    console.warn('resolveApiUser: JWT project mismatch', { jwtRef, serverRef })
+  } else {
+    console.warn('resolveApiUser: bearer validation failed', { jwtRef, serverRef })
   }
 
   return null
