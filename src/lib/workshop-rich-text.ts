@@ -13,17 +13,25 @@ export function workshopRichTextPlainLength(value: string): number {
 }
 
 export function stripWorkshopRichTextPlain(value: string): string {
-  return value
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
+  return decodeHtmlEntities(
+    value
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+  )
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function decodeHtmlEntities(text: string): string {
+  return text
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
 }
 
 function escapeHtml(text: string): string {
@@ -34,16 +42,31 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
+function plainTextToWorkshopHtml(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .map((block) => `<p>${escapeHtml(decodeHtmlEntities(block)).replace(/\n/g, '<br>')}</p>`)
+    .join('')
+}
+
+/** Undo double-encoding from older editor saves (e.g. `&amp;amp;` → `&amp;`). */
+function repairDoubleEncodedWorkshopHtml(html: string): string {
+  return html
+    .replace(/&amp;amp;/g, '&amp;')
+    .replace(/&amp;lt;/g, '&lt;')
+    .replace(/&amp;gt;/g, '&gt;')
+    .replace(/&amp;quot;/g, '&quot;')
+    .replace(/&amp;#39;/g, '&#39;')
+    .replace(/&amp;nbsp;/g, '&nbsp;')
+}
+
 /** Normalize stored value for the contentEditable editor. */
 export function workshopRichTextForEditor(stored: string): string {
   const trimmed = stored.trim()
   if (!trimmed) return ''
-  if (isWorkshopHtml(trimmed)) return trimmed
+  if (isWorkshopHtml(trimmed)) return repairDoubleEncodedWorkshopHtml(trimmed)
 
-  return trimmed
-    .split(/\n{2,}/)
-    .map((block) => `<p>${escapeHtml(block).replace(/\n/g, '<br>')}</p>`)
-    .join('')
+  return plainTextToWorkshopHtml(trimmed)
 }
 
 /** Browsers often insert `<div>` on Enter in contentEditable; normalize to `<br>`. */
@@ -62,7 +85,7 @@ export function sanitizeWorkshopHtml(input: string): string {
   if (!trimmed) return ''
 
   if (!isWorkshopHtml(trimmed)) {
-    return trimmed
+    return sanitizeWorkshopHtml(plainTextToWorkshopHtml(trimmed))
   }
 
   let html = normalizeContentEditableBlocks(trimmed)
@@ -78,7 +101,7 @@ export function sanitizeWorkshopHtml(input: string): string {
     return `<${tag}>`
   })
 
-  return html.trim()
+  return repairDoubleEncodedWorkshopHtml(html.trim())
 }
 
 export function sanitizeWorkshopRichTextField(value: string | undefined | null): string | null {
