@@ -89,6 +89,51 @@ function jwtProjectRef(jwt: string): string | null {
   }
 }
 
+/** Validate a mobile Bearer JWT — service role first, then the /api/book client pattern. */
+export async function resolveBearerUser(jwt: string): Promise<User | null> {
+  const admin = createAdminClient()
+  if (admin) {
+    const { data: { user }, error } = await admin.auth.getUser(jwt)
+    if (user && !error) return user
+    if (error) {
+      console.warn('resolveBearerUser: service-role getUser failed', error.message)
+    }
+  }
+
+  const anonKey = supabaseApiKey()
+  if (anonKey) {
+    const viaGlobalHeader = await fetchUserViaGlobalAuthHeader(jwt, anonKey)
+    if (viaGlobalHeader) return viaGlobalHeader
+  }
+
+  const viaAuthApi = await fetchUserViaAuthApi(jwt)
+  if (viaAuthApi) return viaAuthApi
+
+  if (anonKey) {
+    const viaAnon = await fetchUserViaSupabaseClient(jwt, anonKey)
+    if (viaAnon) return viaAnon
+  }
+
+  const jwtRef = jwtProjectRef(jwt)
+  const serverRef = serverProjectRef()
+  if (jwtRef && serverRef && jwtRef !== serverRef) {
+    console.warn('resolveBearerUser: JWT project mismatch', { jwtRef, serverRef })
+  } else {
+    console.warn('resolveBearerUser: validation failed', { jwtRef, serverRef })
+  }
+
+  return null
+}
+
+export function bearerJwtProjectMismatchMessage(jwt: string): string | null {
+  const jwtRef = jwtProjectRef(jwt)
+  const serverRef = serverProjectRef()
+  if (jwtRef && serverRef && jwtRef !== serverRef) {
+    return 'Your session is for a different Offhrs environment. Sign out, sign in again, and retry delete.'
+  }
+  return null
+}
+
 /** Same pattern as /api/book and /api/book/confirm — proven for mobile Bearer auth. */
 async function fetchUserViaGlobalAuthHeader(jwt: string, apiKey: string): Promise<User | null> {
   const baseUrl = supabaseProjectUrl()
@@ -136,36 +181,5 @@ export async function resolveApiUser(request: NextRequest): Promise<User | null>
   const bearerToken = await extractAccessToken(request)
   if (!bearerToken) return null
 
-  const anonKey = supabaseApiKey()
-  if (anonKey) {
-    const viaGlobalHeader = await fetchUserViaGlobalAuthHeader(bearerToken, anonKey)
-    if (viaGlobalHeader) return viaGlobalHeader
-  }
-
-  const admin = createAdminClient()
-  if (admin) {
-    const { data: { user }, error } = await admin.auth.getUser(bearerToken)
-    if (user && !error) return user
-    if (error) {
-      console.warn('resolveApiUser: service-role getUser failed', error.message)
-    }
-  }
-
-  const viaAuthApi = await fetchUserViaAuthApi(bearerToken)
-  if (viaAuthApi) return viaAuthApi
-
-  if (anonKey) {
-    const viaAnon = await fetchUserViaSupabaseClient(bearerToken, anonKey)
-    if (viaAnon) return viaAnon
-  }
-
-  const jwtRef = jwtProjectRef(bearerToken)
-  const serverRef = serverProjectRef()
-  if (jwtRef && serverRef && jwtRef !== serverRef) {
-    console.warn('resolveApiUser: JWT project mismatch', { jwtRef, serverRef })
-  } else {
-    console.warn('resolveApiUser: bearer validation failed', { jwtRef, serverRef })
-  }
-
-  return null
+  return resolveBearerUser(bearerToken)
 }

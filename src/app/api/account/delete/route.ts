@@ -3,7 +3,7 @@ import { processBookingRefund } from '@/lib/booking-refund'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { logSecurityEvent } from '@/lib/security-monitor'
-import { resolveApiUser, extractAccessToken } from '@/lib/resolve-api-user'
+import { resolveApiUser, extractAccessToken, resolveBearerUser, bearerJwtProjectMismatchMessage } from '@/lib/resolve-api-user'
 import { NextRequest, NextResponse } from 'next/server'
 
 const ACTIVE_BOOKING_STATUSES = new Set([
@@ -19,7 +19,14 @@ const ACTIVE_BOOKING_STATUSES = new Set([
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await resolveApiUser(request)
+    const accessToken = await extractAccessToken(request)
+
+    let user = await resolveApiUser(request)
+
+    // Belt-and-suspenders for mobile: re-validate bearer via service role if cookie path missed.
+    if (!user && accessToken) {
+      user = await resolveBearerUser(accessToken)
+    }
 
     if (!user) {
       const ipKey = getRateLimitKey(request)
@@ -36,12 +43,14 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const hadToken = !!(await extractAccessToken(request))
+      const mismatch = accessToken ? bearerJwtProjectMismatchMessage(accessToken) : null
       return NextResponse.json(
         {
-          error: hadToken
-            ? 'Could not verify your session. Sign out, sign in again, and retry.'
-            : 'Unauthorized — no session token received. Update the app and try again.',
+          error:
+            mismatch ??
+            (accessToken
+              ? 'Could not verify your session. Sign out, sign in again, and retry.'
+              : 'Unauthorized — no session token received. Update the app and try again.'),
         },
         { status: 401 }
       )

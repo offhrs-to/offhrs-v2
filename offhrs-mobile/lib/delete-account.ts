@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { supabase } from '@/lib/supabase';
 import { BOOK_API_BASE } from '@/constants/api';
 import { buildBookingApiHeaders } from '@/lib/booking-api-headers';
@@ -5,6 +6,44 @@ import { buildBookingApiHeaders } from '@/lib/booking-api-headers';
 export type DeleteAccountResult =
   | { ok: true }
   | { ok: false; error: string };
+
+type NativeExtra = {
+  supabaseUrl?: string;
+  bookApiBase?: string;
+};
+
+function expectedSupabaseProjectRef(): string | null {
+  const extra = Constants.expoConfig?.extra as NativeExtra | undefined;
+  const url =
+    extra?.supabaseUrl?.trim() ||
+    (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').trim();
+  const match = url.match(/https:\/\/([^.]+)\.supabase\.co/);
+  return match?.[1] ?? null;
+}
+
+function jwtSupabaseProjectRef(accessToken: string): string | null {
+  try {
+    const segment = accessToken.split('.')[1];
+    if (!segment) return null;
+    const payload = JSON.parse(atob(segment.replace(/-/g, '+').replace(/_/g, '/'))) as {
+      iss?: string;
+    };
+    const iss = payload.iss ?? '';
+    const match = iss.match(/https:\/\/([^.]+)\.supabase\.co/);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function sessionEnvironmentMismatch(accessToken: string): string | null {
+  const expected = expectedSupabaseProjectRef();
+  const actual = jwtSupabaseProjectRef(accessToken);
+  if (expected && actual && expected !== actual) {
+    return 'Your session is from a different app environment. Sign out, sign in again, then retry delete.';
+  }
+  return null;
+}
 
 function parseDeleteApiError(body: unknown, status: number): string {
   if (body && typeof body === 'object') {
@@ -57,6 +96,11 @@ export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountRes
     return { ok: false, error: 'Session expired. Please sign out and sign in again.' };
   }
 
+  const envMismatch = sessionEnvironmentMismatch(accessToken);
+  if (envMismatch) {
+    return { ok: false, error: envMismatch };
+  }
+
   try {
     let res = await postAccountDelete(accessToken);
 
@@ -64,6 +108,10 @@ export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountRes
       accessToken = await loadFreshAccessToken();
       if (!accessToken) {
         return { ok: false, error: 'Session expired. Please sign out and sign in again.' };
+      }
+      const retryMismatch = sessionEnvironmentMismatch(accessToken);
+      if (retryMismatch) {
+        return { ok: false, error: retryMismatch };
       }
       res = await postAccountDelete(accessToken);
     }
@@ -77,14 +125,23 @@ export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountRes
     if (res.status === 429) {
       return {
         ok: false,
-        error: parseDeleteApiError(body, res.status) || 'Too many delete attempts. Wait a few minutes and try again.',
+        error:
+          parseDeleteApiError(body, res.status) ||
+          'Too many delete attempts. Wait a few minutes and try again.',
       };
     }
 
-    return {
-      ok: false,
-      error: parseDeleteApiError(body, res.status),
-    };
+    const message = parseDeleteApiError(body, res.status);
+    if (res.status === 401 && message.includes('no session token')) {
+      const extra = Constants.expoConfig?.extra as NativeExtra | undefined;
+      const apiBase = extra?.bookApiBase?.trim() || BOOK_API_BASE;
+      return {
+        ok: false,
+        error: `${message} (API: ${apiBase})`,
+      };
+    }
+
+    return { ok: false, error: message };
   } catch (error) {
     return {
       ok: false,
