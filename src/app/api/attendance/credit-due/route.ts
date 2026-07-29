@@ -1,7 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { creditWorkshopAttendanceForBooking, isWorkshopSessionEnded } from '@/lib/workshop-attendance-credit'
-import { createClient } from '@/lib/supabase/server'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { resolveApiUser } from '@/lib/resolve-api-user'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
@@ -10,21 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
  * Called from the mobile profile (and web) so XP updates without waiting for cron.
  */
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
-  let user = (await supabase.auth.getUser()).data.user
-
-  const bearerToken = request.headers.get('authorization')?.startsWith('Bearer ')
-    ? request.headers.get('authorization')!.slice(7).trim()
-    : null
-
-  if (!user && bearerToken) {
-    const bearerClient = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { global: { headers: { Authorization: `Bearer ${bearerToken}` } } }
-    )
-    user = (await bearerClient.auth.getUser()).data.user ?? null
-  }
+  const user = await resolveApiUser(request)
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -1,11 +1,10 @@
 import { reconcileEventsByIds } from '@/lib/event-slot-reconcile'
 import { processBookingRefund } from '@/lib/booking-refund'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { logSecurityEvent } from '@/lib/security-monitor'
+import { resolveApiUser } from '@/lib/resolve-api-user'
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 const ACTIVE_BOOKING_STATUSES = new Set([
   'confirmed',
@@ -34,21 +33,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const bearerToken = request.headers.get('authorization')?.startsWith('Bearer ')
-      ? request.headers.get('authorization')!.slice(7).trim()
-      : null
-
-    const supabase = await createClient()
-    let user = (await supabase.auth.getUser()).data.user
-
-    if (!user && bearerToken) {
-      const bearerClient = createSupabaseClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { global: { headers: { Authorization: `Bearer ${bearerToken}` } } }
-      )
-      user = (await bearerClient.auth.getUser()).data.user ?? null
-    }
+    const user = await resolveApiUser(request)
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
