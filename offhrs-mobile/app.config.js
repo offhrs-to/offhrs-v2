@@ -85,6 +85,9 @@ const bookApiBase = (process.env.EXPO_PUBLIC_BOOK_API_BASE || 'https://offhrs.ap
   .trim()
   .replace(/\/+$/, '');
 
+const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
+const supabaseAnonKey = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+
 module.exports = {
   expo: {
     ...appJson.expo,
@@ -110,6 +113,8 @@ module.exports = {
       hasAndroidMapsKey: googleMapsApiKey.length > 0,
       stripePublishableKey,
       bookApiBase,
+      supabaseUrl,
+      supabaseAnonKey,
     },
   },
 };
