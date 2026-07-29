@@ -266,7 +266,7 @@ export default function WorkshopMapScreen() {
     reload();
   }, [reload]);
 
-  /** One list row per map pin (vendor/studio) so the sheet matches what the map shows. */
+  /** One list row per map pin (vendor location) so the sheet matches what the map shows. */
   const mapPinEvents = useMemo(() => {
     const pins = dedupeWorkshopMapMarkerEvents(events);
     if (pins.length <= WORKSHOP_MAP_MARKER_CAP) return pins;

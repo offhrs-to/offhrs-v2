@@ -26,6 +26,13 @@ import { workshopHasActiveSale } from '@/lib/workshop-ticket-price'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { PartnerEmptyState } from '../components/PartnerEmptyState'
 import { cn } from '@/lib/utils'
 
@@ -66,6 +73,14 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   archived: { label: 'Archived', className: 'border-transparent bg-red-50 text-red-400' },
 }
 
+type BulkAction = 'publish' | 'draft' | 'archive'
+
+const BULK_ACTION_LABEL: Record<BulkAction, string> = {
+  publish: 'Publish',
+  draft: 'Move to draft',
+  archive: 'Archive',
+}
+
 function SessionsPageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -80,6 +95,9 @@ function SessionsPageInner() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [expandedSessionIds, setExpandedSessionIds] = useState<Set<string>>(() => new Set())
   const [occurrenceEdit, setOccurrenceEdit] = useState<OccurrenceEditTarget | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [bulkAction, setBulkAction] = useState<BulkAction | ''>('')
+  const [bulkApplying, setBulkApplying] = useState(false)
 
   function toggleExpanded(id: string) {
     setExpandedSessionIds((prev) => {
@@ -103,6 +121,11 @@ function SessionsPageInner() {
   }, [statusFilter])
 
   useEffect(() => { fetchSessions() }, [fetchSessions])
+
+  useEffect(() => {
+    setSelectedIds(new Set())
+    setBulkAction('')
+  }, [statusFilter])
 
   useEffect(() => {
     const editId = searchParams.get('edit')
@@ -232,6 +255,82 @@ function SessionsPageInner() {
     await fetchSessions()
   }
 
+  const visibleIds = sessions.map((s) => s.id)
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id))
+  const someVisibleSelected = visibleIds.some((id) => selectedIds.has(id))
+
+  function toggleSelectAll() {
+    if (allVisibleSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(visibleIds))
+    }
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function handleBulkApply() {
+    if (!bulkAction || selectedIds.size === 0) return
+
+    if (bulkAction === 'archive') {
+      const ok = confirm(
+        `Archive ${selectedIds.size} selected workshop${selectedIds.size === 1 ? '' : 's'}?\n\nThey will be hidden from the app and all active Offhrs bookings for those workshops will be fully refunded. Archived rows stay in your dashboard for booking history.`
+      )
+      if (!ok) return
+    }
+
+    setBulkApplying(true)
+    try {
+      const res = await fetch('/api/partners/sessions/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [...selectedIds], action: bulkAction }),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string
+        succeeded?: string[]
+        skipped?: { id: string; reason: string }[]
+        failed?: { id: string; error: string }[]
+        refunded?: number
+      }
+      if (!res.ok) {
+        alert(data.error ?? 'Bulk action failed.')
+        return
+      }
+
+      const parts: string[] = []
+      if (data.succeeded?.length) {
+        parts.push(`${data.succeeded.length} updated`)
+      }
+      if (data.skipped?.length) {
+        parts.push(`${data.skipped.length} skipped`)
+      }
+      if (data.failed?.length) {
+        parts.push(`${data.failed.length} failed`)
+      }
+      if (typeof data.refunded === 'number' && data.refunded > 0) {
+        parts.push(`${data.refunded} booking${data.refunded === 1 ? '' : 's'} refunded`)
+      }
+      if (parts.length > 0) {
+        alert(parts.join(' · '))
+      }
+
+      setSelectedIds(new Set())
+      setBulkAction('')
+      await fetchSessions()
+    } finally {
+      setBulkApplying(false)
+    }
+  }
+
   function handleEdit(session: Session) {
     setEditingSession(session)
     setShowForm(true)
@@ -313,6 +412,63 @@ function SessionsPageInner() {
         </Card>
       ) : (
         <div className="space-y-3">
+          <div className="flex flex-col gap-3 rounded-xl border border-partner-border bg-partner-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                ref={(el) => {
+                  if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected
+                }}
+                onChange={toggleSelectAll}
+                className="size-4 rounded border-partner-border"
+                aria-label="Select all visible workshops"
+              />
+              <span>
+                {selectedIds.size > 0
+                  ? `${selectedIds.size} selected`
+                  : 'Select workshops for bulk actions'}
+              </span>
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select
+                value={bulkAction || undefined}
+                onValueChange={(value) => setBulkAction(value as BulkAction)}
+                disabled={selectedIds.size === 0 || bulkApplying}
+              >
+                <SelectTrigger size="sm" className="min-w-[10rem] bg-background">
+                  <SelectValue placeholder="Change status…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="publish">{BULK_ACTION_LABEL.publish}</SelectItem>
+                  <SelectItem value="draft">{BULK_ACTION_LABEL.draft}</SelectItem>
+                  <SelectItem value="archive">{BULK_ACTION_LABEL.archive}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void handleBulkApply()}
+                disabled={!bulkAction || selectedIds.size === 0 || bulkApplying}
+              >
+                {bulkApplying ? 'Applying…' : 'Apply'}
+              </Button>
+              {selectedIds.size > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedIds(new Set())
+                    setBulkAction('')
+                  }}
+                  disabled={bulkApplying}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
           {sessions.map((session) => {
             const badge = STATUS_BADGE[session.status] ?? {
               label: session.status,
@@ -345,6 +501,15 @@ function SessionsPageInner() {
                 className="gap-0 border-partner-border py-0 shadow-none transition-colors hover:border-muted-foreground/30"
               >
                 <div className="flex items-center gap-4 p-4">
+                  <label className="flex shrink-0 items-start pt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(session.id)}
+                      onChange={() => toggleSelected(session.id)}
+                      className="size-4 rounded border-partner-border"
+                      aria-label={`Select ${session.title}`}
+                    />
+                  </label>
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex flex-wrap items-center gap-2">
                       <h3 className="truncate text-sm font-semibold text-foreground">{session.title}</h3>

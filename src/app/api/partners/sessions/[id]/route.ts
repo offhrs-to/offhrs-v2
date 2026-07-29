@@ -3,7 +3,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { CATEGORY_ENUM } from '@/constants/categories'
 import { z } from 'zod'
-import { processBookingRefund } from '@/lib/booking-refund'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 import type { PartnerSessionSeriesBody } from '@/lib/partner-session-series-resolve'
 import { buildPartnerSeriesMeta, resolveWorkshopSeriesDates } from '@/lib/partner-session-series-resolve'
@@ -23,9 +22,9 @@ import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
 import { invalidateCachedTaxQuotesForEvent } from '@/lib/workshop-tax-quote-cache'
 import { applyWorkshopRichTextFields } from '@/lib/workshop-rich-text'
 import { normalizeSaleDateWindow, normalizeSalePriceCad } from '@/lib/workshop-ticket-price'
+import { archivePartnerSession } from '@/lib/partner-session-archive'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
-const ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending', 'booked', 'pending_confirmation'] as const
 
 const optionalWorkshopSectionText = z.string().max(6000).optional()
 
@@ -449,69 +448,18 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
     if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
 
-    const eventId = Number(id)
-    if (!Number.isFinite(eventId)) {
-      return NextResponse.json({ error: 'Invalid session id' }, { status: 400 })
+    const result = await archivePartnerSession(admin, vendor.id, id)
+    if (!result.ok) {
+      return NextResponse.json(
+        {
+          error: result.error,
+          refunded: result.refunded ?? 0,
+        },
+        { status: result.status }
+      )
     }
 
-    const { data: activeBookings, error: bookingFetchError } = await admin
-      .from('bookings')
-      .select('id')
-      .eq('event_id', eventId)
-      .eq('vendor_id', vendor.id)
-      .in('status', [...ACTIVE_BOOKING_STATUSES])
-      .is('refunded_at', null)
-
-    if (bookingFetchError) {
-      console.error('Session archive booking fetch error:', bookingFetchError)
-      return NextResponse.json({ error: bookingFetchError.message }, { status: 500 })
-    }
-
-    let refundedCount = 0
-    for (const booking of activeBookings ?? []) {
-      const bookingId = String(booking.id)
-      const refund = await processBookingRefund(admin, bookingId, {
-        initiatedBy: 'vendor',
-        cancellationReason: 'Workshop archived by vendor',
-        skipRefundWindowCheck: true,
-      })
-
-      if (!refund.ok) {
-        return NextResponse.json(
-          {
-            error:
-              refundedCount > 0
-                ? `Archiving was stopped after ${refundedCount} refund${refundedCount === 1 ? '' : 's'} because one booking could not be refunded: ${refund.error}`
-                : `Could not archive workshop because a booking could not be refunded: ${refund.error}`,
-            refunded: refundedCount,
-          },
-          { status: refund.status }
-        )
-      }
-      refundedCount++
-    }
-
-    const { data: updated, error: updateError } = await admin
-      .from('events')
-      .update({ booking_status: 'archived' })
-      .eq('id', eventId)
-      .eq('vendor_profile_id', vendor.id)
-      .select('id, booking_status')
-      .maybeSingle()
-
-    if (updateError) {
-      console.error('Session archive error:', updateError)
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
-    }
-    if (!updated || updated.booking_status !== 'archived') {
-      return NextResponse.json({ error: 'Could not archive workshop' }, { status: 500 })
-    }
-
-    void syncVendorSessionToExternalCalendars(admin, vendor.id, String(eventId)).catch((e) =>
-      console.error('[sessions] calendar sync', e)
-    )
-
-    return NextResponse.json({ success: true, archived: true, refunded: refundedCount })
+    return NextResponse.json({ success: true, archived: true, refunded: result.refunded })
   } catch (err) {
     console.error('Session delete error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

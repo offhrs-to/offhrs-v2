@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { CONSUMER_BOOKING_STATUS_OR, isEventVisibleToConsumers } from '@/lib/consumer-event-visibility';
 import { bboxAround, haversineKm, WORKSHOP_GEO_EVENTS_CAP, WORKSHOP_GEO_RADIUS_KM } from '@/lib/distance';
 import { enrichWorkshopEventsWithMapCoordinates } from '@/lib/workshop-map-coordinates';
+import { workshopMapPinDedupeKey } from '@/lib/workshop-map-pin-key';
 import { enrichWorkshopEventsWithVendorNames } from '@/lib/workshop-vendor-display';
 import { WORKSHOP_EVENTS_FETCH_BATCH, WORKSHOP_MAX_UPCOMING_FETCH } from '@/constants/workshops-list';
 import {
@@ -553,21 +554,11 @@ type WorkshopMapGeoScanRow = {
   available_slots?: number | null;
 };
 
-function mapPinKey(lat: number, lng: number): string {
-  return `${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`;
-}
-
 function mapStudioKey(row: Pick<WorkshopMapGeoScanRow, 'vendor_profile_id' | 'vendor_id' | 'id' | 'lat' | 'lng'>): string {
-  const profile = row.vendor_profile_id?.trim();
-  if (profile) return `p:${profile}`;
-  const vendor = row.vendor_id?.trim();
-  if (vendor) return `v:${vendor}`;
-  const lat = row.lat != null ? Number(row.lat) : null;
-  const lng = row.lng != null ? Number(row.lng) : null;
-  if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)) {
-    return `pin:${mapPinKey(lat, lng)}`;
-  }
-  return `id:${row.id}`;
+  return (
+    workshopMapPinDedupeKey(row) ??
+    `id:${row.id}`
+  );
 }
 
 function isUpcomingScanRow(row: WorkshopMapGeoScanRow, nowIso: string): boolean {
@@ -595,9 +586,8 @@ function preferMapScanRow(a: WorkshopMapGeoScanRow, b: WorkshopMapGeoScanRow): W
 }
 
 /**
- * One representative upcoming session per studio/vendor.
+ * One representative upcoming session per vendor location (vendor + rounded coords).
  * Prefer bookable one-day sessions so multi-week expand cannot erase the pin later.
- * (Lat/lng-only keys would collapse distinct vendors that share a building.)
  */
 function dedupeMapGeoScanRows(rows: WorkshopMapGeoScanRow[]): WorkshopMapGeoScanRow[] {
   const byStudio = new Map<string, WorkshopMapGeoScanRow>();
@@ -634,7 +624,7 @@ async function hydrateWorkshopEventsByIds(ids: number[]): Promise<WorkshopEventD
  * Map / geo browse: upcoming visible events near the user.
  *
  * Performance: scans all in-bbox sessions with a slim select (paged in parallel so
- * PostgREST's ~1000-row cap cannot hide studios), keeps one row per vendor/studio, then
+ * PostgREST's ~1000-row cap cannot hide studios), keeps one row per vendor location, then
  * hydrates full payloads only for those studios. Full map coverage without loading
  * thousands of duplicate session rows into JS.
  */

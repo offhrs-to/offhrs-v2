@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { WorkshopEventRow } from '@/lib/workshops-events-query';
+import { workshopMapPinDedupeKey } from '@/lib/workshop-map-pin-key';
 
 /** Local copy — avoid importing value exports from workshops-events-query (require cycle). */
 function workshopSessionKey(e: {
@@ -112,7 +113,19 @@ export async function enrichWorkshopEventsWithMapCoordinates(
 
     if (e.vendor_id?.trim()) {
       const sibling = coordsByVendorId.get(e.vendor_id.trim());
-      if (sibling) return { ...e, lat: sibling.lat, lng: sibling.lng };
+      if (sibling) {
+        const eventLoc = (e.location ?? '').trim();
+        const profile = e.vendor_profile_id?.trim()
+          ? byProfileId.get(e.vendor_profile_id.trim())
+          : undefined;
+        const distinctVenue =
+          eventLoc &&
+          profile?.address &&
+          !locationsLikelySame(eventLoc, profile.address);
+        if (!distinctVenue) {
+          return { ...e, lat: sibling.lat, lng: sibling.lng };
+        }
+      }
     }
 
     if (!e.vendor_profile_id) return e;
@@ -138,28 +151,22 @@ export async function enrichWorkshopEventsWithMapCoordinates(
   });
 }
 
-/** One marker per physical pin; multi-session listings at the same spot share a marker. */
+/** One marker per vendor per physical location; same-spot multi-session listings share a marker. */
 export function dedupeWorkshopMapMarkerEvents(events: WorkshopEventRow[]): WorkshopEventRow[] {
   const seen = new Set<string>();
   const out: WorkshopEventRow[] = [];
   for (const e of events) {
     if (!workshopHasMapCoordinates(e)) continue;
-    // Prefer one pin per vendor so every studio in the map list gets a marker.
-    // Fall back to rounded coords when vendor ids are missing.
-    const vendorKey =
-      e.vendor_profile_id?.trim() ||
-      e.vendor_id?.trim() ||
-      `${Number(e.lat).toFixed(4)},${Number(e.lng).toFixed(4)}`;
-    if (seen.has(vendorKey)) continue;
-    seen.add(vendorKey);
+    const pinKey = workshopMapPinDedupeKey(e);
+    if (!pinKey || seen.has(pinKey)) continue;
+    seen.add(pinKey);
     out.push(e);
   }
   return out;
 }
 
 export function workshopMapMarkerKey(e: WorkshopEventRow): string {
-  if (!workshopHasMapCoordinates(e)) return workshopSessionKey(e);
-  const vendorKey = e.vendor_profile_id?.trim() || e.vendor_id?.trim();
-  if (vendorKey) return `v:${vendorKey}`;
-  return `${e.id}:${Number(e.lat).toFixed(4)},${Number(e.lng).toFixed(4)}`;
+  const pinKey = workshopMapPinDedupeKey(e);
+  if (pinKey) return pinKey;
+  return workshopSessionKey(e);
 }
