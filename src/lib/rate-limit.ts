@@ -22,9 +22,10 @@ function evictExpired(): void {
  * Returns true if the request is allowed, false if rate limited.
  * @param key Identifier (e.g. IP or user id)
  * @param limit Max requests per window
+ * @param windowMs Window length (default 1 minute)
  */
-export function rateLimit(key: string, limit: number): boolean {
-  return consumeRateLimit(key, limit).allowed
+export function rateLimit(key: string, limit: number, windowMs: number = WINDOW_MS): boolean {
+  return consumeRateLimit(key, limit, windowMs).allowed
 }
 
 export type RateLimitResult = {
@@ -33,13 +34,17 @@ export type RateLimitResult = {
   remaining: number
 }
 
-export function consumeRateLimit(key: string, limit: number): RateLimitResult {
+export function consumeRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number = WINDOW_MS
+): RateLimitResult {
   const now = Date.now()
   if (store.size > MAX_ENTRIES) evictExpired()
 
   let entry = store.get(key)
   if (!entry || now >= entry.resetAt) {
-    entry = { count: 0, resetAt: now + WINDOW_MS }
+    entry = { count: 0, resetAt: now + windowMs }
     store.set(key, entry)
   }
   entry.count += 1

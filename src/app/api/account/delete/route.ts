@@ -19,23 +19,23 @@ const ACTIVE_BOOKING_STATUSES = new Set([
  */
 export async function POST(request: NextRequest) {
   try {
-    const baseKey = getRateLimitKey(request)
-    const globalRl = consumeRateLimit(`account-delete:${baseKey}`, 5)
-    if (!globalRl.allowed) {
-      logSecurityEvent('warn', {
-        type: 'rate_limited',
-        route: '/api/account/delete',
-        ipKey: baseKey,
-      })
-      return NextResponse.json(
-        { error: 'Too many requests' },
-        { status: 429, headers: { 'Retry-After': String(globalRl.retryAfterSeconds) } }
-      )
-    }
-
     const user = await resolveApiUser(request)
 
     if (!user) {
+      const ipKey = getRateLimitKey(request)
+      const probeRl = consumeRateLimit(`account-delete-probe:${ipKey}`, 30)
+      if (!probeRl.allowed) {
+        logSecurityEvent('warn', {
+          type: 'rate_limited',
+          route: '/api/account/delete',
+          ipKey,
+        })
+        return NextResponse.json(
+          { error: 'Too many requests. Wait a minute and try again.' },
+          { status: 429, headers: { 'Retry-After': String(probeRl.retryAfterSeconds) } }
+        )
+      }
+
       const hadBearer = !!extractBearerToken(request)
       return NextResponse.json(
         {
@@ -47,7 +47,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const userRl = consumeRateLimit(`account-delete-user:${user.id}`, 3)
+    // Authenticated deletes only — 5 attempts per 15 minutes (failed auth no longer burns this).
+    const userRl = consumeRateLimit(`account-delete-user:${user.id}`, 5, 15 * 60 * 1000)
     if (!userRl.allowed) {
       logSecurityEvent('warn', {
         type: 'rate_limited',
@@ -55,7 +56,9 @@ export async function POST(request: NextRequest) {
         userId: user.id,
       })
       return NextResponse.json(
-        { error: 'Too many requests' },
+        {
+          error: `Too many delete attempts. Try again in about ${userRl.retryAfterSeconds} seconds.`,
+        },
         { status: 429, headers: { 'Retry-After': String(userRl.retryAfterSeconds) } }
       )
     }

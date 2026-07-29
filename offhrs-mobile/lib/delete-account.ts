@@ -61,6 +61,15 @@ export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountRes
       };
     }
 
+    if (res.status === 429) {
+      return {
+        ok: false,
+        error:
+          body.error?.trim() ||
+          'Too many delete attempts. Wait a few minutes and try again.',
+      };
+    }
+
     const suffix = body.stage ? ` [${body.stage}]` : '';
     return {
       ok: false,
