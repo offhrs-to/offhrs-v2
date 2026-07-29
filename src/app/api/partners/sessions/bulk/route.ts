@@ -6,7 +6,7 @@ import { archivePartnerSession } from '@/lib/partner-session-archive'
 import { syncVendorSessionToExternalCalendars } from '@/lib/vendor-calendar-sync'
 
 const bulkSchema = z.object({
-  ids: z.array(z.string().min(1)).min(1).max(100),
+  ids: z.array(z.coerce.string().min(1)).min(1).max(100),
   action: z.enum(['archive', 'publish', 'draft']),
 })
 

@@ -114,7 +114,12 @@ function SessionsPageInner() {
       const url = statusFilter !== 'all' ? `/api/partners/sessions?status=${statusFilter}` : '/api/partners/sessions'
       const res = await fetch(url)
       const data = await res.json()
-      setSessions(data.sessions ?? [])
+      setSessions(
+        (data.sessions ?? []).map((s: Session & { id: string | number }) => ({
+          ...s,
+          id: String(s.id),
+        }))
+      )
     } finally {
       setLoading(false)
     }
@@ -292,17 +297,26 @@ function SessionsPageInner() {
       const res = await fetch('/api/partners/sessions/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: [...selectedIds], action: bulkAction }),
+        body: JSON.stringify({
+          ids: [...selectedIds].map((id) => String(id)),
+          action: bulkAction,
+        }),
       })
       const data = (await res.json().catch(() => ({}))) as {
         error?: string
+        fields?: Record<string, string[] | undefined>
         succeeded?: string[]
         skipped?: { id: string; reason: string }[]
         failed?: { id: string; error: string }[]
         refunded?: number
       }
       if (!res.ok) {
-        alert(data.error ?? 'Bulk action failed.')
+        const fieldMsg = data.fields
+          ? Object.entries(data.fields)
+              .flatMap(([k, v]) => (v ?? []).map((m) => `${k}: ${m}`))
+              .join('\n')
+          : ''
+        alert([data.error ?? 'Bulk action failed.', fieldMsg].filter(Boolean).join('\n'))
         return
       }
 
