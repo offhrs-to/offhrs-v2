@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type WheelEvent } from 'react'
 import { ArrowLeft, Loader2, ImagePlus } from 'lucide-react'
 import { CATEGORIES, normalizePartnerSessionCategory } from '@/constants/categories'
 import { GooglePlacesField } from '@/app/partners/signup/GooglePlacesField'
@@ -15,6 +15,10 @@ import { formatWorkshopDateTimeLocalValue } from '@/lib/workshop-timezone'
 import { WORKSHOP_DESCRIPTION_SECTIONS } from '@/lib/workshop-description-sections'
 import { WorkshopRichTextField } from '@/components/WorkshopRichTextField'
 import {
+  formatCadMoney,
+  parseCadMoneyInput,
+} from '@/lib/workshop-ticket-price'
+import {
   workshopRichTextPlainLength,
   WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH,
 } from '@/lib/workshop-rich-text'
@@ -25,6 +29,11 @@ const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
 const placesInputClass =
   'w-full px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus:border-transparent disabled:opacity-50'
+
+/** Stop mouse-wheel from nudging type=number fields (common cause of 1.00 → 0.99 slips). */
+function blockNumberInputWheel(e: WheelEvent<HTMLInputElement>) {
+  e.currentTarget.blur()
+}
 
 /** Number of weekly occurrences vendors can choose for a recurring series (API allows 2–12). */
 const RECURRING_WEEK_OPTIONS = Array.from({ length: 11 }, (_, i) => i + 2) as readonly number[]
@@ -100,8 +109,10 @@ export function SessionForm({
   const [form, setForm] = useState({
     title: session?.title ?? '',
     category: normalizePartnerSessionCategory(session?.category),
-    price_cad: session?.price_cad?.toString() ?? '0',
-    sale_price_cad: session?.sale_price_cad != null ? String(session.sale_price_cad) : '',
+    price_cad:
+      session?.price_cad != null ? formatCadMoney(Number(session.price_cad)) : '0.00',
+    sale_price_cad:
+      session?.sale_price_cad != null ? formatCadMoney(Number(session.sale_price_cad)) : '',
     sale_starts_on: session?.sale_starts_on ? String(session.sale_starts_on).slice(0, 10) : '',
     sale_ends_on: session?.sale_ends_on ? String(session.sale_ends_on).slice(0, 10) : '',
     max_attendees: initialMaxAttendees?.toString() ?? '10',
@@ -358,13 +369,14 @@ export function SessionForm({
         cover_image_url = null
       }
 
-      const listPrice = parseFloat(form.price_cad) || 0
+      const listParsed = parseCadMoneyInput(form.price_cad)
+      const listPrice = listParsed ?? 0
       let sale_price_cad: number | null = null
       let sale_starts_on: string | null = null
       let sale_ends_on: string | null = null
       if (saleOpen && form.sale_price_cad.trim() !== '') {
-        const sale = parseFloat(form.sale_price_cad)
-        if (!Number.isFinite(sale) || sale < 0) {
+        const sale = parseCadMoneyInput(form.sale_price_cad)
+        if (sale == null || sale < 0) {
           setError('Enter a valid sale price.')
           setLoading(false)
           return
@@ -375,7 +387,10 @@ export function SessionForm({
           return
         }
         if (sale >= listPrice) {
-          setError('Sale price must be less than the regular price.')
+          setError(
+            `Sale price must be below the regular price ($${formatCadMoney(listPrice)}). ` +
+              `To charge customers $1.00, set regular price above $1 (e.g. $10.00) and sale price to $1.00.`
+          )
           setLoading(false)
           return
         }
@@ -394,6 +409,12 @@ export function SessionForm({
         sale_price_cad = sale
         sale_starts_on = start || null
         sale_ends_on = end
+      }
+
+      if (listParsed == null || listPrice < 0) {
+        setError('Enter a valid regular price.')
+        setLoading(false)
+        return
       }
 
       const payload: Record<string, unknown> = {
@@ -634,6 +655,16 @@ export function SessionForm({
                     step="0.01"
                     value={form.price_cad}
                     onChange={(e) => set('price_cad', e.target.value)}
+                    onBlur={() =>
+                      setForm((f) => ({
+                        ...f,
+                        price_cad:
+                          f.price_cad.trim() === ''
+                            ? ''
+                            : formatCadMoney(Number(parseCadMoneyInput(f.price_cad) ?? 0)),
+                      }))
+                    }
+                    onWheel={blockNumberInputWheel}
                     className="w-full pl-7 pr-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                 </div>
@@ -673,7 +704,8 @@ export function SessionForm({
               <span>
                 <span className="block text-sm font-medium text-foreground">Offer a discounted price</span>
                 <span className="block text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                  Show a sale price to customers for a limited time. Must be lower than the regular price.
+                  Show a sale price to customers for a limited time. Must be lower than the regular price
+                  (e.g. regular $10.00, sale $1.00).
                 </span>
               </span>
             </label>
@@ -692,6 +724,16 @@ export function SessionForm({
                       step="0.01"
                       value={form.sale_price_cad}
                       onChange={(e) => set('sale_price_cad', e.target.value)}
+                      onBlur={() =>
+                        setForm((f) => ({
+                          ...f,
+                          sale_price_cad:
+                            f.sale_price_cad.trim() === ''
+                              ? ''
+                              : formatCadMoney(Number(parseCadMoneyInput(f.sale_price_cad) ?? 0)),
+                        }))
+                      }
+                      onWheel={blockNumberInputWheel}
                       placeholder="Discounted price"
                       className="w-full pl-7 pr-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     />

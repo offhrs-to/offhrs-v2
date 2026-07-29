@@ -21,7 +21,7 @@ import {
 import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
 import { invalidateCachedTaxQuotesForEvent } from '@/lib/workshop-tax-quote-cache'
 import { applyWorkshopRichTextFields } from '@/lib/workshop-rich-text'
-import { normalizeSaleDateWindow, normalizeSalePriceCad } from '@/lib/workshop-ticket-price'
+import { normalizeSaleDateWindow, normalizeSalePriceCad, roundCadMoney, formatCadMoney } from '@/lib/workshop-ticket-price'
 import { archivePartnerSession } from '@/lib/partner-session-archive'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
@@ -212,14 +212,15 @@ export async function PUT(request: NextRequest, { params }: Params) {
       updatePayload.registration_closed = body.registration_closed
     }
     if (body.price_cad !== undefined) {
-      updatePayload.price_cad = body.price_cad
-      updatePayload.price = body.price_cad > 0 ? `$${body.price_cad} CAD` : 'Free'
+      const listPriceCad = roundCadMoney(body.price_cad)
+      updatePayload.price_cad = listPriceCad
+      updatePayload.price = listPriceCad > 0 ? `$${formatCadMoney(listPriceCad)} CAD` : 'Free'
     }
     if (body.sale_price_cad !== undefined || body.price_cad !== undefined) {
       const nextList =
         body.price_cad !== undefined
-          ? body.price_cad
-          : Number((session as { price_cad?: number | null }).price_cad ?? 0)
+          ? roundCadMoney(body.price_cad)
+          : roundCadMoney(Number((session as { price_cad?: number | null }).price_cad ?? 0))
       const nextSale =
         body.sale_price_cad !== undefined
           ? body.sale_price_cad

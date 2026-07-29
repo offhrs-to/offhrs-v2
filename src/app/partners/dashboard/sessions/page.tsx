@@ -22,7 +22,7 @@ import { SessionForm } from './SessionForm'
 import { OccurrenceEditModal, type OccurrenceEditTarget } from './OccurrenceEditModal'
 import { formatSeriesDateRangeLabel, parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
 import { spotsFilledLabel } from '@/lib/workshop-spots-label'
-import { workshopHasActiveSale } from '@/lib/workshop-ticket-price'
+import { workshopHasActiveSale, formatCadMoney } from '@/lib/workshop-ticket-price'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -578,19 +578,21 @@ function SessionsPageInner() {
                             'Free'
                           ) : workshopHasActiveSale(session) ? (
                             <>
-                              <span className="line-through text-muted-foreground/70">{session.price_cad} CAD</span>
+                              <span className="line-through text-muted-foreground/70">
+                                {formatCadMoney(Number(session.price_cad))} CAD
+                              </span>
                               <span className="text-red-600 font-semibold">
-                                {session.sale_price_cad} CAD
+                                {formatCadMoney(Number(session.sale_price_cad))} CAD
                               </span>
                             </>
                           ) : session.sale_price_cad != null &&
                             Number(session.sale_price_cad) >= 0 &&
                             Number(session.sale_price_cad) < Number(session.price_cad) ? (
                             <>
-                              <span>{session.price_cad} CAD</span>
+                              <span>{formatCadMoney(Number(session.price_cad))} CAD</span>
                               <span className="text-muted-foreground">
                                 {' '}
-                                (sale {session.sale_price_cad} CAD
+                                (sale {formatCadMoney(Number(session.sale_price_cad))} CAD
                                 {session.sale_ends_on
                                   ? ` until ${String(session.sale_ends_on).slice(0, 10)}`
                                   : ''}
@@ -598,7 +600,7 @@ function SessionsPageInner() {
                               </span>
                             </>
                           ) : (
-                            `${session.price_cad} CAD`
+                            `${formatCadMoney(Number(session.price_cad))} CAD`
                           )}
                         </span>
                       )}

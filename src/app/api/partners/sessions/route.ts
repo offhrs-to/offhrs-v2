@@ -16,7 +16,7 @@ import { buildPartnerSeriesMeta, resolveWorkshopSeriesDates } from '@/lib/partne
 import { setSeriesAvailabilityFromRules } from '@/lib/partner-event-availability'
 import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
 import { applyWorkshopRichTextFields } from '@/lib/workshop-rich-text'
-import { normalizeSaleDateWindow, normalizeSalePriceCad } from '@/lib/workshop-ticket-price'
+import { normalizeSaleDateWindow, normalizeSalePriceCad, roundCadMoney, formatCadMoney } from '@/lib/workshop-ticket-price'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 
@@ -260,8 +260,9 @@ export async function POST(request: NextRequest) {
     let salePriceCad: number | null = null
     let saleStartsOn: string | null = null
     let saleEndsOn: string | null = null
+    const listPriceCad = roundCadMoney(body.price_cad)
     try {
-      salePriceCad = normalizeSalePriceCad(body.price_cad, body.sale_price_cad)
+      salePriceCad = normalizeSalePriceCad(listPriceCad, body.sale_price_cad)
       const window = normalizeSaleDateWindow({
         hasSalePrice: salePriceCad != null,
         saleStartsOn: body.sale_starts_on,
@@ -280,8 +281,8 @@ export async function POST(request: NextRequest) {
       title: body.title,
       vendor_profile_id: vendor.id,
       category: body.category,
-      price: body.price_cad > 0 ? `$${body.price_cad} CAD` : 'Free',
-      price_cad: body.price_cad,
+      price: listPriceCad > 0 ? `$${formatCadMoney(listPriceCad)} CAD` : 'Free',
+      price_cad: listPriceCad,
       sale_price_cad: salePriceCad,
       sale_starts_on: saleStartsOn,
       sale_ends_on: saleEndsOn,

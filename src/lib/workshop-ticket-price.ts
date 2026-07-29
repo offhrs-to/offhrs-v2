@@ -7,6 +7,25 @@ export type WorkshopSalePriceFields = {
   sale_ends_on?: string | null
 }
 
+/** Round to cents — avoids float noise (e.g. 0.9999999999999999) in money fields. */
+export function roundCadMoney(amount: number): number {
+  if (!Number.isFinite(amount)) return 0
+  return Math.round((amount + Number.EPSILON) * 100) / 100
+}
+
+/** Parse a partner price input string to CAD, rounded to cents; null when empty/invalid. */
+export function parseCadMoneyInput(input: string): number | null {
+  const trimmed = input.trim().replace(/^\$/, '')
+  if (!trimmed) return null
+  const n = Number(trimmed)
+  if (!Number.isFinite(n)) return null
+  return roundCadMoney(n)
+}
+
+export function formatCadMoney(amount: number): string {
+  return roundCadMoney(amount).toFixed(2)
+}
+
 /**
  * True when today (America/Toronto) falls within the optional sale date window.
  * Missing start = already started; missing end = no end date.
@@ -32,10 +51,10 @@ export function effectiveWorkshopPriceCad(
   now: Date = new Date()
 ): number {
   const base = Number(event.price_cad ?? 0)
-  const list = Number.isFinite(base) && base >= 0 ? base : 0
+  const list = Number.isFinite(base) && base >= 0 ? roundCadMoney(base) : 0
   if (event.sale_price_cad == null || event.sale_price_cad === '') return list
   if (!isSaleDateWindowActive(event, now)) return list
-  const sale = Number(event.sale_price_cad)
+  const sale = roundCadMoney(Number(event.sale_price_cad))
   if (!Number.isFinite(sale) || sale < 0) return list
   if (sale < list) return sale
   return list
@@ -60,12 +79,17 @@ export function normalizeSalePriceCad(
   salePriceCad: number | null | undefined
 ): number | null {
   if (salePriceCad == null) return null
-  if (!Number.isFinite(salePriceCad) || salePriceCad < 0) return null
-  if (priceCad <= 0) return null
-  if (salePriceCad >= priceCad) {
-    throw new Error('Sale price must be less than the regular price.')
+  const list = roundCadMoney(priceCad)
+  const sale = roundCadMoney(Number(salePriceCad))
+  if (!Number.isFinite(sale) || sale < 0) return null
+  if (list <= 0) return null
+  if (sale >= list) {
+    throw new Error(
+      `Sale price must be below the regular price ($${formatCadMoney(list)}). ` +
+        `To charge customers $1.00, set regular price above $1 (e.g. $10.00) and sale price to $1.00.`
+    )
   }
-  return salePriceCad
+  return sale
 }
 
 /**
