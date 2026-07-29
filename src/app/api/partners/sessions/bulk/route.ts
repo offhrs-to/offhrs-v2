@@ -10,6 +10,20 @@ const bulkSchema = z.object({
   action: z.enum(['archive', 'publish', 'draft']),
 })
 
+function effectiveBookingStatus(row: {
+  booking_status?: string | null
+  status?: string | null
+}): string {
+  return String(row.booking_status ?? row.status ?? '')
+    .trim()
+    .toLowerCase()
+}
+
+function isAlreadyTargetStatus(current: string, action: 'publish' | 'draft'): boolean {
+  if (action === 'publish') return current === 'published'
+  return current === 'draft'
+}
+
 async function getVendor(userId: string) {
   const admin = createAdminClient()
   if (!admin) return { admin: null, vendor: null }
@@ -49,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     const { data: rows, error: fetchError } = await admin
       .from('events')
-      .select('id, booking_status')
+      .select('id, booking_status, status')
       .eq('vendor_profile_id', vendor.id)
       .in('id', uniqueIds.map((id) => Number(id)).filter((n) => Number.isFinite(n)))
 
@@ -70,7 +84,7 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const status = row.booking_status as string
+      const status = effectiveBookingStatus(row)
 
       if (action === 'archive') {
         if (status === 'archived') {
@@ -89,16 +103,8 @@ export async function POST(request: NextRequest) {
 
       const targetStatus = action === 'publish' ? 'published' : 'draft'
 
-      if (status === targetStatus) {
+      if (isAlreadyTargetStatus(status, action)) {
         skipped.push({ id, reason: `Already ${targetStatus}` })
-        continue
-      }
-      if (status === 'archived') {
-        skipped.push({ id, reason: 'Archived workshops cannot change status here' })
-        continue
-      }
-      if (status === 'fully_booked' && action === 'draft') {
-        skipped.push({ id, reason: 'Fully booked workshops cannot be moved to draft' })
         continue
       }
 

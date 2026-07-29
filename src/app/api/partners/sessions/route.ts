@@ -133,7 +133,10 @@ export async function GET(request: NextRequest) {
 
     const withStatusAlias = rows.map((row) => ({
       ...row,
-      status: (row as { booking_status?: string }).booking_status as string | undefined,
+      status:
+        (row as { booking_status?: string | null; status?: string | null }).booking_status ??
+        (row as { status?: string | null }).status ??
+        undefined,
     }))
 
     return NextResponse.json({ sessions: withStatusAlias })

@@ -325,10 +325,34 @@ function SessionsPageInner() {
         parts.push(`${data.succeeded.length} updated`)
       }
       if (data.skipped?.length) {
-        parts.push(`${data.skipped.length} skipped`)
+        const reasonLines = data.skipped
+          .slice(0, 6)
+          .map((s) => {
+            const title =
+              sessions.find((w) => String(w.id) === String(s.id))?.title?.trim() || `Workshop ${s.id}`
+            return `• ${title}: ${s.reason}`
+          })
+          .join('\n')
+        parts.push(
+          reasonLines
+            ? `${data.skipped.length} skipped:\n${reasonLines}`
+            : `${data.skipped.length} skipped`
+        )
       }
       if (data.failed?.length) {
-        parts.push(`${data.failed.length} failed`)
+        const reasonLines = data.failed
+          .slice(0, 6)
+          .map((f) => {
+            const title =
+              sessions.find((w) => String(w.id) === String(f.id))?.title?.trim() || `Workshop ${f.id}`
+            return `• ${title}: ${f.error}`
+          })
+          .join('\n')
+        parts.push(
+          reasonLines
+            ? `${data.failed.length} failed:\n${reasonLines}`
+            : `${data.failed.length} failed`
+        )
       }
       if (typeof data.refunded === 'number' && data.refunded > 0) {
         parts.push(`${data.refunded} booking${data.refunded === 1 ? '' : 's'} refunded`)
