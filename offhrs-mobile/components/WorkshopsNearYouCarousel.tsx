@@ -8,13 +8,6 @@ import {
   type WorkshopEventRow,
 } from '@/lib/workshops-events-query';
 
-function formatPrice(price: number | string | null | undefined): string | null {
-  if (price == null) return null;
-  const s = typeof price === 'string' ? price.replace(/^\$/, '').trim() : String(price);
-  if (s === '' || isNaN(Number(s))) return null;
-  return `$${s}`;
-}
-
 function neighborhoodLine(loc: string | null | undefined, maxLen = 32): string | null {
   if (!loc || !loc.trim()) return null;
   const t = loc.trim();
@@ -96,7 +89,12 @@ export default function WorkshopsNearYouCarousel({
       const top: HomeCarouselEventItem[] = picked.map((r) => ({
         id: r.id,
         title: r.title ?? 'Workshop',
-        priceLabel: formatPrice(r.price_cad ?? r.price),
+        price: r.price,
+        price_cad: r.price_cad,
+        sale_price_cad: r.sale_price_cad,
+        sale_starts_on: r.sale_starts_on,
+        sale_ends_on: r.sale_ends_on,
+        vendor_profile_id: r.vendor_profile_id,
         image_url: r.image_url,
         locationLine: neighborhoodLine(r.location),
         category: r.category,

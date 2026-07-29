@@ -11,18 +11,41 @@ import {
 import { useRouter } from 'expo-router';
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
+import WorkshopSalePrice from '@/components/WorkshopSalePrice';
 import { DesignColors } from '@/constants/design-template';
 import { useSavedEventIds } from '@/hooks/useSavedEventIds';
 import { getHomeCarouselCardMetrics } from '@/lib/home-carousel-layout';
+import { workshopIsSaasVendorEvent } from '@/lib/workshop-event-utils';
 
 export type HomeCarouselEventItem = {
   id: number;
   title: string;
-  priceLabel: string | null;
   image_url: string | null;
   locationLine: string | null;
   category?: string | null;
+  /** Legacy scraped price (non-SaaS listings). */
+  price?: number | string | null;
+  price_cad?: number | null;
+  sale_price_cad?: number | null;
+  sale_starts_on?: string | null;
+  sale_ends_on?: string | null;
+  vendor_profile_id?: string | null;
 };
+
+function legacyPriceText(price: number | string | null | undefined): string | null {
+  if (price == null) return null;
+  const s = typeof price === 'string' ? price.replace(/^\$/, '').trim() : String(price);
+  if (s === '' || isNaN(Number(s))) return null;
+  return `$${s}`;
+}
+
+function carouselHasPrice(item: HomeCarouselEventItem): boolean {
+  if (workshopIsSaasVendorEvent(item)) {
+    const list = Number(item.price_cad ?? NaN);
+    return Number.isFinite(list);
+  }
+  return legacyPriceText(item.price) != null;
+}
 
 type Props = {
   items: HomeCarouselEventItem[];
@@ -189,10 +212,14 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
                     ) : null}
                   </View>
                   <View style={{ height: priceLineHeight, justifyContent: 'center' }}>
-                    {item.priceLabel ? (
-                      <Text style={{ fontSize: 11, fontWeight: '600', color: DesignColors.charcoal }}>
-                        {item.priceLabel}
-                      </Text>
+                    {carouselHasPrice(item) ? (
+                      <WorkshopSalePrice
+                        event={item}
+                        legacyPriceText={legacyPriceText(item.price)}
+                        size="sm"
+                        saleTextStyle={{ fontSize: 11 }}
+                        listTextStyle={{ fontSize: 10 }}
+                      />
                     ) : (
                       <Text style={{ fontSize: 10, color: DesignColors.mediumGray }}>Price TBD</Text>
                     )}

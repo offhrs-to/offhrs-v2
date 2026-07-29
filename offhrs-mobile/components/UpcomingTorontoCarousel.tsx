@@ -16,6 +16,10 @@ interface DbEventRow {
   location: string | null;
   image_url: string | null;
   price: number | string | null;
+  price_cad: number | string | null;
+  sale_price_cad: number | string | null;
+  sale_starts_on: string | null;
+  sale_ends_on: string | null;
   category: string | null;
   recurrence: string | null;
   vendor_profile_id?: string | null;
@@ -25,13 +29,6 @@ interface DbEventRow {
 }
 
 export type CarouselEventItem = HomeCarouselEventItem;
-
-function formatPrice(price: number | string | null | undefined): string | null {
-  if (price == null) return null;
-  const s = typeof price === 'string' ? price.replace(/^\$/, '').trim() : String(price);
-  if (s === '' || isNaN(Number(s))) return null;
-  return `$${s}`;
-}
 
 function isTorontoAreaLocation(loc: string | null | undefined): boolean {
   if (!loc || !loc.trim()) return false;
@@ -123,7 +120,12 @@ function pickNextFiveToronto(
   return picked.map((best) => ({
     id: best.id,
     title: best.title ?? 'Workshop',
-    priceLabel: formatPrice(best.price),
+    price: best.price,
+    price_cad: best.price_cad != null ? Number(best.price_cad) : null,
+    sale_price_cad: best.sale_price_cad != null ? Number(best.sale_price_cad) : null,
+    sale_starts_on: best.sale_starts_on ? String(best.sale_starts_on).slice(0, 10) : null,
+    sale_ends_on: best.sale_ends_on ? String(best.sale_ends_on).slice(0, 10) : null,
+    vendor_profile_id: best.vendor_profile_id ?? null,
     image_url: best.image_url,
     locationLine: neighborhoodLine(best.location),
     category: best.category,
@@ -153,7 +155,7 @@ export default function UpcomingTorontoCarousel({
       const { data, error } = await supabase
         .from('events')
         .select(
-          'id, title, date, location, image_url, price, category, recurrence, lat, lng, vendor_profile_id, booking_status'
+          'id, title, date, location, image_url, price, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, category, recurrence, lat, lng, vendor_profile_id, booking_status'
         )
         .or(`recurrence.eq.daily,recurrence.eq.weekly,date.is.null,date.gte.${nowIso}`)
         .or(CONSUMER_BOOKING_STATUS_OR)
