@@ -3,7 +3,7 @@ import { processBookingRefund } from '@/lib/booking-refund'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { logSecurityEvent } from '@/lib/security-monitor'
-import { resolveApiUser, extractBearerToken } from '@/lib/resolve-api-user'
+import { resolveApiUser, extractAccessToken } from '@/lib/resolve-api-user'
 import { NextRequest, NextResponse } from 'next/server'
 
 const ACTIVE_BOOKING_STATUSES = new Set([
@@ -36,12 +36,12 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const hadBearer = !!extractBearerToken(request)
+      const hadToken = !!(await extractAccessToken(request))
       return NextResponse.json(
         {
-          error: hadBearer
+          error: hadToken
             ? 'Could not verify your session. Sign out, sign in again, and retry.'
-            : 'Unauthorized',
+            : 'Unauthorized — no session token received. Update the app and try again.',
         },
         { status: 401 }
       )

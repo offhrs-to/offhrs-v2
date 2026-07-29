@@ -6,90 +6,84 @@ export type DeleteAccountResult =
   | { ok: true }
   | { ok: false; error: string };
 
+function parseDeleteApiError(body: unknown, status: number): string {
+  if (body && typeof body === 'object') {
+    const record = body as Record<string, unknown>;
+    if (typeof record.error === 'string' && record.error.trim()) {
+      return record.error.trim();
+    }
+    if (record.error && typeof record.error === 'object') {
+      const nested = record.error as Record<string, unknown>;
+      if (typeof nested.message === 'string' && nested.message.trim()) {
+        return nested.message.trim();
+      }
+    }
+  }
+
+  if (status === 401) {
+    return 'Could not verify your session. Sign out, sign in again, and retry.';
+  }
+
+  return `Failed to delete account (HTTP ${status})`;
+}
+
+async function loadFreshAccessToken(): Promise<string | null> {
+  const refreshed = await supabase.auth.refreshSession();
+  const refreshedToken = refreshed.data.session?.access_token?.trim();
+  if (refreshedToken) return refreshedToken;
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) return null;
+
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token?.trim() ?? null;
+}
+
+async function postAccountDelete(accessToken: string): Promise<Response> {
+  const headers = await buildBookingApiHeaders(accessToken);
+  return fetch(`${BOOK_API_BASE}/api/account/delete`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ access_token: accessToken }),
+  });
+}
+
 /**
  * Permanently deletes the signed-in consumer account via the deployed Next.js API.
  */
 export async function deleteAuthenticatedUserAccount(): Promise<DeleteAccountResult> {
-  let {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-  if (userError || !user) {
-    const refreshed = await supabase.auth.refreshSession();
-    if (refreshed.error || !refreshed.data.user) {
-      return { ok: false, error: 'Not signed in' };
-    }
-    user = refreshed.data.user;
-  }
-
-  let {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session?.access_token) {
-    const refreshed = await supabase.auth.refreshSession();
-    if (refreshed.error || !refreshed.data.session?.access_token) {
-      return { ok: false, error: 'Session expired. Please sign in again.' };
-    }
-    session = refreshed.data.session;
-  }
-
-  const expiresAtMs = session.expires_at ? session.expires_at * 1000 : 0;
-  if (expiresAtMs > 0 && expiresAtMs <= Date.now() + 60_000) {
-    const refreshed = await supabase.auth.refreshSession();
-    if (refreshed.error || !refreshed.data.session?.access_token) {
-      return { ok: false, error: 'Session expired. Please sign in again.' };
-    }
-    session = refreshed.data.session;
+  let accessToken = await loadFreshAccessToken();
+  if (!accessToken) {
+    return { ok: false, error: 'Session expired. Please sign out and sign in again.' };
   }
 
   try {
-    let res = await fetch(`${BOOK_API_BASE}/api/account/delete`, {
-      method: 'POST',
-      headers: await buildBookingApiHeaders(session.access_token),
-      body: JSON.stringify({}),
-    });
+    let res = await postAccountDelete(accessToken);
 
     if (res.status === 401) {
-      const refreshed = await supabase.auth.refreshSession();
-      if (refreshed.error || !refreshed.data.session?.access_token) {
-        return { ok: false, error: 'Session expired. Please sign in again.' };
+      accessToken = await loadFreshAccessToken();
+      if (!accessToken) {
+        return { ok: false, error: 'Session expired. Please sign out and sign in again.' };
       }
-      session = refreshed.data.session;
-      res = await fetch(`${BOOK_API_BASE}/api/account/delete`, {
-        method: 'POST',
-        headers: await buildBookingApiHeaders(session.access_token),
-        body: JSON.stringify({}),
-      });
+      res = await postAccountDelete(accessToken);
     }
 
-    const body = (await res.json().catch(() => ({}))) as { error?: string; stage?: string };
+    const body: unknown = await res.json().catch(() => ({}));
 
     if (res.ok) {
       return { ok: true };
     }
 
-    if (res.status === 401) {
-      return {
-        ok: false,
-        error:
-          body.error?.trim() ||
-          'Unauthorized. Add EXPO_PUBLIC_VERCEL_PROTECTION_BYPASS for preview builds.',
-      };
-    }
-
     if (res.status === 429) {
       return {
         ok: false,
-        error:
-          body.error?.trim() ||
-          'Too many delete attempts. Wait a few minutes and try again.',
+        error: parseDeleteApiError(body, res.status) || 'Too many delete attempts. Wait a few minutes and try again.',
       };
     }
 
-    const suffix = body.stage ? ` [${body.stage}]` : '';
     return {
       ok: false,
-      error: `${body.error?.trim() || `Failed to delete account (HTTP ${res.status})`}${suffix}`,
+      error: parseDeleteApiError(body, res.status),
     };
   } catch (error) {
     return {

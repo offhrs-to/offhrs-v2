@@ -10,6 +10,25 @@ export function extractBearerToken(request: NextRequest): string | null {
   return token || null
 }
 
+/** Authorization header first, then JSON body `access_token` (mobile fallback). */
+export async function extractAccessToken(request: NextRequest): Promise<string | null> {
+  const headerToken = extractBearerToken(request)
+  if (headerToken) return headerToken
+
+  try {
+    const body = (await request.clone().json()) as { access_token?: unknown }
+    const token = body?.access_token
+    if (typeof token === 'string') {
+      const trimmed = token.trim()
+      if (trimmed) return trimmed
+    }
+  } catch {
+    // ignore empty or invalid JSON bodies
+  }
+
+  return null
+}
+
 function supabaseProjectUrl(): string | null {
   const url = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').trim()
   return url ? url.replace(/\/+$/, '') : null
@@ -114,7 +133,7 @@ export async function resolveApiUser(request: NextRequest): Promise<User | null>
   } = await supabase.auth.getUser()
   if (cookieUser) return cookieUser
 
-  const bearerToken = extractBearerToken(request)
+  const bearerToken = await extractAccessToken(request)
   if (!bearerToken) return null
 
   const anonKey = supabaseApiKey()
