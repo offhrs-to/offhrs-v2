@@ -69,6 +69,9 @@ function spotsFilledCalendarLine(
 /**
  * Plain-text notes for Google / Outlook. One field per line so mobile calendar
  * apps don't collapse the block into a single run-on sentence.
+ *
+ * Spots filled is set on the calendar `location` field (shown under the title
+ * in day/agenda views); the venue address lives here in notes instead.
  */
 function buildDescriptionForOccurrence(
   row: RichEvent,
@@ -84,20 +87,12 @@ function buildDescriptionForOccurrence(
 ): string {
   const lines: string[] = []
 
-  if (resolved.location?.trim()) {
-    lines.push(`Location: ${resolved.location.trim()}`)
-  }
-
   if (series.length > 1 && series[occIndex]) {
     lines.push(`Session ${occIndex + 1} of ${series.length}`)
-    const spots = spotsFilledCalendarLine(
-      series[occIndex].max_attendees,
-      series[occIndex].available_slots
-    )
-    if (spots) lines.push(spots)
-  } else {
-    const spots = spotsFilledCalendarLine(row.max_attendees, row.available_slots)
-    if (spots) lines.push(spots)
+  }
+
+  if (resolved.location?.trim()) {
+    lines.push(`Location: ${resolved.location.trim()}`)
   }
 
   if (resolved.price_cad != null) {
@@ -206,10 +201,15 @@ export async function syncVendorSessionToExternalCalendars(
     function occurrenceCalendarFields(i: number) {
       const occ = series.length > 0 ? series[Math.min(i, series.length - 1)] : null
       const resolved = resolveOccurrenceListingFields(event, occ)
+      const spots =
+        occ != null
+          ? spotsFilledCalendarLine(occ.max_attendees, occ.available_slots)
+          : spotsFilledCalendarLine(event.max_attendees, event.available_slots)
       return {
         summary: (resolved.title?.trim() || parentSummary) as string,
         duration: (resolved.duration_minutes ?? parentDuration) as number,
-        location: resolved.location?.trim() || null,
+        // Day/agenda views show `location` under the title — prefer spots over address.
+        location: spots || resolved.location?.trim() || null,
         description: buildDescriptionForOccurrence(
           event,
           series,
