@@ -86,6 +86,7 @@ export async function googleCalendarInsertEvent(params: {
   accessToken: string
   summary: string
   description: string
+  location?: string | null
   startIso: string
   endIso: string
   timeZone: string
@@ -99,6 +100,7 @@ export async function googleCalendarInsertEvent(params: {
     body: JSON.stringify({
       summary: params.summary,
       description: params.description,
+      ...(params.location?.trim() ? { location: params.location.trim() } : {}),
       start: { dateTime: params.startIso, timeZone: params.timeZone },
       end: { dateTime: params.endIso, timeZone: params.timeZone },
     }),
@@ -116,6 +118,7 @@ export async function googleCalendarPatchEvent(params: {
   eventId: string
   summary: string
   description: string
+  location?: string | null
   startIso: string
   endIso: string
   timeZone: string
@@ -131,6 +134,7 @@ export async function googleCalendarPatchEvent(params: {
       body: JSON.stringify({
         summary: params.summary,
         description: params.description,
+        location: params.location?.trim() || '',
         start: { dateTime: params.startIso, timeZone: params.timeZone },
         end: { dateTime: params.endIso, timeZone: params.timeZone },
       }),

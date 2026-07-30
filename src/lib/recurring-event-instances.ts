@@ -206,6 +206,43 @@ export function normalizeExtraSessionTimesHhMm(
 }
 
 /**
+ * Expand each ISO start with additional HH:mm times on the same Toronto calendar day.
+ * Primary time on each date is preserved; extras add more independent starts.
+ * Used by partner `daily_weekdays` series (one listing, many `series_occurrences`).
+ */
+export function expandIsoDatesWithExtraSessionTimes(
+  isoDates: string[],
+  extraTimesHhMm: string[],
+  primaryTimeSource?: Date | null
+): string[] {
+  const extras = normalizeExtraSessionTimesHhMm(extraTimesHhMm, primaryTimeSource)
+  const out: string[] = []
+  const seen = new Set<string>()
+
+  for (const raw of isoDates) {
+    const d = new Date(raw)
+    if (Number.isNaN(d.getTime())) continue
+    const primaryIso = d.toISOString()
+    if (!seen.has(primaryIso)) {
+      seen.add(primaryIso)
+      out.push(primaryIso)
+    }
+    if (extras.length === 0) continue
+    const ymd = workshopDateYmdInToronto(d)
+    for (const hhMm of extras) {
+      const iso = combineWorkshopDateYmdWithHhMm(ymd, hhMm)
+      if (iso && !seen.has(iso)) {
+        seen.add(iso)
+        out.push(iso)
+      }
+    }
+  }
+
+  out.sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+  return out
+}
+
+/**
  * Duplicate each row with extra session times on the same calendar day (Toronto).
  * Primary time on each row is preserved; extras add more listings per day.
  */

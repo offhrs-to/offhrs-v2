@@ -92,16 +92,16 @@ export function DashboardActivityChart({
   }, [series30, range])
 
   const hasActivity = useMemo(() => {
-    return data.some((d) => d.bookings > 0 || (variant === 'bars' && d.churn > 0))
-  }, [data, variant])
+    return data.some((d) => d.bookings > 0 || d.churn > 0)
+  }, [data])
 
   const rawMax = useMemo(() => {
     let m = 0
     for (const d of data) {
-      m = Math.max(m, d.bookings, variant === 'bars' ? d.churn : 0)
+      m = Math.max(m, d.bookings, d.churn)
     }
     return m
-  }, [data, variant])
+  }, [data])
 
   const maxY = niceMax(rawMax)
 
@@ -111,18 +111,24 @@ export function DashboardActivityChart({
     if (variant !== 'line' || data.length === 0 || !hasActivity || maxY <= 0) return null
     const w = 100
     const innerH = LINE_CHART_H - LINE_PAD_TOP - LINE_PAD_BOTTOM
-    const pts = data.map((d, i) => {
+    const pointFor = (value: number, i: number) => {
       const x =
         data.length === 1
           ? w / 2
           : LINE_PAD_X + (i / (data.length - 1)) * (w - LINE_PAD_X * 2)
-      const y = LINE_PAD_TOP + innerH * (1 - d.bookings / maxY)
-      return { x, y, ...d }
-    })
-    const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
-    const area = `${line} L ${pts[pts.length - 1].x} ${LINE_PAD_TOP + innerH} L ${pts[0].x} ${LINE_PAD_TOP + innerH} Z`
+      const y = LINE_PAD_TOP + innerH * (1 - value / maxY)
+      return { x, y }
+    }
+    const bookingPts = data.map((d, i) => ({ ...pointFor(d.bookings, i), ...d }))
+    const churnPts = data.map((d, i) => ({ ...pointFor(d.churn, i), ...d }))
+    const pathFrom = (pts: { x: number; y: number }[]) =>
+      pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+    const bookingLine = pathFrom(bookingPts)
+    const churnLine = pathFrom(churnPts)
+    const area = `${bookingLine} L ${bookingPts[bookingPts.length - 1].x} ${LINE_PAD_TOP + innerH} L ${bookingPts[0].x} ${LINE_PAD_TOP + innerH} Z`
     const ticks = yAxisTicks(maxY)
-    return { pts, line, area, ticks, innerH }
+    const hasChurn = data.some((d) => d.churn > 0)
+    return { bookingPts, churnPts, bookingLine, churnLine, area, ticks, innerH, hasChurn }
   }, [data, maxY, variant, hasActivity])
 
   const emptyMessage =
@@ -191,14 +197,20 @@ export function DashboardActivityChart({
       </CardHeader>
 
       <CardContent className="px-5 pb-5">
-        {variant === 'bars' && hasActivity ? (
+        {hasActivity ? (
           <div className="mb-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <span className="size-2.5 rounded-sm bg-primary" aria-hidden />
               Bookings
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm bg-partner-chart-churn" aria-hidden />
+              <span
+                className={cn(
+                  'size-2.5 rounded-sm bg-partner-chart-churn',
+                  variant === 'line' && 'rounded-full'
+                )}
+                aria-hidden
+              />
               Refunds &amp; cancellations
             </span>
           </div>
@@ -242,7 +254,7 @@ export function DashboardActivityChart({
                   })}
                   <path d={lineGeometry.area} className="fill-primary/15" />
                   <path
-                    d={lineGeometry.line}
+                    d={lineGeometry.bookingLine}
                     fill="none"
                     className="stroke-primary"
                     strokeWidth={1.75}
@@ -250,9 +262,21 @@ export function DashboardActivityChart({
                     strokeLinecap="round"
                     vectorEffect="non-scaling-stroke"
                   />
-                  {lineGeometry.pts.map((p) => (
+                  {lineGeometry.hasChurn ? (
+                    <path
+                      d={lineGeometry.churnLine}
+                      fill="none"
+                      className="stroke-partner-chart-churn"
+                      strokeWidth={1.5}
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                      strokeDasharray="3 2"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ) : null}
+                  {lineGeometry.bookingPts.map((p) => (
                     <circle
-                      key={p.date}
+                      key={`b-${p.date}`}
                       cx={p.x}
                       cy={p.y}
                       r={1.6}
@@ -262,9 +286,32 @@ export function DashboardActivityChart({
                     >
                       <title>
                         {lineAxisLabel(p.date)} · {p.bookings} booking{p.bookings === 1 ? '' : 's'}
+                        {p.churn > 0
+                          ? ` · ${p.churn} refund${p.churn === 1 ? '' : 's'}/cancellation${p.churn === 1 ? '' : 's'}`
+                          : ''}
                       </title>
                     </circle>
                   ))}
+                  {lineGeometry.hasChurn
+                    ? lineGeometry.churnPts.map((p) =>
+                        p.churn > 0 ? (
+                          <circle
+                            key={`c-${p.date}`}
+                            cx={p.x}
+                            cy={p.y}
+                            r={1.4}
+                            className="fill-white stroke-partner-chart-churn"
+                            strokeWidth={1.1}
+                            vectorEffect="non-scaling-stroke"
+                          >
+                            <title>
+                              {lineAxisLabel(p.date)} · {p.churn} refund
+                              {p.churn === 1 ? '' : 's'}/cancellation{p.churn === 1 ? '' : 's'}
+                            </title>
+                          </circle>
+                        ) : null
+                      )
+                    : null}
                 </svg>
                 <div className="mt-1 grid" style={{ gridTemplateColumns: gridCols }}>
                   {data.map((day) => (

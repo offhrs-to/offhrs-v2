@@ -1,17 +1,18 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, type WheelEvent } from 'react'
-import { ArrowLeft, Loader2, ImagePlus } from 'lucide-react'
+import { ArrowLeft, Loader2, ImagePlus, Plus, X } from 'lucide-react'
 import { CATEGORIES, normalizePartnerSessionCategory } from '@/constants/categories'
 import { GooglePlacesField } from '@/app/partners/signup/GooglePlacesField'
 import { parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
 import {
   ALL_JS_WEEKDAYS,
   countDailyInstancesInWindow,
+  normalizeExtraSessionTimesHhMm,
   RENEW_INSTANCES_WEEKS,
 } from '@/lib/recurring-event-instances'
 import { PARTNER_WEEKDAY_TOGGLE_ORDER } from '@/constants/partner-workshop-schedule'
-import { formatWorkshopDateTimeLocalValue } from '@/lib/workshop-timezone'
+import { formatWorkshopDateTimeLocalValue, parseWorkshopDateTimeInput } from '@/lib/workshop-timezone'
 import { WORKSHOP_DESCRIPTION_SECTIONS } from '@/lib/workshop-description-sections'
 import { WorkshopRichTextField } from '@/components/WorkshopRichTextField'
 import {
@@ -65,7 +66,12 @@ interface SessionFormProps {
     workshop_series?: string | null
     series_occurrences?: unknown
     external_booked_count?: number | null
-    partner_series_meta?: { pattern?: string; daily_js_weekdays?: number[]; weeks?: number } | null
+    partner_series_meta?: {
+      pattern?: string
+      daily_js_weekdays?: number[]
+      weeks?: number
+      extra_session_times_hhmm?: string[]
+    } | null
   } | null
   /** Vendor onboarding address — prefills in-person location for new workshops. */
   vendorDefaultAddress?: string
@@ -148,6 +154,8 @@ export function SessionForm({
   const [multiWeekExtraDates, setMultiWeekExtraDates] = useState<string[]>([])
   const [dailyWeekdays, setDailyWeekdays] = useState<Set<number>>(() => new Set(ALL_JS_WEEKDAYS))
   const [dailyWeeks, setDailyWeeks] = useState<number>(RENEW_INSTANCES_WEEKS)
+  const [hasExtraSessionTimes, setHasExtraSessionTimes] = useState(false)
+  const [extraSessionTimes, setExtraSessionTimes] = useState<string[]>([])
 
   useEffect(() => {
     if (!coverFile) {
@@ -169,7 +177,12 @@ export function SessionForm({
     const ext = (session as { external_booked_count?: number }).external_booked_count ?? 0
     setExternalBooked(String(ext))
     const meta = session.partner_series_meta as
-      | { pattern?: string; daily_js_weekdays?: number[]; weeks?: number }
+      | {
+          pattern?: string
+          daily_js_weekdays?: number[]
+          weeks?: number
+          extra_session_times_hhmm?: string[]
+        }
       | null
       | undefined
     const row: EventSeriesFields = {
@@ -192,9 +205,21 @@ export function SessionForm({
             ? meta.weeks
             : RENEW_INSTANCES_WEEKS
         )
+        const savedExtras = Array.isArray(meta.extra_session_times_hhmm)
+          ? meta.extra_session_times_hhmm.filter((t) => typeof t === 'string' && t.trim())
+          : []
+        if (savedExtras.length > 0) {
+          setHasExtraSessionTimes(true)
+          setExtraSessionTimes(savedExtras)
+        } else {
+          setHasExtraSessionTimes(false)
+          setExtraSessionTimes([])
+        }
         setRecurringWeekCount(4)
         setMultiWeekExtraDates([])
       } else {
+        setHasExtraSessionTimes(false)
+        setExtraSessionTimes([])
         setRecurringWeekCount(occ.length)
         let weekly = true
         for (let i = 1; i < occ.length; i++) {
@@ -218,21 +243,36 @@ export function SessionForm({
       setRecurringWeekCount(4)
       setMultiWeekExtraDates([])
       setDailyWeekdays(new Set(ALL_JS_WEEKDAYS))
+      setHasExtraSessionTimes(false)
+      setExtraSessionTimes([])
     }
   }, [session?.id, session?.workshop_series, session?.series_occurrences, session?.partner_series_meta])
 
+  const sessionTimeSource = useMemo(() => {
+    if (!form.date?.trim()) return null
+    return parseWorkshopDateTimeInput(form.date)
+  }, [form.date])
+
+  const normalizedExtraTimes = useMemo(
+    () => normalizeExtraSessionTimesHhMm(extraSessionTimes, sessionTimeSource),
+    [extraSessionTimes, sessionTimeSource]
+  )
+
+  const timesPerOccurrence =
+    seriesPattern === 'daily_weekdays' && hasExtraSessionTimes ? 1 + normalizedExtraTimes.length : 1
+
   const dailyPreviewCount = useMemo(() => {
     if (seriesPattern !== 'daily_weekdays' || !form.date?.trim()) return null
-    const d = new Date(form.date)
+    const d = sessionTimeSource ?? new Date(form.date)
     if (Number.isNaN(d.getTime())) return null
     return countDailyInstancesInWindow(d, dailyWeekdays, dailyWeeks * 7)
-  }, [seriesPattern, form.date, dailyWeekdays, dailyWeeks])
+  }, [seriesPattern, form.date, dailyWeekdays, dailyWeeks, sessionTimeSource])
 
   const listingSessionCount = useMemo(() => {
     if (seriesPattern === 'single') return 1
-    if (seriesPattern === 'daily_weekdays') return dailyPreviewCount ?? 0
+    if (seriesPattern === 'daily_weekdays') return (dailyPreviewCount ?? 0) * timesPerOccurrence
     return recurringWeekCount
-  }, [seriesPattern, dailyPreviewCount, recurringWeekCount])
+  }, [seriesPattern, dailyPreviewCount, recurringWeekCount, timesPerOccurrence])
 
   useEffect(() => {
     if (seriesPattern !== 'weekly_custom') return
@@ -461,6 +501,23 @@ export function SessionForm({
           payload.multi_week_schedule = 'daily_weekdays'
           payload.multi_week_daily_js_weekdays = [...dailyWeekdays].sort((a, b) => a - b)
           payload.multi_week_daily_weeks = dailyWeeks
+          if (hasExtraSessionTimes) {
+            if (!sessionTimeSource) {
+              setError('Set the primary date & time before adding more session times.')
+              setLoading(false)
+              return
+            }
+            if (normalizedExtraTimes.length === 0) {
+              setError(
+                'Add at least one additional session time, or turn off “additional times on the same day(s)”.'
+              )
+              setLoading(false)
+              return
+            }
+            payload.multi_week_extra_session_times = normalizedExtraTimes
+          } else {
+            payload.multi_week_extra_session_times = []
+          }
         }
       }
 
@@ -843,7 +900,7 @@ export function SessionForm({
                 [
                   'daily_weekdays',
                   'Repeating days',
-                  'Same time on selected days over the next several weeks (drop-in style — each session is independent).',
+                  'Selected days over several weeks (drop-in — each session is independent). Optionally add multiple times per day.',
                 ],
               ] as const
             ).map(([value, title, help]) => (
@@ -853,7 +910,13 @@ export function SessionForm({
                   name="series-pattern"
                   className="mt-1 h-4 w-4 shrink-0 border-muted-foreground/40 text-primary focus:ring-ring"
                   checked={seriesPattern === value}
-                  onChange={() => setSeriesPattern(value as SeriesPattern)}
+                  onChange={() => {
+                    setSeriesPattern(value as SeriesPattern)
+                    if (value !== 'daily_weekdays') {
+                      setHasExtraSessionTimes(false)
+                      setExtraSessionTimes([])
+                    }
+                  }}
                 />
                 <span>
                   <span className="text-sm font-medium text-foreground">{title}</span>
@@ -960,7 +1023,7 @@ export function SessionForm({
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 All days selected = every calendar day in the window. Tap to exclude — no session on deselected
-                days. Same time of day as the first date above.
+                days. Primary time of day comes from the date &amp; time above; optional additional times below.
               </p>
               <div>
                 <label htmlFor="daily-weeks" className="block text-sm font-medium text-foreground mb-1.5">
@@ -979,10 +1042,82 @@ export function SessionForm({
                   ))}
                 </select>
               </div>
+
+              <label className="flex items-start gap-3 cursor-pointer select-none rounded-xl border border-partner-border bg-white px-3 py-3 hover:border-primary/40 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={hasExtraSessionTimes}
+                  onChange={(e) => {
+                    const on = e.target.checked
+                    setHasExtraSessionTimes(on)
+                    if (on && extraSessionTimes.length === 0) {
+                      setExtraSessionTimes([''])
+                    }
+                    if (!on) {
+                      setExtraSessionTimes([])
+                    }
+                  }}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-muted-foreground/40 text-primary focus:ring-ring"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">
+                    Also offer this workshop at additional times on the same day(s)
+                  </span>
+                  <span className="block text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    The date &amp; time above is the first session each day. Add more times (e.g. 3:00 PM, 5:00 PM) —
+                    each selected day gets one bookable session per time, with the same price and details.
+                  </span>
+                </span>
+              </label>
+
+              {hasExtraSessionTimes ? (
+                <div className="space-y-2 pl-1">
+                  {extraSessionTimes.map((timeValue, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={timeValue}
+                        onChange={(e) => {
+                          const next = [...extraSessionTimes]
+                          next[index] = e.target.value
+                          setExtraSessionTimes(next)
+                        }}
+                        className="w-full max-w-[10rem] px-3 py-2 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        aria-label={`Additional session time ${index + 1}`}
+                      />
+                      {extraSessionTimes.length > 1 ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          aria-label="Remove this time"
+                          onClick={() =>
+                            setExtraSessionTimes(extraSessionTimes.filter((_, i) => i !== index))
+                          }
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      ) : null}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setExtraSessionTimes([...extraSessionTimes, ''])}
+                  >
+                    <Plus className="size-3.5" />
+                    Add another time
+                  </Button>
+                </div>
+              ) : null}
+
               {dailyPreviewCount != null && (
                 <p className="text-xs text-primary font-medium">
-                  {dailyPreviewCount} session{dailyPreviewCount === 1 ? '' : 's'} over the next {dailyWeeks}{' '}
-                  week{dailyWeeks === 1 ? '' : 's'} (one workshop listing).
+                  {hasExtraSessionTimes && normalizedExtraTimes.length > 0 && dailyPreviewCount > 0
+                    ? `${dailyPreviewCount} day${dailyPreviewCount === 1 ? '' : 's'} × ${timesPerOccurrence} time${timesPerOccurrence === 1 ? '' : 's'} = ${listingSessionCount} bookable sessions (one workshop listing).`
+                    : `${dailyPreviewCount} session${dailyPreviewCount === 1 ? '' : 's'} over the next ${dailyWeeks} week${dailyWeeks === 1 ? '' : 's'} (one workshop listing).`}
                 </p>
               )}
             </div>

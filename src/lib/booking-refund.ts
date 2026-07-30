@@ -28,7 +28,13 @@ const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
-const ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending', 'booked', 'pending_confirmation'] as const
+const ACTIVE_BOOKING_STATUSES = [
+  'confirmed',
+  'pending',
+  'booked',
+  'pending_confirmation',
+  'attended',
+] as const
 
 export type RefundInitiator = 'consumer' | 'vendor' | 'stripe_webhook'
 

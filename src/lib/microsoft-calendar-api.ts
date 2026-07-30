@@ -134,6 +134,7 @@ export async function microsoftCalendarInsertEvent(params: {
   accessToken: string
   subject: string
   body: string
+  location?: string | null
   startIso: string
   endIso: string
   timeZone: string
@@ -147,6 +148,9 @@ export async function microsoftCalendarInsertEvent(params: {
     body: JSON.stringify({
       subject: params.subject,
       body: { contentType: 'text', content: params.body },
+      ...(params.location?.trim()
+        ? { location: { displayName: params.location.trim() } }
+        : {}),
       start: { dateTime: params.startIso, timeZone: params.timeZone },
       end: { dateTime: params.endIso, timeZone: params.timeZone },
     }),
@@ -164,6 +168,7 @@ export async function microsoftCalendarPatchEvent(params: {
   eventId: string
   subject: string
   body: string
+  location?: string | null
   startIso: string
   endIso: string
   timeZone: string
@@ -177,6 +182,9 @@ export async function microsoftCalendarPatchEvent(params: {
     body: JSON.stringify({
       subject: params.subject,
       body: { contentType: 'text', content: params.body },
+      location: params.location?.trim()
+        ? { displayName: params.location.trim() }
+        : { displayName: '' },
       start: { dateTime: params.startIso, timeZone: params.timeZone },
       end: { dateTime: params.endIso, timeZone: params.timeZone },
     }),

@@ -98,7 +98,14 @@ export default async function DashboardPage({
       .select('amount_cad, net_vendor_cad, status, refunded_at')
       .eq('vendor_id', vendor.id)
       .gte('created_at', monthStart)
-      .in('status', ['confirmed', 'pending', 'booked', 'pending_confirmation']),
+      .in('status', [
+        'confirmed',
+        'pending',
+        'booked',
+        'pending_confirmation',
+        'attended',
+        'refunded',
+      ]),
     admin
       .from('bookings')
       .select('id, name, session_title:event_id(title), created_at, amount_cad, net_vendor_cad, status, refunded_at')
@@ -136,15 +143,25 @@ export default async function DashboardPage({
   ])
 
   const activeSessions = sessionsRes.count ?? 0
-  const monthlyBookings = bookingsRes.data?.length ?? 0
-  // Show vendor payouts net of Stripe fees (per policy, fees are absorbed by the vendor).
-  // Falls back to the gross charge if a row is missing net_vendor_cad (e.g. legacy bookings).
-  const monthlyRevenue =
-    bookingsRes.data?.reduce(
-      (sum: number, b: { amount_cad?: number | null; net_vendor_cad?: number | null }) =>
-        sum + (b.net_vendor_cad ?? b.amount_cad ?? 0),
-      0
-    ) ?? 0
+  const monthlyRows = bookingsRes.data ?? []
+  const monthlyBookings = monthlyRows.length
+  // Payouts exclude refunded rows (fees policy: net to vendor on kept bookings only).
+  const monthlyRevenue = monthlyRows.reduce(
+    (
+      sum: number,
+      b: {
+        amount_cad?: number | null
+        net_vendor_cad?: number | null
+        status?: string | null
+        refunded_at?: string | null
+      }
+    ) => {
+      const st = (b.status ?? '').toLowerCase()
+      if (st === 'refunded' || b.refunded_at) return sum
+      return sum + (b.net_vendor_cad ?? b.amount_cad ?? 0)
+    },
+    0
+  )
 
   const recentBookings: DashboardBookingRow[] = (recentBookingsRes.data ?? []).map(
     (booking: Record<string, unknown>) => ({

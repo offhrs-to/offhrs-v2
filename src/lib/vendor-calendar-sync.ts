@@ -16,6 +16,7 @@ import {
 
 import { parseSeriesOccurrences, type SeriesOccurrence } from '@/lib/workshop-series'
 import { workshopHasActiveSale } from '@/lib/workshop-ticket-price'
+import { stripWorkshopRichTextPlain } from '@/lib/workshop-rich-text'
 
 const DEFAULT_TZ = process.env.VENDOR_CALENDAR_DEFAULT_TZ ?? 'America/Toronto'
 
@@ -42,45 +43,75 @@ type RichEvent = {
   series_microsoft_outlook_event_ids?: unknown
 }
 
-function appBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-  ).replace(/\/$/, '')
-}
-
 function endIsoFromStart(start: Date, durationMinutes: number): string {
   const end = new Date(start.getTime() + Math.max(15, durationMinutes) * 60 * 1000)
   return end.toISOString()
 }
 
+function formatCadLine(amount: number): string {
+  const n = Number(amount)
+  if (!Number.isFinite(n)) return String(amount)
+  return Number.isInteger(n) ? String(n) : n.toFixed(2)
+}
+
+/** "Spots filled: 1/10" — filled count, not remaining (avoids "9/10 spots" confusion). */
+function spotsFilledCalendarLine(
+  maxAttendees: number | null | undefined,
+  availableSlots: number | null | undefined
+): string | null {
+  const cap = maxAttendees != null ? Number(maxAttendees) : 0
+  if (!Number.isFinite(cap) || cap <= 0) return null
+  const remaining = availableSlots != null ? Number(availableSlots) : cap
+  const filled = Math.max(0, Math.min(cap, cap - (Number.isFinite(remaining) ? remaining : cap)))
+  return `Spots filled: ${filled}/${cap}`
+}
+
+/**
+ * Plain-text notes for Google / Outlook. One field per line so mobile calendar
+ * apps don't collapse the block into a single run-on sentence.
+ */
 function buildDescriptionForOccurrence(row: RichEvent, series: SeriesOccurrence[], occIndex: number): string {
   const lines: string[] = []
-  if (row.description) lines.push(row.description)
-  if (row.location) lines.push(`Location: ${row.location}`)
+
+  if (row.location?.trim()) {
+    lines.push(`Location: ${row.location.trim()}`)
+  }
+
   if (series.length > 1 && series[occIndex]) {
     lines.push(`Session ${occIndex + 1} of ${series.length}`)
-    lines.push(
-      `${series[occIndex].available_slots}/${series[occIndex].max_attendees} spots (this date)`
+    const spots = spotsFilledCalendarLine(
+      series[occIndex].max_attendees,
+      series[occIndex].available_slots
     )
+    if (spots) lines.push(spots)
   } else {
-    const cap =
-      row.max_attendees != null
-        ? `${row.available_slots ?? row.max_attendees}/${row.max_attendees} spots`
-        : ''
-    if (cap) lines.push(cap)
+    const spots = spotsFilledCalendarLine(row.max_attendees, row.available_slots)
+    if (spots) lines.push(spots)
   }
+
   if (row.price_cad != null) {
     const list = Number(row.price_cad)
-    if (workshopHasActiveSale(row)) {
-      lines.push(`Price: $${Number(row.sale_price_cad)} CAD (was $${list} CAD)`)
+    if (workshopHasActiveSale(row) && row.sale_price_cad != null) {
+      lines.push(
+        `Price: $${formatCadLine(Number(row.sale_price_cad))} CAD (was $${formatCadLine(list)} CAD)`
+      )
+    } else if (list === 0) {
+      lines.push('Price: Free')
     } else {
-      lines.push(`Price: $${row.price_cad} CAD`)
+      lines.push(`Price: $${formatCadLine(list)} CAD`)
     }
   }
-  lines.push(`Workshop: ${appBaseUrl()}/workshops/${row.id}`)
-  lines.push('Managed by offhrs.')
-  return lines.join('\n\n')
+
+  lines.push('Managed by offhrs')
+
+  const plainNotes = row.description ? stripWorkshopRichTextPlain(row.description) : ''
+  if (plainNotes) {
+    lines.push('')
+    lines.push(plainNotes)
+  }
+
+  // Single newlines — double newlines are often collapsed in iOS Calendar notes.
+  return lines.join('\n')
 }
 
 function parseIdArray(v: unknown): (string | null)[] {
@@ -195,6 +226,7 @@ export async function syncVendorSessionToExternalCalendars(
               const startIso = start.toISOString()
               const endIso = endIsoFromStart(start, duration)
               const description = buildDescriptionForOccurrence(event, series, series.length > 1 ? i : 0)
+              const location = event.location?.trim() || null
               const prevId = prevByIndex[i] ?? null
               let newId: string
               if (prevId) {
@@ -203,6 +235,7 @@ export async function syncVendorSessionToExternalCalendars(
                   eventId: prevId,
                   summary,
                   description,
+                  location,
                   startIso,
                   endIso,
                   timeZone: DEFAULT_TZ,
@@ -213,6 +246,7 @@ export async function syncVendorSessionToExternalCalendars(
                   accessToken: access_token,
                   summary,
                   description,
+                  location,
                   startIso,
                   endIso,
                   timeZone: DEFAULT_TZ,
@@ -264,6 +298,7 @@ export async function syncVendorSessionToExternalCalendars(
               const startIso = start.toISOString()
               const endIso = endIsoFromStart(start, duration)
               const body = buildDescriptionForOccurrence(event, series, series.length > 1 ? i : 0)
+              const location = event.location?.trim() || null
               const prevId = prevByIndex[i] ?? null
               let newId: string
               if (prevId) {
@@ -272,6 +307,7 @@ export async function syncVendorSessionToExternalCalendars(
                   eventId: prevId,
                   subject: summary,
                   body,
+                  location,
                   startIso,
                   endIso,
                   timeZone: DEFAULT_TZ,
@@ -282,6 +318,7 @@ export async function syncVendorSessionToExternalCalendars(
                   accessToken: access_token,
                   subject: summary,
                   body,
+                  location,
                   startIso,
                   endIso,
                   timeZone: DEFAULT_TZ,

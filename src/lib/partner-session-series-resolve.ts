@@ -1,5 +1,9 @@
 import { addWeeks } from 'date-fns'
-import { getMaterializedInstanceDates } from '@/lib/recurring-event-instances'
+import {
+  expandIsoDatesWithExtraSessionTimes,
+  getMaterializedInstanceDates,
+  normalizeExtraSessionTimesHhMm,
+} from '@/lib/recurring-event-instances'
 import { parseWorkshopDateTimeInput } from '@/lib/workshop-timezone'
 
 /** Partner multi-date schedules (stored as one `events` row + `series_occurrences`). */
@@ -16,6 +20,11 @@ export type PartnerSessionSeriesBody = {
   multi_week_daily_js_weekdays?: number[]
   /** Window length in weeks for `daily_weekdays`; defaults to RENEW_INSTANCES_WEEKS. */
   multi_week_daily_weeks?: number
+  /**
+   * Extra HH:mm times on each selected weekday (Toronto), in addition to the primary
+   * time from `date`. For `daily_weekdays` only — each day × time becomes a bookable occurrence.
+   */
+  multi_week_extra_session_times?: string[]
 }
 
 /** @deprecated Use parseWorkshopDateTimeInput — kept as alias for existing imports. */
@@ -73,7 +82,7 @@ export function resolveWorkshopSeriesDates(
     if (set.size === 0) {
       return { ok: false, error: 'Select at least one day of the week for repeating sessions.' }
     }
-    const dates = getMaterializedInstanceDates(first, 'daily', {
+    let dates = getMaterializedInstanceDates(first, 'daily', {
       dailyWeekdays: set,
       weeks: body.multi_week_daily_weeks,
     })
@@ -84,6 +93,20 @@ export function resolveWorkshopSeriesDates(
           'With these days, not enough session dates fall in the chosen window. Pick another start date, add more days, or extend the number of weeks.',
       }
     }
+
+    const rawExtras = body.multi_week_extra_session_times
+    if (Array.isArray(rawExtras) && rawExtras.some((t) => String(t).trim())) {
+      const extras = normalizeExtraSessionTimesHhMm(rawExtras, first)
+      if (extras.length === 0) {
+        return {
+          ok: false,
+          error:
+            'Add at least one valid additional session time (different from the primary time), or turn off additional times.',
+        }
+      }
+      dates = expandIsoDatesWithExtraSessionTimes(dates, extras, first)
+    }
+
     return { ok: true, dates }
   }
 
@@ -114,6 +137,8 @@ export type PartnerSeriesMeta = {
   pattern: 'weekly_same' | 'weekly_custom' | 'daily_weekdays'
   weeks?: number
   daily_js_weekdays?: number[]
+  /** Extra HH:mm times on each selected day (in addition to the primary session time). */
+  extra_session_times_hhmm?: string[]
 }
 
 /** Persisted on `events.partner_series_meta` so the vendor form can restore schedule type. */
@@ -125,10 +150,15 @@ export function buildPartnerSeriesMeta(merged: PartnerSessionSeriesBody): Partne
       merged.multi_week_daily_js_weekdays?.filter((n) => n >= 0 && n <= 6) ?? [0, 1, 2, 3, 4, 5, 6]
     const weeksRaw = merged.multi_week_daily_weeks
     const weeks = Number.isFinite(weeksRaw ?? NaN) ? Math.floor(weeksRaw as number) : undefined
+    const first = merged.date?.trim() ? parseUserDateTime(merged.date) : null
+    const extras = Array.isArray(merged.multi_week_extra_session_times)
+      ? normalizeExtraSessionTimesHhMm(merged.multi_week_extra_session_times, first)
+      : []
     return {
       pattern: 'daily_weekdays',
       daily_js_weekdays: [...new Set(w)].sort((a, b) => a - b),
       ...(weeks ? { weeks } : {}),
+      ...(extras.length > 0 ? { extra_session_times_hhmm: extras } : {}),
     }
   }
   if (sch === 'same_day_time' && merged.multi_week_occurrence_count) {

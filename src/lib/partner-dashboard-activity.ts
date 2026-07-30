@@ -35,7 +35,8 @@ function dayLabelUtc(yyyyMmDd: string): string {
 
 /**
  * Bucket partner bookings into daily counts.
- * - bookings: confirmed + pending (by created_at day in range)
+ * - bookings: real booking creates (confirmed/pending/booked/pending_confirmation/attended)
+ *   by created_at day — including rows later refunded (so completed + refunded activity stays visible)
  * - churn: refunded (by refunded_at day, else created_at) + cancelled (by created_at)
  */
 export function buildActivitySeriesFromBookings(
@@ -46,19 +47,30 @@ export function buildActivitySeriesFromBookings(
   const set = new Set(dayKeys)
   const counts = new Map(dayKeys.map((k) => [k, { bookings: 0, churn: 0 }]))
 
+  const BOOKING_STATUSES = new Set([
+    'confirmed',
+    'pending',
+    'booked',
+    'pending_confirmation',
+    'attended',
+  ])
+
   for (const b of rows) {
     const st = (b.status ?? '').toLowerCase()
     const isRefunded = st === 'refunded' || Boolean(b.refunded_at)
+    const createDay = typeof b.created_at === 'string' ? b.created_at.slice(0, 10) : ''
+
+    // Booking volume by create day (refunded bookings still count as activity that day).
+    if (isRefunded || BOOKING_STATUSES.has(st)) {
+      if (createDay && set.has(createDay)) counts.get(createDay)!.bookings += 1
+    }
+
     if (isRefunded) {
       const raw = b.refunded_at ?? b.created_at
       const d = typeof raw === 'string' ? raw.slice(0, 10) : ''
       if (d && set.has(d)) counts.get(d)!.churn += 1
     } else if (st === 'cancelled') {
-      const d = b.created_at.slice(0, 10)
-      if (set.has(d)) counts.get(d)!.churn += 1
-    } else if (st === 'confirmed' || st === 'pending') {
-      const d = b.created_at.slice(0, 10)
-      if (set.has(d)) counts.get(d)!.bookings += 1
+      if (createDay && set.has(createDay)) counts.get(createDay)!.churn += 1
     }
   }
 

@@ -58,6 +58,8 @@ const updateSchema = z.object({
   multi_week_additional_datetimes: z.array(z.string()).max(11).optional(),
   multi_week_daily_js_weekdays: z.array(z.number().int().min(0).max(6)).max(7).optional(),
   multi_week_daily_weeks: z.number().int().min(2).max(12).optional(),
+  /** Extra HH:mm times on each selected weekday (daily_weekdays only). */
+  multi_week_extra_session_times: z.array(z.string().max(8)).max(12).optional(),
   external_booked_count: z.number().int().min(0).max(500).optional(),
   registration_closed: z.boolean().optional(),
 })
@@ -68,6 +70,7 @@ type PartnerMeta = {
   weeks?: number
   /** Legacy alias retained for older rows that wrote daily window weeks under a different key. */
   daily_weeks?: number
+  extra_session_times_hhmm?: string[]
 }
 
 function buildMergedSeriesInput(
@@ -107,6 +110,13 @@ function buildMergedSeriesInput(
     body.multi_week_daily_weeks ??
     (schedule === 'daily_weekdays' ? (meta?.weeks as number | undefined) : undefined)
 
+  const extraSessionTimes =
+    body.multi_week_extra_session_times !== undefined
+      ? body.multi_week_extra_session_times
+      : schedule === 'daily_weekdays' && Array.isArray(meta?.extra_session_times_hhmm)
+        ? meta.extra_session_times_hhmm
+        : undefined
+
   return {
     date: body.date !== undefined ? body.date : sessionDate,
     workshop_series:
@@ -123,6 +133,7 @@ function buildMergedSeriesInput(
         : extrasFromPrev,
     multi_week_daily_js_weekdays: dailyJs,
     multi_week_daily_weeks: dailyWeeks,
+    multi_week_extra_session_times: extraSessionTimes,
   }
 }
 

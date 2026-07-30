@@ -14,10 +14,19 @@ import {
  *   - Direct SQL fixes, webhook retries, etc.
  *
  * Safe to call on every partner page load — it never decrements below the real
- * active booking count and only flips fully_booked → published when slots open.
+ * occupied booking count and only flips fully_booked → published when slots open.
+ *
+ * `attended` still occupies a seat (past guests remain in “spots filled”).
+ * Refunded bookings do not.
  */
 
-const ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending', 'booked', 'pending_confirmation']
+const ACTIVE_BOOKING_STATUSES = [
+  'confirmed',
+  'pending',
+  'booked',
+  'pending_confirmation',
+  'attended',
+]
 
 type EventRow = {
   id: string | number
@@ -54,7 +63,8 @@ export async function reconcileVendorEventSlots(
       'id, max_attendees, available_slots, booking_status, workshop_series, series_occurrences, partner_series_meta, external_booked_count'
     )
     .eq('vendor_profile_id', vendorId)
-    .neq('booking_status', 'archived')
+  // Include archived/draft so “spots filled” stays accurate after attendance/refunds.
+  // Status flips only apply when the row is already published/fully_booked.
 
   if (eventsError || !events?.length) return { reconciled: 0 }
 
