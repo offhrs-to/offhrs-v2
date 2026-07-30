@@ -873,8 +873,9 @@ export function SessionForm({
         <div className="rounded-xl border border-partner-border bg-partner-canvas p-4 space-y-4">
           <p className="text-sm font-medium text-foreground">Schedule &amp; repeating dates</p>
           <p className="text-xs text-muted-foreground leading-relaxed -mt-2">
-            One listing can include multiple session times at the same price, location, and duration. Repeats use the
-            date &amp; time above as the first occurrence (same clock time for each generated date).
+            Weekly courses stay one listing (same group across weeks). Repeating days creates a separate workshop
+            listing for each session so you can edit price, duration, and details independently — each counts toward
+            your plan’s active workshop limit.
           </p>
           {isEdit && (
             <p className="text-xs text-primary font-medium leading-relaxed">
@@ -900,7 +901,7 @@ export function SessionForm({
                 [
                   'daily_weekdays',
                   'Repeating days',
-                  'Selected days over several weeks (drop-in — each session is independent). Optionally add multiple times per day.',
+                  'Selected days over several weeks — creates one workshop listing per session (drop-in). Optionally add multiple times per day.',
                 ],
               ] as const
             ).map(([value, title, help]) => (
@@ -1065,7 +1066,7 @@ export function SessionForm({
                   </span>
                   <span className="block text-xs text-muted-foreground mt-0.5 leading-relaxed">
                     The date &amp; time above is the first session each day. Add more times (e.g. 3:00 PM, 5:00 PM) —
-                    each selected day gets one bookable session per time, with the same price and details.
+                    each selected day × time becomes its own workshop listing (same starting details; edit any one later).
                   </span>
                 </span>
               </label>
@@ -1115,9 +1116,13 @@ export function SessionForm({
 
               {dailyPreviewCount != null && (
                 <p className="text-xs text-primary font-medium">
-                  {hasExtraSessionTimes && normalizedExtraTimes.length > 0 && dailyPreviewCount > 0
-                    ? `${dailyPreviewCount} day${dailyPreviewCount === 1 ? '' : 's'} × ${timesPerOccurrence} time${timesPerOccurrence === 1 ? '' : 's'} = ${listingSessionCount} bookable sessions (one workshop listing).`
-                    : `${dailyPreviewCount} session${dailyPreviewCount === 1 ? '' : 's'} over the next ${dailyWeeks} week${dailyWeeks === 1 ? '' : 's'} (one workshop listing).`}
+                  {isEdit
+                    ? hasExtraSessionTimes && normalizedExtraTimes.length > 0 && dailyPreviewCount > 0
+                      ? `${dailyPreviewCount} day${dailyPreviewCount === 1 ? '' : 's'} × ${timesPerOccurrence} time${timesPerOccurrence === 1 ? '' : 's'} = ${listingSessionCount} bookable sessions (one workshop listing).`
+                      : `${dailyPreviewCount} session${dailyPreviewCount === 1 ? '' : 's'} over the next ${dailyWeeks} week${dailyWeeks === 1 ? '' : 's'} (one workshop listing).`
+                    : hasExtraSessionTimes && normalizedExtraTimes.length > 0 && dailyPreviewCount > 0
+                      ? `${dailyPreviewCount} day${dailyPreviewCount === 1 ? '' : 's'} × ${timesPerOccurrence} time${timesPerOccurrence === 1 ? '' : 's'} = ${listingSessionCount} separate workshop listings.`
+                      : `${listingSessionCount} separate workshop listing${listingSessionCount === 1 ? '' : 's'} (each counts toward your plan limit).`}
                 </p>
               )}
             </div>

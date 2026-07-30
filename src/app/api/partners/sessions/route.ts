@@ -195,6 +195,8 @@ export async function POST(request: NextRequest) {
     if (activeSub?.subscription_tier === 'lite') {
       // Lite is capped at N concurrently active workshops. Archived rows do
       // not count, so vendors can free a slot by archiving and try again.
+      // Repeating-days create inserts one row per session — remaining-slot check
+      // runs after dates are resolved (below).
       const { count, error: countError } = await admin
         .from('events')
         .select('*', { count: 'exact', head: true })
@@ -205,7 +207,11 @@ export async function POST(request: NextRequest) {
         console.error('[sessions] Lite quota count', countError)
       } else if (
         count != null &&
-        count >= LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD
+        count >= LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD &&
+        !(
+          body.workshop_series === 'multi_week' &&
+          body.multi_week_schedule === 'daily_weekdays'
+        )
       ) {
         return NextResponse.json(
           {
@@ -309,6 +315,92 @@ export async function POST(request: NextRequest) {
     }
 
     const dateIsos = resolvedDates.dates
+    const isDailyWeekdaysBatch =
+      body.workshop_series === 'multi_week' &&
+      body.multi_week_schedule === 'daily_weekdays' &&
+      dateIsos.length >= 2
+
+    // Repeating days: create one independent workshop listing per session start
+    // (not a shared series_occurrences row). Weekly cohorts stay one multi_week row.
+    // Existing daily_weekdays series created before this change are unchanged on edit.
+    if (isDailyWeekdaysBatch) {
+      const slotsNeeded = dateIsos.length
+      if (activeSub?.subscription_tier === 'lite') {
+        const { count, error: countError } = await admin
+          .from('events')
+          .select('*', { count: 'exact', head: true })
+          .eq('vendor_profile_id', vendor.id)
+          .neq('booking_status', 'archived')
+
+        if (countError) {
+          console.error('[sessions] Lite quota recount for repeating days', countError)
+        } else {
+          const used = count ?? 0
+          if (used + slotsNeeded > LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD) {
+            const remaining = Math.max(0, LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD - used)
+            return NextResponse.json(
+              {
+                error:
+                  remaining === 0
+                    ? `Lite plan supports up to ${LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD} active workshops at a time. This schedule would create ${slotsNeeded} listings. Archive workshops you no longer need, reduce the schedule, or upgrade to Pro.`
+                    : `Lite plan supports up to ${LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD} active workshops (${remaining} slot${remaining === 1 ? '' : 's'} left). This schedule would create ${slotsNeeded} listings. Reduce days/weeks/times, archive existing workshops, or upgrade to Pro.`,
+              },
+              { status: 403 }
+            )
+          }
+        }
+      }
+
+      const perAvail = Math.max(0, body.max_attendees - extRaw)
+      const insertRows = dateIsos.map((startIso) => ({
+        ...baseRow,
+        date: startIso,
+        workshop_series: 'one_day' as const,
+        series_occurrences: null,
+        partner_series_meta: null,
+        available_slots: perAvail,
+        max_attendees: body.max_attendees,
+      }))
+
+      const { data: createdRows, error: insertError } = await admin
+        .from('events')
+        .insert(insertRows)
+        .select()
+
+      if (insertError) {
+        return NextResponse.json({ error: insertError.message }, { status: 500 })
+      }
+
+      await admin
+        .from('vendor_profiles')
+        .update({ first_session_created: true })
+        .eq('id', vendor.id)
+        .eq('first_session_created', false)
+
+      const rows = (createdRows ?? []).map((created) => ({
+        ...created,
+        status: created.booking_status,
+      }))
+
+      for (const created of createdRows ?? []) {
+        if (created?.id) {
+          scheduleVendorSessionCalendarSync(admin, vendor.id, String(created.id))
+        }
+      }
+
+      return NextResponse.json(
+        {
+          sessions: rows,
+          session: rows[0] ?? null,
+          created_count: rows.length,
+        },
+        { status: 201 }
+      )
+    }
+
+    // Lite single-workshop quota (already checked above when count >= limit).
+    // Repeating-days batch uses the stricter remaining-slots check above.
+
     const isMultiWeek = dateIsos.length > 1
     const isCohort =
       isMultiWeek && (meta?.pattern === 'weekly_same' || meta?.pattern === 'weekly_custom')
@@ -322,6 +414,7 @@ export async function POST(request: NextRequest) {
         seriesOcc = applyCohortAvailability(seriesOcc, body.max_attendees, topAvail)
         topMax = body.max_attendees
       } else {
+        // Legacy path: non-daily multi_week without cohort (should be rare after daily batch split)
         const bookedZeros = seriesOcc.map(() => 0)
         seriesOcc = setSeriesAvailabilityFromRules(seriesOcc, extRaw, bookedZeros)
         topAvail = seriesOcc.reduce((a, o) => a + o.available_slots, 0)
