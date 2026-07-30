@@ -253,11 +253,11 @@ export async function POST(request: NextRequest) {
       //   1. Pricing/interchange follows the connected account's country (CA Express).
       //   2. The vendor's statement descriptor appears on the cardholder's statement.
       //
-      // New Connect accounts are created with `controller.fees.payer = account`, so Stripe
-      // processing fees are debited directly from the vendor. Older test accounts may still
-      // have `fees.payer = application`; for those we set an application fee equal to the
-      // estimated Stripe processing fee so the platform is reimbursed and the vendor's payout
-      // still reflects the policy that vendors absorb card processing fees.
+      // Express accounts require `controller.fees.payer = application` (platform is the
+      // fee payer). We set application_fee_amount to the estimated Stripe processing fee
+      // so that amount stays with the platform and the vendor's transfer is net of card
+      // fees. On refund we keep that application fee (see booking-refund.ts) so vendors
+      // still absorb processing after a customer refund.
       //
       // Docs: https://docs.stripe.com/connect/destination-charges#settlement-merchant
       const paymentIntent = await stripe.paymentIntents.create({

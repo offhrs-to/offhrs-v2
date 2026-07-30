@@ -360,30 +360,25 @@ export async function processBookingRefund(
 
   if (!stripeAlreadyRefunded && row.stripe_payment_intent_id) {
     try {
-      // Destination charges: refunds on the platform pay the customer back; we
-      // reverse_transfer to pull funds from the connected (vendor) account.
+      // Destination charges: refund the customer on the platform, reverse the
+      // transfer so the vendor returns what they received (charge − application fee).
       //
-      // When we charged an application_fee_amount (Express accounts where the
-      // platform recoups Stripe processing), refund_application_fee MUST be true
-      // on a full refund or the connected account lacks balance for reversal
-      // (e.g. $0.80 net vs $1.13 reverse). Stripe still does not return the
-      // original card processing fee to anyone — the vendor absorbs that cost.
+      // Always keep refund_application_fee=false. Express accounts use
+      // fees.payer=application with application_fee_amount ≈ Stripe processing;
+      // that fee is how vendors absorb card fees. Refunding it (true) credited the
+      // fee back to the vendor ("Fee refund on offhrs") and left offhrs covering
+      // Stripe's non-refundable processing cost. Keeping the application fee means
+      // vendors still pay processing after a full customer refund.
       //
-      // Accounts with controller.fees.payer=account have no application fee;
-      // refund_application_fee stays false.
+      // reverse_transfer only pulls the transferred amount (not the full charge),
+      // so the connected account only needs balance for what it originally received.
       // Docs: https://docs.stripe.com/connect/destination-charges#issuing-refunds
       const pi = await stripe.paymentIntents.retrieve(row.stripe_payment_intent_id)
-      let applicationFeeCents = pi.application_fee_amount ?? 0
-      if (!applicationFeeCents) {
-        const parsed = Number.parseInt(pi.metadata?.application_fee_cents ?? '0', 10)
-        applicationFeeCents = Number.isFinite(parsed) ? parsed : 0
-      }
-      const refundApplicationFee = applicationFeeCents > 0
 
       await stripe.refunds.create({
         payment_intent: row.stripe_payment_intent_id,
         reverse_transfer: true,
-        refund_application_fee: refundApplicationFee,
+        refund_application_fee: false,
       })
 
       const connectedAccountId = pi.metadata?.stripe_account_id?.trim() || null
