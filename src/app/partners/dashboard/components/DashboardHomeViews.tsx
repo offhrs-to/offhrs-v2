@@ -330,7 +330,7 @@ export function DashboardHomeViews({
           forcedRange={30}
           hideRangeToggle
           showSpotsRemaining={false}
-          variant="line"
+          variant="bars"
         />
 
         <Card className="gap-0 border-partner-border py-0 shadow-none">
@@ -373,7 +373,7 @@ export function DashboardHomeViews({
           forcedRange={7}
           hideRangeToggle
           showSpotsRemaining={false}
-          variant="line"
+          variant="bars"
         />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

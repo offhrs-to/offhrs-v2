@@ -18,6 +18,7 @@ import Stripe from 'stripe'
 import { z } from 'zod'
 import { workshopBookingBlockReason } from '@/lib/workshop-registration-closed'
 import { effectiveWorkshopPriceCad } from '@/lib/workshop-ticket-price'
+import { eventFieldsForOccurrenceStart } from '@/lib/workshop-series'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { consumeDailyQuota } from '@/lib/daily-quota'
 import { isKillSwitchActive, killSwitchResponse } from '@/lib/kill-switch'
@@ -32,6 +33,7 @@ const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholde
 
 const quoteSchema = z.object({
   event_id: z.union([z.string(), z.number()]),
+  start_time: z.string().optional(),
   customer_address: z
     .object({
       country: z.string().optional(),
@@ -115,7 +117,8 @@ export async function POST(request: NextRequest) {
     const refundPolicy = resolveVendorRefundPolicy(vendor ?? {})
     const { refundWindowHours, policyLine: refundPolicyLine, strictNoRefund } = refundPolicy
 
-    const priceCad = effectiveWorkshopPriceCad(event)
+    const pricing = eventFieldsForOccurrenceStart(event, parsed.data.start_time)
+    const priceCad = effectiveWorkshopPriceCad(pricing)
 
     if (priceCad <= 0) {
       return NextResponse.json({
@@ -145,7 +148,7 @@ export async function POST(request: NextRequest) {
       ? resolveWorkshopCustomerTaxAddress({
           customerAddress: parsed.data.customer_address,
           profilePostalCode: profilePostal,
-          eventLocation: (event.location as string | null) ?? null,
+          eventLocation: (pricing.location as string | null) ?? null,
         })
       : null
 
@@ -186,7 +189,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Canadian address required for tax' }, { status: 422 })
     }
 
-    const cached = getCachedTaxQuote(event.id, customerAddress.postal_code, customerAddress.state)
+    const cached = getCachedTaxQuote(
+      event.id,
+      customerAddress.postal_code,
+      customerAddress.state,
+      priceCad
+    )
     if (cached) {
       return NextResponse.json({
         subtotalCad: cached.subtotalCad,
@@ -207,14 +215,21 @@ export async function POST(request: NextRequest) {
       gstHstRegistered: true,
     })
 
-    setCachedTaxQuote(event.id, customerAddress.postal_code, customerAddress.state, {
-      subtotalCad: tax.subtotalCad,
-      taxCad: tax.taxCad,
-      totalCad: tax.totalCad,
-      refundWindowHours,
-      refundPolicyLine,
-      strictNoRefund,
-    })
+    setCachedTaxQuote(
+      event.id,
+      customerAddress.postal_code,
+      customerAddress.state,
+      {
+        subtotalCad: tax.subtotalCad,
+        taxCad: tax.taxCad,
+        totalCad: tax.totalCad,
+        refundWindowHours,
+        refundPolicyLine,
+        strictNoRefund,
+      },
+      undefined,
+      priceCad
+    )
 
     return NextResponse.json({
       subtotalCad: tax.subtotalCad,

@@ -14,6 +14,13 @@ const patchSchema = z.object({
   start: z.string().optional(),
   max_attendees: z.number().int().min(1).max(500).optional(),
   registration_closed: z.boolean().optional(),
+  title: z.string().max(120).nullable().optional(),
+  duration_minutes: z.number().int().min(15).max(480).nullable().optional(),
+  location: z.string().max(500).nullable().optional(),
+  location_lat: z.number().finite().nullable().optional(),
+  location_lng: z.number().finite().nullable().optional(),
+  price_cad: z.number().min(0).max(10000).nullable().optional(),
+  sale_price_cad: z.number().min(0).max(10000).nullable().optional(),
 })
 
 const deleteSchema = z.object({
@@ -97,10 +104,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (
       !parsed.data.start &&
       parsed.data.max_attendees === undefined &&
-      parsed.data.registration_closed === undefined
+      parsed.data.registration_closed === undefined &&
+      parsed.data.title === undefined &&
+      parsed.data.duration_minutes === undefined &&
+      parsed.data.location === undefined &&
+      parsed.data.location_lat === undefined &&
+      parsed.data.location_lng === undefined &&
+      parsed.data.price_cad === undefined &&
+      parsed.data.sale_price_cad === undefined
     ) {
       return NextResponse.json(
-        { error: 'Provide a new date/time, max spots, and/or registration status.' },
+        { error: 'Provide at least one field to update for this session.' },
         { status: 400 }
       )
     }

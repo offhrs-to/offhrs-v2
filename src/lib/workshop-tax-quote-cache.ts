@@ -51,10 +51,17 @@ const MAX_ENTRIES = 5_000
 
 const cache = new Map<string, CacheEntry>()
 
-function buildKey(eventId: number | string, postalCode: string, state: string): string {
+function buildKey(
+  eventId: number | string,
+  postalCode: string,
+  state: string,
+  priceCad?: number
+): string {
   const normPostal = String(postalCode).trim().toUpperCase().replace(/\s+/g, '')
   const normState = String(state).trim().toUpperCase()
-  return `${String(eventId)}|${normPostal}|${normState}`
+  const pricePart =
+    priceCad != null && Number.isFinite(priceCad) ? `|${Math.round(priceCad * 100)}` : ''
+  return `${String(eventId)}|${normPostal}|${normState}${pricePart}`
 }
 
 function evictIfFull(): void {
@@ -72,9 +79,10 @@ function evictIfFull(): void {
 export function getCachedTaxQuote(
   eventId: number | string,
   postalCode: string,
-  state: string
+  state: string,
+  priceCad?: number
 ): CachedTaxQuote | null {
-  const key = buildKey(eventId, postalCode, state)
+  const key = buildKey(eventId, postalCode, state, priceCad)
   const entry = cache.get(key)
   if (!entry) return null
   if (Date.now() >= entry.expiresAt) {
@@ -89,10 +97,11 @@ export function setCachedTaxQuote(
   postalCode: string,
   state: string,
   value: CachedTaxQuote,
-  ttlMs: number = DEFAULT_TTL_MS
+  ttlMs: number = DEFAULT_TTL_MS,
+  priceCad?: number
 ): void {
   evictIfFull()
-  const key = buildKey(eventId, postalCode, state)
+  const key = buildKey(eventId, postalCode, state, priceCad)
   cache.set(key, { value, expiresAt: Date.now() + ttlMs })
 }
 

@@ -777,6 +777,13 @@ function SessionsPageInner() {
                                     sessionId: session.id,
                                     sessionTitle: session.title,
                                     occurrence: occ,
+                                    parent: {
+                                      title: session.title,
+                                      duration_minutes: session.duration_minutes,
+                                      location: session.location,
+                                      price_cad: session.price_cad,
+                                      sale_price_cad: session.sale_price_cad ?? null,
+                                    },
                                   })
                                 }
                                 title="Edit this session"

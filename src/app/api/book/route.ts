@@ -17,6 +17,7 @@ import {
 import { estimateCanadianStripeFee } from '@/lib/stripe-charge-fees'
 import { workshopBookingBlockReason } from '@/lib/workshop-registration-closed'
 import { effectiveWorkshopPriceCad } from '@/lib/workshop-ticket-price'
+import { eventFieldsForOccurrenceStart } from '@/lib/workshop-series'
 
 const BOOK_RATE_LIMIT = 15 // per minute per IP
 const BOOK_DAILY_LIMIT = 100 // per day per IP(+user)
@@ -133,7 +134,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Vendor payout account not set up yet' }, { status: 422 })
       }
 
-      const priceCad = effectiveWorkshopPriceCad(event)
+      const pricing = eventFieldsForOccurrenceStart(event, start_time)
+      const priceCad = effectiveWorkshopPriceCad(pricing)
 
       // Free sessions — no payment needed
       if (priceCad === 0) {
@@ -176,7 +178,7 @@ export async function POST(request: NextRequest) {
         ? resolveWorkshopCustomerTaxAddress({
             customerAddress: customer_address,
             profilePostalCode: profilePostal,
-            eventLocation: (event.location as string | null) ?? null,
+            eventLocation: (pricing.location as string | null) ?? null,
           })
         : null
 

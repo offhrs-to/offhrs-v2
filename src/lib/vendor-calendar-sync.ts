@@ -14,7 +14,7 @@ import {
   microsoftCalendarDeleteEvent,
 } from '@/lib/microsoft-calendar-api'
 
-import { parseSeriesOccurrences, type SeriesOccurrence } from '@/lib/workshop-series'
+import { parseSeriesOccurrences, resolveOccurrenceListingFields, type SeriesOccurrence } from '@/lib/workshop-series'
 import { workshopHasActiveSale } from '@/lib/workshop-ticket-price'
 import { stripWorkshopRichTextPlain } from '@/lib/workshop-rich-text'
 
@@ -70,11 +70,22 @@ function spotsFilledCalendarLine(
  * Plain-text notes for Google / Outlook. One field per line so mobile calendar
  * apps don't collapse the block into a single run-on sentence.
  */
-function buildDescriptionForOccurrence(row: RichEvent, series: SeriesOccurrence[], occIndex: number): string {
+function buildDescriptionForOccurrence(
+  row: RichEvent,
+  series: SeriesOccurrence[],
+  occIndex: number,
+  resolved: {
+    location?: string | null
+    price_cad?: number | null
+    sale_price_cad?: number | null
+    sale_starts_on?: string | null
+    sale_ends_on?: string | null
+  }
+): string {
   const lines: string[] = []
 
-  if (row.location?.trim()) {
-    lines.push(`Location: ${row.location.trim()}`)
+  if (resolved.location?.trim()) {
+    lines.push(`Location: ${resolved.location.trim()}`)
   }
 
   if (series.length > 1 && series[occIndex]) {
@@ -89,11 +100,17 @@ function buildDescriptionForOccurrence(row: RichEvent, series: SeriesOccurrence[
     if (spots) lines.push(spots)
   }
 
-  if (row.price_cad != null) {
-    const list = Number(row.price_cad)
-    if (workshopHasActiveSale(row) && row.sale_price_cad != null) {
+  if (resolved.price_cad != null) {
+    const list = Number(resolved.price_cad)
+    const priceFields = {
+      price_cad: resolved.price_cad,
+      sale_price_cad: resolved.sale_price_cad,
+      sale_starts_on: resolved.sale_starts_on,
+      sale_ends_on: resolved.sale_ends_on,
+    }
+    if (workshopHasActiveSale(priceFields) && resolved.sale_price_cad != null) {
       lines.push(
-        `Price: $${formatCadLine(Number(row.sale_price_cad))} CAD (was $${formatCadLine(list)} CAD)`
+        `Price: $${formatCadLine(Number(resolved.sale_price_cad))} CAD (was $${formatCadLine(list)} CAD)`
       )
     } else if (list === 0) {
       lines.push('Price: Free')
@@ -170,8 +187,8 @@ export async function syncVendorSessionToExternalCalendars(
     const series = parseSeriesOccurrences(event)
     const starts = getStartIsoList(event)
     const want = shouldHaveExternalEvent(event)
-    const duration = (event.duration_minutes ?? 60) as number
-    const summary = event.title
+    const parentDuration = (event.duration_minutes ?? 60) as number
+    const parentSummary = event.title
 
     const prevGoogleSeries = parseIdArray(event.series_google_calendar_event_ids)
     const prevMsSeries = parseIdArray(event.series_microsoft_outlook_event_ids)
@@ -185,6 +202,22 @@ export async function syncVendorSessionToExternalCalendars(
       .eq('vendor_id', vendorId)
 
     const isMulti = series.length > 1
+
+    function occurrenceCalendarFields(i: number) {
+      const occ = series.length > 0 ? series[Math.min(i, series.length - 1)] : null
+      const resolved = resolveOccurrenceListingFields(event, occ)
+      return {
+        summary: (resolved.title?.trim() || parentSummary) as string,
+        duration: (resolved.duration_minutes ?? parentDuration) as number,
+        location: resolved.location?.trim() || null,
+        description: buildDescriptionForOccurrence(
+          event,
+          series,
+          series.length > 1 ? i : 0,
+          resolved
+        ),
+      }
+    }
 
     for (const c of connections ?? []) {
       const provider = c.provider as 'google' | 'microsoft'
@@ -224,9 +257,8 @@ export async function syncVendorSessionToExternalCalendars(
             for (let i = 0; i < starts.length; i++) {
               const start = new Date(starts[i])
               const startIso = start.toISOString()
+              const { summary, duration, location, description } = occurrenceCalendarFields(i)
               const endIso = endIsoFromStart(start, duration)
-              const description = buildDescriptionForOccurrence(event, series, series.length > 1 ? i : 0)
-              const location = event.location?.trim() || null
               const prevId = prevByIndex[i] ?? null
               let newId: string
               if (prevId) {
@@ -296,9 +328,8 @@ export async function syncVendorSessionToExternalCalendars(
             for (let i = 0; i < starts.length; i++) {
               const start = new Date(starts[i])
               const startIso = start.toISOString()
+              const { summary, duration, location, description } = occurrenceCalendarFields(i)
               const endIso = endIsoFromStart(start, duration)
-              const body = buildDescriptionForOccurrence(event, series, series.length > 1 ? i : 0)
-              const location = event.location?.trim() || null
               const prevId = prevByIndex[i] ?? null
               let newId: string
               if (prevId) {
@@ -306,7 +337,7 @@ export async function syncVendorSessionToExternalCalendars(
                   accessToken: access_token,
                   eventId: prevId,
                   subject: summary,
-                  body,
+                  body: description,
                   location,
                   startIso,
                   endIso,
@@ -317,7 +348,7 @@ export async function syncVendorSessionToExternalCalendars(
                 const created = await microsoftCalendarInsertEvent({
                   accessToken: access_token,
                   subject: summary,
-                  body,
+                  body: description,
                   location,
                   startIso,
                   endIso,

@@ -12,7 +12,7 @@ import {
   deliverBookingConfirmationEmails,
   retryBookingConfirmationEmailsIfNeeded,
 } from '@/lib/booking-confirm-emails'
-import { computeSlotDecrementForEvent } from '@/lib/workshop-series'
+import { computeSlotDecrementForEvent, eventFieldsForOccurrenceStart } from '@/lib/workshop-series'
 import { scheduleVendorSessionCalendarSync } from '@/lib/vendor-calendar-sync'
 import { commitWorkshopTaxTransaction } from '@/lib/stripe-workshop-tax'
 import { estimateCanadianStripeFee, fetchRealChargeFee } from '@/lib/stripe-charge-fees'
@@ -367,7 +367,7 @@ async function handleFreeConfirm(
     return NextResponse.json({ error: 'Event not found' }, { status: 404 })
   }
 
-  if (effectiveWorkshopPriceCad(event) > 0) {
+  if (effectiveWorkshopPriceCad(eventFieldsForOccurrenceStart(event, startTime)) > 0) {
     return NextResponse.json({ error: 'This session requires payment' }, { status: 409 })
   }
 

@@ -9,6 +9,7 @@ import {
   getSeriesMode,
   isMultiWeekEvent,
   parseSeriesOccurrences,
+  resolveOccurrenceListingFields,
   type EventSeriesFields,
 } from '@/lib/workshop-series';
 import { compareWorkshopEventsByStart, workshopEventTorontoYmd } from '@/lib/workshop-event-sort';
@@ -214,11 +215,22 @@ export function expandWorkshopEventsForConsumers(rows: WorkshopEventRow[]): Work
       if (!Number.isFinite(startMs) || startMs < nowMs) continue;
       if (row.registration_closed || o.registration_closed) continue;
       if (o.available_slots <= 0) continue;
+      const resolved = resolveOccurrenceListingFields(row, o);
       out.push({
         ...row,
+        title: (resolved.title as string) ?? row.title,
         date_iso: o.start,
         date: formatDateToronto(o.start),
         available_slots: o.available_slots,
+        max_attendees: o.max_attendees,
+        duration_minutes: (resolved.duration_minutes as number | null) ?? row.duration_minutes,
+        location: (resolved.location as string) ?? row.location,
+        lat: (resolved.lat as number | null) ?? row.lat,
+        lng: (resolved.lng as number | null) ?? row.lng,
+        price_cad: (resolved.price_cad as number | null) ?? row.price_cad,
+        sale_price_cad: (resolved.sale_price_cad as number | null) ?? null,
+        sale_starts_on: (resolved.sale_starts_on as string | null) ?? null,
+        sale_ends_on: (resolved.sale_ends_on as string | null) ?? null,
         registration_closed: false,
         workshop_series: 'multi_week',
       });

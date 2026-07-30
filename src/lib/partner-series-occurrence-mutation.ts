@@ -28,6 +28,21 @@ export type OccurrencePatchInput = {
   start?: string
   max_attendees?: number
   registration_closed?: boolean
+  /** null clears the override (inherit parent workshop). */
+  title?: string | null
+  duration_minutes?: number | null
+  location?: string | null
+  location_lat?: number | null
+  location_lng?: number | null
+  price_cad?: number | null
+  sale_price_cad?: number | null
+}
+
+function clearOverride(occ: SeriesOccurrence, key: keyof SeriesOccurrence): SeriesOccurrence {
+  if (!(key in occ)) return occ
+  const next = { ...occ }
+  delete next[key]
+  return next
 }
 
 function parseIdArray(v: unknown): (string | null)[] {
@@ -159,6 +174,111 @@ export function patchRepeatingDaysOccurrence(
 
   if (input.registration_closed !== undefined) {
     series[idx] = { ...series[idx], registration_closed: input.registration_closed }
+  }
+
+  if (input.title !== undefined) {
+    if (input.title === null || !input.title.trim()) {
+      series[idx] = clearOverride(series[idx], 'title')
+    } else {
+      series[idx] = { ...series[idx], title: input.title.trim().slice(0, 120) }
+    }
+  }
+
+  if (input.duration_minutes !== undefined) {
+    if (input.duration_minutes === null) {
+      series[idx] = clearOverride(series[idx], 'duration_minutes')
+    } else {
+      const d = input.duration_minutes
+      if (!Number.isFinite(d) || d < 15 || d > 480) {
+        return { ok: false, error: 'Duration must be between 15 and 480 minutes.' }
+      }
+      series[idx] = { ...series[idx], duration_minutes: Math.floor(d) }
+    }
+  }
+
+  if (input.location !== undefined) {
+    if (input.location === null || !input.location.trim()) {
+      let next = clearOverride(series[idx], 'location')
+      next = clearOverride(next, 'lat')
+      next = clearOverride(next, 'lng')
+      series[idx] = next
+    } else {
+      const next: SeriesOccurrence = {
+        ...series[idx],
+        location: input.location.trim().slice(0, 500),
+      }
+      if (
+        input.location_lat != null &&
+        input.location_lng != null &&
+        Number.isFinite(input.location_lat) &&
+        Number.isFinite(input.location_lng)
+      ) {
+        next.lat = input.location_lat
+        next.lng = input.location_lng
+      } else {
+        delete next.lat
+        delete next.lng
+      }
+      series[idx] = next
+    }
+  } else if (input.location_lat !== undefined || input.location_lng !== undefined) {
+    if (input.location_lat === null || input.location_lng === null) {
+      let next = clearOverride(series[idx], 'lat')
+      next = clearOverride(next, 'lng')
+      series[idx] = next
+    } else if (
+      input.location_lat != null &&
+      input.location_lng != null &&
+      Number.isFinite(input.location_lat) &&
+      Number.isFinite(input.location_lng)
+    ) {
+      series[idx] = {
+        ...series[idx],
+        lat: input.location_lat,
+        lng: input.location_lng,
+      }
+    }
+  }
+
+  if (input.price_cad !== undefined) {
+    if (input.price_cad === null) {
+      let next = clearOverride(series[idx], 'price_cad')
+      next = clearOverride(next, 'sale_price_cad')
+      series[idx] = next
+    } else {
+      const price = Math.round(Number(input.price_cad) * 100) / 100
+      if (!Number.isFinite(price) || price < 0 || price > 10000) {
+        return { ok: false, error: 'Price must be between $0 and $10,000.' }
+      }
+      let sale: number | null = null
+      if (input.sale_price_cad !== undefined && input.sale_price_cad !== null) {
+        sale = Math.round(Number(input.sale_price_cad) * 100) / 100
+        if (!Number.isFinite(sale) || sale < 0) {
+          return { ok: false, error: 'Invalid sale price.' }
+        }
+        if (!(sale < price)) {
+          return {
+            ok: false,
+            error: `Sale price must be strictly below the session price ($${price.toFixed(2)}).`,
+          }
+        }
+      }
+      series[idx] = { ...series[idx], price_cad: price, sale_price_cad: sale }
+    }
+  } else if (input.sale_price_cad !== undefined && series[idx].price_cad != null) {
+    if (input.sale_price_cad === null) {
+      series[idx] = { ...series[idx], sale_price_cad: null }
+    } else {
+      const price = series[idx].price_cad!
+      const sale = Math.round(Number(input.sale_price_cad) * 100) / 100
+      if (!Number.isFinite(sale) || sale < 0 || !(sale < price)) {
+        return {
+          ok: false,
+          error: `Sale price must be strictly below the session price ($${price.toFixed(2)}).`,
+        }
+      }
+      series[idx] = { ...series[idx], sale_price_cad: sale }
+    }
   }
 
   const bookingSessionMigrations: Array<{ from: string; to: string }> = []

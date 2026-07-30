@@ -70,6 +70,7 @@ export async function fetchWorkshopTaxQuote(params: {
   accessToken: string;
   postalCode: string | null | undefined;
   eventLocation?: string | null;
+  startTimeIso?: string | null;
 }): Promise<WorkshopTaxQuote | { error: string }> {
   const resolved = resolvePostalForTaxQuote(params.postalCode, params.eventLocation);
   if ('error' in resolved) return { error: resolved.error };
@@ -81,6 +82,7 @@ export async function fetchWorkshopTaxQuote(params: {
     headers,
     body: JSON.stringify({
       event_id: params.eventId,
+      ...(params.startTimeIso?.trim() ? { start_time: params.startTimeIso.trim() } : {}),
       customer_address: { country: 'CA', postal_code: normalized, state },
     }),
   });
