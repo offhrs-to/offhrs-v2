@@ -23,6 +23,7 @@ import { OccurrenceEditModal, type OccurrenceEditTarget } from './OccurrenceEdit
 import { formatSeriesDateRangeLabel, parseSeriesOccurrences, type EventSeriesFields } from '@/lib/workshop-series'
 import { spotsFilledLabel } from '@/lib/workshop-spots-label'
 import { workshopHasActiveSale, formatCadMoney } from '@/lib/workshop-ticket-price'
+import { WORKSHOP_TIMEZONE } from '@/lib/workshop-timezone'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -79,6 +80,20 @@ const BULK_ACTION_LABEL: Record<BulkAction, string> = {
   publish: 'Publish',
   draft: 'Move to draft',
   archive: 'Archive',
+}
+
+/** Single-session date + time for the workshop list (America/Toronto). */
+function formatWorkshopListDateTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString('en-CA', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: WORKSHOP_TIMEZONE,
+  })
 }
 
 function SessionsPageInner() {
@@ -623,11 +638,7 @@ function SessionsPageInner() {
                           <CalendarDays className="w-3 h-3" />
                           {isMulti && series.length > 0
                             ? formatSeriesDateRangeLabel(series)
-                            : new Date(session.date).toLocaleDateString('en-CA', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                              })}
+                            : formatWorkshopListDateTime(session.date)}
                         </span>
                       )}
                     </div>
