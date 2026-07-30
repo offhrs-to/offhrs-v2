@@ -87,6 +87,11 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
   // Billing portal
   const [portalLoading, setPortalLoading] = useState(false)
 
+  // Promo code (apply to existing subscription without changing plan)
+  const [promoCode, setPromoCode] = useState('')
+  const [promoLoading, setPromoLoading] = useState(false)
+  const [promoMsg, setPromoMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
   // Account deletion
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteMsg, setDeleteMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -228,6 +233,38 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
       else alert(data.error ?? 'Could not open billing portal.')
     } finally {
       setPortalLoading(false)
+    }
+  }
+
+  async function applyPromoCode(e: React.FormEvent) {
+    e.preventDefault()
+    const code = promoCode.trim()
+    if (!code) {
+      setPromoMsg({ type: 'error', text: 'Enter a promotion code.' })
+      return
+    }
+    setPromoLoading(true)
+    setPromoMsg(null)
+    try {
+      const res = await fetch('/api/partners/apply-promo-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string }
+      if (!res.ok) {
+        setPromoMsg({ type: 'error', text: data.error ?? 'Could not apply this code.' })
+        return
+      }
+      setPromoMsg({
+        type: 'success',
+        text: data.message ?? 'Promotion code applied. Your plan is unchanged.',
+      })
+      setPromoCode('')
+    } catch {
+      setPromoMsg({ type: 'error', text: 'Network error. Please try again.' })
+    } finally {
+      setPromoLoading(false)
     }
   }
 
@@ -540,6 +577,46 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
             {portalLoading ? 'Opening…' : 'Manage billing'}
           </Button>
         </div>
+
+        {!subscriptionEnded ? (
+          <form onSubmit={applyPromoCode} className="space-y-3 border-t border-partner-border pt-4">
+            <p className="text-xs font-semibold text-foreground">Have a promo code?</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Apply a Stripe promotion code to your current plan (no plan change required). For a
+              “second month free” offer, apply it during your trial so the first paid invoice is $0.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Input
+                type="text"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                placeholder="Enter promotion code"
+                autoComplete="off"
+                className="h-10 border-partner-border bg-white shadow-none sm:max-w-xs"
+              />
+              <Button
+                type="submit"
+                variant="outline"
+                disabled={promoLoading || !promoCode.trim()}
+                className="border-partner-border"
+              >
+                {promoLoading && <Loader2 className="size-4 animate-spin" />}
+                {promoLoading ? 'Applying…' : 'Apply code'}
+              </Button>
+            </div>
+            {promoMsg ? (
+              <p
+                className={`text-sm px-4 py-3 rounded-xl ${
+                  promoMsg.type === 'success'
+                    ? 'bg-green-50 border border-green-200 text-green-700'
+                    : 'bg-red-50 border border-red-200 text-red-600'
+                }`}
+              >
+                {promoMsg.text}
+              </p>
+            ) : null}
+          </form>
+        ) : null}
       </CardContent>
       </Card>
 
