@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizePartnerSessionCategory } from '@/constants/categories'
 import { decrypt, encrypt } from '@/lib/token-encryption'
-import { parseWorkshopDateTimeInput } from '@/lib/workshop-timezone'
 import {
   shopifyAdminGraphql,
   shopifyAdminRest,
@@ -16,6 +15,7 @@ import {
   OFFHRS_METAFIELD_STARTS_AT,
   OFFHRS_WORKSHOP_TAG,
 } from './conventions'
+import { resolveShopifySessionStart } from './parse-session-start'
 
 type Admin = SupabaseClient
 
@@ -27,6 +27,7 @@ type VariantNode = {
   price: string
   inventoryQuantity: number | null
   inventoryItem: { id: string } | null
+  selectedOptions: Array<{ name: string; value: string }>
   metafields: { edges: Array<{ node: MetafieldNode }> }
 }
 
@@ -48,18 +49,6 @@ function metafieldMap(edges: Array<{ node: MetafieldNode }> | undefined): Record
     if (e.node?.key) out[e.node.key] = e.node.value
   }
   return out
-}
-
-/** Parse offhrs.starts_at into ISO UTC string, or null. */
-export function parseOffhrsStartsAt(raw: string | null | undefined): string | null {
-  if (!raw?.trim()) return null
-  const s = raw.trim()
-  // Prefer Toronto wall-time parser for naive datetimes (matches partner sessions).
-  const fromWorkshop = parseWorkshopDateTimeInput(s.replace(' ', 'T'))
-  if (fromWorkshop) return fromWorkshop.toISOString()
-  const asDate = new Date(s)
-  if (!Number.isNaN(asDate.getTime())) return asDate.toISOString()
-  return null
 }
 
 function formatPriceCad(amount: number): string {
@@ -150,6 +139,7 @@ const PRODUCTS_QUERY = `
                 price
                 inventoryQuantity
                 inventoryItem { id }
+                selectedOptions { name value }
                 metafields(namespace: "${OFFHRS_METAFIELD_NAMESPACE}", first: 20) {
                   edges { node { key value } }
                 }
@@ -183,6 +173,7 @@ const PRODUCT_BY_ID_QUERY = `
             price
             inventoryQuantity
             inventoryItem { id }
+            selectedOptions { name value }
             metafields(namespace: "${OFFHRS_METAFIELD_NAMESPACE}", first: 20) {
               edges { node { key value } }
             }
@@ -213,10 +204,15 @@ async function upsertVariantEvent(
 ): Promise<'upserted' | 'skipped'> {
   const productMeta = metafieldMap(opts.product.metafields?.edges)
   const variantMeta = metafieldMap(opts.variant.metafields?.edges)
-  const startsRaw =
-    variantMeta[OFFHRS_METAFIELD_STARTS_AT] ?? productMeta[OFFHRS_METAFIELD_STARTS_AT]
-  const startsAt = parseOffhrsStartsAt(startsRaw)
-  if (!startsAt) return 'skipped'
+  const startResolved = resolveShopifySessionStart({
+    metafieldStartsAt:
+      variantMeta[OFFHRS_METAFIELD_STARTS_AT] ?? productMeta[OFFHRS_METAFIELD_STARTS_AT] ?? null,
+    selectedOptions: opts.variant.selectedOptions ?? [],
+    variantTitle: opts.variant.title,
+    productTitle: opts.product.title,
+  })
+  if (!startResolved.startsAt) return 'skipped'
+  const startsAt = startResolved.startsAt
 
   const productId = shopifyGidToNumericId(opts.product.id)
   const variantId = shopifyGidToNumericId(opts.variant.id)
@@ -255,10 +251,19 @@ async function upsertVariantEvent(
   const bookingStatus =
     !productActive || inventoryQty <= 0 ? 'fully_booked' : 'published'
 
-  const title =
-    opts.product.variants.edges.length > 1 && opts.variant.title && opts.variant.title !== 'Default Title'
-      ? `${opts.product.title} — ${opts.variant.title}`
-      : opts.product.title
+  let title = opts.product.title
+  if (
+    (startResolved.source === 'option' || startResolved.source === 'variant_title') &&
+    startResolved.matchedRaw
+  ) {
+    title = `${opts.product.title} — ${startResolved.matchedRaw}`
+  } else if (
+    opts.product.variants.edges.length > 1 &&
+    opts.variant.title &&
+    opts.variant.title !== 'Default Title'
+  ) {
+    title = `${opts.product.title} — ${opts.variant.title}`
+  }
 
   const row = {
     listing_source: 'shopify',
@@ -291,6 +296,9 @@ async function upsertVariantEvent(
       source: 'shopify',
       shop_domain: opts.shopDomain,
       product_handle: opts.product.handle,
+      start_source: startResolved.source,
+      start_raw: startResolved.matchedRaw ?? null,
+      start_option_name: startResolved.matchedOptionName ?? null,
     },
   }
 

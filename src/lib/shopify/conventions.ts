@@ -1,16 +1,19 @@
 /**
- * Vendor tagging conventions for the Shopify → offhrs workshop feed.
+ * Vendor conventions for the Shopify → offhrs workshop feed.
  *
- * Product must include tag OFFHRS_WORKSHOP_TAG.
- * Session start: metafield namespace OFFHRS_METAFIELD_NAMESPACE, key starts_at
- *   (ISO 8601 or America/Toronto local datetime). Prefer variant-level; fall back to product.
- * Optional metafields (same namespace):
- *   book_url          — override storefront URL
- *   capacity          — max seats (else inventory quantity)
- *   duration_minutes  — integer
- *   category          — offhrs category label (else "Other")
- * Inventory quantity on the variant = remaining seats (available_slots).
- * One variant per session date when a product has multiple dates.
+ * Required:
+ * - Product tag: OFFHRS_WORKSHOP_TAG (`offhrs_workshop`)
+ *
+ * Session start (resolved automatically when possible):
+ * 1. Optional metafield offhrs.starts_at (override)
+ * 2. Variant selectedOptions — e.g. option name "Date" with value
+ *    "August 21, 2026 12:00 PM" (Orris-style time-slot variants)
+ * 3. Variant title / product title if they contain a parseable datetime
+ * Naive times are interpreted as America/Toronto.
+ *
+ * Optional metafields (namespace offhrs): book_url, capacity, duration_minutes, category
+ * Inventory on the variant = remaining seats (available_slots).
+ * One Shopify variant ≈ one offhrs session row.
  */
 
 export const OFFHRS_WORKSHOP_TAG = 'offhrs_workshop'
