@@ -2,20 +2,26 @@ import { createHmac, timingSafeEqual } from 'crypto'
 
 function secret(): string {
   const s = process.env.OAUTH_STATE_SECRET ?? process.env.CRON_SECRET ?? process.env.TOKEN_ENCRYPTION_KEY
-  if (!s) throw new Error('Set OAUTH_STATE_SECRET (or CRON_SECRET) for calendar OAuth state signing')
+  if (!s) throw new Error('Set OAUTH_STATE_SECRET (or CRON_SECRET) for OAuth state signing')
   return s
 }
 
 export type CalendarOAuthProvider = 'google' | 'microsoft'
+export type OAuthProvider = CalendarOAuthProvider | 'shopify'
 
 export interface OAuthStatePayload {
   vendorId: string
-  provider: CalendarOAuthProvider
+  provider: OAuthProvider
+  /** Required when provider is shopify (myshopify.com domain). */
+  shop?: string
   exp: number
 }
 
 /** Compact signed state for OAuth `state` param (HMAC-SHA256). */
 export function signOAuthState(payload: OAuthStatePayload): string {
+  if (payload.provider === 'shopify' && !payload.shop) {
+    throw new Error('Shopify OAuth state requires shop')
+  }
   const body = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url')
   const sig = createHmac('sha256', secret()).update(body).digest('base64url')
   return `${body}.${sig}`
@@ -34,8 +40,14 @@ export function verifyOAuthState(state: string): OAuthStatePayload | null {
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as OAuthStatePayload
     if (!payload.vendorId || !payload.provider || typeof payload.exp !== 'number') return null
     if (Date.now() > payload.exp) return null
-    if (payload.provider !== 'google' && payload.provider !== 'microsoft') return null
-    return payload
+    if (payload.provider === 'google' || payload.provider === 'microsoft') {
+      return payload
+    }
+    if (payload.provider === 'shopify') {
+      if (!payload.shop || typeof payload.shop !== 'string') return null
+      return payload
+    }
+    return null
   } catch {
     return null
   }
