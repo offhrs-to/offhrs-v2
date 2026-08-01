@@ -93,12 +93,24 @@ export async function POST(request: NextRequest) {
 
     const { data: event } = await admin
       .from('events')
-      .select('id, vendor_profile_id, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, booking_status, registration_closed, available_slots, location, workshop_series, series_occurrences, partner_series_meta')
+      .select(
+        'id, vendor_profile_id, listing_source, shopify_product_id, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, booking_status, registration_closed, available_slots, location, workshop_series, series_occurrences, partner_series_meta'
+      )
       .eq('id', String(parsed.data.event_id))
       .single()
 
     if (!event?.vendor_profile_id) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+    }
+
+    if (
+      event.listing_source === 'shopify' ||
+      (event.shopify_product_id != null && String(event.shopify_product_id).length > 0)
+    ) {
+      return NextResponse.json(
+        { error: 'This workshop is booked on Shopify, not in-app.' },
+        { status: 422 }
+      )
     }
 
     const bookingBlock = workshopBookingBlockReason(event)

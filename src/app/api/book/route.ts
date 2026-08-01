@@ -97,13 +97,21 @@ export async function POST(request: NextRequest) {
       const { data: event } = await admin
         .from('events')
         .select(
-          'id, title, vendor_profile_id, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, available_slots, duration_minutes, location, booking_status, registration_closed, date, workshop_series, series_occurrences, partner_series_meta'
+          'id, title, vendor_profile_id, listing_source, shopify_product_id, external_link, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, available_slots, duration_minutes, location, booking_status, registration_closed, date, workshop_series, series_occurrences, partner_series_meta'
         )
         .eq('id', String(event_id))
         .single()
 
       if (!event) {
         return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+      }
+
+      // Shopify-mirrored listings book on the vendor storefront, not Stripe.
+      if (
+        event.listing_source === 'shopify' ||
+        (event.shopify_product_id != null && String(event.shopify_product_id).length > 0)
+      ) {
+        return handleLegacyBook(raw, user)
       }
 
       // Check if it's a SaaS vendor event

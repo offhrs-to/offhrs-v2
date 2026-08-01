@@ -37,8 +37,11 @@ export type WorkshopEventRow = {
   vendor_name: string | null;
   /** Raw organizer column (partner business name). */
   organizer: string | null;
-  /** When set, workshop is bookable in-app via Stripe (SaaS). */
+  /** When set, workshop is bookable in-app via Stripe (SaaS), unless Shopify-sourced. */
   vendor_profile_id: string | null;
+  /** `shopify` = mirrored from Shopify; book via external_link. */
+  listing_source?: string | null;
+  shopify_product_id?: string | null;
   recurrence: string | null;
   category: string | null;
   description: string | null;
@@ -109,6 +112,8 @@ export type WorkshopEventDbRow = {
   vendor_id: string | null;
   organizer: string | null;
   vendor_profile_id: string | null;
+  listing_source?: string | null;
+  shopify_product_id?: string | null;
   recurrence: string | null;
   description: string | null;
   workshop_experience?: string | null;
@@ -147,6 +152,8 @@ export function mapDbRowToWorkshopEvent(row: WorkshopEventDbRow): WorkshopEventR
     vendor_name: row.organizer?.trim() || null,
     organizer: row.organizer?.trim() || null,
     vendor_profile_id: row.vendor_profile_id ?? null,
+    listing_source: row.listing_source ?? null,
+    shopify_product_id: row.shopify_product_id ?? null,
     recurrence: row.recurrence ?? null,
     category: row.category ?? null,
     description: row.description ?? null,
@@ -306,14 +313,14 @@ export type FetchWorkshopEventsOptions = {
 };
 
 export const WORKSHOP_EVENT_LIST_SELECT =
-  'id, title, date, location, image_url, price, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, external_link, category, lat, lng, vendor_id, vendor_profile_id, organizer, recurrence, description, workshop_experience, workshop_experience_hidden, workshop_materials_takeaway, workshop_materials_takeaway_hidden, workshop_skill_level, workshop_skill_level_hidden, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, partner_series_meta, max_attendees';
+  'id, title, date, location, image_url, price, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, external_link, category, lat, lng, vendor_id, vendor_profile_id, listing_source, shopify_product_id, organizer, recurrence, description, workshop_experience, workshop_experience_hidden, workshop_materials_takeaway, workshop_materials_takeaway_hidden, workshop_skill_level, workshop_skill_level_hidden, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, partner_series_meta, max_attendees';
 
 /**
  * List/browse select — omits long description blobs (hydrated when opening quick view).
  * Keeps `series_occurrences` so multi-week expand still works.
  */
 export const WORKSHOP_EVENT_BROWSE_SELECT =
-  'id, title, date, location, image_url, price, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, external_link, category, lat, lng, vendor_id, vendor_profile_id, organizer, recurrence, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, max_attendees';
+  'id, title, date, location, image_url, price, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, external_link, category, lat, lng, vendor_id, vendor_profile_id, listing_source, shopify_product_id, organizer, recurrence, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, max_attendees';
 
 /** Same payload as list/quick-view so vendor-profile cards open with full details. */
 export const VENDOR_PROFILE_EVENT_SELECT = WORKSHOP_EVENT_LIST_SELECT;

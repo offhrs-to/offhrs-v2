@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
@@ -105,10 +106,16 @@ export default async function SettingsPage() {
   }
 
   return (
-    <SettingsClient
-      vendor={vendor}
-      email={user.email ?? ''}
-      subscription={subscriptionState}
-    />
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-2xl p-6 text-sm text-muted-foreground">Loading settings…</div>
+      }
+    >
+      <SettingsClient
+        vendor={vendor}
+        email={user.email ?? ''}
+        subscription={subscriptionState}
+      />
+    </Suspense>
   )
 }

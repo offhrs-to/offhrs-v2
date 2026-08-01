@@ -1,15 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { formatGstHstRegistrationNumberForDisplay } from '@/lib/vendor-gst-hst'
 import { createBrowserClient } from '@supabase/ssr'
-import { useRouter } from 'next/navigation'
-import { Loader2, AlertTriangle, CalendarX } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ExternalLink, Loader2, AlertTriangle, CalendarX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+
+type ShopifyStatus =
+  | { connected: false }
+  | {
+      connected: true
+      shop_domain: string
+      scope: string | null
+      sync_enabled: boolean
+      last_synced_at: string | null
+      installed_at: string | null
+      synced_session_count: number
+    }
 
 interface Vendor {
   id: string
@@ -53,6 +65,7 @@ function formatLongDate(iso: string | null): string | null {
 
 export function SettingsClient({ vendor, email, subscription }: SettingsClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   // Profile form
   const [profile, setProfile] = useState({
@@ -92,9 +105,109 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
   const [promoLoading, setPromoLoading] = useState(false)
   const [promoMsg, setPromoMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // Shopify workshop feed
+  const [shopifyStatus, setShopifyStatus] = useState<ShopifyStatus | null>(null)
+  const [shopifyShopInput, setShopifyShopInput] = useState('')
+  const [shopifySyncLoading, setShopifySyncLoading] = useState(false)
+  const [shopifyDisconnectLoading, setShopifyDisconnectLoading] = useState(false)
+  const [shopifyMsg, setShopifyMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
   // Account deletion
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteMsg, setDeleteMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const loadShopifyStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/partners/shopify/status')
+      if (!res.ok) {
+        setShopifyStatus(null)
+        return
+      }
+      setShopifyStatus((await res.json()) as ShopifyStatus)
+    } catch {
+      setShopifyStatus(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadShopifyStatus()
+  }, [loadShopifyStatus])
+
+  useEffect(() => {
+    const connected = searchParams.get('shopify_connected')
+    const err = searchParams.get('shopify_error')
+    if (!connected && !err) return
+    if (err) {
+      setShopifyMsg({ type: 'error', text: `Shopify: ${decodeURIComponent(err)}` })
+    } else {
+      setShopifyMsg({
+        type: 'success',
+        text: 'Shopify connected. Tagged workshop products will sync into the offhrs app.',
+      })
+    }
+    void loadShopifyStatus()
+    router.replace('/partners/dashboard/settings', { scroll: false })
+  }, [searchParams, router, loadShopifyStatus])
+
+  function connectShopify() {
+    const shop = shopifyShopInput.trim()
+    if (!shop) {
+      setShopifyMsg({ type: 'error', text: 'Enter your store domain (e.g. your-store.myshopify.com).' })
+      return
+    }
+    window.location.href = `/api/partners/shopify/install?shop=${encodeURIComponent(shop)}`
+  }
+
+  async function syncShopify() {
+    setShopifySyncLoading(true)
+    setShopifyMsg(null)
+    try {
+      const res = await fetch('/api/partners/shopify/sync', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setShopifyMsg({ type: 'error', text: data.error ?? 'Sync failed.' })
+        return
+      }
+      setShopifyMsg({
+        type: 'success',
+        text: `Synced ${data.upserted ?? 0} session(s) from ${data.products ?? 0} product(s)${
+          data.skipped ? ` (${data.skipped} skipped)` : ''
+        }.`,
+      })
+      await loadShopifyStatus()
+    } catch {
+      setShopifyMsg({ type: 'error', text: 'Sync failed.' })
+    } finally {
+      setShopifySyncLoading(false)
+    }
+  }
+
+  async function disconnectShopify() {
+    if (
+      !confirm(
+        'Disconnect Shopify? Synced workshop listings will be archived in the offhrs app. You can reconnect later.'
+      )
+    ) {
+      return
+    }
+    setShopifyDisconnectLoading(true)
+    setShopifyMsg(null)
+    try {
+      const res = await fetch('/api/partners/shopify/disconnect', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setShopifyMsg({ type: 'error', text: data.error ?? 'Disconnect failed.' })
+        return
+      }
+      setShopifyMsg({ type: 'success', text: 'Shopify disconnected.' })
+      setShopifyShopInput('')
+      await loadShopifyStatus()
+    } catch {
+      setShopifyMsg({ type: 'error', text: 'Disconnect failed.' })
+    } finally {
+      setShopifyDisconnectLoading(false)
+    }
+  }
 
   function setP(key: keyof typeof profile, val: string) {
     setProfile((f) => ({ ...f, [key]: val }))
@@ -618,6 +731,93 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
           </form>
         ) : null}
       </CardContent>
+      </Card>
+
+      {/* Shopify workshop feed */}
+      <Card className="gap-0 border-partner-border py-0 shadow-none">
+        <CardContent className="space-y-4 p-5">
+          <h2 className="text-sm font-semibold text-foreground mb-1">Shopify</h2>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Sync workshop products into the offhrs app. Guests book on your Shopify storefront (not
+            in-app Stripe). Tag products with <span className="font-medium text-foreground">offhrs_workshop</span>
+            ; for time-slot variants (e.g. a Date option like “August 21, 2026 12:00 PM”), each
+            variant becomes its own session.
+          </p>
+
+          {shopifyStatus?.connected ? (
+            <div className="space-y-3">
+              <div className="text-sm text-foreground">
+                Connected:{' '}
+                <span className="font-medium text-primary">{shopifyStatus.shop_domain}</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {shopifyStatus.synced_session_count} active synced session
+                {shopifyStatus.synced_session_count === 1 ? '' : 's'}
+                {shopifyStatus.last_synced_at
+                  ? ` · last sync ${formatLongDate(shopifyStatus.last_synced_at) ?? shopifyStatus.last_synced_at}`
+                  : ''}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void syncShopify()}
+                  disabled={shopifySyncLoading || shopifyDisconnectLoading}
+                  className="border-partner-border"
+                >
+                  {shopifySyncLoading && <Loader2 className="size-4 animate-spin" />}
+                  {shopifySyncLoading ? 'Syncing…' : 'Sync now'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void disconnectShopify()}
+                  disabled={shopifySyncLoading || shopifyDisconnectLoading}
+                  className="border-red-200 text-red-700 hover:bg-red-50"
+                >
+                  {shopifyDisconnectLoading && <Loader2 className="size-4 animate-spin" />}
+                  Disconnect
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Store domain
+                </label>
+                <Input
+                  type="text"
+                  value={shopifyShopInput}
+                  onChange={(e) => setShopifyShopInput(e.target.value)}
+                  placeholder="your-store.myshopify.com"
+                  autoComplete="off"
+                  className="h-10 border-partner-border bg-white shadow-none sm:max-w-md"
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={connectShopify}
+                className="border-primary"
+              >
+                Connect Shopify
+                <ExternalLink className="size-3.5 opacity-70" />
+              </Button>
+            </div>
+          )}
+
+          {shopifyMsg ? (
+            <p
+              className={`rounded-xl px-4 py-3 text-sm ${
+                shopifyMsg.type === 'success'
+                  ? 'border border-green-200 bg-green-50 text-green-700'
+                  : 'border border-red-200 bg-red-50 text-red-600'
+              }`}
+            >
+              {shopifyMsg.text}
+            </p>
+          ) : null}
+        </CardContent>
       </Card>
 
       {/* Account */}

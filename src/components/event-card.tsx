@@ -22,6 +22,16 @@ interface Event {
   price?: number | string | null
   vendor_id?: string | null
   vendor_profile_id?: string | null
+  listing_source?: string | null
+  shopify_product_id?: string | null
+}
+
+function eventBooksOnShopify(event: {
+  listing_source?: string | null
+  shopify_product_id?: string | null
+}): boolean {
+  if (event.listing_source === 'shopify') return true
+  return event.shopify_product_id != null && String(event.shopify_product_id).length > 0
 }
 
 export default function EventCard({
@@ -73,7 +83,7 @@ export default function EventCard({
     setSaving(false)
   }
   
-  const isSaasEvent = !!event.vendor_profile_id
+  const isSaasEvent = !!event.vendor_profile_id && !eventBooksOnShopify(event)
 
   const handleBookClick = (e: React.MouseEvent) => {
     e.preventDefault()
