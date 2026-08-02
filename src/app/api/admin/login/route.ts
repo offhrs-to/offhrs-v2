@@ -1,6 +1,6 @@
 import { adminLoginBodySchema } from '@/lib/api-validation'
 import {
-  ADMIN_COOKIE_MAX_AGE,
+  adminSessionCookieOptions,
   getAdminCookieName,
   signAdminSession,
   verifyAdmin,
@@ -81,13 +81,8 @@ export async function POST(request: NextRequest) {
     const payload = `admin:${Date.now()}`
     const value = `${payload}.${signAdminSession(payload)}`
     const res = NextResponse.json({ success: true })
-    res.cookies.set(getAdminCookieName(), value, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: ADMIN_COOKIE_MAX_AGE,
-      path: '/',
-    })
+    const opts = adminSessionCookieOptions(request)
+    res.cookies.set(getAdminCookieName(), value, opts)
     return res
   } catch {
     return NextResponse.json({ error: 'Bad request' }, { status: 400 })

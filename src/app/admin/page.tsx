@@ -135,13 +135,23 @@ export default function AdminPage() {
       body: JSON.stringify({ username, password }),
       credentials: 'include',
     })
-    if (res.ok) {
-      setIsAuthenticated(true)
-      fetchEvents()
-    } else {
+    if (!res.ok) {
       const data = await res.json().catch(() => ({}))
       alert(data.error ?? 'Invalid credentials')
+      return
     }
+    // Confirm the httpOnly cookie actually stuck before unlocking the UI.
+    // (The event list uses public Supabase reads, so a false "logged in" state
+    // used to show the dashboard while Add/Edit bounced back to login.)
+    const sessionRes = await fetch('/api/admin/session', { credentials: 'include' })
+    if (!sessionRes.ok) {
+      alert(
+        'Login succeeded but the admin session cookie was not stored. Try the same site URL you always use (offhrs.app vs www), allow cookies, then log in again.'
+      )
+      return
+    }
+    setIsAuthenticated(true)
+    fetchEvents()
   }
 
   const fetchEvents = async () => {

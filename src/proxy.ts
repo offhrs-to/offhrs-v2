@@ -113,6 +113,11 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    /*
+     * Run on page navigations only. Skip `/api/*` so Route Handler Set-Cookie
+     * (e.g. admin_session on /api/admin/login) is not interfered with by the
+     * Supabase session refresh response rewriting.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
