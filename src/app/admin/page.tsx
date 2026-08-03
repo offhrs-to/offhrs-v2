@@ -1,11 +1,23 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { ExternalLink, Edit, Trash2, Loader2, LogOut, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import {
+  ExternalLink,
+  Edit,
+  Trash2,
+  Loader2,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+} from 'lucide-react'
 import Link from 'next/link'
 import Navbar from '@/components/navbar'
 import { adminFetch } from '@/lib/admin-fetch'
@@ -29,9 +41,17 @@ interface Event {
 }
 
 type EventFilter = 'all' | 'upcoming' | 'expired'
+/** Workshop start time sort. Default keeps fetch order (created_at desc). */
+type DateSort = 'none' | 'asc' | 'desc'
 
 const PAGE_SIZES = [20, 50, 100] as const
 type PageSize = (typeof PAGE_SIZES)[number]
+
+function eventDateMs(date: string | null): number | null {
+  if (!date) return null
+  const ms = new Date(date).getTime()
+  return Number.isNaN(ms) ? null : ms
+}
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -57,6 +77,7 @@ export default function AdminPage() {
   const [pageSize, setPageSize] = useState<PageSize>(20)
   const [currentPage, setCurrentPage] = useState(1)
   const [vendorSearch, setVendorSearch] = useState('')
+  const [dateSort, setDateSort] = useState<DateSort>('none')
 
   function vendorLabel(event: Event): string {
     const fromOrganizer = event.organizer?.trim()
@@ -92,15 +113,29 @@ export default function AdminPage() {
     return parts.join(' ').toLowerCase()
   }
 
-  const filteredEvents = events.filter((event) => {
-    const isExpired = event.date != null && new Date(event.date) < new Date()
-    if (eventFilter === 'upcoming' && isExpired) return false
-    if (eventFilter === 'expired' && !isExpired) return false
+  const filteredEvents = useMemo(() => {
+    const filtered = events.filter((event) => {
+      const isExpired = event.date != null && new Date(event.date) < new Date()
+      if (eventFilter === 'upcoming' && isExpired) return false
+      if (eventFilter === 'expired' && !isExpired) return false
 
-    const q = vendorSearch.trim().toLowerCase()
-    if (!q) return true
-    return vendorSearchHaystack(event).includes(q)
-  })
+      const q = vendorSearch.trim().toLowerCase()
+      if (!q) return true
+      return vendorSearchHaystack(event).includes(q)
+    })
+
+    if (dateSort === 'none') return filtered
+
+    return [...filtered].sort((a, b) => {
+      const aMs = eventDateMs(a.date)
+      const bMs = eventDateMs(b.date)
+      // Null / invalid dates always last
+      if (aMs == null && bMs == null) return 0
+      if (aMs == null) return 1
+      if (bMs == null) return -1
+      return dateSort === 'asc' ? aMs - bMs : bMs - aMs
+    })
+  }, [events, eventFilter, vendorSearch, dateSort])
 
   const totalFiltered = filteredEvents.length
   const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize) || 1)
@@ -109,6 +144,11 @@ export default function AdminPage() {
   const paginatedEvents = filteredEvents.slice(pageStart, pageStart + pageSize)
   const showingFrom = totalFiltered === 0 ? 0 : pageStart + 1
   const showingTo = Math.min(pageStart + pageSize, totalFiltered)
+
+  function cycleDateSort() {
+    setDateSort((prev) => (prev === 'none' ? 'asc' : prev === 'asc' ? 'desc' : 'none'))
+    setCurrentPage(1)
+  }
 
   useEffect(() => {
     setCurrentPage(1)
@@ -571,7 +611,36 @@ export default function AdminPage() {
                       <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Image</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Title</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Vendor</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Date</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">
+                        <button
+                          type="button"
+                          onClick={cycleDateSort}
+                          className="inline-flex items-center gap-1.5 rounded-md hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-moss/40"
+                          title={
+                            dateSort === 'none'
+                              ? 'Sort by date (earliest first)'
+                              : dateSort === 'asc'
+                                ? 'Sort by date (latest first)'
+                                : 'Clear date sort'
+                          }
+                          aria-label={
+                            dateSort === 'none'
+                              ? 'Sort by date ascending'
+                              : dateSort === 'asc'
+                                ? 'Sort by date descending'
+                                : 'Clear date sort'
+                          }
+                        >
+                          Date
+                          {dateSort === 'asc' ? (
+                            <ArrowUp className="size-3.5 shrink-0 opacity-80" aria-hidden />
+                          ) : dateSort === 'desc' ? (
+                            <ArrowDown className="size-3.5 shrink-0 opacity-80" aria-hidden />
+                          ) : (
+                            <ArrowUpDown className="size-3.5 shrink-0 opacity-40" aria-hidden />
+                          )}
+                        </button>
+                      </th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Status</th>
                       <th className="text-left py-3 px-4 text-sm font-semibold text-slate-700">Redirects</th>
                       <th className="text-right py-3 px-4 text-sm font-semibold text-slate-700">Actions</th>
