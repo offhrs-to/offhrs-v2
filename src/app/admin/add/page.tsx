@@ -403,33 +403,29 @@ export default function AdminAddPage() {
 
       const appendAdditionalSessionRows = <T extends Record<string, unknown> & { date: string }>(
         rows: T[]
-      ): Array<T & { date: string; recurrence: 'none'; is_multiple_dates: false }> => {
+      ) => {
+        const normalized = rows.map((row) => ({
+          ...row,
+          recurrence: 'none' as const,
+          is_multiple_dates: false as const,
+        }))
         if (!hasAdditionalSessions || parsedAdditionalSessionIsos.length === 0) {
-          return rows.map((row) => ({
-            ...row,
+          return normalized
+        }
+        if (rows.length === 0) {
+          throw new Error('Set a primary date & time before adding other sessions')
+        }
+        const base = rows[0]
+        const seen = new Set(normalized.map((r) => new Date(r.date).toISOString()))
+        const extras = parsedAdditionalSessionIsos
+          .filter((iso) => !seen.has(iso))
+          .map((iso) => ({
+            ...base,
+            date: iso,
             recurrence: 'none' as const,
             is_multiple_dates: false as const,
           }))
-        }
-        const template = {
-          ...submitData,
-          recurrence: 'none' as const,
-          is_multiple_dates: false as const,
-        }
-        const seen = new Set(rows.map((r) => new Date(r.date).toISOString()))
-        const extras = parsedAdditionalSessionIsos
-          .filter((iso) => !seen.has(iso))
-          .map((iso) => ({ ...template, date: iso })) as Array<
-          T & { date: string; recurrence: 'none'; is_multiple_dates: false }
-        >
-        return [
-          ...rows.map((row) => ({
-            ...row,
-            recurrence: 'none' as const,
-            is_multiple_dates: false as const,
-          })),
-          ...extras,
-        ]
+        return [...normalized, ...extras]
       }
 
       const shouldMaterializePickerDates =
