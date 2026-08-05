@@ -8,6 +8,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { verifyTurnstileToken } from '@/lib/turnstile'
 import { logSecurityEvent } from '@/lib/security-monitor'
+import { normalizeLocationUnit } from '@/lib/venue-address'
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024
 const SIGNUP_RATE_LIMIT_PER_MINUTE = 5
@@ -19,6 +20,7 @@ const signupSchema = z
     categories: z.array(z.enum(CATEGORY_ENUM)).min(1).max(4),
     category_other_detail: z.string().max(200).optional().nullable(),
     location_address: z.string().min(3).max(500),
+    location_unit: z.string().max(80).optional().nullable(),
     location_lat: z.number().finite().optional().nullable(),
     location_lng: z.number().finite().optional().nullable(),
     email: z.string().email(),
@@ -165,6 +167,7 @@ export async function POST(request: NextRequest) {
       categories,
       category_other_detail,
       location_address,
+      location_unit,
       location_lat,
       location_lng,
       email,
@@ -326,6 +329,7 @@ export async function POST(request: NextRequest) {
         website_url: websiteTrim ? websiteTrim : null,
         category: categories,
         location_address: location_address.trim(),
+        location_unit: normalizeLocationUnit(location_unit),
         location_lat: location_lat ?? null,
         location_lng: location_lng ?? null,
         bio: bioTrim,

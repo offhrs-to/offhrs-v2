@@ -31,6 +31,7 @@ interface Vendor {
   instagram_handle: string | null
   phone: string | null
   location_address: string | null
+  location_unit: string | null
   refund_window_hours: number
   strict_no_refund: boolean
   status: string
@@ -74,6 +75,7 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
     website_url: vendor.website_url ?? '',
     phone: vendor.phone ?? '',
     location_address: vendor.location_address ?? '',
+    location_unit: vendor.location_unit ?? '',
     refund_window_hours: vendor.refund_window_hours.toString(),
   })
   const [instagramHandle, setInstagramHandle] = useState(vendor.instagram_handle ?? '')
@@ -503,6 +505,17 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
                 value={profile.location_address}
                 onChange={(e) => setP('location_address', e.target.value)}
                 placeholder="123 Main St, Toronto, ON M5V 1A1"
+                className="h-10 border-partner-border bg-white shadow-none"
+               />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                Unit number <span className="font-normal">(optional)</span>
+              </label>
+              <Input
+                value={profile.location_unit}
+                onChange={(e) => setP('location_unit', e.target.value)}
+                placeholder="e.g. 204"
                 className="h-10 border-partner-border bg-white shadow-none"
                />
             </div>

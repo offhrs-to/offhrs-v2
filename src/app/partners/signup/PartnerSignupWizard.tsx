@@ -91,6 +91,7 @@ export function PartnerSignupWizard() {
   const [otherDetail, setOtherDetail] = useState('')
 
   const [locationAddress, setLocationAddress] = useState('')
+  const [locationUnit, setLocationUnit] = useState('')
   const [locationLat, setLocationLat] = useState<number | null>(null)
   const [locationLng, setLocationLng] = useState<number | null>(null)
 
@@ -278,6 +279,7 @@ export function PartnerSignupWizard() {
           categories: categoryOrder,
           category_other_detail: needsOtherDetail ? otherDetail.trim() : undefined,
           location_address: locationAddress.trim(),
+          location_unit: locationUnit.trim() || undefined,
           location_lat: locationLat ?? undefined,
           location_lng: locationLng ?? undefined,
           email: email.trim(),
@@ -578,6 +580,21 @@ export function PartnerSignupWizard() {
               onAuthFailure={handleMapsAuthFailure}
               apiKey={MAPS_KEY}
             />
+            <div className="space-y-1">
+              <label htmlFor="venue-unit" className="block text-sm font-medium text-[#1a1a1a]">
+                Unit number <span className="font-normal text-[#888]">(optional)</span>
+              </label>
+              <input
+                id="venue-unit"
+                value={locationUnit}
+                onChange={(e) => setLocationUnit(e.target.value)}
+                placeholder="e.g. 204, Suite B, Unit 3"
+                className={inputClass}
+              />
+              <p className="text-xs text-[#888] leading-relaxed">
+                Enter unit separately so we can pin your building correctly. It still shows on your listings.
+              </p>
+            </div>
             {mapsAuthError && (
               <p className="text-xs text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2 leading-relaxed whitespace-pre-wrap">
                 {mapsAuthError}

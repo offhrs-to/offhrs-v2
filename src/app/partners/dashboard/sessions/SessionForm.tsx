@@ -52,6 +52,7 @@ interface SessionFormProps {
     duration_minutes: number | null
     date: string | null
     location: string | null
+    location_unit?: string | null
     lat?: number | null
     lng?: number | null
     status: string
@@ -75,6 +76,7 @@ interface SessionFormProps {
   } | null
   /** Vendor onboarding address — prefills in-person location for new workshops. */
   vendorDefaultAddress?: string
+  vendorDefaultUnit?: string
   vendorDefaultLat?: number | null
   vendorDefaultLng?: number | null
   /** Default workshop listing image from vendor profile (shown when the workshop has no custom cover). */
@@ -85,6 +87,7 @@ interface SessionFormProps {
 export function SessionForm({
   session,
   vendorDefaultAddress = '',
+  vendorDefaultUnit = '',
   vendorDefaultLat = null,
   vendorDefaultLng = null,
   vendorDefaultWorkshopImageUrl = '',
@@ -126,6 +129,7 @@ export function SessionForm({
     date: session?.date ? formatWorkshopDateTimeLocalValue(session.date) : '',
     location_type: 'in_person' as 'in_person' | 'virtual',
     location_address: (session?.location ?? '').trim() || vendorDefaultAddress.trim(),
+    location_unit: (session?.location_unit ?? '').trim() || vendorDefaultUnit.trim(),
     location_link: '',
     description: session?.description ?? '',
     workshop_experience: session?.workshop_experience ?? '',
@@ -291,7 +295,11 @@ export function SessionForm({
     if (!v) return
     setForm((f) => {
       if (f.location_address.trim()) return f
-      return { ...f, location_address: v }
+      return {
+        ...f,
+        location_address: v,
+        location_unit: f.location_unit.trim() || vendorDefaultUnit.trim(),
+      }
     })
     if (
       vendorDefaultLat != null &&
@@ -302,7 +310,7 @@ export function SessionForm({
       setLocationLat(vendorDefaultLat)
       setLocationLng(vendorDefaultLng)
     }
-  }, [isEdit, vendorDefaultAddress, vendorDefaultLat, vendorDefaultLng])
+  }, [isEdit, vendorDefaultAddress, vendorDefaultUnit, vendorDefaultLat, vendorDefaultLng])
 
   const handleMapsAuthFailure = useCallback(() => {
     setMapsAuthError(
@@ -469,6 +477,7 @@ export function SessionForm({
         date: form.date || undefined,
         location_type: form.location_type,
         location_address: form.location_type === 'in_person' ? form.location_address : undefined,
+        location_unit: form.location_type === 'in_person' ? form.location_unit.trim() || null : null,
         location_lat: form.location_type === 'in_person' ? locationLat : null,
         location_lng: form.location_type === 'in_person' ? locationLng : null,
         location_link: form.location_type === 'virtual' ? form.location_link : undefined,
@@ -1188,6 +1197,22 @@ export function SessionForm({
                   </p>
                 </div>
               )}
+              <div>
+                <label htmlFor="workshop-location-unit" className="block text-sm font-medium text-foreground mb-1.5">
+                  Unit number <span className="font-normal text-muted-foreground">(optional)</span>
+                </label>
+                <input
+                  id="workshop-location-unit"
+                  value={form.location_unit}
+                  onChange={(e) => set('location_unit', e.target.value)}
+                  placeholder="e.g. 204, Suite B, Unit 3"
+                  disabled={loading}
+                  className="w-full max-w-xs px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  Keep unit separate so we can pin the building correctly on the map. Guests still see it on the listing.
+                </p>
+              </div>
               {mapsAuthError && (
                 <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
                   {mapsAuthError}

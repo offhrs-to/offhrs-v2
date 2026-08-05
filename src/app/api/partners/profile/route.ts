@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { normalizeInstagramHandle } from '@/lib/instagram-handle'
+import { normalizeLocationUnit } from '@/lib/venue-address'
 
 /** For dashboard forms (e.g. session location default from onboarding). */
 export async function GET() {
@@ -19,7 +20,7 @@ export async function GET() {
     const { data: vendor, error } = await admin
       .from('vendor_profiles')
       .select(
-        'location_address, location_lat, location_lng, default_workshop_image_url'
+        'location_address, location_unit, location_lat, location_lng, default_workshop_image_url'
       )
       .eq('user_id', user.id)
       .single()
@@ -30,6 +31,7 @@ export async function GET() {
 
     return NextResponse.json({
       location_address: vendor.location_address ?? '',
+      location_unit: vendor.location_unit ?? '',
       location_lat: vendor.location_lat ?? null,
       location_lng: vendor.location_lng ?? null,
       default_workshop_image_url: vendor.default_workshop_image_url ?? '',
@@ -47,6 +49,7 @@ const profileSchema = z.object({
   instagram_handle: z.string().max(200).optional().or(z.literal('')),
   phone: z.string().max(30).optional(),
   location_address: z.string().max(500).optional(),
+  location_unit: z.string().max(80).optional().nullable(),
   refund_window_hours: z.number().int().min(24).max(8760).optional(),
   strict_no_refund: z.boolean().optional(),
 }).superRefine((data, ctx) => {
@@ -98,6 +101,7 @@ export async function PUT(request: NextRequest) {
       website_url: data.website_url || null,
       phone: data.phone || null,
       location_address: data.location_address || null,
+      location_unit: normalizeLocationUnit(data.location_unit),
       refund_window_hours: refundWindowHours,
       strict_no_refund: strictNoRefund,
     }

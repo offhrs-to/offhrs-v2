@@ -58,7 +58,7 @@ export default function VendorProfilePage() {
       supabase.from('vendors').select('id, name').eq('id', vendorId).single(),
       supabase
         .from('events')
-        .select('id, title, date, location, image_url, external_link, category, recurrence')
+        .select('id, title, date, location, location_unit, image_url, external_link, category, recurrence')
         .eq('vendor_id', vendorId)
         .order('date', { ascending: true }),
       supabase

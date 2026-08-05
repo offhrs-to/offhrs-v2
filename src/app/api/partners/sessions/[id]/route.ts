@@ -23,6 +23,7 @@ import { invalidateCachedTaxQuotesForEvent } from '@/lib/workshop-tax-quote-cach
 import { applyWorkshopRichTextFields } from '@/lib/workshop-rich-text'
 import { normalizeSaleDateWindow, normalizeSalePriceCad, roundCadMoney, formatCadMoney } from '@/lib/workshop-ticket-price'
 import { archivePartnerSession } from '@/lib/partner-session-archive'
+import { normalizeLocationUnit } from '@/lib/venue-address'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 
@@ -47,6 +48,7 @@ const updateSchema = z.object({
   date: z.string().optional(),
   location_type: z.enum(['in_person', 'virtual']).optional(),
   location_address: z.string().max(500).optional(),
+  location_unit: z.string().max(80).optional().nullable(),
   location_lat: z.number().finite().optional().nullable(),
   location_lng: z.number().finite().optional().nullable(),
   location_link: z.string().url().optional(),
@@ -288,9 +290,13 @@ export async function PUT(request: NextRequest, { params }: Params) {
       if (body.location_link !== undefined) updatePayload.location = body.location_link
       updatePayload.lat = null
       updatePayload.lng = null
+      updatePayload.location_unit = null
     } else {
       if (body.location_address !== undefined) {
         updatePayload.location = body.location_address
+      }
+      if (body.location_unit !== undefined) {
+        updatePayload.location_unit = normalizeLocationUnit(body.location_unit)
       }
       const locationText =
         (body.location_address !== undefined

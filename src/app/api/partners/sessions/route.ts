@@ -17,6 +17,7 @@ import { setSeriesAvailabilityFromRules } from '@/lib/partner-event-availability
 import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
 import { applyWorkshopRichTextFields } from '@/lib/workshop-rich-text'
 import { normalizeSaleDateWindow, normalizeSalePriceCad, roundCadMoney, formatCadMoney } from '@/lib/workshop-ticket-price'
+import { normalizeLocationUnit } from '@/lib/venue-address'
 
 const multiWeekOccurrenceSchema = z.number().int().min(2).max(12)
 
@@ -47,6 +48,7 @@ const sessionSchema = z.object({
   date: z.string().optional(),
   location_type: z.enum(['in_person', 'virtual']),
   location_address: z.string().max(500).optional(),
+  location_unit: z.string().max(80).optional().nullable(),
   location_lat: z.number().finite().optional().nullable(),
   location_lng: z.number().finite().optional().nullable(),
   location_link: z.string().url().optional(),
@@ -256,6 +258,9 @@ export async function POST(request: NextRequest) {
         ? (body.location_link ?? null)
         : (body.location_address ?? null)
 
+    const locationUnit =
+      body.location_type === 'virtual' ? null : normalizeLocationUnit(body.location_unit)
+
     const { lat, lng } = await resolveEventCoordinates({
       location: locationText,
       locationType: body.location_type,
@@ -298,6 +303,7 @@ export async function POST(request: NextRequest) {
       max_attendees: body.max_attendees,
       duration_minutes: body.duration_minutes,
       location: locationText,
+      location_unit: locationUnit,
       lat,
       lng,
       booking_status: body.status,

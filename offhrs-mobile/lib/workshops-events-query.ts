@@ -13,6 +13,7 @@ import {
   type EventSeriesFields,
 } from '@/lib/workshop-series';
 import { compareWorkshopEventsByStart, workshopEventTorontoYmd } from '@/lib/workshop-event-sort';
+import { formatVenueAddress } from '@/lib/venue-address';
 
 export type WorkshopEventRow = {
   id: number;
@@ -99,6 +100,7 @@ export type WorkshopEventDbRow = {
   title: string | null;
   date: string | null;
   location: string | null;
+  location_unit?: string | null;
   image_url: string | null;
   price: number | string | null;
   price_cad: number | string | null;
@@ -138,7 +140,7 @@ export function mapDbRowToWorkshopEvent(row: WorkshopEventDbRow): WorkshopEventR
     title: row.title ?? '',
     date: formatDateToronto(row.date ?? ''),
     date_iso: row.date ?? null,
-    location: row.location ?? '',
+    location: formatVenueAddress(row.location, row.location_unit),
     image_url: row.image_url ?? null,
     price: row.price ?? null,
     price_cad: row.price_cad != null ? Number(row.price_cad) : null,
@@ -313,14 +315,14 @@ export type FetchWorkshopEventsOptions = {
 };
 
 export const WORKSHOP_EVENT_LIST_SELECT =
-  'id, title, date, location, image_url, price, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, external_link, category, lat, lng, vendor_id, vendor_profile_id, listing_source, shopify_product_id, organizer, recurrence, description, workshop_experience, workshop_experience_hidden, workshop_materials_takeaway, workshop_materials_takeaway_hidden, workshop_skill_level, workshop_skill_level_hidden, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, partner_series_meta, max_attendees';
+  'id, title, date, location, location_unit, image_url, price, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, external_link, category, lat, lng, vendor_id, vendor_profile_id, listing_source, shopify_product_id, organizer, recurrence, description, workshop_experience, workshop_experience_hidden, workshop_materials_takeaway, workshop_materials_takeaway_hidden, workshop_skill_level, workshop_skill_level_hidden, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, partner_series_meta, max_attendees';
 
 /**
  * List/browse select — omits long description blobs (hydrated when opening quick view).
  * Keeps `series_occurrences` so multi-week expand still works.
  */
 export const WORKSHOP_EVENT_BROWSE_SELECT =
-  'id, title, date, location, image_url, price, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, external_link, category, lat, lng, vendor_id, vendor_profile_id, listing_source, shopify_product_id, organizer, recurrence, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, max_attendees';
+  'id, title, date, location, location_unit, image_url, price, price_cad, sale_price_cad, sale_starts_on, sale_ends_on, external_link, category, lat, lng, vendor_id, vendor_profile_id, listing_source, shopify_product_id, organizer, recurrence, booking_status, registration_closed, available_slots, duration_minutes, workshop_series, series_occurrences, max_attendees';
 
 /** Same payload as list/quick-view so vendor-profile cards open with full details. */
 export const VENDOR_PROFILE_EVENT_SELECT = WORKSHOP_EVENT_LIST_SELECT;

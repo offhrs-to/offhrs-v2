@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/browser'
 import { EventImageFallback } from '@/components/event-image-fallback'
 import { BookOutboundHint } from '@/components/listing-disclaimer'
 import { openWorkshopBooking } from '@/lib/workshop-outbound'
+import { formatVenueAddress } from '@/lib/venue-address'
 
 interface Event {
   id: number | string
@@ -15,6 +16,7 @@ interface Event {
   description: string
   date: string | null | undefined
   location: string | null | undefined
+  location_unit?: string | null
   image_url: string | null
   category: string
   is_multiple_dates?: boolean | null
@@ -171,7 +173,9 @@ export default function EventCard({
           {/* Location */}
           <div className="flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-            <span className="line-clamp-1">{event.location || 'Location TBD'}</span>
+            <span className="line-clamp-1">
+              {formatVenueAddress(event.location, event.location_unit) || 'Location TBD'}
+            </span>
           </div>
 
           {/* Price - NEW SECTION */}

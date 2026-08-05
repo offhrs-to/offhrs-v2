@@ -50,6 +50,7 @@ interface Session {
   duration_minutes: number | null
   date: string | null
   location: string | null
+  location_unit?: string | null
   status: string
   registration_closed?: boolean
   created_at: string
@@ -102,6 +103,7 @@ function SessionsPageInner() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
   const [vendorDefaultAddress, setVendorDefaultAddress] = useState('')
+  const [vendorDefaultUnit, setVendorDefaultUnit] = useState('')
   const [vendorDefaultLat, setVendorDefaultLat] = useState<number | null>(null)
   const [vendorDefaultLng, setVendorDefaultLng] = useState<number | null>(null)
   const [vendorDefaultWorkshopImageUrl, setVendorDefaultWorkshopImageUrl] = useState('')
@@ -165,6 +167,7 @@ function SessionsPageInner() {
         const data = await res.json()
         if (cancelled || !res.ok) return
         setVendorDefaultAddress(typeof data.location_address === 'string' ? data.location_address : '')
+        setVendorDefaultUnit(typeof data.location_unit === 'string' ? data.location_unit : '')
         const lat = data.location_lat
         const lng = data.location_lng
         setVendorDefaultLat(
@@ -179,6 +182,7 @@ function SessionsPageInner() {
       } catch {
         if (!cancelled) {
           setVendorDefaultAddress('')
+          setVendorDefaultUnit('')
           setVendorDefaultLat(null)
           setVendorDefaultLng(null)
           setVendorDefaultWorkshopImageUrl('')
@@ -402,6 +406,7 @@ function SessionsPageInner() {
         key={editingSession?.id ?? 'new'}
         session={editingSession}
         vendorDefaultAddress={vendorDefaultAddress}
+        vendorDefaultUnit={vendorDefaultUnit}
         vendorDefaultLat={vendorDefaultLat}
         vendorDefaultLng={vendorDefaultLng}
         vendorDefaultWorkshopImageUrl={vendorDefaultWorkshopImageUrl}
