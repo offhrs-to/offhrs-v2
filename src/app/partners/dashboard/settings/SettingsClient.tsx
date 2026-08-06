@@ -756,6 +756,10 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
             ; for time-slot variants (e.g. a Date option like “August 21, 2026 12:00 PM”), each
             variant becomes its own session.
           </p>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-2">
+            Custom distribution: use Shopify&apos;s install link while signed in to Partners in this
+            browser. After install, Shopify opens offhrs and we finish linking automatically.
+          </p>
 
           {shopifyStatus?.connected ? (
             <div className="space-y-3">

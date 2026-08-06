@@ -30,7 +30,13 @@ export default function PartnerLoginPage() {
 
       if (signInError) throw signInError
 
-      router.replace('/partners/dashboard')
+      const params = new URLSearchParams(window.location.search)
+      const next = params.get('next')
+      if (next && next.startsWith('/') && !next.startsWith('//')) {
+        router.replace(next)
+      } else {
+        router.replace('/partners/dashboard')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid email or password')
     } finally {

@@ -44,6 +44,19 @@ function useIsDesktop() {
   return isDesktop
 }
 
+/** Shopify App URL may still point at `/` — forward install/open handoff to the OAuth entry. */
+function useShopifyAppHandoff() {
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const shop = params.get('shop')
+    const hmac = params.get('hmac')
+    if (!shop || !hmac) return
+    if (!shop.includes('myshopify.com')) return
+    window.location.replace(`/api/partners/shopify/app?${params.toString()}`)
+  }, [])
+}
+
 const APP_STORE_URL = process.env.NEXT_PUBLIC_APP_STORE_URL || '#'
 const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL || '#'
 
@@ -145,6 +158,7 @@ function useLayerScale(scrollY: ReturnType<typeof useScroll>['scrollY'], index: 
 }
 
 export default function Home() {
+  useShopifyAppHandoff()
   const isDesktop = useIsDesktop()
   const { scrollY } = useScroll()
   const mouseX = useMotionValue(0)
