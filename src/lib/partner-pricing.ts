@@ -12,6 +12,15 @@ export const PARTNER_PLAN_MONTHLY_CAD = {
 
 export type PartnerPlanTier = keyof typeof PARTNER_PLAN_MONTHLY_CAD
 
+/** Standalone Shopify Sync plan — Shopify App Pricing (handle: offhrs-sync), not Stripe. */
+export const SHOPIFY_SYNC_MONTHLY_CAD = 39
+export const SHOPIFY_SYNC_PLAN_NAME = 'Shopify Sync'
+/** Must match Partners → public plan “Internal plan handle”. */
+export const SHOPIFY_SYNC_PLAN_HANDLE = 'offhrs-sync'
+export const SHOPIFY_SYNC_TRIAL_DAYS = PARTNER_TRIAL_DAYS
+export const SHOPIFY_SYNC_PLAN_LABEL = `$${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month`
+export const SHOPIFY_SYNC_PLAN_LABEL_WITH_TRIAL = `${SHOPIFY_SYNC_PLAN_LABEL} · ${PARTNER_TRIAL_LABEL}`
+
 export function formatPartnerMonthlyAmount(tier: PartnerPlanTier): string {
   return `$${PARTNER_PLAN_MONTHLY_CAD[tier]}`
 }

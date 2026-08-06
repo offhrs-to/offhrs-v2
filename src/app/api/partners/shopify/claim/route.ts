@@ -7,6 +7,7 @@ import {
   deleteShopifyPendingInstall,
   loadShopifyPendingByClaimToken,
 } from '@/lib/shopify/pending-install'
+import { shopifyBillingAllowsSync } from '@/lib/shopify/billing'
 import {
   ensureShopifyWebhooks,
   loadShopifyShopForVendor,
@@ -105,7 +106,13 @@ export async function GET(request: NextRequest) {
     }).catch((e) => console.error('[shopify] webhook register', e))
 
     const shopRow = await loadShopifyShopForVendor(admin, vendor.id)
-    if (shopRow) {
+    if (
+      shopRow &&
+      shopifyBillingAllowsSync({
+        billingStatus: shopRow.billing_status,
+        shopDomain: shopRow.shop_domain,
+      })
+    ) {
       await syncShopifyWorkshopsForShop(admin, shopRow).catch((e) =>
         console.error('[shopify] initial sync', e)
       )

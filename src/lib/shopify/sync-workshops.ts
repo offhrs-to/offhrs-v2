@@ -92,11 +92,13 @@ export type ShopifyShopRow = {
   access_token_expires_at: string | null
   refresh_token_expires_at: string | null
   sync_enabled: boolean
+  billing_status?: string | null
+  app_subscription_gid?: string | null
   scope?: string | null
 }
 
 const SHOP_TOKEN_SELECT =
-  'id, vendor_id, shop_domain, access_token_encrypted, refresh_token_encrypted, access_token_expires_at, refresh_token_expires_at, sync_enabled, scope'
+  'id, vendor_id, shop_domain, access_token_encrypted, refresh_token_encrypted, access_token_expires_at, refresh_token_expires_at, sync_enabled, billing_status, app_subscription_gid, scope'
 
 /** Refresh access token ~2 minutes before expiry. */
 const ACCESS_TOKEN_REFRESH_SKEW_MS = 2 * 60 * 1000
@@ -747,6 +749,7 @@ const WEBHOOK_GRAPHQL_TOPICS = [
   'PRODUCTS_UPDATE',
   'PRODUCTS_DELETE',
   'INVENTORY_LEVELS_UPDATE',
+  'APP_SUBSCRIPTIONS_UPDATE',
 ] as const
 
 const WEBHOOK_SUBSCRIPTIONS_QUERY = `

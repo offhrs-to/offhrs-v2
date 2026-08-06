@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 
 const PUBLIC_PARTNER_PATHS = [
@@ -9,6 +10,13 @@ const PUBLIC_PARTNER_PATHS = [
   '/partners/auth/callback',
   '/partners/update-password',
 ]
+
+function adminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  return createClient(url, key, { auth: { persistSession: false } })
+}
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -72,10 +80,10 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Must have an active/trialing/past_due subscription
+    // Must have an active/trialing/past_due subscription — or Shopify Sync onboarding access.
     const { data: vendor } = await supabase
       .from('vendor_profiles')
-      .select('status')
+      .select('id, status')
       .eq('user_id', user.sub)
       .single()
 
@@ -88,10 +96,29 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Pending vendors must complete billing (signup wizard billing step or legacy checkout).
-    // Allow those routes while blocking all other dashboard pages.
+    const shopifyOnboardingPaths =
+      pathname.startsWith('/partners/dashboard/settings') ||
+      pathname === '/partners/dashboard' ||
+      pathname === '/partners/dashboard/' ||
+      pathname.startsWith('/partners/dashboard/faq')
+
+    async function vendorHasShopifyShop(vendorId: string): Promise<boolean> {
+      const admin = adminClient()
+      if (!admin) return false
+      const { data: shop } = await admin
+        .from('vendor_shopify_shops')
+        .select('id')
+        .eq('vendor_id', vendorId)
+        .maybeSingle()
+      return Boolean(shop)
+    }
+
+    // Pending vendors must complete Stripe billing OR finish Shopify Sync setup in Settings.
     if (vendor.status === 'pending') {
       if (pathname === '/partners/checkout' || pathname.startsWith('/partners/checkout/')) {
+        return supabaseResponse
+      }
+      if (shopifyOnboardingPaths && (await vendorHasShopifyShop(vendor.id))) {
         return supabaseResponse
       }
       const url = request.nextUrl.clone()
@@ -101,7 +128,16 @@ export async function proxy(request: NextRequest) {
     }
 
     if (!activeStatuses.includes(vendor.status)) {
-      // Suspended or canceled → locked page
+      // Suspended/canceled: allow Settings if they still have a Shopify shop (manage Sync billing).
+      if (pathname === '/partners/suspended' || pathname.startsWith('/partners/suspended/')) {
+        return supabaseResponse
+      }
+      if (
+        pathname.startsWith('/partners/dashboard/settings') &&
+        (await vendorHasShopifyShop(vendor.id))
+      ) {
+        return supabaseResponse
+      }
       const url = request.nextUrl.clone()
       url.pathname = '/partners/suspended'
       return NextResponse.redirect(url)

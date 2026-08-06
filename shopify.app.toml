@@ -1,4 +1,5 @@
 name = "offhrs"
+handle = "offhrs"
 client_id = "93ac1547c426534f421ce570acb3bc9d"
 application_url = "https://offhrs.app/api/partners/shopify/app"
 embedded = false

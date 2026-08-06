@@ -194,7 +194,18 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .maybeSingle()
 
-    if (activeSub?.subscription_tier === 'lite') {
+    // Native workshop creation requires Lite/Pro (Stripe). Shopify Sync is a separate plan.
+    if (!activeSub || (activeSub.subscription_tier !== 'lite' && activeSub.subscription_tier !== 'pro')) {
+      return NextResponse.json(
+        {
+          error:
+            'Creating workshops in the dashboard requires an offhrs Lite or Pro plan. Shopify Sync alone only mirrors tagged products from your Shopify store.',
+        },
+        { status: 403 }
+      )
+    }
+
+    if (activeSub.subscription_tier === 'lite') {
       // Lite is capped at N concurrently active workshops. Archived rows do
       // not count, so vendors can free a slot by archiving and try again.
       // Repeating-days create inserts one row per session — remaining-slot check

@@ -1,12 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { shopifyBillingAllowsSync } from '@/lib/shopify/billing'
 import {
   loadShopifyShopForVendor,
   syncShopifyWorkshopsForShop,
 } from '@/lib/shopify/sync-workshops'
 
-/** Manual / full product sync for the connected shop. */
+/** Manual / full product sync for the connected shop. Requires active Sync billing. */
 export async function POST() {
   const supabase = await createClient()
   const {
@@ -23,6 +24,22 @@ export async function POST() {
   const shop = await loadShopifyShopForVendor(admin, vendor.id)
   if (!shop) {
     return NextResponse.json({ error: 'Shopify not connected' }, { status: 404 })
+  }
+
+  if (
+    !shopifyBillingAllowsSync({
+      billingStatus: shop.billing_status,
+      shopDomain: shop.shop_domain,
+    })
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          'Shopify Sync plan required. Subscribe to Shopify Sync ($39 CAD/month) in Settings, then try again.',
+        billing_status: shop.billing_status ?? 'none',
+      },
+      { status: 402 }
+    )
   }
 
   try {

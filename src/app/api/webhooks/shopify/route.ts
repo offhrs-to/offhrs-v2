@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { normalizeShopDomain } from '@/lib/shopify/admin-client'
 import { verifyShopifyWebhookHmac } from '@/lib/shopify/verify-webhook'
 import {
+  ensureVendorActiveForShopifySync,
+  mapShopifySubscriptionStatus,
+  persistShopifyBillingStatus,
+  shopifyBillingAllowsSync,
+} from '@/lib/shopify/billing'
+import {
   applyShopifyInventoryLevel,
   archiveShopifyProductEvents,
   disconnectShopifyShopByDomain,
@@ -29,7 +35,6 @@ export async function POST(request: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Server error' }, { status: 500 })
 
   // Mandatory compliance webhooks (Partner Dashboard → Compliance).
-  // We do not store Shopify customer PII; ack data_request/redact. shop/redact clears the install.
   if (
     topic === 'customers/data_request' ||
     topic === 'customers/redact' ||
@@ -65,7 +70,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing shop domain' }, { status: 400 })
   }
 
-  // Idempotency
   const { data: existing } = await admin
     .from('webhook_events')
     .select('id')
@@ -91,10 +95,44 @@ export async function POST(request: NextRequest) {
 
   try {
     const shopRow = await loadShopifyShopByDomain(admin, shop)
-    if (!shopRow || !shopRow.sync_enabled) {
+    if (!shopRow) {
       await admin
         .from('webhook_events')
         .update({ processed_at: new Date().toISOString(), error: 'shop_not_linked' })
+        .eq('event_id', webhookId)
+      return NextResponse.json({ received: true, skipped: true })
+    }
+
+    if (topic === 'app_subscriptions/update') {
+      const statusRaw = String(payload.status ?? '')
+      const gid =
+        (typeof payload.admin_graphql_api_id === 'string' && payload.admin_graphql_api_id) ||
+        (payload.id != null ? `gid://shopify/AppSubscription/${payload.id}` : null)
+      const billingStatus = mapShopifySubscriptionStatus(statusRaw)
+      await persistShopifyBillingStatus(admin, shopRow.id, {
+        billingStatus,
+        appSubscriptionGid: gid,
+      })
+      if (billingStatus === 'active') {
+        await ensureVendorActiveForShopifySync(admin, shopRow.vendor_id)
+      }
+      await admin
+        .from('webhook_events')
+        .update({ processed_at: new Date().toISOString() })
+        .eq('event_id', webhookId)
+      return NextResponse.json({ received: true })
+    }
+
+    if (
+      !shopRow.sync_enabled ||
+      !shopifyBillingAllowsSync({
+        billingStatus: shopRow.billing_status,
+        shopDomain: shopRow.shop_domain,
+      })
+    ) {
+      await admin
+        .from('webhook_events')
+        .update({ processed_at: new Date().toISOString(), error: 'sync_not_entitled' })
         .eq('event_id', webhookId)
       return NextResponse.json({ received: true, skipped: true })
     }
@@ -142,7 +180,6 @@ function safeJson(rawBody: string): Record<string, unknown> {
 }
 
 function createHmacishId(rawBody: string): string {
-  // Fallback uniqueness when Shopify omits webhook id header
   let h = 0
   for (let i = 0; i < rawBody.length; i++) h = (Math.imul(31, h) + rawBody.charCodeAt(i)) | 0
   return `body:${h}:${rawBody.length}`
