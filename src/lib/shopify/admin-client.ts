@@ -66,28 +66,153 @@ export function verifyShopifyOAuthHmac(
   }
 }
 
+export type ShopifyAccessTokenResult = {
+  access_token: string
+  scope: string
+  /** Seconds until access token expires; omitted for legacy non-expiring tokens. */
+  expires_in?: number
+  refresh_token?: string
+  /** Seconds until refresh token expires (~90 days). */
+  refresh_token_expires_in?: number
+}
+
+/**
+ * Exchange authorization code for an offline Admin API token.
+ * Requests an expiring offline token (`expiring=1`) per Shopify Dec 2025+ requirements.
+ * https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/offline-access-tokens
+ */
 export async function exchangeShopifyAccessToken(opts: {
   shop: string
   clientId: string
   clientSecret: string
   code: string
-}): Promise<{ access_token: string; scope: string }> {
+}): Promise<ShopifyAccessTokenResult> {
+  const body = new URLSearchParams({
+    client_id: opts.clientId,
+    client_secret: opts.clientSecret,
+    code: opts.code,
+    expiring: '1',
+  })
   const res = await fetch(`https://${opts.shop}/admin/oauth/access_token`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({
-      client_id: opts.clientId,
-      client_secret: opts.clientSecret,
-      code: opts.code,
-    }),
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    },
+    body,
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`Shopify token exchange failed (${res.status}): ${text.slice(0, 200)}`)
   }
-  const data = (await res.json()) as { access_token?: string; scope?: string }
+  const data = (await res.json()) as {
+    access_token?: string
+    scope?: string
+    expires_in?: number
+    refresh_token?: string
+    refresh_token_expires_in?: number
+  }
   if (!data.access_token) throw new Error('Shopify token exchange missing access_token')
-  return { access_token: data.access_token, scope: data.scope ?? '' }
+  return {
+    access_token: data.access_token,
+    scope: data.scope ?? '',
+    expires_in: typeof data.expires_in === 'number' ? data.expires_in : undefined,
+    refresh_token: data.refresh_token,
+    refresh_token_expires_in:
+      typeof data.refresh_token_expires_in === 'number' ? data.refresh_token_expires_in : undefined,
+  }
+}
+
+/** Refresh an expiring offline access token. Returns a new access + refresh token pair. */
+export async function refreshShopifyOfflineToken(opts: {
+  shop: string
+  clientId: string
+  clientSecret: string
+  refreshToken: string
+}): Promise<ShopifyAccessTokenResult> {
+  const body = new URLSearchParams({
+    client_id: opts.clientId,
+    client_secret: opts.clientSecret,
+    grant_type: 'refresh_token',
+    refresh_token: opts.refreshToken,
+  })
+  const res = await fetch(`https://${opts.shop}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    },
+    body,
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`Shopify token refresh failed (${res.status}): ${text.slice(0, 200)}`)
+  }
+  const data = (await res.json()) as {
+    access_token?: string
+    scope?: string
+    expires_in?: number
+    refresh_token?: string
+    refresh_token_expires_in?: number
+  }
+  if (!data.access_token) throw new Error('Shopify token refresh missing access_token')
+  return {
+    access_token: data.access_token,
+    scope: data.scope ?? '',
+    expires_in: typeof data.expires_in === 'number' ? data.expires_in : undefined,
+    refresh_token: data.refresh_token,
+    refresh_token_expires_in:
+      typeof data.refresh_token_expires_in === 'number' ? data.refresh_token_expires_in : undefined,
+  }
+}
+
+/**
+ * One-time migration: exchange a legacy non-expiring offline token for an expiring one.
+ * Irreversible for that shop install.
+ */
+export async function migrateShopifyOfflineTokenToExpiring(opts: {
+  shop: string
+  clientId: string
+  clientSecret: string
+  nonExpiringAccessToken: string
+}): Promise<ShopifyAccessTokenResult> {
+  const body = new URLSearchParams({
+    client_id: opts.clientId,
+    client_secret: opts.clientSecret,
+    grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+    subject_token: opts.nonExpiringAccessToken,
+    subject_token_type: 'urn:shopify:params:oauth:token-type:offline-access-token',
+    requested_token_type: 'urn:shopify:params:oauth:token-type:offline-access-token',
+    expiring: '1',
+  })
+  const res = await fetch(`https://${opts.shop}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    },
+    body,
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`Shopify token migration failed (${res.status}): ${text.slice(0, 200)}`)
+  }
+  const data = (await res.json()) as {
+    access_token?: string
+    scope?: string
+    expires_in?: number
+    refresh_token?: string
+    refresh_token_expires_in?: number
+  }
+  if (!data.access_token) throw new Error('Shopify token migration missing access_token')
+  return {
+    access_token: data.access_token,
+    scope: data.scope ?? '',
+    expires_in: typeof data.expires_in === 'number' ? data.expires_in : undefined,
+    refresh_token: data.refresh_token,
+    refresh_token_expires_in:
+      typeof data.refresh_token_expires_in === 'number' ? data.refresh_token_expires_in : undefined,
+  }
 }
 
 export function shopifyGidToNumericId(gid: string | null | undefined): string | null {

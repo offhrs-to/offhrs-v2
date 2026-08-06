@@ -2,9 +2,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizePartnerSessionCategory } from '@/constants/categories'
 import { decrypt, encrypt } from '@/lib/token-encryption'
 import {
+  migrateShopifyOfflineTokenToExpiring,
+  refreshShopifyOfflineToken,
   shopifyAdminGraphql,
   shopifyAdminRest,
+  shopifyApiKey,
+  shopifyApiSecret,
   shopifyGidToNumericId,
+  type ShopifyAccessTokenResult,
 } from './admin-client'
 import {
   OFFHRS_METAFIELD_BOOK_URL,
@@ -84,8 +89,18 @@ export type ShopifyShopRow = {
   vendor_id: string
   shop_domain: string
   access_token_encrypted: string
+  refresh_token_encrypted: string | null
+  access_token_expires_at: string | null
+  refresh_token_expires_at: string | null
   sync_enabled: boolean
+  scope?: string | null
 }
+
+const SHOP_TOKEN_SELECT =
+  'id, vendor_id, shop_domain, access_token_encrypted, refresh_token_encrypted, access_token_expires_at, refresh_token_expires_at, sync_enabled, scope'
+
+/** Refresh access token ~2 minutes before expiry. */
+const ACCESS_TOKEN_REFRESH_SKEW_MS = 2 * 60 * 1000
 
 export async function loadShopifyShopForVendor(
   admin: Admin,
@@ -93,7 +108,7 @@ export async function loadShopifyShopForVendor(
 ): Promise<ShopifyShopRow | null> {
   const { data } = await admin
     .from('vendor_shopify_shops')
-    .select('id, vendor_id, shop_domain, access_token_encrypted, sync_enabled')
+    .select(SHOP_TOKEN_SELECT)
     .eq('vendor_id', vendorId)
     .maybeSingle()
   return data as ShopifyShopRow | null
@@ -105,14 +120,104 @@ export async function loadShopifyShopByDomain(
 ): Promise<ShopifyShopRow | null> {
   const { data } = await admin
     .from('vendor_shopify_shops')
-    .select('id, vendor_id, shop_domain, access_token_encrypted, sync_enabled')
+    .select(SHOP_TOKEN_SELECT)
     .eq('shop_domain', shopDomain)
     .maybeSingle()
   return data as ShopifyShopRow | null
 }
 
-export async function decryptShopToken(shop: ShopifyShopRow): Promise<string> {
-  return decrypt(shop.access_token_encrypted)
+function tokenExpiryFields(tokens: ShopifyAccessTokenResult): {
+  access_token_expires_at: string | null
+  refresh_token_expires_at: string | null
+} {
+  const now = Date.now()
+  return {
+    access_token_expires_at:
+      typeof tokens.expires_in === 'number'
+        ? new Date(now + tokens.expires_in * 1000).toISOString()
+        : null,
+    refresh_token_expires_at:
+      typeof tokens.refresh_token_expires_in === 'number'
+        ? new Date(now + tokens.refresh_token_expires_in * 1000).toISOString()
+        : null,
+  }
+}
+
+async function persistShopifyTokens(
+  admin: Admin,
+  shopId: string,
+  tokens: ShopifyAccessTokenResult
+): Promise<void> {
+  const expiry = tokenExpiryFields(tokens)
+  const { error } = await admin
+    .from('vendor_shopify_shops')
+    .update({
+      access_token_encrypted: encrypt(tokens.access_token),
+      refresh_token_encrypted: tokens.refresh_token ? encrypt(tokens.refresh_token) : null,
+      access_token_expires_at: expiry.access_token_expires_at,
+      refresh_token_expires_at: expiry.refresh_token_expires_at,
+      scope: tokens.scope || undefined,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', shopId)
+  if (error) throw new Error(`Failed to save Shopify tokens: ${error.message}`)
+}
+
+/**
+ * Return a usable Admin API access token, refreshing or migrating when needed.
+ * Public apps must use expiring offline tokens.
+ */
+export async function getValidShopAccessToken(
+  admin: Admin,
+  shopRow: ShopifyShopRow
+): Promise<string> {
+  const clientId = shopifyApiKey()
+  const clientSecret = shopifyApiSecret()
+  if (!clientId || !clientSecret) {
+    throw new Error('Shopify OAuth is not configured')
+  }
+
+  const accessToken = decrypt(shopRow.access_token_encrypted)
+  const expiresAtMs = shopRow.access_token_expires_at
+    ? new Date(shopRow.access_token_expires_at).getTime()
+    : null
+  const accessExpiredOrMissing =
+    expiresAtMs == null ||
+    !Number.isFinite(expiresAtMs) ||
+    expiresAtMs <= Date.now() + ACCESS_TOKEN_REFRESH_SKEW_MS
+
+  // Legacy non-expiring install: migrate once to expiring offline token.
+  if (!shopRow.refresh_token_encrypted) {
+    try {
+      const migrated = await migrateShopifyOfflineTokenToExpiring({
+        shop: shopRow.shop_domain,
+        clientId,
+        clientSecret,
+        nonExpiringAccessToken: accessToken,
+      })
+      await persistShopifyTokens(admin, shopRow.id, migrated)
+      return migrated.access_token
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(
+        `Shopify token upgrade failed (${msg.slice(0, 160)}). Disconnect Shopify in Settings, then Connect again.`
+      )
+    }
+  }
+
+  if (!accessExpiredOrMissing) {
+    return accessToken
+  }
+
+  const refreshToken = decrypt(shopRow.refresh_token_encrypted)
+  const refreshed = await refreshShopifyOfflineToken({
+    shop: shopRow.shop_domain,
+    clientId,
+    clientSecret,
+    refreshToken,
+  })
+  await persistShopifyTokens(admin, shopRow.id, refreshed)
+  return refreshed.access_token
 }
 
 const PRODUCTS_QUERY = `
@@ -368,7 +473,7 @@ export async function syncShopifyWorkshopsForShop(
     return { products: 0, upserted: 0, skipped: 0, archived: 0 }
   }
 
-  const token = await decryptShopToken(shopRow)
+  const token = await getValidShopAccessToken(admin, shopRow)
   const vendor = await fetchVendorContext(admin, shopRow.vendor_id)
   if (!vendor) throw new Error('Vendor not found for Shopify shop')
 
@@ -439,7 +544,7 @@ export async function syncShopifyProductByNumericId(
   shopRow: ShopifyShopRow,
   productNumericId: string
 ): Promise<SyncResult> {
-  const token = await decryptShopToken(shopRow)
+  const token = await getValidShopAccessToken(admin, shopRow)
   const vendor = await fetchVendorContext(admin, shopRow.vendor_id)
   if (!vendor) throw new Error('Vendor not found')
 
@@ -557,39 +662,51 @@ export async function upsertVendorShopifyShop(
     shopDomain: string
     accessToken: string
     scope: string
+    expiresIn?: number
+    refreshToken?: string
+    refreshTokenExpiresIn?: number
   }
 ): Promise<void> {
+  const now = Date.now()
   const encrypted = encrypt(opts.accessToken)
-  const now = new Date().toISOString()
+  const refreshEncrypted = opts.refreshToken ? encrypt(opts.refreshToken) : null
+  const accessExpires =
+    typeof opts.expiresIn === 'number'
+      ? new Date(now + opts.expiresIn * 1000).toISOString()
+      : null
+  const refreshExpires =
+    typeof opts.refreshTokenExpiresIn === 'number'
+      ? new Date(now + opts.refreshTokenExpiresIn * 1000).toISOString()
+      : null
+  const updatedAt = new Date(now).toISOString()
+
   const { data: existing } = await admin
     .from('vendor_shopify_shops')
     .select('id')
     .eq('vendor_id', opts.vendorId)
     .maybeSingle()
 
+  const payload = {
+    shop_domain: opts.shopDomain,
+    access_token_encrypted: encrypted,
+    refresh_token_encrypted: refreshEncrypted,
+    access_token_expires_at: accessExpires,
+    refresh_token_expires_at: refreshExpires,
+    scope: opts.scope,
+    sync_enabled: true,
+    updated_at: updatedAt,
+  }
+
   if (existing) {
-    const { error } = await admin
-      .from('vendor_shopify_shops')
-      .update({
-        shop_domain: opts.shopDomain,
-        access_token_encrypted: encrypted,
-        scope: opts.scope,
-        sync_enabled: true,
-        updated_at: now,
-      })
-      .eq('id', existing.id)
+    const { error } = await admin.from('vendor_shopify_shops').update(payload).eq('id', existing.id)
     if (error) throw new Error(`vendor_shopify_shops update failed: ${error.message}`)
     return
   }
 
   const { error } = await admin.from('vendor_shopify_shops').insert({
     vendor_id: opts.vendorId,
-    shop_domain: opts.shopDomain,
-    access_token_encrypted: encrypted,
-    scope: opts.scope,
-    sync_enabled: true,
-    updated_at: now,
-    installed_at: now,
+    ...payload,
+    installed_at: updatedAt,
   })
   if (error) throw new Error(`vendor_shopify_shops insert failed: ${error.message}`)
 }

@@ -90,6 +90,9 @@ export async function GET(request: NextRequest) {
       shopDomain: shop,
       accessToken: tokens.access_token,
       scope: tokens.scope,
+      expiresIn: tokens.expires_in,
+      refreshToken: tokens.refresh_token,
+      refreshTokenExpiresIn: tokens.refresh_token_expires_in,
     })
 
     await ensureShopifyWebhooks({
