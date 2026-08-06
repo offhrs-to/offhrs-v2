@@ -13,11 +13,12 @@ import {
 } from '@/lib/shopify/admin-client'
 
 /**
- * Shopify App URL entry (custom distribution / "Open app").
+ * Shopify App URL entry (App Store / Admin “Open app”).
  *
  * After install, Shopify sends merchants here with ?shop=&hmac=&host=&timestamp=
- * (not an OAuth code). We verify the HMAC, then start the legacy authorize →
- * /api/partners/shopify/callback flow so the access token is saved to offhrs.
+ * (not an OAuth code). We verify HMAC and start OAuth immediately (App Store 2.3.2),
+ * even if the merchant is not signed into offhrs yet. Partner linking happens in
+ * the OAuth callback / claim step.
  *
  * Set Shopify App URL to: https://offhrs.app/api/partners/shopify/app
  */
@@ -39,31 +40,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${base}/partners/dashboard/settings?shopify_error=missing_shop`)
   }
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    const login = new URL(`${base}/partners/login`)
-    login.searchParams.set('shopify_shop', shop)
-    login.searchParams.set('next', `/api/partners/shopify/install?shop=${encodeURIComponent(shop)}`)
-    return NextResponse.redirect(login.toString())
-  }
-
-  const admin = createAdminClient()
-  if (!admin) {
-    return NextResponse.redirect(`${base}/partners/dashboard/settings?shopify_error=server`)
-  }
-
-  const { data: vendor } = await admin.from('vendor_profiles').select('id').eq('user_id', user.id).single()
-  if (!vendor) {
-    return NextResponse.redirect(`${base}/partners/login?shopify_error=vendor_required`)
+  // Optional: if already signed in as a vendor, bake vendorId into state for a
+  // one-step link after authorize. Never block OAuth on login.
+  let vendorId: string | undefined
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (user) {
+      const admin = createAdminClient()
+      if (admin) {
+        const { data: vendor } = await admin
+          .from('vendor_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (vendor?.id) vendorId = vendor.id
+      }
+    }
+  } catch {
+    // Ignore session lookup failures — still start OAuth.
   }
 
   const redirectUri = `${base}/api/partners/shopify/callback`
   const state = signOAuthState({
-    vendorId: vendor.id,
+    ...(vendorId ? { vendorId } : {}),
     provider: 'shopify',
     shop,
     exp: Date.now() + 15 * 60 * 1000,

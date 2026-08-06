@@ -10,7 +10,11 @@ export type CalendarOAuthProvider = 'google' | 'microsoft'
 export type OAuthProvider = CalendarOAuthProvider | 'shopify'
 
 export interface OAuthStatePayload {
-  vendorId: string
+  /**
+   * Partner vendor id when known (calendar OAuth always; Shopify when already signed in).
+   * Shopify App Store installs may omit this — OAuth runs before partner login.
+   */
+  vendorId?: string
   provider: OAuthProvider
   /** Required when provider is shopify (myshopify.com domain). */
   shop?: string
@@ -21,6 +25,12 @@ export interface OAuthStatePayload {
 export function signOAuthState(payload: OAuthStatePayload): string {
   if (payload.provider === 'shopify' && !payload.shop) {
     throw new Error('Shopify OAuth state requires shop')
+  }
+  if (
+    (payload.provider === 'google' || payload.provider === 'microsoft') &&
+    !payload.vendorId
+  ) {
+    throw new Error('Calendar OAuth state requires vendorId')
   }
   const body = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url')
   const sig = createHmac('sha256', secret()).update(body).digest('base64url')
@@ -38,9 +48,10 @@ export function verifyOAuthState(state: string): OAuthStatePayload | null {
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null
   try {
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as OAuthStatePayload
-    if (!payload.vendorId || !payload.provider || typeof payload.exp !== 'number') return null
+    if (!payload.provider || typeof payload.exp !== 'number') return null
     if (Date.now() > payload.exp) return null
     if (payload.provider === 'google' || payload.provider === 'microsoft') {
+      if (!payload.vendorId) return null
       return payload
     }
     if (payload.provider === 'shopify') {

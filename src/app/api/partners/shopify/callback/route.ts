@@ -9,7 +9,9 @@ import {
   shopifyApiKey,
   shopifyApiSecret,
   verifyShopifyOAuthHmac,
+  type ShopifyAccessTokenResult,
 } from '@/lib/shopify/admin-client'
+import { upsertShopifyPendingInstall } from '@/lib/shopify/pending-install'
 import {
   ensureShopifyWebhooks,
   syncShopifyWorkshopsForShop,
@@ -19,6 +21,52 @@ import {
 
 function settingsRedirect(base: string, query: string): NextResponse {
   return NextResponse.redirect(`${base}/partners/dashboard/settings?${query}`)
+}
+
+async function finalizeShopLink(opts: {
+  admin: NonNullable<ReturnType<typeof createAdminClient>>
+  base: string
+  vendorId: string
+  shop: string
+  tokens: ShopifyAccessTokenResult
+}): Promise<NextResponse> {
+  const { admin, base, vendorId, shop, tokens } = opts
+
+  const { data: existingShop } = await admin
+    .from('vendor_shopify_shops')
+    .select('vendor_id')
+    .eq('shop_domain', shop)
+    .maybeSingle()
+  if (existingShop && existingShop.vendor_id !== vendorId) {
+    return settingsRedirect(base, 'shopify_error=shop_already_linked')
+  }
+
+  await upsertVendorShopifyShop(admin, {
+    vendorId,
+    shopDomain: shop,
+    accessToken: tokens.access_token,
+    scope: tokens.scope,
+    expiresIn: tokens.expires_in,
+    refreshToken: tokens.refresh_token,
+    refreshTokenExpiresIn: tokens.refresh_token_expires_in,
+  })
+
+  await ensureShopifyWebhooks({
+    shop,
+    accessToken: tokens.access_token,
+    callbackBaseUrl: base,
+  }).catch((e) => console.error('[shopify] webhook register', e))
+
+  const shopRow = await loadShopifyShopForVendor(admin, vendorId)
+  if (shopRow) {
+    await syncShopifyWorkshopsForShop(admin, shopRow).catch((e) =>
+      console.error('[shopify] initial sync', e)
+    )
+  }
+
+  await admin.from('shopify_pending_installs').delete().eq('shop_domain', shop)
+
+  return settingsRedirect(base, 'shopify_connected=1')
 }
 
 export async function GET(request: NextRequest) {
@@ -51,67 +99,102 @@ export async function GET(request: NextRequest) {
     return settingsRedirect(base, 'shopify_error=invalid_state')
   }
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.redirect(`${base}/partners/login`)
-  }
-
-  const admin = createAdminClient()
-  if (!admin) return settingsRedirect(base, 'shopify_error=server')
-
-  const { data: vendor } = await admin.from('vendor_profiles').select('id').eq('user_id', user.id).single()
-  if (!vendor || vendor.id !== payload.vendorId) {
-    return settingsRedirect(base, 'shopify_error=vendor_mismatch')
-  }
-
+  let tokens: ShopifyAccessTokenResult
   try {
-    const tokens = await exchangeShopifyAccessToken({
+    tokens = await exchangeShopifyAccessToken({
       shop,
       clientId,
       clientSecret,
       code,
     })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'oauth_failed'
+    console.error('[shopify] token exchange', e)
+    return settingsRedirect(base, `shopify_error=${encodeURIComponent(msg.slice(0, 120))}`)
+  }
 
-    // Guard: shop already linked to a different vendor
+  const admin = createAdminClient()
+  if (!admin) return settingsRedirect(base, 'shopify_error=server')
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  let vendorId: string | null = null
+  if (user) {
+    const { data: vendor } = await admin
+      .from('vendor_profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    vendorId = vendor?.id ?? null
+  }
+
+  // Prefer state vendorId when it matches the signed-in vendor.
+  if (payload.vendorId && vendorId && payload.vendorId !== vendorId) {
+    return settingsRedirect(base, 'shopify_error=vendor_mismatch')
+  }
+  if (payload.vendorId && vendorId === payload.vendorId) {
+    try {
+      return await finalizeShopLink({ admin, base, vendorId, shop, tokens })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'oauth_failed'
+      console.error('[shopify] callback link', e)
+      return settingsRedirect(base, `shopify_error=${encodeURIComponent(msg.slice(0, 120))}`)
+    }
+  }
+
+  if (vendorId) {
+    try {
+      return await finalizeShopLink({ admin, base, vendorId, shop, tokens })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'oauth_failed'
+      console.error('[shopify] callback link', e)
+      return settingsRedirect(base, `shopify_error=${encodeURIComponent(msg.slice(0, 120))}`)
+    }
+  }
+
+  // Not signed in: keep tokens pending, then send merchant to partner login to claim.
+  try {
+    // If this shop is already linked, refresh tokens on the existing row and ask them to sign in.
     const { data: existingShop } = await admin
       .from('vendor_shopify_shops')
       .select('vendor_id')
       .eq('shop_domain', shop)
       .maybeSingle()
-    if (existingShop && existingShop.vendor_id !== vendor.id) {
-      return settingsRedirect(base, 'shopify_error=shop_already_linked')
+
+    if (existingShop?.vendor_id) {
+      await upsertVendorShopifyShop(admin, {
+        vendorId: existingShop.vendor_id,
+        shopDomain: shop,
+        accessToken: tokens.access_token,
+        scope: tokens.scope,
+        expiresIn: tokens.expires_in,
+        refreshToken: tokens.refresh_token,
+        refreshTokenExpiresIn: tokens.refresh_token_expires_in,
+      })
+      await ensureShopifyWebhooks({
+        shop,
+        accessToken: tokens.access_token,
+        callbackBaseUrl: base,
+      }).catch((e) => console.error('[shopify] webhook register', e))
+
+      const login = new URL(`${base}/partners/login`)
+      login.searchParams.set('next', '/partners/dashboard/settings')
+      return NextResponse.redirect(login.toString())
     }
 
-    await upsertVendorShopifyShop(admin, {
-      vendorId: vendor.id,
-      shopDomain: shop,
-      accessToken: tokens.access_token,
-      scope: tokens.scope,
-      expiresIn: tokens.expires_in,
-      refreshToken: tokens.refresh_token,
-      refreshTokenExpiresIn: tokens.refresh_token_expires_in,
-    })
-
-    await ensureShopifyWebhooks({
-      shop,
-      accessToken: tokens.access_token,
-      callbackBaseUrl: base,
-    }).catch((e) => console.error('[shopify] webhook register', e))
-
-    const shopRow = await loadShopifyShopForVendor(admin, vendor.id)
-    if (shopRow) {
-      await syncShopifyWorkshopsForShop(admin, shopRow).catch((e) =>
-        console.error('[shopify] initial sync', e)
-      )
-    }
+    const { claimToken } = await upsertShopifyPendingInstall(admin, { shopDomain: shop, tokens })
+    const login = new URL(`${base}/partners/login`)
+    login.searchParams.set(
+      'next',
+      `/api/partners/shopify/claim?token=${encodeURIComponent(claimToken)}`
+    )
+    return NextResponse.redirect(login.toString())
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'oauth_failed'
-    console.error('[shopify] callback', e)
+    console.error('[shopify] pending install', e)
     return settingsRedirect(base, `shopify_error=${encodeURIComponent(msg.slice(0, 120))}`)
   }
-
-  return settingsRedirect(base, 'shopify_connected=1')
 }

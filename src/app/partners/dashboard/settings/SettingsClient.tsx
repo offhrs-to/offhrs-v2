@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { formatGstHstRegistrationNumberForDisplay } from '@/lib/vendor-gst-hst'
 import { createBrowserClient } from '@supabase/ssr'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ExternalLink, Loader2, AlertTriangle, CalendarX } from 'lucide-react'
+import { Loader2, AlertTriangle, CalendarX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -109,7 +109,6 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
 
   // Shopify workshop feed
   const [shopifyStatus, setShopifyStatus] = useState<ShopifyStatus | null>(null)
-  const [shopifyShopInput, setShopifyShopInput] = useState('')
   const [shopifySyncLoading, setShopifySyncLoading] = useState(false)
   const [shopifyDisconnectLoading, setShopifyDisconnectLoading] = useState(false)
   const [shopifyMsg, setShopifyMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -150,15 +149,6 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
     void loadShopifyStatus()
     router.replace('/partners/dashboard/settings', { scroll: false })
   }, [searchParams, router, loadShopifyStatus])
-
-  function connectShopify() {
-    const shop = shopifyShopInput.trim()
-    if (!shop) {
-      setShopifyMsg({ type: 'error', text: 'Enter your store domain (e.g. your-store.myshopify.com).' })
-      return
-    }
-    window.location.href = `/api/partners/shopify/install?shop=${encodeURIComponent(shop)}`
-  }
 
   async function syncShopify() {
     setShopifySyncLoading(true)
@@ -202,7 +192,6 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
         return
       }
       setShopifyMsg({ type: 'success', text: 'Shopify disconnected.' })
-      setShopifyShopInput('')
       await loadShopifyStatus()
     } catch {
       setShopifyMsg({ type: 'error', text: 'Disconnect failed.' })
@@ -757,8 +746,11 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
             variant becomes its own session.
           </p>
           <p className="text-xs text-muted-foreground leading-relaxed mt-2">
-            Custom distribution: use Shopify&apos;s install link while signed in to Partners in this
-            browser. After install, Shopify opens offhrs and we finish linking automatically.
+            Install from the{' '}
+            <span className="font-medium text-foreground">Shopify App Store</span> or{' '}
+            <span className="font-medium text-foreground">Shopify Admin → Apps</span>
+            . After install, Shopify opens offhrs and OAuth runs immediately; sign in to Partners
+            if prompted to finish linking this account.
           </p>
 
           {shopifyStatus?.connected ? (
@@ -798,29 +790,10 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Store domain
-                </label>
-                <Input
-                  type="text"
-                  value={shopifyShopInput}
-                  onChange={(e) => setShopifyShopInput(e.target.value)}
-                  placeholder="your-store.myshopify.com"
-                  autoComplete="off"
-                  className="h-10 border-partner-border bg-white shadow-none sm:max-w-md"
-                />
-              </div>
-              <Button
-                type="button"
-                onClick={connectShopify}
-                className="border-primary"
-              >
-                Connect Shopify
-                <ExternalLink className="size-3.5 opacity-70" />
-              </Button>
-            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Not connected yet. Use Shopify&apos;s install / Open app flow — do not type a store
+              domain here (required for App Store installs).
+            </p>
           )}
 
           {shopifyMsg ? (

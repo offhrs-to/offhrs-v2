@@ -5,7 +5,6 @@ import {
   migrateShopifyOfflineTokenToExpiring,
   refreshShopifyOfflineToken,
   shopifyAdminGraphql,
-  shopifyAdminRest,
   shopifyApiKey,
   shopifyApiSecret,
   shopifyGidToNumericId,
@@ -727,48 +726,111 @@ export async function disconnectVendorShopify(
   await admin.from('vendor_shopify_shops').delete().eq('vendor_id', vendorId)
 }
 
-const WEBHOOK_TOPICS = [
-  'products/create',
-  'products/update',
-  'products/delete',
-  'inventory_levels/update',
+/** GDPR shop/redact: wipe linked shop data by myshopify domain. */
+export async function disconnectShopifyShopByDomain(
+  admin: Admin,
+  shopDomain: string
+): Promise<boolean> {
+  const shopRow = await loadShopifyShopByDomain(admin, shopDomain)
+  if (!shopRow) {
+    await admin.from('shopify_pending_installs').delete().eq('shop_domain', shopDomain)
+    return false
+  }
+  await disconnectVendorShopify(admin, shopRow.vendor_id)
+  await admin.from('shopify_pending_installs').delete().eq('shop_domain', shopDomain)
+  return true
+}
+
+/** GraphQL Admin webhook topics (App Store: no REST Admin for new public apps). */
+const WEBHOOK_GRAPHQL_TOPICS = [
+  'PRODUCTS_CREATE',
+  'PRODUCTS_UPDATE',
+  'PRODUCTS_DELETE',
+  'INVENTORY_LEVELS_UPDATE',
 ] as const
 
-/** Register required webhooks (idempotent: skips topics that already exist for this address). */
+const WEBHOOK_SUBSCRIPTIONS_QUERY = `
+  query WebhookSubscriptions($first: Int!) {
+    webhookSubscriptions(first: $first) {
+      edges {
+        node {
+          id
+          topic
+          endpoint {
+            __typename
+            ... on WebhookHttpEndpoint {
+              callbackUrl
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+const WEBHOOK_SUBSCRIPTION_CREATE = `
+  mutation WebhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $callbackUrl: URL!) {
+    webhookSubscriptionCreate(
+      topic: $topic
+      webhookSubscription: { callbackUrl: $callbackUrl, format: JSON }
+    ) {
+      userErrors { field message }
+      webhookSubscription { id topic }
+    }
+  }
+`
+
+/** Register required webhooks via GraphQL (idempotent per callback URL + topic). */
 export async function ensureShopifyWebhooks(opts: {
   shop: string
   accessToken: string
   callbackBaseUrl: string
 }): Promise<void> {
   const address = `${opts.callbackBaseUrl.replace(/\/$/, '')}/api/webhooks/shopify`
-  const existing = await shopifyAdminRest<{
-    webhooks: Array<{ id: number; topic: string; address: string }>
+
+  type SubEdge = {
+    node: {
+      id: string
+      topic: string
+      endpoint: { __typename?: string; callbackUrl?: string } | null
+    }
+  }
+
+  const existing = await shopifyAdminGraphql<{
+    webhookSubscriptions: { edges: SubEdge[] }
   }>({
     shop: opts.shop,
     accessToken: opts.accessToken,
-    path: '/webhooks.json',
+    query: WEBHOOK_SUBSCRIPTIONS_QUERY,
+    variables: { first: 50 },
   })
 
   const have = new Set(
-    (existing.webhooks ?? [])
-      .filter((w) => w.address === address)
-      .map((w) => w.topic)
+    (existing.webhookSubscriptions?.edges ?? [])
+      .filter((e) => e.node.endpoint?.callbackUrl === address)
+      .map((e) => e.node.topic)
   )
 
-  for (const topic of WEBHOOK_TOPICS) {
+  for (const topic of WEBHOOK_GRAPHQL_TOPICS) {
     if (have.has(topic)) continue
-    await shopifyAdminRest({
+    const created = await shopifyAdminGraphql<{
+      webhookSubscriptionCreate: {
+        userErrors: Array<{ field: string[] | null; message: string }>
+        webhookSubscription: { id: string } | null
+      }
+    }>({
       shop: opts.shop,
       accessToken: opts.accessToken,
-      method: 'POST',
-      path: '/webhooks.json',
-      body: {
-        webhook: {
-          topic,
-          address,
-          format: 'json',
-        },
-      },
+      query: WEBHOOK_SUBSCRIPTION_CREATE,
+      variables: { topic, callbackUrl: address },
     })
+    const errors = created.webhookSubscriptionCreate?.userErrors ?? []
+    if (errors.length > 0) {
+      const msg = errors.map((e) => e.message).join('; ')
+      // Already registered is fine under race / reinstall.
+      if (!/already|taken|exists/i.test(msg)) {
+        throw new Error(`webhookSubscriptionCreate ${topic}: ${msg}`)
+      }
+    }
   }
 }

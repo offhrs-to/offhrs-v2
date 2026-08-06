@@ -5,6 +5,7 @@ import { verifyShopifyWebhookHmac } from '@/lib/shopify/verify-webhook'
 import {
   applyShopifyInventoryLevel,
   archiveShopifyProductEvents,
+  disconnectShopifyShopByDomain,
   loadShopifyShopByDomain,
   syncShopifyProductByNumericId,
 } from '@/lib/shopify/sync-workshops'
@@ -26,6 +27,39 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient()
   if (!admin) return NextResponse.json({ error: 'Server error' }, { status: 500 })
+
+  // Mandatory compliance webhooks (Partner Dashboard → Compliance).
+  // We do not store Shopify customer PII; ack data_request/redact. shop/redact clears the install.
+  if (
+    topic === 'customers/data_request' ||
+    topic === 'customers/redact' ||
+    topic === 'shop/redact'
+  ) {
+    const { data: existingCompliance } = await admin
+      .from('webhook_events')
+      .select('id')
+      .eq('event_id', webhookId)
+      .maybeSingle()
+    if (!existingCompliance) {
+      await admin.from('webhook_events').insert({
+        source: 'shopify',
+        event_id: webhookId,
+        event_type: topic,
+        payload: safeJson(rawBody),
+        processed_at: new Date().toISOString(),
+      })
+    }
+
+    if (topic === 'shop/redact' && shop) {
+      try {
+        await disconnectShopifyShopByDomain(admin, shop)
+      } catch (err) {
+        console.error('[shopify webhook] shop/redact:', err)
+      }
+    }
+
+    return NextResponse.json({ received: true })
+  }
 
   if (!shop) {
     return NextResponse.json({ error: 'Missing shop domain' }, { status: 400 })
@@ -97,6 +131,14 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ received: true })
+}
+
+function safeJson(rawBody: string): Record<string, unknown> {
+  try {
+    return JSON.parse(rawBody) as Record<string, unknown>
+  } catch {
+    return { raw: rawBody.slice(0, 500) }
+  }
 }
 
 function createHmacishId(rawBody: string): string {
