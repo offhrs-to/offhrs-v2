@@ -34,9 +34,13 @@ function parseParamString(v: string | string[] | undefined): string {
 }
 
 function workshopGroupKey(e: WorkshopEventRow): string {
-  const v = e.vendor_id ?? '';
-  const t = e.title.trim().toLowerCase().replace(/\s+/g, ' ');
-  return `${v}\u0001${t}`;
+  if (e.shopify_product_id) {
+    const vp = e.vendor_profile_id ?? e.vendor_id ?? ''
+    return `shopify\u0001${vp}\u0001${e.shopify_product_id}`
+  }
+  const v = e.vendor_id ?? ''
+  const t = e.title.trim().toLowerCase().replace(/\s+/g, ' ')
+  return `${v}\u0001${t}`
 }
 
 function searchResultGroupKey(e: WorkshopEventRow): string {

@@ -71,11 +71,16 @@ function parseEventIdsParam(v: string | string[] | undefined): number[] {
   return out;
 }
 
-/** Same workshop listing (vendor + title) on the same calendar day → one card with multiple time pills. */
+/** Same workshop listing on the same calendar day → one card with multiple time pills. */
 function workshopGroupKey(e: WorkshopEventRow): string {
-  const v = e.vendor_id ?? '';
-  const t = e.title.trim().toLowerCase().replace(/\s+/g, ' ');
-  return `${v}\u0001${t}`;
+  // Shopify: one product → many variants/times; group by product id, not title.
+  if (e.shopify_product_id) {
+    const vp = e.vendor_profile_id ?? e.vendor_id ?? ''
+    return `shopify\u0001${vp}\u0001${e.shopify_product_id}`
+  }
+  const v = e.vendor_id ?? ''
+  const t = e.title.trim().toLowerCase().replace(/\s+/g, ' ')
+  return `${v}\u0001${t}`
 }
 
 function eventIsUpcomingToronto(e: WorkshopEventRow): boolean {

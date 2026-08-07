@@ -357,19 +357,9 @@ async function upsertVariantEvent(
   const bookingStatus =
     !productActive || inventoryQty <= 0 ? 'fully_booked' : 'published'
 
-  let title = opts.product.title
-  if (
-    (startResolved.source === 'option' || startResolved.source === 'variant_title') &&
-    startResolved.matchedRaw
-  ) {
-    title = `${opts.product.title} — ${startResolved.matchedRaw}`
-  } else if (
-    opts.product.variants.edges.length > 1 &&
-    opts.variant.title &&
-    opts.variant.title !== 'Default Title'
-  ) {
-    title = `${opts.product.title} — ${opts.variant.title}`
-  }
+  // Keep product title stable across variants so the app groups same-day
+  // sessions into one card with multiple time pills (not one card per variant).
+  const title = opts.product.title
 
   const row = {
     listing_source: 'shopify',
