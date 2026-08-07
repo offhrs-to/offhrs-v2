@@ -3,6 +3,8 @@ import {
   formatPartnerMonthlyAmount,
   PARTNER_PLAN_MONTHLY_CAD,
   PARTNER_TRIAL_LABEL,
+  SHOPIFY_SYNC_MONTHLY_CAD,
+  SHOPIFY_SYNC_PLAN_NAME,
 } from '@/lib/partner-pricing'
 
 export type PartnerFaqItem = {
@@ -79,7 +81,7 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
     items: [
       {
         q: 'What does it cost to list on offhrs?',
-        aText: `Lite is ${formatPartnerMonthlyAmount('lite')} CAD/month (up to 4 active workshops at a time). Pro is ${formatPartnerMonthlyAmount('pro')} CAD/month (unlimited active workshops).`,
+        aText: `Lite is ${formatPartnerMonthlyAmount('lite')} CAD/month (up to 4 active workshops). Pro is ${formatPartnerMonthlyAmount('pro')} CAD/month (unlimited). ${SHOPIFY_SYNC_PLAN_NAME} is $${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month (Shopify workshops mirrored into offhrs; guests book on Shopify).`,
         a: (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
@@ -87,19 +89,24 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
                 <tr className="text-left text-[#555]">
                   <th className="py-2 pr-4 font-semibold">Plan</th>
                   <th className="py-2 pr-4 font-semibold">Price</th>
-                  <th className="py-2 font-semibold">Active workshops</th>
+                  <th className="py-2 font-semibold">What you get</th>
                 </tr>
               </thead>
               <tbody>
                 <tr className="border-t border-[#E8E4DE]">
                   <td className="py-2 pr-4 font-medium text-[#1a1a1a]">Lite</td>
                   <td className="py-2 pr-4">${PARTNER_PLAN_MONTHLY_CAD.lite} / month (CAD)</td>
-                  <td className="py-2">Up to 4 at a time</td>
+                  <td className="py-2">Up to 4 active workshops; book &amp; pay on offhrs</td>
                 </tr>
                 <tr className="border-t border-[#E8E4DE]">
                   <td className="py-2 pr-4 font-medium text-[#1a1a1a]">Pro</td>
                   <td className="py-2 pr-4">${PARTNER_PLAN_MONTHLY_CAD.pro} / month (CAD)</td>
-                  <td className="py-2">Unlimited</td>
+                  <td className="py-2">Unlimited workshops; book &amp; pay on offhrs</td>
+                </tr>
+                <tr className="border-t border-[#E8E4DE]">
+                  <td className="py-2 pr-4 font-medium text-[#1a1a1a]">{SHOPIFY_SYNC_PLAN_NAME}</td>
+                  <td className="py-2 pr-4">${SHOPIFY_SYNC_MONTHLY_CAD} / month (CAD)</td>
+                  <td className="py-2">Shopify products in the app; guests book on Shopify</td>
                 </tr>
               </tbody>
             </table>
@@ -108,23 +115,23 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       },
       {
         q: 'Is there a free trial?',
-        aText: `Yes — a ${PARTNER_TRIAL_LABEL}. You won’t be charged until the trial ends.`,
+        aText: `Yes — a ${PARTNER_TRIAL_LABEL} on Lite, Pro, and ${SHOPIFY_SYNC_PLAN_NAME}. You won’t be charged until the trial ends.`,
         a: (
           <p>
-            Yes — a <strong>{PARTNER_TRIAL_LABEL}</strong>. You won&apos;t be charged until the trial
-            ends.
+            Yes — a <strong>{PARTNER_TRIAL_LABEL}</strong> on Lite, Pro, and {SHOPIFY_SYNC_PLAN_NAME}. You
+            won&apos;t be charged until the trial ends.
           </p>
         ),
       },
       {
         q: `What happens after my ${PARTNER_TRIAL_LABEL}?`,
         aText:
-          'Your subscription automatically starts at the end of the trial at the Lite or Pro rate you chose. You can cancel anytime before the trial ends with no charge.',
+          'Your subscription automatically starts at the end of the trial at the Lite, Pro, or Shopify Sync rate you chose. You can cancel anytime before the trial ends with no charge.',
       },
       {
         q: 'How is billing handled?',
         aText:
-          'Billing runs through Stripe subscription checkout (with automatic tax and tax-ID collection where applicable). Your subscription status (trialing, active, past due, etc.) syncs automatically, so if a payment fails or you cancel, your account reflects it.',
+          'Lite and Pro bill through Stripe subscription checkout. Shopify Sync bills through Shopify App Pricing on your Shopify invoice. Subscription status syncs automatically, so if a payment fails or you cancel, your account reflects it.',
       },
       {
         q: "What's the difference between Lite and Pro?",
@@ -132,9 +139,13 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
           'Lite caps you at 4 concurrently active (non-archived) workshops. Pro removes that cap. If you’re on Lite and hit the limit, archive an old workshop or upgrade to Pro to add more.',
       },
       {
+        q: `What is ${SHOPIFY_SYNC_PLAN_NAME}?`,
+        aText: `${SHOPIFY_SYNC_PLAN_NAME} is a standalone $${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month plan (no Lite/Pro required). Install the offhrs app from Shopify, tag workshop products with offhrs_workshop, and sync them into the offhrs app. Guests discover you on offhrs and complete booking on your Shopify storefront.`,
+      },
+      {
         q: 'Can I cancel my subscription?',
         aText:
-          'Yes, anytime from your dashboard settings. You keep access until the end of your current billing period.',
+          'Yes, anytime from your dashboard settings (Lite/Pro) or Shopify billing (Sync). You keep access until the end of your current billing period.',
       },
     ],
   },

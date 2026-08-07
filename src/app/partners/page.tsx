@@ -9,6 +9,8 @@ import {
   PARTNER_PLAN_MONTHLY_CAD,
   PARTNER_TRIAL_LABEL,
   PARTNER_TRIAL_LABEL_LONG,
+  SHOPIFY_SYNC_MONTHLY_CAD,
+  SHOPIFY_SYNC_PLAN_NAME,
 } from '@/lib/partner-pricing'
 import { flattenPartnerFaqs } from '@/lib/partner-faq'
 import { getSiteUrl } from '@/lib/site'
@@ -17,11 +19,11 @@ const site = getSiteUrl()
 
 export const metadata: Metadata = {
   title: 'offhrs Partners — Run your workshop business the easy way',
-  description: `offhrs Partners gives Toronto workshop vendors instant booking, Stripe payouts, and Google/Outlook calendar sync — from ${formatPartnerMonthlyPriceLabel('lite')} (Lite) or ${formatPartnerMonthlyPriceLabel('pro')} (Pro). Start your free ${PARTNER_TRIAL_LABEL}.`,
+  description: `offhrs Partners gives Toronto workshop vendors instant booking, Stripe payouts, calendar sync, and Shopify Sync — Lite $${PARTNER_PLAN_MONTHLY_CAD.lite}, Pro $${PARTNER_PLAN_MONTHLY_CAD.pro}, or Sync $${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month. Start your free ${PARTNER_TRIAL_LABEL}.`,
   alternates: { canonical: `${site}/partners` },
   openGraph: {
     title: 'offhrs Partners — Run your workshop business the easy way',
-    description: `Booking, payouts, and calendar sync for Toronto workshop vendors — Lite from $${PARTNER_PLAN_MONTHLY_CAD.lite}/mo or Pro from $${PARTNER_PLAN_MONTHLY_CAD.pro}/mo after a ${PARTNER_TRIAL_LABEL}.`,
+    description: `Booking, payouts, and Shopify Sync for Toronto workshop vendors — Lite $${PARTNER_PLAN_MONTHLY_CAD.lite}, Pro $${PARTNER_PLAN_MONTHLY_CAD.pro}, or Sync $${SHOPIFY_SYNC_MONTHLY_CAD}/mo after a ${PARTNER_TRIAL_LABEL}.`,
     url: `${site}/partners`,
     siteName: 'offhrs',
     type: 'website',
@@ -103,6 +105,13 @@ export default function PartnersLandingPage() {
             priceCurrency: 'CAD',
             description: `Pro plan — unlimited workshop sessions, after ${PARTNER_TRIAL_LABEL}`,
           },
+          {
+            '@type': 'Offer',
+            name: SHOPIFY_SYNC_PLAN_NAME,
+            price: String(SHOPIFY_SYNC_MONTHLY_CAD),
+            priceCurrency: 'CAD',
+            description: `Shopify Sync — mirror tagged Shopify workshops into offhrs; guests book on Shopify. After ${PARTNER_TRIAL_LABEL}`,
+          },
         ],
         publisher: {
           '@type': 'Organization',
@@ -158,9 +167,9 @@ export default function PartnersLandingPage() {
           Run your workshop business the easy way — all in one platform.
         </h1>
         <p className="mt-6 text-lg text-[#555] max-w-xl mx-auto leading-relaxed">
-          Bookings, payouts, and calendar sync — handled for you. Start your free {PARTNER_TRIAL_LABEL}; plans from{' '}
-          <span className="font-semibold text-[#1a1a1a]">{formatPartnerMonthlyPriceLabel('lite')} (Lite)</span> or{' '}
-          <span className="font-semibold text-[#1a1a1a]">{formatPartnerMonthlyPriceLabel('pro')} (Pro)</span> after the trial.
+          Bookings, payouts, and calendar sync — or mirror your Shopify workshops into the app. Start your free{' '}
+          {PARTNER_TRIAL_LABEL}; plans from{' '}
+          <span className="font-semibold text-[#1a1a1a]">{formatPartnerMonthlyPriceLabel('lite')}</span> after the trial.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
@@ -227,11 +236,11 @@ export default function PartnersLandingPage() {
       <section className="bg-white border-y border-[#E8E6E0] py-20">
         <div className="max-w-5xl mx-auto px-6 text-center">
           <h2 className="font-playfair text-3xl font-bold mb-4">Simple, honest pricing</h2>
-          <p className="text-[#555] text-sm mb-12 max-w-lg mx-auto">
-            Lite or Pro — same booking engine and zero commission on your sales. Upgrade or downgrade anytime from
-            billing settings.
+          <p className="text-[#555] text-sm mb-12 max-w-2xl mx-auto">
+            Lite and Pro run bookings on offhrs. Shopify Sync lists your Shopify workshops in the app — guests book on
+            your store. All options include a {PARTNER_TRIAL_LABEL}.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto text-left items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left items-stretch">
             <div className="rounded-3xl border-2 border-[#E8E6E0] bg-[#FAFAF8] p-8 shadow-sm flex flex-col h-full">
               <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Lite</p>
               <div className="flex items-end gap-1 mb-1">
@@ -290,6 +299,39 @@ export default function PartnersLandingPage() {
                 className="mt-auto block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
               >
                 Start free trial
+              </Link>
+            </div>
+            <div className="rounded-3xl border-2 border-[#E8E6E0] bg-[#FAFAF8] p-8 shadow-sm flex flex-col h-full">
+              <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">
+                {SHOPIFY_SYNC_PLAN_NAME}
+              </p>
+              <div className="flex items-end gap-1 mb-1">
+                <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">
+                  ${SHOPIFY_SYNC_MONTHLY_CAD}
+                </span>
+                <span className="text-[#555] text-sm mb-2">CAD / month</span>
+              </div>
+              <p className="text-xs text-[#5D755D] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
+              <ul className="space-y-3 text-sm text-[#333] mb-8 flex-1">
+                {[
+                  'Standalone — no Lite or Pro required',
+                  'Sync tagged Shopify products into offhrs',
+                  'Guests book on your Shopify storefront',
+                  'Shopify stays the source of truth',
+                  'Billed through Shopify App Pricing',
+                  'Tag products with offhrs_workshop',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="text-[#5D755D] mt-0.5">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/partners/signup"
+                className="mt-auto block w-full rounded-full border-2 border-[#5D755D] bg-transparent px-6 py-3 text-center text-sm font-semibold text-[#5D755D] hover:bg-[#EDF0ED] transition-colors"
+              >
+                Get started
               </Link>
             </div>
           </div>
