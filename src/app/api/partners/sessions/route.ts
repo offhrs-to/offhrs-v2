@@ -12,6 +12,7 @@ import {
   expandSessionsForCalendarRange,
 } from '@/lib/workshop-series'
 import { LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD } from '@/lib/stripe-partner-plans'
+import { vendorHasNativePartnerPlan } from '@/lib/partner-access'
 import { buildPartnerSeriesMeta, resolveWorkshopSeriesDates } from '@/lib/partner-session-series-resolve'
 import { setSeriesAvailabilityFromRules } from '@/lib/partner-event-availability'
 import { resolveEventCoordinates } from '@/lib/event-location-coordinates'
@@ -185,17 +186,27 @@ export async function POST(request: NextRequest) {
 
     if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 })
 
+    if (!(await vendorHasNativePartnerPlan(admin, vendor.id))) {
+      return NextResponse.json(
+        {
+          error:
+            'Creating workshops in the dashboard requires an offhrs Lite or Pro plan. Shopify Sync alone only mirrors tagged products from your Shopify store.',
+        },
+        { status: 403 }
+      )
+    }
+
     const { data: activeSub } = await admin
       .from('vendor_subscriptions')
       .select('subscription_tier, current_period_start, current_period_end, status')
       .eq('vendor_id', vendor.id)
       .in('status', ['trialing', 'active', 'past_due'])
+      .in('subscription_tier', ['lite', 'pro'])
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
-    // Native workshop creation requires Lite/Pro (Stripe). Shopify Sync is a separate plan.
-    if (!activeSub || (activeSub.subscription_tier !== 'lite' && activeSub.subscription_tier !== 'pro')) {
+    if (!activeSub) {
       return NextResponse.json(
         {
           error:

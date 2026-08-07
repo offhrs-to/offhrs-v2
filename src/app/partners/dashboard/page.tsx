@@ -13,8 +13,11 @@ import { repairOrphanedStripeRefundsForVendor } from '@/lib/booking-refund'
 import { reconcileVendorEventSlots } from '@/lib/event-slot-reconcile'
 import { reconcileStripeConnectStatus } from '@/lib/stripe-connect-reconcile'
 import { buildActivitySeriesFromBookings, type BookingActivityRow } from '@/lib/partner-dashboard-activity'
+import { vendorHasNativePartnerPlan } from '@/lib/partner-access'
+import { shopifyBillingAllowsSync } from '@/lib/shopify/billing'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 
 interface VendorProfile {
   id: string
@@ -58,6 +61,133 @@ export default async function DashboardPage({
     .single() as { data: VendorProfile | null }
 
   if (!vendor) redirect('/partners/signup')
+
+  const hasNativePlan = await vendorHasNativePartnerPlan(admin, vendor.id)
+
+  if (!hasNativePlan) {
+    const { data: shop } = await admin
+      .from('vendor_shopify_shops')
+      .select('shop_domain, billing_status, last_synced_at')
+      .eq('vendor_id', vendor.id)
+      .maybeSingle()
+
+    const { count: syncedCount } = await admin
+      .from('events')
+      .select('id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendor.id)
+      .eq('listing_source', 'shopify')
+      .neq('booking_status', 'archived')
+
+    const shopConnected = Boolean(shop)
+    const billingActive = shop
+      ? shopifyBillingAllowsSync({
+          billingStatus: shop.billing_status,
+          shopDomain: shop.shop_domain,
+        })
+      : false
+    const profileReady = Boolean(vendor.bio?.trim() && vendor.location_address?.trim())
+    const hasSyncedSessions = (syncedCount ?? 0) > 0
+
+    const checklistItems = [
+      {
+        key: 'email_verified',
+        label: 'Verify your email',
+        done: vendor.email_verified,
+        showStripeCta: false,
+        href: null as string | null,
+      },
+      {
+        key: 'shopify_connected',
+        label: 'Connect Shopify & start Sync trial',
+        done: shopConnected && billingActive,
+        showStripeCta: false,
+        href: '/partners/dashboard/settings',
+      },
+      {
+        key: 'profile_settings_reviewed',
+        label: 'Add bio & studio address (Settings)',
+        done: profileReady,
+        showStripeCta: false,
+        href: profileReady ? null : '/partners/dashboard/settings',
+      },
+      {
+        key: 'first_shopify_sync',
+        label: 'Tag products & Sync now',
+        done: hasSyncedSessions,
+        showStripeCta: false,
+        href: '/partners/dashboard/settings',
+      },
+    ]
+
+    const allDone = checklistItems.every((c) => c.done)
+
+    return (
+      <div className="mx-auto max-w-5xl space-y-6 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Welcome back, {vendor.business_name}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              You&apos;re on Shopify Sync — manage your connection and product feed in Settings.
+            </p>
+          </div>
+          <PartnerDashboardHeaderActions
+            items={checklistItems}
+            allDone={allDone}
+            trialDays={null}
+            openGettingStartedInitially={onboarding === '1' && !allDone}
+          />
+        </div>
+
+        <Card className="gap-0 border-partner-border py-0 shadow-none">
+          <CardContent className="space-y-3 p-5">
+            <h2 className="text-sm font-semibold text-foreground">Shopify Sync</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {shopConnected ? (
+                <>
+                  Connected to{' '}
+                  <span className="font-medium text-foreground">{shop.shop_domain}</span>
+                  {billingActive
+                    ? ` · ${syncedCount ?? 0} synced session${(syncedCount ?? 0) === 1 ? '' : 's'}`
+                    : ' · subscribe to Sync in Settings to unlock product sync'}
+                  {shop.last_synced_at
+                    ? ` · last sync ${new Date(shop.last_synced_at).toLocaleDateString('en-CA')}`
+                    : ''}
+                </>
+              ) : (
+                <>
+                  Install the offhrs app from Shopify Admin, then return here to start your Sync trial.
+                  Guests book on your Shopify storefront — no Stripe payout setup required.
+                </>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button asChild size="sm">
+                <Link href="/partners/dashboard/settings">Open Settings</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="border-partner-border">
+                <Link href="/partners/shopify-sync">Setup guide</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="gap-0 border-partner-border py-0 shadow-none">
+          <CardContent className="space-y-2 p-5">
+            <h2 className="text-sm font-semibold text-foreground">Want bookings on offhrs too?</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Lite and Pro unlock in-app checkout, Stripe payouts, workshops, calendar, bookings, and
+              clients. Sync stays separate and can run alongside either plan.
+            </p>
+            <Button asChild size="sm" variant="outline" className="border-partner-border mt-1">
+              <Link href="/partners/checkout">View Lite &amp; Pro</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   await repairOrphanedStripeRefundsForVendor(admin, vendor.id)
   await reconcileVendorEventSlots(admin, vendor.id)

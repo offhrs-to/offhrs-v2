@@ -65,6 +65,8 @@ interface SettingsClientProps {
   vendor: Vendor
   email: string
   subscription: SubscriptionState
+  /** Lite/Pro Stripe plan — shows billing, tax, refund policy, and full danger-zone Stripe copy. */
+  hasNativePlan: boolean
 }
 
 function formatLongDate(iso: string | null): string | null {
@@ -74,7 +76,7 @@ function formatLongDate(iso: string | null): string | null {
   return d.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-export function SettingsClient({ vendor, email, subscription }: SettingsClientProps) {
+export function SettingsClient({ vendor, email, subscription, hasNativePlan }: SettingsClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -550,6 +552,11 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
                 placeholder="123 Main St, Toronto, ON M5V 1A1"
                 className="h-10 border-partner-border bg-white shadow-none"
                />
+              {!hasNativePlan ? (
+                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                  Used for map pins on synced workshops in the offhrs app.
+                </p>
+              ) : null}
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1.5">
@@ -562,6 +569,7 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
                 className="h-10 border-partner-border bg-white shadow-none"
                />
             </div>
+            {hasNativePlan ? (
             <div className="col-span-2">
               <p className="block text-xs font-medium text-muted-foreground mb-2">Cancellation policy</p>
               <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
@@ -600,7 +608,8 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
                 </button>
               </div>
             </div>
-            {!strictNoRefund ? (
+            ) : null}
+            {hasNativePlan && !strictNoRefund ? (
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                   Refund window (hours before workshop)
@@ -614,7 +623,8 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
                  />
                 <p className="text-xs text-muted-foreground mt-1">Minimum 24 hours (platform policy).</p>
               </div>
-            ) : (
+            ) : null}
+            {hasNativePlan && strictNoRefund ? (
               <div className="col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                 <p className="text-xs font-semibold text-amber-900">Strict policy active</p>
                 <p className="text-xs text-amber-800 mt-1 leading-relaxed">
@@ -622,7 +632,7 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
                   purchased.&rdquo; They cannot cancel paid bookings for a refund in the app.
                 </p>
               </div>
-            )}
+            ) : null}
           </div>
 
           {profileMsg && (
@@ -645,6 +655,8 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
       </CardContent>
       </Card>
 
+      {hasNativePlan ? (
+      <>
       {/* Workshop sales tax (GST/HST) */}
       <Card className="gap-0 border-partner-border py-0 shadow-none">
         <CardContent className="space-y-4 p-5">
@@ -788,6 +800,21 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
         ) : null}
       </CardContent>
       </Card>
+      </>
+      ) : (
+      <Card className="gap-0 border-partner-border py-0 shadow-none">
+        <CardContent className="space-y-3 p-5">
+          <h2 className="text-sm font-semibold text-foreground mb-1">Lite &amp; Pro (optional)</h2>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Shopify Sync is billed in Shopify. Add Lite or Pro if you also want in-app bookings,
+            Stripe payouts, workshops, calendar, and clients in this dashboard.
+          </p>
+          <Button asChild variant="outline" size="sm" className="border-partner-border">
+            <a href="/partners/checkout">View Lite &amp; Pro</a>
+          </Button>
+        </CardContent>
+      </Card>
+      )}
 
       {/* Shopify workshop feed */}
       <Card className="gap-0 border-partner-border py-0 shadow-none">
@@ -974,7 +1001,7 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
           <h2 className="text-sm font-semibold text-red-700">Danger zone</h2>
         </div>
 
-        {cancellationScheduled && (
+        {hasNativePlan && cancellationScheduled && (
           <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
             <CalendarX className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
             <div className="text-xs text-amber-800 leading-relaxed">
@@ -989,7 +1016,7 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
           </div>
         )}
 
-        {subscriptionEnded && (
+        {hasNativePlan && subscriptionEnded && (
           <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
             <CalendarX className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
             <div className="text-xs text-red-800 leading-relaxed">
@@ -1002,7 +1029,7 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
           </div>
         )}
 
-        {subscriptionActive ? (
+        {hasNativePlan && subscriptionActive ? (
           <>
             <p className="text-xs text-muted-foreground mb-4">
               Canceling your subscription retains access until the end of your current billing period.
@@ -1018,7 +1045,8 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
               Cancel subscription
             </Button>
           </>
-        ) : (
+        ) : null}
+        {hasNativePlan && !subscriptionActive ? (
           <Button
             type="button"
             variant="outline"
@@ -1028,17 +1056,28 @@ export function SettingsClient({ vendor, email, subscription }: SettingsClientPr
           >
             {portalLoading ? 'Opening…' : 'Manage subscription'}
           </Button>
-        )}
+        ) : null}
 
-        <div className="mt-4 border-t border-red-100 pt-4">
+        <div className={hasNativePlan ? 'mt-4 border-t border-red-100 pt-4' : ''}>
           <p className="mb-3 text-xs text-muted-foreground">
-            Deleting your vendor account cancels your subscription right away, refunds active paid
-            bookings, and permanently removes your business profile, workshops, bookings, payout
-            records, and calendar connections. Funds already in your Stripe Express account still
-            pay out to your bank on Stripe’s schedule — but you will lose payout history in this
-            dashboard. Before deleting, check Stripe Express for any pending balance, confirm you are
-            okay refunding upcoming paid bookings, and export your Bookings CSV if you need records.
-            If you also use the offhrs mobile app with the same email, your consumer account is kept.
+            {hasNativePlan ? (
+              <>
+                Deleting your vendor account cancels your subscription right away, refunds active paid
+                bookings, and permanently removes your business profile, workshops, bookings, payout
+                records, and calendar connections. Funds already in your Stripe Express account still
+                pay out to your bank on Stripe’s schedule — but you will lose payout history in this
+                dashboard. Before deleting, check Stripe Express for any pending balance, confirm you are
+                okay refunding upcoming paid bookings, and export your Bookings CSV if you need records.
+                If you also use the offhrs mobile app with the same email, your consumer account is kept.
+              </>
+            ) : (
+              <>
+                Deleting your vendor account permanently removes your business profile and synced
+                workshop listings from offhrs. Cancel Shopify Sync billing in Shopify Admin if you no
+                longer need the plan. If you also use the offhrs mobile app with the same email, your
+                consumer account is kept.
+              </>
+            )}
           </p>
           <Button
             type="button"

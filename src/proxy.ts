@@ -1,6 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
+import {
+  isNativeOnlyDashboardPath,
+  vendorHasNativePartnerPlan,
+} from '@/lib/partner-access'
 
 const PUBLIC_PARTNER_PATHS = [
   '/partners/login',
@@ -9,6 +13,7 @@ const PUBLIC_PARTNER_PATHS = [
   '/partners/reset-password',
   '/partners/auth/callback',
   '/partners/update-password',
+  '/partners/shopify-sync',
 ]
 
 function adminClient() {
@@ -141,6 +146,17 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = '/partners/suspended'
       return NextResponse.redirect(url)
+    }
+
+    // Sync-only (no Lite/Pro): Overview, Settings, FAQ only — hide bookings/workshops/etc.
+    if (isNativeOnlyDashboardPath(pathname)) {
+      const admin = adminClient()
+      const hasNative = admin ? await vendorHasNativePartnerPlan(admin, vendor.id) : false
+      if (!hasNative) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/partners/dashboard/settings'
+        return NextResponse.redirect(url)
+      }
     }
   }
 
