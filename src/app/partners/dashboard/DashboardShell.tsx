@@ -28,7 +28,13 @@ import {
 } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 
-const allNavItems = [
+const allNavItems: {
+  href: string
+  label: string
+  icon: typeof LayoutDashboard
+  exact?: boolean
+  nativeOnly: boolean
+}[] = [
   { href: '/partners/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true, nativeOnly: false },
   { href: '/partners/dashboard/sessions', label: 'Workshops', icon: BookOpen, nativeOnly: true },
   { href: '/partners/dashboard/calendar', label: 'Calendar', icon: CalendarDays, nativeOnly: true },
@@ -36,7 +42,7 @@ const allNavItems = [
   { href: '/partners/dashboard/clients', label: 'Clients', icon: UserCircle2, nativeOnly: true },
   { href: '/partners/dashboard/payouts', label: 'Payouts', icon: DollarSign, nativeOnly: true },
   { href: '/partners/dashboard/settings', label: 'Settings', icon: Settings, nativeOnly: false },
-] as const
+]
 
 function NavItem({
   item,
