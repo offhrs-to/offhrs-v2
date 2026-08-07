@@ -140,7 +140,20 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       },
       {
         q: `What is ${SHOPIFY_SYNC_PLAN_NAME}?`,
-        aText: `${SHOPIFY_SYNC_PLAN_NAME} is a standalone $${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month plan (no Lite/Pro required). Install the offhrs app from Shopify, tag workshop products with offhrs_workshop, and sync them into the offhrs app. Guests discover you on offhrs and complete booking on your Shopify storefront.`,
+        aText: `${SHOPIFY_SYNC_PLAN_NAME} is a standalone $${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month plan (no Lite/Pro required). Install the offhrs app from Shopify, tag workshop products with offhrs_workshop, and sync them into the offhrs app. Guests discover you on offhrs and complete booking on your Shopify storefront. Full setup guide: /partners/shopify-sync`,
+        a: (
+          <p>
+            {SHOPIFY_SYNC_PLAN_NAME} is a standalone ${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month plan (no
+            Lite/Pro required). Install the offhrs app from Shopify, tag workshop products with{' '}
+            <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">offhrs_workshop</code>,
+            and sync them into the offhrs app. Guests discover you on offhrs and complete booking on
+            your Shopify storefront.{' '}
+            <a href="/partners/shopify-sync" className="font-medium text-[#5D755D] underline-offset-2 hover:underline">
+              Read the setup guide
+            </a>
+            .
+          </p>
+        ),
       },
       {
         q: 'Can I cancel my subscription?',

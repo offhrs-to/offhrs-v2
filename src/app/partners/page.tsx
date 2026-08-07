@@ -328,7 +328,7 @@ export default function PartnersLandingPage() {
                 ))}
               </ul>
               <Link
-                href="/partners/signup"
+                href="/partners/shopify-sync"
                 className="mt-auto block w-full rounded-full border-2 border-[#5D755D] bg-transparent px-6 py-3 text-center text-sm font-semibold text-[#5D755D] hover:bg-[#EDF0ED] transition-colors"
               >
                 Get started
