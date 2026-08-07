@@ -144,7 +144,7 @@ export default async function DashboardPage({
           <CardContent className="space-y-3 p-5">
             <h2 className="text-sm font-semibold text-foreground">Shopify Sync</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              {shopConnected ? (
+              {shop ? (
                 <>
                   Connected to{' '}
                   <span className="font-medium text-foreground">{shop.shop_domain}</span>
