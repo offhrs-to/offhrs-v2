@@ -829,7 +829,9 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
             with a <span className="font-medium text-foreground">30-day free trial</span>
             . Sync tagged workshop products into the offhrs app; guests book on your Shopify
             storefront (not in-app Stripe). Separate from Lite/Pro. Tag products with{' '}
-            <span className="font-medium text-foreground">offhrs_workshop</span>.
+            <span className="font-medium text-foreground">offhrs_workshop</span>
+            . Listings use your primary signup category unless you set an{' '}
+            <span className="font-medium text-foreground">offhrs.category</span> metafield.
           </p>
           <p className="text-xs text-muted-foreground leading-relaxed mt-2">
             Install from the{' '}

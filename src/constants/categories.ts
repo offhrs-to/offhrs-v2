@@ -36,6 +36,23 @@ export function normalizePartnerSessionCategory(raw: string | null | undefined):
   return LEGACY_CATEGORY_BY_SLUG[t.toLowerCase()] ?? 'Other'
 }
 
+/**
+ * Primary business category from `vendor_profiles.category` (signup pick order —
+ * first entry is primary). Used as the default for Shopify Sync listings when
+ * no per-product `offhrs.category` metafield is set.
+ */
+export function primaryVendorCategory(
+  category: string[] | string | null | undefined
+): Category {
+  if (Array.isArray(category) && category.length > 0) {
+    return normalizePartnerSessionCategory(category[0])
+  }
+  if (typeof category === 'string') {
+    return normalizePartnerSessionCategory(category)
+  }
+  return 'Other'
+}
+
 /** Novice tier icon per category (same assets as mobile app / landing). */
 export const CATEGORY_NOVICE_ICONS: Record<string, string> = {
   'Scent & Candle': '/categories/beauty-fragrance-novice.png',

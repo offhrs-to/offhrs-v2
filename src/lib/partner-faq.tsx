@@ -156,6 +156,20 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
         ),
       },
       {
+        q: 'What category do Shopify Sync workshops use?',
+        aText:
+          'Synced listings use your primary business category from partner signup (the first category you picked). You can override a product with an optional offhrs.category metafield. Re-sync after changing categories so listings update.',
+        a: (
+          <p>
+            Synced listings use your <strong>primary business category</strong> from partner signup
+            (the first category you picked). To set a different category on one product, add an
+            optional{' '}
+            <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">offhrs.category</code>{' '}
+            metafield (for example Pottery or Floral), then Sync again.
+          </p>
+        ),
+      },
+      {
         q: 'Can I cancel my subscription?',
         aText:
           'Yes, anytime from your dashboard settings (Lite/Pro) or Shopify billing (Sync). You keep access until the end of your current billing period.',

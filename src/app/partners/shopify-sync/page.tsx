@@ -228,6 +228,16 @@ export default function ShopifySyncGuidePage() {
             <li className="flex items-start gap-2">
               <span className="text-[#5D755D] mt-0.5">✓</span>
               <span>
+                <span className="font-medium text-[#1a1a1a]">Category</span> defaults to your{' '}
+                <span className="font-medium text-[#1a1a1a]">primary signup category</span> (the
+                first one you picked). Override per product with optional metafield{' '}
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">offhrs.category</code>
+                .
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-[#5D755D] mt-0.5">✓</span>
+              <span>
                 <span className="font-medium text-[#1a1a1a]">Optional metafields</span> (namespace{' '}
                 <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">offhrs</code>):{' '}
                 <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">starts_at</code>,{' '}

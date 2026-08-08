@@ -12,6 +12,8 @@
  * Naive times are interpreted as America/Toronto.
  *
  * Optional metafields (namespace offhrs): book_url, capacity, duration_minutes, category
+ * Category fallback: product/variant offhrs.category metafield → vendor primary signup
+ * category (vendor_profiles.category[0]) → Other.
  * Inventory on the variant = remaining seats (available_slots).
  * One Shopify variant ≈ one offhrs session row.
  */

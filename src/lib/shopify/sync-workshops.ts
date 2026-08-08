@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { normalizePartnerSessionCategory } from '@/constants/categories'
+import { normalizePartnerSessionCategory, primaryVendorCategory } from '@/constants/categories'
 import { decrypt, encrypt } from '@/lib/token-encryption'
 import {
   migrateShopifyOfflineTokenToExpiring,
@@ -293,7 +293,9 @@ const PRODUCT_BY_ID_QUERY = `
 async function fetchVendorContext(admin: Admin, vendorId: string) {
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('id, business_name, location_address, location_lat, location_lng, default_workshop_image_url')
+    .select(
+      'id, business_name, location_address, location_lat, location_lng, default_workshop_image_url, category'
+    )
     .eq('id', vendorId)
     .single()
   return vendor
@@ -341,7 +343,9 @@ async function upsertVariantEvent(
     Number.isFinite(durationParsed) && durationParsed > 0 ? durationParsed : null
 
   const category = normalizePartnerSessionCategory(
-    variantMeta[OFFHRS_METAFIELD_CATEGORY] ?? productMeta[OFFHRS_METAFIELD_CATEGORY] ?? 'Other'
+    variantMeta[OFFHRS_METAFIELD_CATEGORY] ??
+      productMeta[OFFHRS_METAFIELD_CATEGORY] ??
+      primaryVendorCategory(opts.vendor.category as string[] | string | null | undefined)
   )
 
   const priceCad = Number.parseFloat(opts.variant.price || '0') || 0
