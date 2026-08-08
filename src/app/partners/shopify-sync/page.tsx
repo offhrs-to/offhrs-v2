@@ -258,25 +258,128 @@ export default function ShopifySyncGuidePage() {
         </div>
       </section>
 
-      <section className="max-w-3xl mx-auto px-6 py-20 text-center">
-        <h2 className="font-playfair text-3xl font-bold mb-4">Ready to connect Shopify?</h2>
-        <p className="text-sm text-[#555] max-w-md mx-auto mb-8 leading-relaxed">
-          Create your partner account, then install offhrs from Shopify Admin and start the Sync
-          trial in Settings.
+      <section className="max-w-3xl mx-auto px-6 py-16">
+        <h2 className="font-playfair text-2xl font-bold mb-3 text-center">Date &amp; time formats</h2>
+        <p className="text-sm text-[#555] text-center mb-10 max-w-lg mx-auto leading-relaxed">
+          Each variant needs a parseable <span className="font-medium text-[#1a1a1a]">date and time</span>.
+          Date-only values are skipped — we never invent a start time. Times without a timezone are
+          read as America/Toronto.
         </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
-            href="/partners/signup"
-            className="rounded-full bg-[#5D755D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-sm"
-          >
-            Create partner account
-          </Link>
-          <Link
-            href="/partners"
-            className="rounded-full border border-[#D9D7CF] px-8 py-3.5 text-sm font-semibold text-[#1a1a1a] hover:bg-[#F0EDE8] transition-colors"
-          >
-            Back to pricing
-          </Link>
+
+        <div className="space-y-8 text-left text-sm text-[#333] leading-relaxed">
+          <div>
+            <p className="font-semibold text-[#1a1a1a] mb-2">Recommended (Orris-style)</p>
+            <ul className="space-y-1.5 text-[#555]">
+              <li>
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
+                  August 21, 2026 12:00 PM
+                </code>
+              </li>
+              <li>
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
+                  Aug 21, 2026 12:00 PM
+                </code>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="font-semibold text-[#1a1a1a] mb-2">Also accepted</p>
+            <ul className="space-y-1.5 text-[#555]">
+              <li>
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
+                  August 21 2026 12:00 PM
+                </code>
+                {' / '}
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
+                  Aug 21 2026 12:00 PM
+                </code>
+              </li>
+              <li>
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
+                  2026-08-21 12:00 PM
+                </code>
+                {' / '}
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
+                  2026-08-21 12:00
+                </code>
+                {' / '}
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
+                  2026-08-21T12:00
+                </code>
+              </li>
+              <li>
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
+                  8/21/2026 12:00 PM
+                </code>
+                {' / '}
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
+                  8/21/2026 12:00
+                </code>
+              </li>
+              <li>
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
+                  21 August 2026 12:00 PM
+                </code>
+                {' / '}
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
+                  21 Aug 2026 12:00 PM
+                </code>
+              </li>
+              <li>ISO strings with a timezone offset or <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">Z</code> (parsed as real instants)</li>
+            </ul>
+            <p className="mt-3 text-[#555]">
+              Ordinals (<code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">21st</code>) and{' '}
+              <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">at</code>{' '}
+              are fine — e.g.{' '}
+              <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
+                August 21, 2026 at 12:00 PM
+              </code>
+              .
+            </p>
+          </div>
+
+          <div>
+            <p className="font-semibold text-[#1a1a1a] mb-2">Where to put the datetime</p>
+            <ul className="space-y-2 text-[#555]">
+              <li>
+                Preferred: a variant option named{' '}
+                <span className="font-medium text-[#1a1a1a]">Date</span>, Time, Session, Schedule,
+                When, or similar
+              </li>
+              <li>
+                Or metafield{' '}
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
+                  offhrs.starts_at
+                </code>
+              </li>
+              <li>Or the variant title (if it isn’t “Default Title”)</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white border-y border-[#E8E6E0] py-20 text-center">
+        <div className="max-w-3xl mx-auto px-6">
+          <h2 className="font-playfair text-3xl font-bold mb-4">Ready to connect Shopify?</h2>
+          <p className="text-sm text-[#555] max-w-md mx-auto mb-8 leading-relaxed">
+            Create your partner account, then install offhrs from Shopify Admin and start the Sync
+            trial in Settings.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/partners/signup"
+              className="rounded-full bg-[#5D755D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-sm"
+            >
+              Create partner account
+            </Link>
+            <Link
+              href="/partners"
+              className="rounded-full border border-[#D9D7CF] px-8 py-3.5 text-sm font-semibold text-[#1a1a1a] hover:bg-[#F0EDE8] transition-colors"
+            >
+              Back to pricing
+            </Link>
+          </div>
         </div>
       </section>
 
