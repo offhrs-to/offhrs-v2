@@ -2,19 +2,19 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 import { OffhrsLogoLink } from '@/components/offhrs-logo'
 import { createClient } from '@/lib/supabase/browser'
 
-export default function PartnerResetPasswordPage() {
+function PartnerResetPasswordForm() {
+  const searchParams = useSearchParams()
+  const linkError = searchParams.get('error')
+
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const APP_URL =
-    typeof window !== 'undefined'
-      ? window.location.origin
-      : process.env.NEXT_PUBLIC_APP_URL ?? 'https://partners.offhrs.app'
+  const [error, setError] = useState<string | null>(linkError)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,9 +22,12 @@ export default function PartnerResetPasswordPage() {
     setError(null)
 
     try {
+      const origin = window.location.origin
       const supabase = createClient()
+      // Server confirm exchanges the code / token_hash and sets auth cookies,
+      // then sends the user to the update-password form.
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${APP_URL}/partners/auth/callback?next=/partners/update-password`,
+        redirectTo: `${origin}/api/partners/auth/confirm?next=${encodeURIComponent('/partners/update-password')}`,
       })
       if (resetError) throw resetError
       setSent(true)
@@ -42,7 +45,8 @@ export default function PartnerResetPasswordPage() {
           <div className="text-4xl">📬</div>
           <h1 className="font-playfair text-2xl font-bold text-[#1a1a1a]">Check your inbox</h1>
           <p className="text-[#555] text-sm">
-            We sent a password reset link to <strong>{email}</strong>.
+            We sent a password reset link to <strong>{email}</strong>. Open it in this same browser
+            for best results.
           </p>
           <Link href="/partners/login" className="text-sm text-[#5D755D] underline">
             Back to sign in
@@ -111,5 +115,19 @@ export default function PartnerResetPasswordPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function PartnerResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center text-sm text-[#555]">
+          Loading…
+        </div>
+      }
+    >
+      <PartnerResetPasswordForm />
+    </Suspense>
   )
 }

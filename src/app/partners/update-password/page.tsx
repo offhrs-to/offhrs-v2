@@ -16,9 +16,37 @@ export default function PartnerUpdatePasswordPage() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getSession().then(({ data }) => {
-      setHasSession(Boolean(data.session))
+    let cancelled = false
+
+    const applySession = (ok: boolean) => {
+      if (!cancelled) setHasSession(ok)
+    }
+
+    // Recovery redirects can race cookie hydration — retry briefly.
+    void (async () => {
+      for (let i = 0; i < 8; i++) {
+        const { data } = await supabase.auth.getSession()
+        if (data.session) {
+          applySession(true)
+          return
+        }
+        await new Promise((r) => setTimeout(r, 150))
+      }
+      applySession(false)
+    })()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        applySession(Boolean(session))
+      }
     })
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,7 +82,8 @@ export default function PartnerUpdatePasswordPage() {
         <div className="max-w-md w-full text-center space-y-4">
           <h1 className="font-playfair text-2xl font-bold text-[#1a1a1a]">Link expired</h1>
           <p className="text-[#555] text-sm">
-            This password reset link is invalid or has expired. Please request a new one.
+            This password reset link is invalid or has expired. Please request a new one and open it
+            in the same browser where you requested the reset.
           </p>
           <Link href="/partners/reset-password" className="text-sm text-[#5D755D] underline">
             Request a new reset link
@@ -131,7 +160,7 @@ export default function PartnerUpdatePasswordPage() {
             disabled={loading || success || hasSession === null}
             className="w-full rounded-lg bg-[#5D755D] px-4 py-3 text-sm font-semibold text-white hover:bg-[#4d634d] disabled:opacity-60 transition-colors"
           >
-            {loading ? 'Updating…' : 'Update password'}
+            {loading ? 'Updating…' : hasSession === null ? 'Checking link…' : 'Update password'}
           </button>
         </form>
       </div>
