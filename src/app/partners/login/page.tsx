@@ -28,7 +28,15 @@ export default function PartnerLoginPage() {
         password: form.password,
       })
 
-      if (signInError) throw signInError
+      if (signInError) {
+        // Best-effort abuse signal (credential stuffing); never block login UX.
+        void fetch('/api/partners/auth/login-failed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: form.email }),
+        }).catch(() => {})
+        throw signInError
+      }
 
       const params = new URLSearchParams(window.location.search)
       const next = params.get('next')

@@ -45,7 +45,7 @@ function resend() {
   return new Resend(process.env.RESEND_API_KEY)
 }
 
-async function send(to: string, subject: string, html: string, attachments?: { filename: string; content: string }[]) {
+async function send(to: string | string[], subject: string, html: string, attachments?: { filename: string; content: string }[]) {
   const client = resend()
   if (!client) {
     throw new Error('RESEND_API_KEY is not configured')
@@ -315,6 +315,54 @@ export async function sendConsumerRefundConfirmation(
       ${p(`Refunds typically appear on your card within 5–10 business days.<br>Booking reference: <code>${bookingRef}</code>`)}
     `),
     attachments
+  )
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/** Ops / security alert email. Callers should fire-and-forget. */
+export async function sendSecurityAlertEmail(opts: {
+  to: string | string[]
+  severity: 'warn' | 'critical'
+  eventType: string
+  route?: string | null
+  ipKey?: string | null
+  details?: Record<string, unknown> | null
+  ts?: string
+}): Promise<void> {
+  const recipients = (Array.isArray(opts.to) ? opts.to : [opts.to])
+    .map((t) => t.trim())
+    .filter(Boolean)
+  if (recipients.length === 0) return
+
+  const badge = opts.severity === 'critical' ? '#B91C1C' : '#B45309'
+  const detailsJson = opts.details
+    ? `<pre style="margin:0 0 16px;padding:12px;background:#F5F2EE;border-radius:8px;font-size:12px;overflow:auto;color:#333;">${escapeHtml(
+        JSON.stringify(opts.details, null, 2)
+      )}</pre>`
+    : ''
+
+  await send(
+    recipients,
+    `[offhrs ${opts.severity.toUpperCase()}] ${opts.eventType}`,
+    wrap(`
+      <p style="margin:0 0 12px;"><span style="display:inline-block;padding:4px 10px;border-radius:999px;background:${badge};color:#fff;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">${opts.severity}</span></p>
+      ${h2(opts.eventType)}
+      ${p('A security event was recorded on the offhrs API.')}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px;">
+        <tr><td style="padding:4px 0;color:#888;">Time</td><td style="padding:4px 0;color:#1a1a1a;">${escapeHtml(opts.ts ?? new Date().toISOString())}</td></tr>
+        <tr><td style="padding:4px 0;color:#888;">Route</td><td style="padding:4px 0;color:#1a1a1a;">${escapeHtml(opts.route ?? '—')}</td></tr>
+        <tr><td style="padding:4px 0;color:#888;">IP key</td><td style="padding:4px 0;color:#1a1a1a;">${escapeHtml(opts.ipKey ?? '—')}</td></tr>
+      </table>
+      ${detailsJson}
+      ${p('Check Vercel logs for <code>[SECURITY_EVENT]</code> and the <code>security_events</code> table in Supabase.')}
+    `)
   )
 }
 
