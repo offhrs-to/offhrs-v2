@@ -118,12 +118,16 @@ export async function proxy(request: NextRequest) {
       return Boolean(shop)
     }
 
-    // Pending vendors must complete Stripe billing OR finish Shopify Sync setup in Settings.
+    // Pending vendors must complete Stripe billing OR Shopify Sync onboarding (guide → install → Settings).
     if (vendor.status === 'pending') {
       if (pathname === '/partners/checkout' || pathname.startsWith('/partners/checkout/')) {
         return supabaseResponse
       }
-      if (shopifyOnboardingPaths && (await vendorHasShopifyShop(vendor.id))) {
+      if (pathname === '/partners/shopify-sync' || pathname.startsWith('/partners/shopify-sync/')) {
+        return supabaseResponse
+      }
+      // Allow Sync path into dashboard/settings/faq before Stripe (install + claim happens here).
+      if (shopifyOnboardingPaths) {
         return supabaseResponse
       }
       const url = request.nextUrl.clone()

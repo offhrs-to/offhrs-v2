@@ -23,7 +23,11 @@ import { createClient as createBrowserSupabaseClient } from '@/lib/supabase/brow
 import {
   formatPartnerMonthlyAmount,
   PARTNER_TRIAL_LABEL,
+  SHOPIFY_SYNC_MONTHLY_CAD,
+  SHOPIFY_SYNC_PLAN_NAME,
 } from '@/lib/partner-pricing'
+
+type BillingPlanChoice = 'lite' | 'pro' | 'shopify_sync'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 const TURNSTILE_ENABLED = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
@@ -81,7 +85,9 @@ export function PartnerSignupWizard() {
   const [emailVerifiedForBilling, setEmailVerifiedForBilling] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [billingCanceled, setBillingCanceled] = useState(false)
-  const [billingPlan, setBillingPlan] = useState<'lite' | 'pro'>('pro')
+  const [billingPlan, setBillingPlan] = useState<BillingPlanChoice>(() =>
+    searchParams.get('intent') === 'shopify_sync' ? 'shopify_sync' : 'pro'
+  )
 
   const [businessName, setBusinessName] = useState('')
   const [websiteUrl, setWebsiteUrl] = useState('')
@@ -186,6 +192,9 @@ export function PartnerSignupWizard() {
 
   useEffect(() => {
     setBillingCanceled(searchParams.get('canceled') === '1')
+    if (searchParams.get('intent') === 'shopify_sync') {
+      setBillingPlan('shopify_sync')
+    }
   }, [searchParams])
 
   useEffect(() => {
@@ -311,7 +320,7 @@ export function PartnerSignupWizard() {
   }
 
   async function startCheckout() {
-    if (!emailVerifiedForBilling) return
+    if (!emailVerifiedForBilling || billingPlan === 'shopify_sync') return
     setCheckoutLoading(true)
     setError(null)
     try {
@@ -331,10 +340,18 @@ export function PartnerSignupWizard() {
     }
   }
 
+  function continueWithShopifySync() {
+    if (!emailVerifiedForBilling) return
+    setCheckoutLoading(true)
+    router.push('/partners/shopify-sync?onboarding=1')
+  }
+
   function primaryAction() {
     if (step === 'account') void submitAccountAndGoToBilling()
-    else if (step === 'billing') void startCheckout()
-    else goNext()
+    else if (step === 'billing') {
+      if (billingPlan === 'shopify_sync') continueWithShopifySync()
+      else void startCheckout()
+    } else goNext()
   }
 
   const primaryDisabled =
@@ -342,7 +359,11 @@ export function PartnerSignupWizard() {
 
   let primaryLabel = 'Continue'
   if (step === 'account') primaryLabel = loading ? 'Creating…' : 'Continue'
-  if (step === 'billing') primaryLabel = checkoutLoading ? 'Redirecting…' : 'Add payment & start trial'
+  if (step === 'billing') {
+    if (checkoutLoading) primaryLabel = 'Redirecting…'
+    else if (billingPlan === 'shopify_sync') primaryLabel = 'Continue without Stripe'
+    else primaryLabel = 'Add payment & start trial'
+  }
 
   const inputClass =
     'w-full rounded-lg border border-[#D9D7CF] bg-[#FAFAF8] px-4 py-2.5 text-sm text-[#1a1a1a] placeholder:text-[#AAA] focus:outline-none focus:ring-2 focus:ring-[#5D755D]'
@@ -675,12 +696,23 @@ export function PartnerSignupWizard() {
               </span>
             </div>
             <h1 className="font-playfair text-3xl font-bold text-[#1a1a1a] leading-tight text-center">
-              Payment & subscription
+              Choose how you&apos;ll get listed
             </h1>
             <p className="text-sm text-[#555] leading-relaxed text-center">
-              Choose a plan, then add a payment method to start your{' '}
-              <strong className="font-semibold text-[#1a1a1a]">{PARTNER_TRIAL_LABEL}</strong>. After the trial, your
-              subscription renews monthly unless you cancel before the trial ends (see our Terms for details).
+              {billingPlan === 'shopify_sync' ? (
+                <>
+                  Continue with <strong className="font-semibold text-[#1a1a1a]">{SHOPIFY_SYNC_PLAN_NAME}</strong> —
+                  no Stripe. Billing runs through Shopify after you install the app (
+                  <strong className="font-semibold text-[#1a1a1a]">{PARTNER_TRIAL_LABEL}</strong>).
+                </>
+              ) : (
+                <>
+                  Choose Lite or Pro, then add a payment method to start your{' '}
+                  <strong className="font-semibold text-[#1a1a1a]">{PARTNER_TRIAL_LABEL}</strong>. After the trial,
+                  your subscription renews monthly unless you cancel before the trial ends (see our Terms for
+                  details).
+                </>
+              )}
             </p>
             {emailVerifiedForBilling && (
               <div className="grid grid-cols-1 gap-3 pt-2">
@@ -720,9 +752,30 @@ export function PartnerSignupWizard() {
                     Unlimited workshop sessions. Full platform access.
                   </p>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingPlan('shopify_sync')}
+                  className={`rounded-xl border-2 p-4 text-left transition-colors ${
+                    billingPlan === 'shopify_sync'
+                      ? 'border-[#5D755D] bg-[#EDF2ED]'
+                      : 'border-[#E8E4DE] bg-[#FAFAF8] hover:border-[#D9D7CF]'
+                  }`}
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#5D755D]">
+                    {SHOPIFY_SYNC_PLAN_NAME}
+                  </p>
+                  <p className="mt-1 font-playfair text-2xl font-bold text-[#1a1a1a]">
+                    ${SHOPIFY_SYNC_MONTHLY_CAD}{' '}
+                    <span className="text-sm font-normal text-[#555]">CAD / month</span>
+                  </p>
+                  <p className="mt-2 text-xs text-[#555] leading-relaxed">
+                    Continue without Stripe. Keep Shopify as your booking system — install the app, tag
+                    workshops, and start your Sync trial in Settings.
+                  </p>
+                </button>
               </div>
             )}
-            {billingCanceled && (
+            {billingCanceled && billingPlan !== 'shopify_sync' && (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 text-center">
                 Checkout was canceled. When you&apos;re ready, use the button below to try again.
               </p>
@@ -739,12 +792,15 @@ export function PartnerSignupWizard() {
             )}
             {emailVerifiedForBilling && (
               <p className="text-center text-xs text-[#5D755D] font-medium">
-                Email confirmed — you can continue to secure Stripe checkout.
+                {billingPlan === 'shopify_sync'
+                  ? 'Email confirmed — continue to the Sync setup guide, then install from Shopify.'
+                  : 'Email confirmed — you can continue to secure Stripe checkout.'}
               </p>
             )}
             <p className="text-center text-xs text-[#999]">
-              Payments are processed by Stripe. You won&apos;t be charged the subscription amount until after your trial
-              period.
+              {billingPlan === 'shopify_sync'
+                ? 'Shopify Sync is billed through Shopify App Pricing after install — not Stripe.'
+                : 'Lite and Pro payments are processed by Stripe. You won\u2019t be charged the subscription amount until after your trial period.'}
             </p>
           </div>
         )}

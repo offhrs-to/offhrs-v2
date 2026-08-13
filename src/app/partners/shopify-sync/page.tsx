@@ -98,7 +98,14 @@ const cannotDo = [
   'Connect directly to third-party Shopify apps (for example Numos) — we only read products and inventory from Shopify itself',
 ]
 
-export default function ShopifySyncGuidePage() {
+export default async function ShopifySyncGuidePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ onboarding?: string }>
+}) {
+  const { onboarding } = await searchParams
+  const afterSignup = onboarding === '1'
+
   return (
     <div className="min-h-screen bg-[#FAFAF8] text-[#1a1a1a]">
       <nav className="sticky top-0 z-50 bg-[#FAFAF8]/90 backdrop-blur border-b border-[#E8E6E0]">
@@ -118,7 +125,7 @@ export default function ShopifySyncGuidePage() {
               Sign in
             </Link>
             <Link
-              href="/partners/signup"
+              href="/partners/signup?intent=shopify_sync"
               className="rounded-full bg-[#5D755D] px-5 py-2 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
             >
               Sign up
@@ -126,6 +133,23 @@ export default function ShopifySyncGuidePage() {
           </div>
         </div>
       </nav>
+
+      {afterSignup && (
+        <div className="border-b border-[#5D755D]/25 bg-[#EDF2ED]">
+          <div className="max-w-3xl mx-auto px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p className="text-sm text-[#1a1a1a] leading-relaxed">
+              Account ready — install offhrs from Shopify Admin, then open Settings to claim your shop and
+              start the Sync trial.
+            </p>
+            <Link
+              href="/partners/dashboard/settings"
+              className="shrink-0 rounded-full bg-[#5D755D] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors text-center"
+            >
+              Open Settings
+            </Link>
+          </div>
+        </div>
+      )}
 
       <header className="max-w-3xl mx-auto px-6 pt-16 pb-12 text-center">
         <p className="inline-block rounded-full bg-[#EDF0ED] px-4 py-1 text-xs font-semibold text-[#5D755D] mb-6 tracking-wide uppercase">
@@ -343,18 +367,30 @@ export default function ShopifySyncGuidePage() {
 
       <section className="bg-white border-y border-[#E8E6E0] py-20 text-center">
         <div className="max-w-3xl mx-auto px-6">
-          <h2 className="font-playfair text-3xl font-bold mb-4">Ready to connect Shopify?</h2>
+          <h2 className="font-playfair text-3xl font-bold mb-4">
+            {afterSignup ? 'Next: install from Shopify' : 'Ready to connect Shopify?'}
+          </h2>
           <p className="text-sm text-[#555] max-w-md mx-auto mb-8 leading-relaxed">
-            Create your partner account, then install offhrs from Shopify Admin and start the Sync
-            trial in Settings.
+            {afterSignup
+              ? 'Install the offhrs app from Shopify Admin, claim your shop, then start the Sync trial in Settings — billed on Shopify, not Stripe.'
+              : 'Create your partner account, choose Shopify Sync on the billing step (skip Stripe), then install offhrs from Shopify Admin and start the Sync trial in Settings.'}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/partners/signup"
-              className="rounded-full bg-[#5D755D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-sm"
-            >
-              Create partner account
-            </Link>
+            {afterSignup ? (
+              <Link
+                href="/partners/dashboard/settings"
+                className="rounded-full bg-[#5D755D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-sm"
+              >
+                Open Settings
+              </Link>
+            ) : (
+              <Link
+                href="/partners/signup?intent=shopify_sync"
+                className="rounded-full bg-[#5D755D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-sm"
+              >
+                Create partner account
+              </Link>
+            )}
             <Link
               href="/partners"
               className="rounded-full border border-[#D9D7CF] px-8 py-3.5 text-sm font-semibold text-[#1a1a1a] hover:bg-[#F0EDE8] transition-colors"
