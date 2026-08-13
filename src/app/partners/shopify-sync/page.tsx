@@ -268,7 +268,7 @@ export default function ShopifySyncGuidePage() {
 
         <div className="space-y-8 text-left text-sm text-[#333] leading-relaxed">
           <div>
-            <p className="font-semibold text-[#1a1a1a] mb-2">Recommended (Orris-style)</p>
+            <p className="font-semibold text-[#1a1a1a] mb-2">Recommended</p>
             <ul className="space-y-1.5 text-[#555]">
               <li>
                 <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
@@ -337,24 +337,6 @@ export default function ShopifySyncGuidePage() {
               </code>
               .
             </p>
-          </div>
-
-          <div>
-            <p className="font-semibold text-[#1a1a1a] mb-2">Where to put the datetime</p>
-            <ul className="space-y-2 text-[#555]">
-              <li>
-                Preferred: a variant option named{' '}
-                <span className="font-medium text-[#1a1a1a]">Date</span>, Time, Session, Schedule,
-                When, or similar
-              </li>
-              <li>
-                Or metafield{' '}
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
-                  offhrs.starts_at
-                </code>
-              </li>
-              <li>Or the variant title (if it isn’t “Default Title”)</li>
-            </ul>
           </div>
         </div>
       </section>

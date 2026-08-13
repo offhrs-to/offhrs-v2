@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { OffhrsLogoLink } from '@/components/offhrs-logo'
 import { PartnerFaqAccordion } from '@/components/partners/PartnerFaqAccordion'
+import { PartnerSetupVideos } from '@/components/partners/PartnerSetupVideos'
 import {
   formatPartnerMonthlyAmount,
   formatPartnerMonthlyPriceLabel,
@@ -336,6 +337,11 @@ export default function PartnersLandingPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* ── Setup videos ────────────────────────────────────────────────── */}
+      <section className="max-w-5xl mx-auto px-6 py-20">
+        <PartnerSetupVideos />
       </section>
 
       {/* ── FAQ ─────────────────────────────────────────────────────────── */}
