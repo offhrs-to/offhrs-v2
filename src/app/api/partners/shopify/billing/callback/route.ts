@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Explicit decline / cancel with charge_id but no active sub
-    if (chargeId && refreshed !== 'active') {
+    if (chargeId) {
       await persistShopifyBillingStatus(admin, shop.id, {
         billingStatus: refreshed === 'none' ? 'declined' : refreshed,
         appSubscriptionGid: shop.app_subscription_gid ?? null,
