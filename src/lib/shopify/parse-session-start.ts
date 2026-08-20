@@ -6,11 +6,11 @@ export type ShopifySelectedOption = { name: string; value: string }
 
 /** Option names that usually hold the session datetime (Orris-style "Date" pills). */
 const DATETIME_OPTION_NAME_RE =
-  /^(date|dates|date\s*&\s*time|datetime|date\s*\/\s*time|time|timeslot|time\s*slot|session|session\s*date|when|schedule|start|starts?)$/i
+  /^(date|dates|date\s*&\s*time|datetime|date\s*\/\s*time|time|timeslot|time\s*slot|session|session\s*date|when|schedule|start|starts?|aug\.?\s*\d{1,2}|sep\.?\s*\d{1,2}|oct\.?\s*\d{1,2}|nov\.?\s*\d{1,2}|dec\.?\s*\d{1,2}|jan\.?\s*\d{1,2}|feb\.?\s*\d{1,2}|mar\.?\s*\d{1,2}|apr\.?\s*\d{1,2}|may\.?\s*\d{1,2}|jun\.?\s*\d{1,2}|jul\.?\s*\d{1,2})$/i
 
 /** Option names that are almost never a start time (skip when scanning all options). */
 const NON_DATETIME_OPTION_NAME_RE =
-  /^(ticket|tickets|title|size|color|colour|style|material|guest|guests|party|quantity|qty|type|location|studio|addon|add-on)$/i
+  /^(ticket|tickets|title|size|color|colour|style|material|guest|guests|party|quantity|qty|type|location|studio|addon|add-on|menu)$/i
 
 /**
  * Formats seen on Shopify workshop variants (America/Toronto wall time).
@@ -23,6 +23,12 @@ const WALL_TIME_FORMATS = [
   'MMM d, yyyy hh:mm a',
   'MMMM d yyyy h:mm a',
   'MMM d yyyy h:mm a',
+  'MMMM d, yyyy H:mm',
+  'MMMM d yyyy H:mm',
+  'MMM d, yyyy H:mm',
+  'MMM d yyyy H:mm',
+  'MMMM d, yyyy h:mm',
+  'MMMM d yyyy h:mm',
   'yyyy-MM-dd h:mm a',
   'yyyy-MM-dd hh:mm a',
   'yyyy-MM-dd H:mm',

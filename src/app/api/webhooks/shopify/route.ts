@@ -94,6 +94,17 @@ export async function POST(request: NextRequest) {
   })
 
   try {
+    // App Store 1.2.2: full disconnect on uninstall — archive synced sessions, drop shop
+    // link + billing so reinstall can request a new charge and listings leave browse.
+    if (topic === 'app/uninstalled') {
+      await disconnectShopifyShopByDomain(admin, shop)
+      await admin
+        .from('webhook_events')
+        .update({ processed_at: new Date().toISOString() })
+        .eq('event_id', webhookId)
+      return NextResponse.json({ received: true })
+    }
+
     const shopRow = await loadShopifyShopByDomain(admin, shop)
     if (!shopRow) {
       await admin
@@ -116,19 +127,6 @@ export async function POST(request: NextRequest) {
       if (billingStatus === 'active') {
         await ensureVendorActiveForShopifySync(admin, shopRow.vendor_id)
       }
-      await admin
-        .from('webhook_events')
-        .update({ processed_at: new Date().toISOString() })
-        .eq('event_id', webhookId)
-      return NextResponse.json({ received: true })
-    }
-
-    // App Store 1.2.2: clear local billing on uninstall so reinstall can request a new charge.
-    if (topic === 'app/uninstalled') {
-      await persistShopifyBillingStatus(admin, shopRow.id, {
-        billingStatus: 'cancelled',
-        appSubscriptionGid: null,
-      })
       await admin
         .from('webhook_events')
         .update({ processed_at: new Date().toISOString() })
