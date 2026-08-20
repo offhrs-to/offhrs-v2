@@ -92,12 +92,47 @@ export function isShopifySyncPlanHandle(handle: string | null | undefined): bool
   return handle.trim().toLowerCase() === SHOPIFY_SYNC_PLAN_HANDLE
 }
 
-/** Dev/test charges for Billing API fallback. Set SHOPIFY_BILLING_TEST=false for live. */
-export function shopifyBillingTestMode(): boolean {
+/**
+ * Dev/test charges for Billing API.
+ * - SHOPIFY_BILLING_TEST=true|false forces the flag
+ * - Partner development stores must use test:true or approval fails in review
+ * - Otherwise: false in production, true elsewhere
+ */
+export function shopifyBillingTestMode(opts?: { partnerDevelopment?: boolean }): boolean {
   const v = process.env.SHOPIFY_BILLING_TEST?.trim().toLowerCase()
   if (v === 'false' || v === '0' || v === 'no') return false
   if (v === 'true' || v === '1' || v === 'yes') return true
+  if (opts?.partnerDevelopment) return true
   return process.env.NODE_ENV !== 'production'
+}
+
+const SHOP_PLAN_QUERY = `
+  query OffhrsShopPlan {
+    shop {
+      plan {
+        partnerDevelopment
+        displayName
+      }
+    }
+  }
+`
+
+export async function fetchShopifyShopIsPartnerDevelopment(opts: {
+  shop: string
+  accessToken: string
+}): Promise<boolean> {
+  try {
+    const data = await shopifyAdminGraphql<{
+      shop: { plan: { partnerDevelopment: boolean; displayName: string } | null } | null
+    }>({
+      shop: opts.shop,
+      accessToken: opts.accessToken,
+      query: SHOP_PLAN_QUERY,
+    })
+    return Boolean(data.shop?.plan?.partnerDevelopment)
+  } catch {
+    return false
+  }
 }
 
 /** Comma-separated myshopify domains that skip paid Sync (e.g. offhrs-test). */
@@ -143,12 +178,27 @@ export function mapShopifySubscriptionStatus(
   }
 }
 
-/** Legacy Billing API fallback if App Pricing redirect is unavailable. */
+/**
+ * Create a recurring Sync charge via Billing API and return Shopify's approval URL.
+ * Used for App Store 1.2.2 (accept / decline / re-request on reinstall).
+ */
 export async function createShopifySyncSubscription(opts: {
   shop: string
   accessToken: string
   returnUrl: string
-}): Promise<{ confirmationUrl: string; subscriptionGid: string }> {
+  /** Override test charge flag; when omitted, inferred from env + shop plan. */
+  test?: boolean
+}): Promise<{ confirmationUrl: string; subscriptionGid: string; test: boolean }> {
+  const partnerDevelopment =
+    opts.test === undefined
+      ? await fetchShopifyShopIsPartnerDevelopment({
+          shop: opts.shop,
+          accessToken: opts.accessToken,
+        })
+      : false
+  const test =
+    opts.test ?? shopifyBillingTestMode({ partnerDevelopment })
+
   const data = await shopifyAdminGraphql<{
     appSubscriptionCreate: {
       confirmationUrl: string | null
@@ -162,7 +212,7 @@ export async function createShopifySyncSubscription(opts: {
     variables: {
       name: SHOPIFY_SYNC_PLAN_NAME,
       returnUrl: opts.returnUrl,
-      test: shopifyBillingTestMode(),
+      test,
       trialDays: PARTNER_TRIAL_DAYS,
       lineItems: [
         {
@@ -191,6 +241,7 @@ export async function createShopifySyncSubscription(opts: {
   return {
     confirmationUrl: result.confirmationUrl,
     subscriptionGid: result.appSubscription.id,
+    test,
   }
 }
 

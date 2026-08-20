@@ -2,18 +2,24 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import {
+  createShopifySyncSubscription,
   persistShopifyBillingStatus,
-  shopifyAppPricingPlansUrl,
   shopifyBillingAllowsSync,
 } from '@/lib/shopify/billing'
-import { loadShopifyShopForVendor } from '@/lib/shopify/sync-workshops'
+import { shopifyOAuthAppBase } from '@/lib/shopify/app-base'
+import {
+  getValidShopAccessToken,
+  loadShopifyShopForVendor,
+} from '@/lib/shopify/sync-workshops'
 import { SHOPIFY_SYNC_PLAN_LABEL_WITH_TRIAL } from '@/lib/partner-pricing'
+import { NextRequest } from 'next/server'
 
 /**
- * Start Shopify Sync via App Pricing plan selection page.
- * Merchants pick/approve the `offhrs-sync` plan in Shopify Admin.
+ * Start Shopify Sync via Billing API (appSubscriptionCreate → confirmation URL).
+ * Merchants accept/decline the charge in Shopify Admin; return hits billing/callback.
+ * Satisfies App Store 1.2.2 (accept, decline, re-request after uninstall/reinstall).
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -40,17 +46,27 @@ export async function POST() {
   }
 
   try {
-    const confirmationUrl = shopifyAppPricingPlansUrl(shop.shop_domain)
+    const accessToken = await getValidShopAccessToken(admin, shop)
+    const base = shopifyOAuthAppBase(request)
+    const returnUrl = `${base}/api/partners/shopify/billing/callback`
+
+    const { confirmationUrl, subscriptionGid, test } = await createShopifySyncSubscription({
+      shop: shop.shop_domain,
+      accessToken,
+      returnUrl,
+    })
+
     await persistShopifyBillingStatus(admin, shop.id, {
       billingStatus: 'pending',
-      appSubscriptionGid: shop.app_subscription_gid ?? null,
+      appSubscriptionGid: subscriptionGid,
     })
 
     return NextResponse.json({
       confirmation_url: confirmationUrl,
       billing_status: 'pending',
       plan: SHOPIFY_SYNC_PLAN_LABEL_WITH_TRIAL,
-      pricing: 'app_pricing',
+      pricing: 'billing_api',
+      test_charge: test,
     })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Subscribe failed'

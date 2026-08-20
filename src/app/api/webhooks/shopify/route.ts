@@ -123,6 +123,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true })
     }
 
+    // App Store 1.2.2: clear local billing on uninstall so reinstall can request a new charge.
+    if (topic === 'app/uninstalled') {
+      await persistShopifyBillingStatus(admin, shopRow.id, {
+        billingStatus: 'cancelled',
+        appSubscriptionGid: null,
+      })
+      await admin
+        .from('webhook_events')
+        .update({ processed_at: new Date().toISOString() })
+        .eq('event_id', webhookId)
+      return NextResponse.json({ received: true })
+    }
+
     if (
       !shopRow.sync_enabled ||
       !shopifyBillingAllowsSync({

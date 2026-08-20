@@ -875,7 +875,9 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
                     {shopifySubscribeLoading && <Loader2 className="size-4 animate-spin" />}
                     {shopifySubscribeLoading
                       ? 'Opening Shopify…'
-                      : `Start trial — ${shopifyStatus.plan_label}`}
+                      : shopifyStatus.billing_status === 'declined'
+                        ? `Request approval again — ${shopifyStatus.plan_label}`
+                        : `Start trial — ${shopifyStatus.plan_label}`}
                   </Button>
                 ) : (
                   <Button

@@ -43,12 +43,13 @@ async function activateSyncAfterBilling(opts: {
 }
 
 /**
- * Welcome / return URL after merchant selects App Pricing plan (or Billing API charge).
- * App Pricing appends `plan_handle` + `shop`.
+ * Return URL after merchant accepts/declines Billing API charge (or App Pricing plan).
+ * Billing API appends charge_id; App Pricing may append plan_handle + shop.
  */
 export async function GET(request: NextRequest) {
   const base = shopifyOAuthAppBase(request)
   const planHandle = request.nextUrl.searchParams.get('plan_handle')
+  const chargeId = request.nextUrl.searchParams.get('charge_id')
 
   const supabase = await createClient()
   const {
@@ -104,6 +105,7 @@ export async function GET(request: NextRequest) {
       return settingsRedirect(base, 'shopify_billing=active')
     }
 
+    // Billing API return: prefer stored subscription GID, else refresh from Admin.
     if (shop.app_subscription_gid) {
       const sub = await fetchAppSubscriptionById({
         shop: shop.shop_domain,
@@ -129,6 +131,9 @@ export async function GET(request: NextRequest) {
         if (status === 'declined') {
           return settingsRedirect(base, 'shopify_billing=declined')
         }
+        if (status === 'pending' && chargeId) {
+          // Merchant may still be confirming; refresh once more from active list.
+        }
       }
     }
 
@@ -149,6 +154,18 @@ export async function GET(request: NextRequest) {
         accessToken,
       })
       return settingsRedirect(base, 'shopify_billing=active')
+    }
+
+    // Explicit decline / cancel with charge_id but no active sub
+    if (chargeId && refreshed !== 'active') {
+      await persistShopifyBillingStatus(admin, shop.id, {
+        billingStatus: refreshed === 'none' ? 'declined' : refreshed,
+        appSubscriptionGid: shop.app_subscription_gid ?? null,
+      })
+      return settingsRedirect(
+        base,
+        `shopify_billing=${encodeURIComponent(refreshed === 'none' ? 'declined' : refreshed)}`
+      )
     }
 
     return settingsRedirect(base, `shopify_billing=${encodeURIComponent(refreshed)}`)
