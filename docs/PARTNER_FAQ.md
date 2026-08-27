@@ -73,11 +73,16 @@ sent on your behalf and the funds are routed to your connected Stripe account.
 > the dashboard once it's connected.
 
 ### Does offhrs take a commission on each booking?
-No — offhrs does **not** take a percentage commission on bookings. Our revenue
-is the monthly subscription. What does apply to every paid booking is the
+No — offhrs does **not** take a percentage commission on **workshop bookings**. Our revenue
+for workshops is the monthly subscription. What does apply to every paid booking is the
 standard **Stripe payment processing fee (about 2.9% + $0.30 CAD per
-transaction)**, which is borne by you as the vendor (this is standard for any
-Stripe-based checkout).
+transaction)**, which is borne by you as the vendor.
+
+### What fees apply to Artist Marketplace sales?
+Marketplace goods: **5%** platform fee on the item subtotal (excluding tax and shipping),
+**plus** Stripe processing (about 2.9% + $0.30 CAD). Buyer-paid shipping funds the prepaid
+Canada Post label. Lite/Pro include Marketplace access; a free Marketplace-only plan is
+also planned. See `/terms/marketplace-seller-addendum`.
 
 ### When do payouts arrive?
 Payouts are issued by Stripe on Stripe's standard schedule for your account.

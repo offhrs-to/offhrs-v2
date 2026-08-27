@@ -2,9 +2,11 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 import {
+  isMarketplaceDashboardPath,
   isNativeOnlyDashboardPath,
   vendorHasNativePartnerPlan,
 } from '@/lib/partner-access'
+import { vendorHasMarketplaceAccess } from '@/lib/shop/access'
 
 const PUBLIC_PARTNER_PATHS = [
   '/partners/login',
@@ -105,7 +107,8 @@ export async function proxy(request: NextRequest) {
       pathname.startsWith('/partners/dashboard/settings') ||
       pathname === '/partners/dashboard' ||
       pathname === '/partners/dashboard/' ||
-      pathname.startsWith('/partners/dashboard/faq')
+      pathname.startsWith('/partners/dashboard/faq') ||
+      pathname.startsWith('/partners/dashboard/marketplace')
 
     async function vendorHasShopifyShop(vendorId: string): Promise<boolean> {
       const admin = adminClient()
@@ -118,7 +121,7 @@ export async function proxy(request: NextRequest) {
       return Boolean(shop)
     }
 
-    // Pending vendors must complete Stripe billing OR Shopify Sync onboarding (guide → install → Settings).
+    // Pending vendors must complete Stripe billing OR Shopify Sync / Marketplace onboarding.
     if (vendor.status === 'pending') {
       if (pathname === '/partners/checkout' || pathname.startsWith('/partners/checkout/')) {
         return supabaseResponse
@@ -126,7 +129,7 @@ export async function proxy(request: NextRequest) {
       if (pathname === '/partners/shopify-sync' || pathname.startsWith('/partners/shopify-sync/')) {
         return supabaseResponse
       }
-      // Allow Sync path into dashboard/settings/faq before Stripe (install + claim happens here).
+      // Allow Sync / Marketplace path into dashboard/settings/faq/marketplace before Stripe.
       if (shopifyOnboardingPaths) {
         return supabaseResponse
       }
@@ -152,7 +155,18 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Sync-only (no Lite/Pro): Overview, Settings, FAQ only — hide bookings/workshops/etc.
+    // Marketplace tab requires Lite/Pro or marketplace enrollment.
+    if (isMarketplaceDashboardPath(pathname)) {
+      const admin = adminClient()
+      const hasMarketplace = admin ? await vendorHasMarketplaceAccess(admin, vendor.id) : false
+      if (!hasMarketplace) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/partners/dashboard'
+        return NextResponse.redirect(url)
+      }
+    }
+
+    // Sync-only / Marketplace-only (no Lite/Pro): block workshop native tabs.
     if (isNativeOnlyDashboardPath(pathname)) {
       const admin = adminClient()
       const hasNative = admin ? await vendorHasNativePartnerPlan(admin, vendor.id) : false

@@ -15,6 +15,7 @@ import {
   UserCircle2,
   FileText,
   HelpCircle,
+  Store,
 } from 'lucide-react'
 import { useState } from 'react'
 import { OffhrsLogo } from '@/components/offhrs-logo'
@@ -28,20 +29,23 @@ import {
 } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 
+type NavVisibility = 'always' | 'native' | 'marketplace'
+
 const allNavItems: {
   href: string
   label: string
   icon: typeof LayoutDashboard
   exact?: boolean
-  nativeOnly: boolean
+  visibility: NavVisibility
 }[] = [
-  { href: '/partners/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true, nativeOnly: false },
-  { href: '/partners/dashboard/sessions', label: 'Workshops', icon: BookOpen, nativeOnly: true },
-  { href: '/partners/dashboard/calendar', label: 'Calendar', icon: CalendarDays, nativeOnly: true },
-  { href: '/partners/dashboard/bookings', label: 'Bookings', icon: ClipboardList, nativeOnly: true },
-  { href: '/partners/dashboard/clients', label: 'Clients', icon: UserCircle2, nativeOnly: true },
-  { href: '/partners/dashboard/payouts', label: 'Payouts', icon: DollarSign, nativeOnly: true },
-  { href: '/partners/dashboard/settings', label: 'Settings', icon: Settings, nativeOnly: false },
+  { href: '/partners/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true, visibility: 'always' },
+  { href: '/partners/dashboard/sessions', label: 'Workshops', icon: BookOpen, visibility: 'native' },
+  { href: '/partners/dashboard/calendar', label: 'Calendar', icon: CalendarDays, visibility: 'native' },
+  { href: '/partners/dashboard/bookings', label: 'Bookings', icon: ClipboardList, visibility: 'native' },
+  { href: '/partners/dashboard/clients', label: 'Clients', icon: UserCircle2, visibility: 'native' },
+  { href: '/partners/dashboard/marketplace', label: 'Marketplace', icon: Store, visibility: 'marketplace' },
+  { href: '/partners/dashboard/payouts', label: 'Payouts', icon: DollarSign, visibility: 'native' },
+  { href: '/partners/dashboard/settings', label: 'Settings', icon: Settings, visibility: 'always' },
 ]
 
 function NavItem({
@@ -90,18 +94,27 @@ function BrandMark({ className }: { className?: string }) {
   )
 }
 
+function visibleNavItems(hasNativePlan: boolean, hasMarketplaceAccess: boolean) {
+  return allNavItems.filter((item) => {
+    if (item.visibility === 'always') return true
+    if (item.visibility === 'native') return hasNativePlan
+    if (item.visibility === 'marketplace') return hasMarketplaceAccess
+    return false
+  })
+}
+
 function SidebarNav({
   pathname,
   hasNativePlan,
+  hasMarketplaceAccess,
   onNavigate,
 }: {
   pathname: string
   hasNativePlan: boolean
+  hasMarketplaceAccess: boolean
   onNavigate?: () => void
 }) {
-  const navItems = hasNativePlan
-    ? allNavItems
-    : allNavItems.filter((item) => !item.nativeOnly)
+  const navItems = visibleNavItems(hasNativePlan, hasMarketplaceAccess)
 
   return (
     <div className="flex h-full flex-col">
@@ -181,9 +194,11 @@ function SignOutButton() {
 export function DashboardShell({
   children,
   hasNativePlan,
+  hasMarketplaceAccess,
 }: {
   children: React.ReactNode
   hasNativePlan: boolean
+  hasMarketplaceAccess: boolean
 }) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -191,7 +206,11 @@ export function DashboardShell({
   return (
     <div className="flex h-screen overflow-hidden bg-partner-canvas">
       <aside className="hidden w-56 shrink-0 flex-col border-r border-partner-border bg-white md:flex">
-        <SidebarNav pathname={pathname} hasNativePlan={hasNativePlan} />
+        <SidebarNav
+          pathname={pathname}
+          hasNativePlan={hasNativePlan}
+          hasMarketplaceAccess={hasMarketplaceAccess}
+        />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -209,6 +228,7 @@ export function DashboardShell({
               <SidebarNav
                 pathname={pathname}
                 hasNativePlan={hasNativePlan}
+                hasMarketplaceAccess={hasMarketplaceAccess}
                 onNavigate={() => setMobileOpen(false)}
               />
             </SheetContent>

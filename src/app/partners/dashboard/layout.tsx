@@ -1,10 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { vendorHasNativePartnerPlan } from '@/lib/partner-access'
+import { vendorHasMarketplaceAccess } from '@/lib/shop/access'
 import { DashboardShell } from './DashboardShell'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   let hasNativePlan = false
+  let hasMarketplaceAccess = false
 
   try {
     const supabase = await createClient()
@@ -20,11 +22,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
         .maybeSingle()
       if (vendor?.id) {
         hasNativePlan = await vendorHasNativePartnerPlan(admin, vendor.id)
+        hasMarketplaceAccess = await vendorHasMarketplaceAccess(admin, vendor.id)
       }
     }
   } catch {
     hasNativePlan = false
+    hasMarketplaceAccess = false
   }
 
-  return <DashboardShell hasNativePlan={hasNativePlan}>{children}</DashboardShell>
+  return (
+    <DashboardShell hasNativePlan={hasNativePlan} hasMarketplaceAccess={hasMarketplaceAccess}>
+      {children}
+    </DashboardShell>
+  )
 }

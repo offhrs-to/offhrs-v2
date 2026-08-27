@@ -75,16 +75,22 @@ export default function DataProtectionPage() {
 
         <h3 className="mt-4">3.1 Scope &amp; purpose</h3>
         <p>
-          The Platform processes data for the sole purpose of operating a localized workshop marketplace:
-          scheduling, customer checkouts, registration tallies, refunds, slot reconciliation, and conflict
-          checks.
+          The Platform processes data for operating a localized workshop and Artist Marketplace:
+          scheduling, customer checkouts, registration tallies, Marketplace order fulfillment (including
+          sharing shipping addresses with Vendors), refunds, slot reconciliation, and conflict checks.
         </p>
 
         <h3 className="mt-4">3.2 Data categories &amp; restrictions</h3>
         <ul>
           <li>
             <strong>Permitted customer data:</strong> first and last names, email addresses, mobile numbers
-            (for automated system messages), booking history, refund history, and transaction status codes.
+            (for automated system messages), booking and Marketplace order history, shipping addresses for
+            paid Marketplace orders, refund history, and transaction status codes.
+          </li>
+          <li>
+            <strong>Marketplace shipping data.</strong> Partners may use buyer name and address only to fulfill
+            the order (label or pickup). Marketing use requires explicit opt-in (see Privacy Policy and
+            Marketplace Seller Addendum).
           </li>
           <li>
             <strong>Permitted staff data:</strong> names, role titles, class specializations, and

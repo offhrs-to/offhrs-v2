@@ -42,7 +42,21 @@ export function isSyncOnlyAllowedDashboardPath(pathname: string): boolean {
   return false
 }
 
-/** Routes that require Lite/Pro — Sync-only vendors are redirected away. */
+/**
+ * Marketplace-free vendors (no Lite/Pro): Overview, Marketplace, Settings, FAQ.
+ * Sync-only without Marketplace still uses {@link isSyncOnlyAllowedDashboardPath}.
+ */
+export function isMarketplaceOnlyAllowedDashboardPath(pathname: string): boolean {
+  if (isSyncOnlyAllowedDashboardPath(pathname)) return true
+  if (pathname.startsWith('/partners/dashboard/marketplace')) return true
+  return false
+}
+
+export function isMarketplaceDashboardPath(pathname: string): boolean {
+  return pathname.startsWith('/partners/dashboard/marketplace')
+}
+
+/** Routes that require Lite/Pro — Sync-only / Marketplace-only vendors are redirected away. */
 export function isNativeOnlyDashboardPath(pathname: string): boolean {
   return (
     pathname.startsWith('/partners/dashboard/sessions') ||

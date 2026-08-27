@@ -1,292 +1,275 @@
-# Artist Shop Marketplace (CAD / Canada-only)
+# Artist Marketplace Plan (FINAL)
 
-> **Status:** Planning only — not implemented.  
-> **Saved:** 2026-08-21  
-> **Also in Cursor:** `.cursor/plans/artist_shop_marketplace_80621ad4.plan.md` (may live under your user `.cursor/plans/` folder)
+> **Status:** FINAL — ready to execute engineering (Phase 1+) with Phase 0 legal/Shippo in parallel.  
+> **Updated:** 2026-08-25  
+> **Single source of truth:** this file only (`docs/ARTIST_SHOP_MARKETPLACE_PLAN.md`). Do not create duplicate plan copies.
 
-## Product decisions (locked)
+---
+
+## Execution readiness
+
+| Question | Answer |
+|----------|--------|
+| Product decisions locked? | **Yes** — sellers, fees, Shippo, policies 1–9, mobile IA |
+| Ready to write code (schema, Partners Marketplace, mobile Shop)? | **Yes — start Phase 1** |
+| Ready for public launch tomorrow? | **No** — Phase 0 (counsel + Shippo account + facilitator tax registration) must complete before production GMV |
+| Blocking unknowns? | None for build. Counsel confirms CRA facilitator duties and publishes Terms; ops opens Shippo platform account |
+
+**Verdict:** Plan is **ready to execute**. Begin Phase 1 (access + catalog) immediately; run Phase 0 in parallel so checkout/labels (Phases 2–3) are not blocked on legal copy alone.
+
+---
+
+## Locked product decisions
 
 | Decision | Choice |
 |----------|--------|
-| Who sells | **Both**: existing Lite/Pro Partners **and** standalone artist sellers |
-| Money | **CAD only**, ship/sell **within Canada only** |
-| Fulfillment | Per shop (or per listing): **(1) preset zones/rates**, **(2) quote-after-order**, plus **optional pickup** coordination |
-| Logistics | offhrs does **not** warehouse, pack, or ship — sellers fulfill |
-| Workshops | Unchanged: subscription + **0% booking commission**; goods use a **separate commission** |
+| Who sells | **Lite/Pro Partners** (marketplace **included**) + **free Marketplace-only** artists |
+| Money | **CAD only**, ship/sell **Canada only** |
+| Shipping | **Live rates** via **platform Shippo** (Canada Post); seller **weight + dimensions**; buyer **postal code** |
+| Labels | Seller **Print label** (prepaid PDF, platform Shippo) → drop at Canada Post |
+| Label funding | Buyer pays shipping → funds platform Shippo label. No seller Shippo/CP accounts in v1 |
+| Pickup | Optional local pickup ($0 shipping, no label) |
+| Removed | Quote-after-order; seller zone/rate tables |
+| Workshops | Unchanged: Lite/Pro + **0% booking commission** |
+| Goods commission | **5%** + **Stripe separate** (~2.9% + $0.30). `SHOP_PLATFORM_FEE_BPS=500` |
+| Commission base | **5% on item subtotal (ex-tax)**; not on postage or tax |
+| Chargebacks | **Vendor liable** (amount + dispute fee) workshops + Marketplace; Stripe hits offhrs first under Express |
+| Risk of loss | **First Scan** (in-transit); **Delivered** → porch-pirate risk on buyer |
+| Ship-by SLA | **5 business days** default; Day-3 reminder; made-to-order extendable (shown at checkout) |
+| Returns | “No remorse returns” allowed if disclosed; **damaged/SNAD mandatory** within **14 days** |
+| High-value ship | Auto signature + full insurance above **$250**; cost to buyer |
+| Tax (goods) | **Marketplace facilitator** — Stripe Tax collect/remit (counsel confirm CRA) |
+| Platform protection | **None** in v1 — lost-in-transit capped at **carrier insurance** |
+| Logistics | offhrs does not warehouse or drop off parcels |
+| Mobile | Tabs **Home · Workshops · Bookings · Shop · Profile**; **no** Home Shop carousel; Profile **Orders \| Saved \| Reviews** |
 
-Do **not** overload `events` / workshop bookings for physical goods. Build a parallel **Shop** domain that reuses Stripe Connect, tax helpers, partner auth patterns, and consumer app shell.
+**Fee math:** `application_fee_amount` = 5% of item subtotal + estimated Stripe fee on full charge. Never market goods as “0%.”
+
+**Shippo tooling:** Postage buyer-funded; ~US$0.07/label API fee absorbed by offhrs in v1; APV/dims shortfalls clawed from seller.
+
+Do **not** overload `events` / bookings. Parallel Shop domain; reuse Connect, tax patterns, partner auth, consumer shell.
 
 ---
 
 ## What exists today (constraints)
 
-- Workshops: Stripe Connect **Express**, **destination charges** + `on_behalf_of`, `application_fee_amount` ≈ **Stripe processing only** (not a platform take-rate) — `src/app/api/book/route.ts`, `src/app/api/partners/connect-stripe/route.ts`.
-- Express accounts: `fees.payer = application`, `losses.payments = application` → **offhrs is liable for chargebacks/negative balances** on Connect — higher risk for shipped goods than for workshop seats.
-- Tax: Stripe Tax for workshop tickets (`src/lib/stripe-workshop-tax.ts`); vendors opt into GST/HST via Settings.
-- Messaging/legal: “0% commission”, workshop intermediary role — `src/app/terms/service-terms/page.tsx`, partner FAQ, partners marketing.
-- Mobile: Workshops / Bookings / Profile tabs — no Shop surface (`offhrs-mobile/app/(tabs)/_layout.tsx`).
-- No shipping, inventory SKU, or merchandise schema.
+- Connect Express destination charges — `src/app/api/book/route.ts`, `src/app/api/partners/connect-stripe/route.ts`
+- `losses.payments = application` → platform liable to Stripe first
+- Workshop Stripe Tax — `src/lib/stripe-workshop-tax.ts`
+- “0% commission” messaging must stay workshop-only after launch
+- Mobile: Home / Workshops / Bookings / Profile — add Shop
+- Thin dashboard: `DashboardShell`, `partner-access.ts`, `proxy.ts`
 
 ---
 
-## Recommended commerce model
+## Plan / dashboard access
 
 ```mermaid
-flowchart TD
-  subgraph listing [Listing]
-    Product[shop_products]
-    ShipMode[shipping_mode: preset or quote or pickup]
-  end
-  subgraph checkoutPreset [Preset or pickup]
-    Pay1[Pay item + shipping or zero ship + tax]
-    OrderPaid[order paid_awaiting_fulfillment]
-  end
-  subgraph checkoutQuote [Quote-after-order]
-    HoldOrPayItem[Create order awaiting_quote]
-    SellerQuote[Seller submits shipping quote]
-    BuyerAccept[Buyer pays shipping or full cart]
-    OrderReady[paid_awaiting_fulfillment]
-  end
-  Product --> ShipMode
-  ShipMode -->|preset_zones| Pay1 --> OrderPaid
-  ShipMode -->|pickup| Pay1 --> OrderPaid
-  ShipMode -->|quote_after_order| HoldOrPayItem --> SellerQuote --> BuyerAccept --> OrderReady
-  OrderPaid --> Ship[Seller marks shipped + tracking]
-  OrderReady --> Ship
-  Ship --> Delivered[delivered / complete]
+flowchart LR
+  LitePro[Lite or Pro]
+  FreeShop[Marketplace free]
+  FullNav[Full workshop nav + Marketplace]
+  ThinNav[Settings + FAQ + Marketplace]
+  LitePro --> FullNav
+  FreeShop --> ThinNav
 ```
 
-**Payment sequencing (concrete default):**
+| Plan | Price | Dashboard |
+|------|-------|-----------|
+| Lite / Pro | $29 / $49 CAD/mo | Existing tabs **+ Marketplace** |
+| Marketplace free | $0 signup; 5% + Stripe on sales | **Marketplace + Settings + FAQ** only (Connect in Settings) |
+| Shopify Sync only | unchanged | No Marketplace unless also Lite/Pro or Marketplace-free |
 
-1. **Preset zones / pickup:** Single PaymentIntent for **item + shipping (0 if pickup) + tax**. Platform **application_fee** = configured **goods commission %** + estimated Stripe fee (same recoup pattern as workshops, plus take-rate).
-2. **Quote-after-order:**
-   - Create order in `awaiting_shipping_quote` with **item amount authorized or paid** (recommend **pay item immediately** so sellers are not stuck quoting ghost orders; shipping is a **second PaymentIntent** when buyer accepts the quote).
-   - If buyer declines quote / timeout → item refund per policy; inventory released.
-   - Alternative (do not use in v1): unpaid requests — higher abandonment and seller spam.
+**Signup:** `/partners/signup?intent=marketplace`. Gates: Connect + tax + Canada attestation. `vendorHasMarketplaceAccess` = Lite/Pro **or** marketplace-free.
 
-**Seller of record:** Seller is merchant for the goods and fulfillment. offhrs is payment facilitator / limited commercial agent (extend existing workshop language). Statement descriptor should remain seller-facing via `on_behalf_of` where possible.
-
----
-
-## Domain model (new tables)
-
-Keep workshops on `events` / `bookings`. Add:
-
-### Identity / capability
-
-- Extend `vendor_profiles` (or parallel `seller_profiles` linked 1:1):
-  - `seller_kinds`: `workshop` | `shop` | `both` (Partners default workshop; can enable shop; standalone = shop-only).
-  - `shop_enabled`, `shop_status` (`pending_review` | `active` | `suspended`).
-  - Shop policies: default return window, processing days, Canada-only affirmation.
-- Standalone artists: signup path **without** Lite/Pro workshop subscription. Locked choice: **Shop access = active Stripe Connect + approved shop + platform goods commission** (subscription optional later; do not require Lite/Pro for shop-only sellers).
-
-### Catalog
-
-- `shop_products`: vendor_id, title, description, medium/category, images[], price_cad, quantity (null = unlimited; 1 = unique), weight/dims optional, status (`draft`|`published`|`sold_out`|`archived`), `shipping_mode` override or inherit from shop, `allows_pickup`, `pickup_instructions`, created/updated.
-- `shop_product_images` or storage bucket `shop-product-images` (mirror workshop image patterns).
-- Categories: new shop taxonomy (ceramics, floral, painting, textile/tufting, jewelry, other) — **do not** reuse workshop category list blindly.
-
-### Shipping config
-
-- `shop_shipping_profiles` per vendor: mode defaults (`preset` | `quote` | `pickup_only`), max package rules.
-- `shop_shipping_zones`: name (e.g. “GTA”, “Ontario”, “Rest of Canada”), destination match via **province list** and/or **postal prefixes** (Canada only; reject non-`CA`).
-- `shop_shipping_rates`: zone_id, price_cad, estimated_days_min/max, label (“Standard”, “Local courier”).
-- Pickup: studio address from vendor profile + optional `pickup_hours` / instructions; buyer selects `fulfillment_type = pickup | ship`.
-
-### Orders
-
-- `shop_orders`: buyer user_id, vendor_id, status enum, currency `cad`, item_subtotal, shipping_cad, tax_cad, total, platform_fee_cents, stripe_fee estimates, addresses (JSON + normalized), fulfillment_type, shipping_mode_used, tracking_number, carrier, timestamps (quoted_at, paid_at, shipped_at, delivered_at, cancelled_at).
-- `shop_order_items`: product snapshot (title, price, qty), product_id FK.
-- `shop_order_payments`: payment_intent_id, kind (`item` | `shipping` | `combined`), amount, status — supports two-charge quote flow.
-- `shop_shipping_quotes`: order_id, amount_cad, message, expires_at, status (`pending`|`accepted`|`declined`|`expired`).
-- Status machine (minimum):
-  `awaiting_shipping_quote` → `awaiting_shipping_payment` → `paid_awaiting_fulfillment` → `shipped` → `completed`
-  + `cancelled` / `refunded` / `disputed` side states.
-  Preset/pickup skip quote states.
-
-### Inventory
-
-- Decrement on **successful item payment** (not on quote create alone if unpaid — with “pay item first”, decrement at first PI success).
-- Restore on cancel/refund before ship.
-- Unique pieces: `quantity = 1` → mark `sold_out` when ordered.
+**Lite/Pro:** Marketplace included; first publish needs ship-from + attestation.
 
 ---
 
-## Stripe / money
+## Checkout + fulfillment
 
-| Concern | Approach |
-|---------|----------|
-| Connect | Reuse Express onboarding; update `business_profile.product_description` / MCC when shop enabled (goods MCC e.g. art dealers / miscellaneous retail — confirm with Stripe). |
-| Charge type | Destination + `on_behalf_of` + `application_fee_amount` |
-| Platform take | Configurable `SHOP_PLATFORM_FEE_BPS` (e.g. 10% = 1000 bps) **plus** Stripe fee recoup (today’s workshop pattern) |
-| Tax | New helper (mirror workshop tax): Stripe Tax code for **tangible goods**; customer **shipping address** drives tax; seller GST/HST registration flag reused or shop-specific |
-| Payouts | Stripe Connect payouts to seller; offhrs never “holds” funds manually |
-| Refunds | Extend patterns from `src/lib/booking-refund.ts`: item vs shipping legs; `refund_application_fee` policy explicit for commission |
-| Chargebacks | Platform liable under current Express controller settings — budget reserves; evidence workflow (tracking, photos, comms) |
+```mermaid
+sequenceDiagram
+  participant Buyer
+  participant App as offhrs
+  participant Shippo
+  participant Stripe
+  participant Seller
 
-**Do not** market goods as “0% commission”. Update partner FAQ, pricing page, and App Store/Play copy where shop is mentioned.
+  Buyer->>App: Product + postal code + ship or pickup
+  App->>Shippo: Rates from weight dims origin dest
+  Shippo-->>App: Canada Post options CAD
+  Buyer->>App: Pay item + shipping + tax
+  App->>Stripe: Destination charge + 5 percent + Stripe fee recoup
+  Stripe-->>App: Paid
+  App-->>Seller: New order
+  Seller->>App: Print label
+  App->>Shippo: Buy Canada Post label
+  Shippo-->>Seller: PDF + tracking
+  Seller->>Seller: Drop at post office with receipt
+  Shippo-->>App: Tracking
+  App-->>Buyer: Shipped + tracking
+```
 
----
+**Rules:** single PI; stale rate refresh; label after pay; fail → `paid_awaiting_label`; optional handling adder; inventory lock on pay.
 
-## APIs (Next.js)
-
-Partner/seller (auth + vendor ownership):
-
-- CRUD products, images, shipping profiles/zones/rates
-- List/manage orders; submit shipping quote; mark shipped + tracking; mark pickup ready / completed
-- Shop settings (enable shop, policies)
-
-Consumer:
-
-- Browse/search products (filters: category, city/region, price, pickup available)
-- Product detail; start checkout (address → zone rate or quote path)
-- Accept/decline shipping quote; pay shipping PI
-- Order history (parallel to Bookings)
-
-Webhooks:
-
-- Reuse Stripe payment_intent webhooks; add handlers for shop metadata (`shop_order_id`, `payment_kind`)
-- Idempotency via existing `webhook_events` patterns
-
-Admin:
-
-- Approve/suspend shops; force-archive products; refund tools; dispute queue
+**v1 non-goals:** multi-seller cart, international, EasyPost, seller Shippo, quotes, variants, discounts, returns portal, Platform Protection Guarantee.
 
 ---
 
-## App / UX surfaces
+## Consumer mobile app UX (locked)
 
-### Partner dashboard (`src/app/partners/dashboard`)
+### Tab bar
 
-- New **Shop** nav: Products, Orders, Shipping, Payouts (link Connect)
-- Workshop-only Partners: optional “Enable Shop” checklist (Connect complete, tax settings, Canada shipping attestation)
-- Shop-only sellers: thinner shell (no sessions/calendar) — reuse DashboardShell gating like Shopify Sync-only thinning
+**Home · Workshops · Bookings · Shop · Profile**
 
-### Standalone artist signup
+- Shop **between** Bookings and Profile  
+- **No** product carousel or Shop block on Home  
 
-- New path `/partners/signup?intent=shop` (or `/sellers/signup`): business name, categories, address in Canada, Stripe Connect, tax settings, shop policies — **no** workshop subscription required
-- Distinct from Lite/Pro and Shopify Sync intents already in `PartnerSignupWizard`
+### Surfaces
 
-### Consumer mobile (`offhrs-mobile`)
+| Surface | Role |
+|---------|------|
+| Home | Workshops only |
+| Shop tab | Full-list discovery (Workshops chrome) |
+| Product detail | Media, price, maker, ship/pickup, Buy |
+| Checkout | Address → rates → tax → PaymentSheet |
+| Profile **Orders** | Shop orders (Bookings = workshops only) |
+| Vendor profile | Shop segment for that maker |
 
-- New **Shop** tab (or Home section + browse): product grid, detail, checkout, shipping address form (CA only)
-- **Orders** under Profile or combined “Activity” with Bookings clearly separated
-- Push/email deep links for “shipping quote ready”, “shipped”, “pickup ready”
-- Apple Pay / PaymentSheet reuse from workshop booking
+### Shop tab chrome
 
-### Web consumer
+Mirror Workshops full list (`workshop-browse.tsx`, `WorkshopsChrome`):
 
-- If workshops are primarily mobile-led, still add minimal web product pages for SEO/share links (`/shop/...`) consistent with public vendor pages
+- offhrs logo · search · **Category** · **Sort** · **Price** (not Distance)  
+- Photo cards: image, title, price, maker  
 
----
+### Profile stats row
 
-## Notifications
+**Orders | Saved | Reviews** (Orders leftmost; same stats strip as today)
 
-Extend `src/lib/emails.ts` (Resend):
+### Seller on mobile
 
-- Buyer: order received, quote ready, payment receipt, shipped (+ tracking), pickup ready, refund
-- Seller: new order, quote reminder, payment received, dispute/chargeback alert
-- Ops: high-value disputes, repeated seller failures
-
-In-app partner notifications mirror booking notification patterns.
-
----
-
-## Legal & compliance (non-exhaustive — counsel required)
-
-**Not legal advice.** Engage a Canadian lawyer (Ontario-focused) before launch. Material issues:
-
-1. **Contractual split** — Update Terms: goods sale is buyer ↔ seller; offhrs is intermediary / payment agent; shipping/risk of loss passes per stated Incoterms-like rule (e.g. seller bears until delivered or carrier handoff — pick one and state it).
-2. **Commission disclosure** — Clear % to sellers and buyers; end “0% on everything” messaging; separate workshop vs shop economics in FAQ and Service Terms.
-3. **GST/HST** — Sellers who are registered must charge tax on taxable supplies; platform may have **marketplace / distribution** obligations depending on CRA rules and your role — confirm whether offhrs must collect/remit as operator vs only facilitating Stripe Tax on behalf of sellers. Reuse/extend vendor GST/HST settings; keep audit trails (`tax_calculation` ids).
-4. **Consumer protection (Ontario / provincial)** — Online goods: cancellation/returns differ from workshop seat policies; cooling-off rules may apply to some distance sales; require each seller to publish return/exchange policy with platform minimums (e.g. defective goods).
-5. **Product liability & prohibited items** — Content policy: no weapons, controlled substances, recalled goods, hazardous materials, dropshipped counterfeits; IP/authenticity for art (original vs print disclosure).
-6. **Shipping / risk** — Seller responsible for packaging, carrier choice, customs (**block international** in product: `country === CA` only). Lost-in-transit: seller vs buyer vs carrier — define default (usually seller until delivery confirmation for marketplace goodwill).
-7. **Privacy** — Shipping name/address/phone is sensitive PII; share with seller only after paid order; retention and seller DPA-style obligations in Partner Terms; update Privacy Policy marketplace section.
-8. **Stripe / regulated** — Connect prohibited businesses; update MCC/product description; chargeback liability under current Express settings; consider reserves or delaying shop launch until risk controls exist.
-9. **Accessibility & French** — If selling QC-wide, consider French language requirements for consumer contracts over time.
-10. **Insurance** — Recommend sellers carry commercial general liability / product liability; offhrs should carry cyber + appropriate marketplace E&O; do not promise insurance to buyers.
-11. **App Store** — Physical goods marketplace may trigger extra review (payments, account deletion already present); disclose seller-fulfilled shipping.
-
-Deliverables for counsel: redlined Terms of Use, Service Terms, Privacy, Content Policy, Partner/Seller Agreement (shop addendum), refund/return matrix, prohibited items list.
+Partners **web** only for listings/labels in v1.
 
 ---
 
-## Trust & safety / ops
+## Partner web — Marketplace tab
 
-- Shop **manual approve** for first N sellers
-- Listing moderation (image + title); report button
-- Order dispute flow: buyer opens case → seller responds → offhrs limited mediation (refund button, not full eBay-style)
-- SLA timers: quote within X hours; ship within Y days after paid shipping / preset order
-- Metrics: GMV, take rate, quote accept rate, time-to-ship, chargeback rate
-- Admin screens under existing admin routes
+**Products:** status chips, bulk actions, fields (title, description, images, category, price, qty, weight/dims, fragile, pickup, made-to-order ship window, remorse return toggle, status). No variants.
+
+**Orders:** filters; Print label; Mark picked up; cancel/refund pre-scan; tracking; notes.
+
+**Shipping settings:** ship-from CA, handling fee, pickup, attestation.
+
+**Payouts:** Lite/Pro existing tab; Marketplace-only → Connect in Settings.
 
 ---
 
-## Explicit non-goals (v1)
+## Domain model
 
-- International shipping / multi-currency
-- offhrs warehousing, labels, or carrier accounts (EasyPost etc. can be later)
-- Multi-item cart across multiple sellers (v1: **single-seller cart** only)
-- Subscriptions for physical goods, tipping, gift cards
-- Changing workshop 0% commission model
+- `vendor_profiles`: marketplace flags/plan, shop_status, ship-from, handling_fee, pickup, return_policy  
+- `shop_products`: catalog + weight/dims + `ship_by_business_days` (default 5)  
+- `shop_orders` / items / payments + Shippo ids, tracking, label URL, First Scan timestamps  
+- Statuses: `paid_awaiting_fulfillment` → `label_purchased` → `shipped` → `completed`; pickup path; `cancelled` / `refunded` / `disputed`  
+- Storage: `shop-product-images`
+
+---
+
+## APIs / surfaces
+
+Partner CRUD + labels · consumer browse/checkout/orders · Stripe + Shippo + dispute webhooks · admin approve/refund/label retry · mobile Shop · web `/shop/[id]` · `emails.ts`
+
+---
+
+## Cost ledger
+
+| Cost | Who pays |
+|------|----------|
+| 5% | Seller |
+| Stripe ~2.9%+$0.30 | Seller (recoup) |
+| CP postage | Buyer → Shippo label |
+| Shippo ~$0.07/label | offhrs (absorb v1) |
+| APV shortfall | Seller clawback |
+| Chargeback + fee | Seller (Stripe→platform first) |
+
+---
+
+## Legal & compliance
+
+**Not legal advice.** Counsel before public GMV.
+
+**Update:** Terms of Use, Service Terms, Privacy, Content Policy, Data Protection, FAQ/pricing, Marketplace Seller Addendum.
+
+### Chargeback draft (counsel review)
+
+**Consumer:** Contact hello@offhrs.app before bank dispute; good-faith investigation; invalid chargebacks may incur disputed amount + Stripe fees + admin costs; recover via offset / payment method / suspend.
+
+**Vendor:** Seller of record for workshops + Marketplace; authorize Connect debit/offset/invoice for disputed amount + ~CAD $15 fee + costs; evidence duty (labels, tracking, packing/pickup proof); offhrs not liable for seller misconduct/listing/fulfillment failures; abnormal rates → suspend.
+
+**Ops:** `charge.dispute.created` → notify → evidence → clawback → suspend if needed.
+
+### Locked fulfillment policies (1–9)
+
+1. **First Scan + Delivered** — drop-off receipt required; lost-in-transit → CP claim; gap above insurance = seller; Delivered → porch pirate on buyer; no platform guarantee  
+2. **SLA** — 5 business days; Day-3 reminder; custom/MTO window at checkout  
+3. **Returns** — 14-day damaged/SNAD + photos; remorse may be no-returns if disclosed; SNAD cannot be waived; refuse → chargeback → Connect clawback  
+4. **Cancel** — pre-First-Scan: full refund + void label; post-scan: block cancel  
+5. **APV** — dims warranty; Connect clawback  
+6. **$250+** — auto signature + full insurance (buyer pays)  
+7. **Manual QA** — first Marketplace-only sellers  
+8. **Facilitator tax** — Stripe Tax collect/remit (counsel)  
+9. **PIPEDA** — address only for fulfillment; no marketing lists without opt-in  
+
+---
+
+## Implementation must-not-forget
+
+Inventory race · idempotent label + void · postage not paid out as seller earnings · drop-off receipt UX · Day-3 + MTO SLA · $250 insurance · APV debit · SNAD/damaged · chargeback clawback · facilitator tax ops · PIPEDA clause · manual QA · account deletion PII · no XP on shop · Connect MCC · nav gating · FAQ 0% workshops-only · push/deep links · image compression · `/shop/[id]` share pages · App Store notes  
 
 ---
 
 ## Phased delivery
 
-### Phase 0 — Legal & pricing (1–2 weeks, parallel)
+### Phase 0 — Legal + Shippo (parallel)
 
-- Counsel kickoff; draft shop addendum; pick commission bps; Stripe Tax code for goods; risk reserve policy
+Counsel Terms; Shippo account; goods tax code + remittance; postage/APV ledger design
 
-### Phase 1 — MVP commerce (Partners first)
+### Phase 1 — Access + catalog
 
-- Schema + RLS; Partner Shop CRUD; preset zones + pickup; checkout + destination charge + commission; order statuses; emails; mobile Shop browse/checkout/orders; Canada address validation
-- Enable shop flag on existing Partners only
+Marketplace free + nav; Products CRUD + dims; Lite/Pro Marketplace tab; seller QA process
 
-### Phase 2 — Quote-after-order
+### Phase 2 — Checkout + mobile Shop
 
-- Quote states, second PI, expiry, reminders; seller Orders UI polish
+Shippo rates; CA validation; PI + 5%; pickup; SLA/$250 at checkout; Stripe Tax; Shop tab + Profile Orders
 
-### Phase 3 — Standalone artists
+### Phase 3 — Labels + orders
 
-- Shop-only signup + thin dashboard; admin approval queue; marketing landing
+Print label; First Scan; void-on-cancel; Day-3; emails; pre-scan refunds; APV hooks; admin
 
-### Phase 4 — Hardening
+### Phase 4 — Harden
 
-- Disputes UI, chargeback evidence pack, rate limits, fraud checks (velocity, new account holds), App Store / Play release
-
----
-
-## Implementation checklist
-
-- [ ] Phase 0: Counsel + commission bps + goods tax code + shop addendum drafts
-- [ ] Phase 1: shop schema/RLS, Partner product+preset shipping APIs, Connect fee take-rate
-- [ ] Phase 1: CAD checkout, orders, emails, mobile Shop browse/checkout
-- [ ] Phase 2: quote-after-order dual PaymentIntent + seller/buyer UX
-- [ ] Phase 3: standalone artist signup + thin shop dashboard + admin approval
-- [ ] Phase 4: disputes, chargeback ops, fraud controls, store release
+Disputes UI; auto clawback; SNAD/damaged; App Store/Play; release
 
 ---
 
-## Key engineering touchpoints
+## Checklist
 
-| Area | Files / patterns to extend |
-|------|----------------------------|
-| Connect onboarding | `src/app/api/partners/connect-stripe/route.ts` |
-| Destination charges + fees | `src/app/api/book/route.ts`, `src/lib/stripe-charge-fees.ts` |
-| Tax | `src/lib/stripe-workshop-tax.ts`, `src/lib/stripe-tax-constants.ts` |
-| Refunds | `src/lib/booking-refund.ts` |
-| Emails | `src/lib/emails.ts` |
-| Legal pages | `src/app/terms/*` |
-| Partner nav gating | DashboardShell / Sync-only thinning patterns |
-| Mobile tabs | `offhrs-mobile/app/(tabs)/_layout.tsx` |
+- [x] Phase 0 (engineering): Terms + Marketplace Seller Addendum + FAQ + Shippo/fee/tax scaffolding + postage ledger design  
+- [x] Phase 0 (ops/counsel): Shippo account + `SHIPPO_API_KEY`; counsel review; CRA facilitator registration; confirm `STRIPE_SHOP_GOODS_TAX_CODE` *(ops done for build; counsel/CRA deferred to production)*  
+- [x] Phase 1: Access + Products CRUD + QA  
+- [ ] Phase 2: Checkout + tax + mobile Shop  
+- [ ] Phase 3: Labels + SLA + ledger  
+- [ ] Phase 4: Disputes + launch  
 
 ---
 
 ## Success criteria
 
-- Seller lists a ceramic piece with GTA rate + rest-of-Canada rate + pickup; buyer in ON pays correct ship + tax; seller receives net after commission + Stripe fee
-- Seller lists with quote mode; buyer pays item; seller quotes; buyer pays shipping; tracking email works
-- Non-CA address rejected; workshop booking path unchanged; partner FAQ distinguishes 0% workshops vs shop commission
-- Uninstall/account deletion and privacy flows cover shop PII
+- Lite/Pro: Marketplace nav; free plan: Marketplace + Settings + FAQ only  
+- Mobile: Shop between Bookings & Profile; Profile Orders | Saved | Reviews; no Home Shop carousel  
+- Checkout: rates from weight/dims + postal; >$250 includes signature/insurance  
+- Label print + tracking; drop-off receipt encouraged  
+- Pre-scan cancel = refund + void; post-scan cancel blocked  
+- Lost-in-transit / Delivered / SNAD / APV / chargebacks per locked policies  
+- 5% + Stripe disclosed; postage not seller GMV; workshop 0% unchanged  

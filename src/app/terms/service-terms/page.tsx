@@ -17,20 +17,19 @@ export default function ServiceTermsPage() {
         <ul>
           <li>
             <strong>The platform.</strong> offhrs provides a localized discovery application (offhrs.app) and
-            a vendor portal (partners.offhrs.app) that lets you find, schedule, and register for in-person
-            creative workshops (pottery, floral arts, culinary events, and similar) in Toronto and
-            surrounding areas.
+            a vendor portal (partners.offhrs.app) for in-person creative workshops in Toronto and surrounding
+            areas, and (where available) for purchasing physical art and craft goods through the Artist
+            Marketplace.
           </li>
           <li>
-            <strong>Our intermediary role.</strong> The workshops, materials, and physical instruction spaces
-            you register for are owned, fulfilled, and operated by our independent third-party partners
-            (&ldquo;Vendors&rdquo;) &mdash; not by us. offhrs acts as a technology intermediary and limited
-            commercial payment collection agent for those Vendors.
+            <strong>Our intermediary role.</strong> Workshops and Marketplace goods are owned, fulfilled, and
+            operated by independent third-party partners (&ldquo;Vendors&rdquo;) &mdash; not by us. offhrs
+            acts as a technology intermediary and limited commercial payment collection agent. We do not
+            warehouse or ship Marketplace parcels.
           </li>
           <li>
-            <strong>The contractual split.</strong> When you purchase a workshop seat, you enter into a
-            binding agreement directly with the Vendor (subject to their studio rules, material waivers, and
-            safety codes). offhrs is not a party to that contract.
+            <strong>The contractual split.</strong> When you purchase a workshop seat or Marketplace item, you
+            enter into a binding agreement directly with the Vendor. offhrs is not a party to that contract.
           </li>
           <li>
             <strong>Account guidelines.</strong> offhrs may suspend or deactivate consumer or vendor accounts
@@ -149,27 +148,33 @@ export default function ServiceTermsPage() {
 
         <h3 className="mt-4">3.4 Chargebacks and payment disputes</h3>
         <p>
-          If you are unhappy with a booking, use the in-app cancellation flow (when eligible under the
-          Vendor&rsquo;s refund window), contact the host directly, or email{' '}
-          <a href="mailto:hello@offhrs.app">hello@offhrs.app</a> before disputing the charge with your bank.
+          If you have a concern about a charge, you agree to contact offhrs at{' '}
+          <a href="mailto:hello@offhrs.app">hello@offhrs.app</a> (and, where appropriate, the Vendor) before
+          initiating a chargeback, payment reversal, or similar dispute with your bank or card issuer. We will
+          work in good faith to investigate and resolve legitimate issues under these Terms and the
+          Vendor&rsquo;s stated policies.
+        </p>
+        <p>
+          If you initiate a chargeback or payment dispute for a transaction that was validly processed under
+          these Terms &mdash; including where a workshop was delivered or made available as booked, a
+          cancellation or refund policy was correctly applied, Marketplace goods were fulfilled or shipped
+          with tracking as described, or a Partner subscription fee was properly charged &mdash; you may be
+          liable for the disputed amount, associated Stripe dispute fees, and reasonable administrative costs.
+          offhrs may recover such amounts by reversing related credits, offsetting amounts owed, charging a
+          payment method on file where authorized, and/or limiting or suspending your account.
         </p>
         <ul>
           <li>
-            <strong>Card disputes.</strong> If you initiate a chargeback or similar payment dispute with your
-            card issuer instead of following the steps above, Stripe may assess a dispute fee (currently
-            approximately <strong>CAD $15 per dispute</strong>, subject to change by Stripe). offhrs does not
-            control Stripe&rsquo;s dispute fees, evidence deadlines, or outcomes.
+            <strong>Host and seller policies.</strong> Each Vendor sets workshop cancellation terms and may
+            set Marketplace buyer&rsquo;s-remorse return policies (disclosed at purchase). Damaged or
+            significantly not-as-described goods are subject to platform minimum rules described in the
+            Marketplace Seller Addendum.
           </li>
           <li>
-            <strong>Host policies apply.</strong> Each Vendor sets their own cancellation terms (including
-            strict non-refundable policies). Disputing a charge when you received the workshop service, or
-            when the Vendor&rsquo;s stated policy was disclosed at booking, may not result in a refund and may
-            lead to account restrictions on the Platform.
-          </li>
-          <li>
-            <strong>How disputes are handled.</strong> Workshop payments are routed to the Vendor&rsquo;s Stripe
+            <strong>How disputes are handled.</strong> Payments are routed to the Vendor&rsquo;s Stripe
             Connect account. Dispute fees and reversed amounts are handled under Stripe Connect rules and may
-            affect the Vendor&rsquo;s payout balance.
+            affect the Vendor&rsquo;s payout balance; Vendors authorize offhrs to claw back amounts as set out
+            in the Terms of Use.
           </li>
         </ul>
       </section>

@@ -25,11 +25,11 @@ export default function TermsOfUsePage() {
           Platform.
         </p>
         <p className="text-sm text-gray-700 bg-amber-50 border border-amber-100 rounded-md p-3">
-          <strong>Important:</strong> These Terms <strong>do not</strong> apply to the in-person workshops,
-          classes, or events themselves (the &ldquo;Vendor Services&rdquo;). Vendor Services are fulfilled
-          entirely by independent third-party partners (the &ldquo;Vendors&rdquo;). offhrs acts as an
-          intermediary technology platform and limited payment collection agent. We do not host, employ,
-          manage, or endorse the physical workshops listed on the Platform.
+          <strong>Important:</strong> These Terms <strong>do not</strong> make offhrs the provider of
+          in-person workshops or the seller of physical Marketplace goods. Workshops and Marketplace goods
+          (together, &ldquo;Vendor Services&rdquo;) are fulfilled by independent third-party partners (the
+          &ldquo;Vendors&rdquo;). offhrs acts as an intermediary technology platform and limited payment
+          collection agent. We do not host, employ, warehouse, or ship Vendor Services.
         </p>
       </section>
 
@@ -38,14 +38,15 @@ export default function TermsOfUsePage() {
         <p>offhrs provides a two-sided marketplace:</p>
         <ul>
           <li>
-            <strong>For consumers (students):</strong> a localized search, discovery, calendar booking, and
-            payment interface to find and register for creative workshops in Toronto and surrounding areas via
-            offhrs.app and the offhrs mobile apps.
+            <strong>For consumers:</strong> discovery, booking, and payment for creative workshops in Toronto
+            and surrounding areas, and (where available) purchase of physical art and craft goods through the
+            Artist Marketplace via offhrs.app and the offhrs mobile apps.
           </li>
           <li>
-            <strong>For vendors (makers and studios):</strong> a Software-as-a-Service (SaaS) subscription
-            platform at <strong>partners.offhrs.app</strong> for managing class availability, scheduling,
-            client tracking, refunds, and Stripe Connect payouts.
+            <strong>For vendors (makers and studios):</strong> a Partners dashboard at{' '}
+            <strong>partners.offhrs.app</strong> for workshop SaaS tools (Lite/Pro), optional Shopify Sync,
+            and/or Artist Marketplace selling (included with Lite/Pro, or via a free Marketplace-only
+            enrollment), including Stripe Connect payouts.
           </li>
         </ul>
       </section>
@@ -64,15 +65,20 @@ export default function TermsOfUsePage() {
             Canada; we automatically add <strong>13% Ontario HST</strong> on top of the subscription price.
           </li>
           <li>
-            <strong>Marketplace ticket sales.</strong> The Vendor is the &ldquo;Seller of Record&rdquo; for
-            all in-person workshops. It is the sole legal responsibility of the Vendor to determine their
-            small-supplier status with the CRA ($30,000 threshold) and to configure their dashboard tax
-            settings to collect or omit HST on ticket sales.
+            <strong>Workshop ticket sales.</strong> The Vendor is the &ldquo;Seller of Record&rdquo; for
+            in-person workshops. Vendors must determine their CRA small-supplier status and configure
+            workshop tax settings appropriately.
           </li>
           <li>
-            <strong>Tax remittance.</strong> Any HST collected from a consumer at checkout flows directly into
-            the Vendor&rsquo;s connected Stripe payment account. offhrs does not hold, remit, or advise on
-            municipal, provincial, or federal taxes associated with Vendor revenue.
+            <strong>Artist Marketplace goods.</strong> The Vendor is the Seller of Record for physical goods.
+            Where CRA marketplace facilitator rules apply, offhrs may calculate, collect, and remit applicable
+            GST/HST on Marketplace sales via Stripe Tax. Workshop ticket tax handling may differ; see your
+            dashboard settings and the Marketplace Seller Addendum.
+          </li>
+          <li>
+            <strong>Tax remittance (workshops).</strong> Where workshop HST is collected into the
+            Vendor&rsquo;s Stripe Connect account under the Vendor&rsquo;s registration settings, remittance
+            remains the Vendor&rsquo;s responsibility unless we notify you otherwise in writing.
           </li>
         </ul>
       </section>
@@ -97,20 +103,26 @@ export default function TermsOfUsePage() {
           </li>
         </ul>
 
-        <h3 className="mt-4">3.2 Ticket transactions &amp; Stripe fees</h3>
+        <h3 className="mt-4">3.2 Ticket and Marketplace transactions &amp; fees</h3>
         <ul>
           <li>
-            <strong>Direct payouts.</strong> Ticket payouts use a direct-charge architecture via Stripe
-            Connect Express, with funds settling to the Vendor&rsquo;s connected bank account.
+            <strong>Direct payouts.</strong> Workshop and Marketplace payouts use Stripe Connect Express
+            destination charges, with funds settling to the Vendor&rsquo;s connected bank account (postage
+            collected for Marketplace labels is used to purchase carrier labels and is not Vendor merchandise
+            revenue).
           </li>
           <li>
-            <strong>Fee structure.</strong> Stripe processing fees (currently{' '}
-            <strong>2.9% + $0.30 CAD</strong> per transaction in Canada, with higher rates for international
-            or premium cards) apply to the gross transaction total, including any tax collected.{' '}
-            <strong>
-              These fees are borne by the Vendor and deducted from the Vendor&rsquo;s net payout.
-            </strong>{' '}
-            offhrs does not mark up, retain, or share in Stripe&rsquo;s processing fees.
+            <strong>Workshop fee structure.</strong> For workshop bookings, offhrs does{' '}
+            <strong>not</strong> take a percentage commission. Stripe processing fees (currently about{' '}
+            <strong>2.9% + $0.30 CAD</strong> per transaction in Canada) apply to the gross total and are
+            borne by the Vendor.
+          </li>
+          <li>
+            <strong>Marketplace fee structure.</strong> For Artist Marketplace sales, offhrs charges a{' '}
+            <strong>5% platform fee</strong> on the item subtotal (excluding tax and shipping postage),{' '}
+            <strong>plus</strong> Stripe processing fees (about <strong>2.9% + $0.30 CAD</strong>), which are
+            separate and also borne by the Vendor. Fees are collected via Stripe application fees on the
+            payment.
           </li>
           <li>
             <strong>Refund window.</strong> Consumers may self-serve cancellations and refunds inside the
@@ -128,29 +140,33 @@ export default function TermsOfUsePage() {
           </li>
         </ul>
 
-        <h3 className="mt-4">3.3 Chargebacks and payment disputes</h3>
+        <h3 className="mt-4">3.3 Chargebacks and payment disputes (Vendors)</h3>
+        <p>
+          Payments for workshop bookings and Marketplace orders are processed through Stripe Connect to your
+          connected account. You are the seller of record for those sales.
+        </p>
         <ul>
           <li>
-            <strong>Dispute fees.</strong> If a consumer disputes a workshop payment through their card issuer
-            (a &ldquo;chargeback&rdquo;) or a similar process, Stripe may assess a dispute fee (currently
-            approximately <strong>CAD $15 per dispute</strong>, subject to change by Stripe). offhrs does
-            not control Stripe&rsquo;s dispute fees or timelines.
+            Chargebacks and payment disputes relating to your workshops, Marketplace orders, or Partner
+            subscription may result in deductions from your Connect balance or future payouts, including the
+            full disputed amount, Stripe dispute fees (currently about <strong>CAD $15</strong> per dispute,
+            subject to change by Stripe), and reasonable costs offhrs incurs in connection with the dispute.
           </li>
           <li>
-            <strong>Vendor responsibility.</strong> Workshop ticket payments are processed via Stripe Connect
-            Express to your connected account. Dispute fees, reversed amounts, and related adjustments are
-            handled according to Stripe Connect rules and may be deducted from your Connect balance or future
-            payouts.
+            You authorize offhrs to debit or offset such amounts from your Stripe Connect Express account,
+            future payouts, or by invoice if your balance is insufficient. You agree to cooperate promptly
+            with evidence requests (for Marketplace orders, this includes shipping labels, tracking, and proof
+            of packing or pickup where relevant).
           </li>
           <li>
-            <strong>Resolution first.</strong> We encourage Vendors and consumers to resolve booking issues
-            through the in-app cancellation policy, direct communication, or by contacting{' '}
+            offhrs is not responsible for chargebacks arising from your conduct, inaccurate listings, failure
+            to deliver a workshop as described, failure to ship or make Marketplace goods available for pickup
+            as represented, or your refund and return practices. Abnormal chargeback rates may lead to
+            suspension or termination of Partner or Marketplace access.
+          </li>
+          <li>
+            We encourage resolving issues through in-app flows or{' '}
             <a href="mailto:hello@offhrs.app">hello@offhrs.app</a> before a card dispute is filed.
-          </li>
-          <li>
-            <strong>Account restrictions.</strong> offhrs may limit, suspend, or revoke access if an account
-            shows an abnormal pattern of chargebacks, payment failures, or abusive dispute behaviour, as
-            described in these Terms.
           </li>
         </ul>
       </section>

@@ -112,9 +112,15 @@ export default function PrivacyPolicyPage() {
         <p>offhrs is a marketplace facilitator. To complete transactions, your data flows along specific paths:</p>
         <ul>
           <li>
-            <strong>Between consumer and vendor.</strong> When a student purchases a workshop ticket, their
-            name, contact number (if provided), and email are shared with the hosting Vendor so the studio
-            can coordinate materials and communicate logistics.
+            <strong>Between consumer and vendor (workshops).</strong> When a student purchases a workshop
+            ticket, their name, contact number (if provided), and email are shared with the hosting Vendor so
+            the studio can coordinate materials and communicate logistics.
+          </li>
+          <li>
+            <strong>Between consumer and vendor (Marketplace).</strong> When you purchase Marketplace goods,
+            your shipping name, address, phone (if provided), and email are shared with the Vendor solely to
+            fulfill the order (print a shipping label or coordinate pickup). Vendors must not use that data for
+            off-platform marketing without your explicit opt-in.
           </li>
           <li>
             <strong>Sensitive data note.</strong> If a Vendor requests health or accommodation information via
@@ -137,13 +143,19 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Stripe &amp; Stripe Connect Express</strong> &mdash; processing payments for workshop
-            tickets and the monthly Vendor SaaS subscription, and routing Vendor payouts.{' '}
+            tickets, Marketplace goods, and the monthly Vendor SaaS subscription, and routing Vendor payouts.{' '}
             <strong>We never store raw credit card numbers or CVV codes.</strong> We retain only tokenized
             references provided by Stripe (card brand, last four digits, expiry).
           </li>
           <li>
-            <strong>Resend</strong> &mdash; sending transactional emails (booking confirmations, refund
-            notices, account alerts) and any marketing emails you have explicitly agreed to receive.
+            <strong>Shippo</strong> &mdash; when you buy Marketplace goods, we use Shippo to obtain Canada
+            Post rates, purchase prepaid labels, and receive tracking updates. Address and parcel details are
+            shared as needed to generate labels.
+          </li>
+          <li>
+            <strong>Resend</strong> &mdash; sending transactional emails (booking confirmations, order and
+            shipping notices, refund notices, account alerts) and any marketing emails you have explicitly
+            agreed to receive.
           </li>
           <li>
             <strong>Vercel</strong> &mdash; web hosting and edge delivery for offhrs.app and

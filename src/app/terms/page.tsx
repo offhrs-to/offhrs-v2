@@ -33,8 +33,8 @@ export default function TermsOverviewPage() {
             Terms &amp; policies
           </h1>
           <p className="mt-3 max-w-2xl text-gray-600 text-[15px] leading-relaxed">
-            Everything that governs your use of offhrs as a workshop participant or vendor partner. Last
-            updated {POLICY_LAST_UPDATED}.
+            Everything that governs your use of offhrs as a workshop participant, Marketplace buyer, or vendor
+            partner. Last updated {POLICY_LAST_UPDATED}.
           </p>
         </div>
 

@@ -5,6 +5,7 @@ import { AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { ConnectStripeButton } from './components/ConnectStripeButton'
 import { PartnerDashboardHeaderActions } from './components/PartnerDashboardHeaderActions'
+import { EnableMarketplaceButton } from './components/EnableMarketplaceButton'
 import {
   DashboardHomeViews,
   type DashboardBookingRow,
@@ -63,6 +64,91 @@ export default async function DashboardPage({
   if (!vendor) redirect('/partners/signup')
 
   const hasNativePlan = await vendorHasNativePartnerPlan(admin, vendor.id)
+
+  // Refresh marketplace_enabled in case columns exist after migration.
+  const marketplaceEnabled = Boolean(
+    (vendor as VendorProfile & { marketplace_enabled?: boolean }).marketplace_enabled
+  )
+
+  if (!hasNativePlan && marketplaceEnabled) {
+    const v = vendor as VendorProfile & {
+      ship_from_line1?: string | null
+      canada_ship_attested_at?: string | null
+    }
+    const shippingReady = Boolean(v.ship_from_line1?.trim() && v.canada_ship_attested_at)
+    const profileReady = Boolean(vendor.bio?.trim() && vendor.location_address?.trim())
+    const connectReady = Boolean(vendor.stripe_connect_completed)
+    const checklistItems = [
+      {
+        key: 'email_verified',
+        label: 'Verify your email',
+        done: vendor.email_verified,
+        showStripeCta: false,
+        href: null as string | null,
+      },
+      {
+        key: 'shipping_settings',
+        label: 'Add ship-from address & Canada attestation',
+        done: shippingReady,
+        showStripeCta: false,
+        href: shippingReady ? null : '/partners/dashboard/marketplace',
+      },
+      {
+        key: 'connect',
+        label: 'Connect Stripe for payouts',
+        done: connectReady,
+        showStripeCta: !connectReady,
+        href: '/partners/dashboard/settings',
+      },
+      {
+        key: 'profile',
+        label: 'Add bio & studio address (Settings)',
+        done: profileReady,
+        showStripeCta: false,
+        href: profileReady ? null : '/partners/dashboard/settings',
+      },
+    ]
+
+    return (
+      <div className="mx-auto max-w-5xl space-y-6 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Welcome back, {vendor.business_name}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              You&apos;re on Artist Marketplace (free) — manage products and shipping in Marketplace.
+              Connect Stripe in Settings for payouts.
+            </p>
+          </div>
+          <PartnerDashboardHeaderActions
+            items={checklistItems}
+            allDone={checklistItems.every((c) => c.done)}
+            trialDays={null}
+            openGettingStartedInitially={onboarding === '1'}
+          />
+        </div>
+
+        <Card className="gap-0 border-partner-border py-0 shadow-none">
+          <CardContent className="space-y-3 p-5">
+            <h2 className="text-sm font-semibold text-foreground">Artist Marketplace</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              List physical goods for Canada-only shipping. Platform fee is 5% of item subtotal plus Stripe
+              processing. Workshops stay on Lite/Pro if you want bookings too.
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button asChild size="sm">
+                <Link href="/partners/dashboard/marketplace">Open Marketplace</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="border-partner-border">
+                <Link href="/partners/dashboard/settings">Settings &amp; Connect</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   if (!hasNativePlan) {
     const { data: shop } = await admin
@@ -170,6 +256,17 @@ export default async function DashboardPage({
                 <Link href="/partners/shopify-sync">Setup guide</Link>
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="gap-0 border-partner-border py-0 shadow-none">
+          <CardContent className="space-y-2 p-5">
+            <h2 className="text-sm font-semibold text-foreground">Sell goods on Artist Marketplace</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Free to join — 5% + Stripe on sales. Canada-only shipping via platform Shippo. Does not
+              replace Shopify Sync.
+            </p>
+            <EnableMarketplaceButton />
           </CardContent>
         </Card>
 

@@ -153,6 +153,28 @@ export default function ContentPolicyPage() {
       </section>
 
       <section>
+        <h2>4A. Guidelines for Marketplace (physical goods) listings</h2>
+        <p>When selling art or craft goods on the Artist Marketplace, Vendors must ensure listings are:</p>
+        <ul>
+          <li>
+            <strong>Accurate.</strong> Clear photos, truthful materials/dimensions, and honest condition.
+            Disclose whether a work is an original or a print/reproduction.
+          </li>
+          <li>
+            <strong>Shipable as described.</strong> Weight and dimensions must be accurate for carrier rating.
+          </li>
+          <li>
+            <strong>Lawful.</strong> No weapons, controlled substances, hazardous materials, recalled goods,
+            counterfeits, or dropshipped mass-market junk misrepresented as handmade local work.
+          </li>
+          <li>
+            <strong>Quality imagery.</strong> Listings with unusable (e.g. heavily pixelated) photos may be
+            removed during review.
+          </li>
+        </ul>
+      </section>
+
+      <section>
         <h2>5. Guidelines for reviews</h2>
         <p>Reviews should be:</p>
         <ul>

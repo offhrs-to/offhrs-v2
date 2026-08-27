@@ -1,5 +1,5 @@
 /** Last-updated date shown on every policy page and reused for sitemaps/SEO. */
-export const POLICY_LAST_UPDATED = 'July 16, 2026'
+export const POLICY_LAST_UPDATED = 'August 25, 2026'
 
 export type PolicyAudience = 'consumer' | 'vendor' | 'both'
 
@@ -12,6 +12,7 @@ export type PolicyPage = {
     | 'data-protection'
     | 'cookies'
     | 'content-policy'
+    | 'marketplace-seller-addendum'
   title: string
   summary: string
   audience: PolicyAudience
@@ -59,6 +60,13 @@ export const POLICY_PAGES: PolicyPage[] = [
     summary:
       'Please carefully read our Content Policy for what is allowed in listings, reviews, messages, and other user-generated content on offhrs.',
     audience: 'both',
+  },
+  {
+    slug: 'marketplace-seller-addendum',
+    title: 'Marketplace Seller Addendum',
+    summary:
+      'Additional terms for Vendors selling physical goods on the offhrs Artist Marketplace (shipping, insurance, returns, and data use).',
+    audience: 'vendor',
   },
 ]
 

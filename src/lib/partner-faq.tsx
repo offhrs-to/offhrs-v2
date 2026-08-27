@@ -203,15 +203,38 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'Does offhrs take a commission on each booking?',
         aText:
-          'No — offhrs does not take a percentage commission on bookings. Our revenue is the monthly subscription. What does apply to every paid booking is the standard Stripe payment processing fee (about 2.9% + $0.30 CAD per transaction), which is borne by you as the vendor.',
+          'No — offhrs does not take a percentage commission on workshop bookings. Our revenue for workshops is the monthly Lite/Pro subscription. Stripe processing (about 2.9% + $0.30 CAD) still applies and is borne by you. Artist Marketplace goods are different: 5% platform fee on the item subtotal plus Stripe processing.',
         a: (
           <p>
-            No — offhrs does <strong>not</strong> take a percentage commission on bookings. Our
-            revenue is the monthly subscription. What does apply to every paid booking is the
-            standard <strong>Stripe payment processing fee (about 2.9% + $0.30 CAD per
-            transaction)</strong>, which is borne by you as the vendor (this is standard for any
-            Stripe-based checkout).
+            No — offhrs does <strong>not</strong> take a percentage commission on{' '}
+            <strong>workshop bookings</strong>. Our revenue for workshops is the monthly subscription. What
+            does apply to every paid booking is the standard{' '}
+            <strong>Stripe payment processing fee (about 2.9% + $0.30 CAD per transaction)</strong>, which is
+            borne by you as the vendor.
           </p>
+        ),
+      },
+      {
+        q: 'What fees apply to Artist Marketplace sales?',
+        aText:
+          'Marketplace sales: 5% platform fee on the item subtotal (excluding tax and shipping), plus Stripe processing (about 2.9% + $0.30 CAD). Buyer-paid shipping funds the prepaid Canada Post label. Lite/Pro includes Marketplace; there is also a free Marketplace-only signup.',
+        a: (
+          <>
+            <p>
+              For <strong>Artist Marketplace</strong> goods, offhrs charges a{' '}
+              <strong>5% platform fee</strong> on the item subtotal (excluding tax and shipping postage),{' '}
+              <strong>plus</strong> Stripe processing (about 2.9% + $0.30 CAD). Shipping paid by the buyer is
+              used to purchase the prepaid Canada Post label and is not merchandise revenue.
+            </p>
+            <p className="mt-2 text-[#555]">
+              Lite and Pro include Marketplace access. Artists who only want to sell goods can enroll in a
+              free Marketplace-only plan (same 5% + Stripe on sales). See the{' '}
+              <a className="underline" href="/terms/marketplace-seller-addendum">
+                Marketplace Seller Addendum
+              </a>
+              .
+            </p>
+          </>
         ),
       },
       {
