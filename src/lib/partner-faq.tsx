@@ -394,7 +394,7 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'What are the workshop statuses?',
         aText:
-          'Published — live and bookable. Draft — not visible to customers. Fully booked — set automatically when all spots are taken. Archived — soft-deleted/hidden (active bookings auto-refunded on archive).',
+          'Published — live and bookable. Draft — not visible to customers. Fully booked — set automatically when all spots are taken. Archived — soft-deleted/hidden (active bookings auto-refunded on manual archive). Past workshops are archived automatically after the session ends.',
         a: (
           <ul className="list-disc pl-5 space-y-1">
             <li>

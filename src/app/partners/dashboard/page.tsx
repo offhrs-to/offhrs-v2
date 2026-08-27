@@ -12,6 +12,7 @@ import {
 } from './components/DashboardHomeViews'
 import { repairOrphanedStripeRefundsForVendor } from '@/lib/booking-refund'
 import { reconcileVendorEventSlots } from '@/lib/event-slot-reconcile'
+import { archiveEndedPartnerSessions } from '@/lib/partner-session-auto-archive'
 import { reconcileStripeConnectStatus } from '@/lib/stripe-connect-reconcile'
 import { buildActivitySeriesFromBookings, type BookingActivityRow } from '@/lib/partner-dashboard-activity'
 import { vendorHasNativePartnerPlan } from '@/lib/partner-access'
@@ -288,6 +289,7 @@ export default async function DashboardPage({
 
   await repairOrphanedStripeRefundsForVendor(admin, vendor.id)
   await reconcileVendorEventSlots(admin, vendor.id)
+  await archiveEndedPartnerSessions(admin, vendor.id)
 
   const connectReconciled = await reconcileStripeConnectStatus(admin, {
     id: vendor.id,

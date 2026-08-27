@@ -1,5 +1,6 @@
 import { repairOrphanedStripeRefundsForVendor } from '@/lib/booking-refund'
 import { reconcileVendorEventSlots } from '@/lib/event-slot-reconcile'
+import { archiveEndedPartnerSessions } from '@/lib/partner-session-auto-archive'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
 
   await repairOrphanedStripeRefundsForVendor(admin, vendor.id)
   await reconcileVendorEventSlots(admin, vendor.id)
+  await archiveEndedPartnerSessions(admin, vendor.id)
 
   const { searchParams } = request.nextUrl
   const status = searchParams.get('status')

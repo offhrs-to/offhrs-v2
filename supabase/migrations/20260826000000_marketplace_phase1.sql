@@ -54,6 +54,7 @@ GRANT SELECT (
   instagram_handle,
   category,
   location_address,
+  location_unit,
   location_lat,
   location_lng,
   default_workshop_image_url,
