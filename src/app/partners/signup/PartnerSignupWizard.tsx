@@ -104,6 +104,7 @@ export function PartnerSignupWizard() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
@@ -239,6 +240,7 @@ export function PartnerSignupWizard() {
         return (
           /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
           password.length >= 8 &&
+          confirmPassword === password &&
           (!TURNSTILE_ENABLED || Boolean(turnstileToken))
         )
       case 'billing':
@@ -681,6 +683,26 @@ export function PartnerSignupWizard() {
                 placeholder="Minimum 8 characters"
                 className={inputClass}
               />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="acct-pass-confirm" className="block text-sm font-medium text-[#1a1a1a]">
+                Confirm password
+              </label>
+              <input
+                id="acct-pass-confirm"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter your password"
+                className={inputClass}
+                aria-invalid={confirmPassword.length > 0 && confirmPassword !== password}
+              />
+              {confirmPassword.length > 0 && confirmPassword !== password && (
+                <p className="text-sm text-red-600" role="alert">
+                  Passwords do not match. Please re-confirm.
+                </p>
+              )}
             </div>
             {TURNSTILE_ENABLED && (
               <TurnstileWidget onToken={setTurnstileToken} />
