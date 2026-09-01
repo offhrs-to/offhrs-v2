@@ -29,3 +29,17 @@ Copy values from Production if Preview rows are empty.
 1. `/partners/login` with your Lite/Pro test account  
 2. Confirm **Marketplace** in the sidebar  
 3. Complete Phase 1 shipping + product + QA steps (see plan checklist)
+
+## Phase 2 (checkout + Shop tab)
+
+1. Apply migration `20260828000000_marketplace_phase2.sql` in Supabase (creates `shop_orders`)
+2. Preview env (in addition to Phase 1):
+   - `SHIPPO_API_KEY` — live Canada Post rates (test key OK on preview)
+   - `STRIPE_SECRET_KEY` / Stripe publishable key in mobile build
+   - `STRIPE_SHOP_GOODS_TAX_CODE` — tangible goods tax code (optional; has default)
+3. Redeploy preview after env changes
+4. **Mobile app** (EAS build or dev client with `EXPO_PUBLIC_BOOK_API_BASE` = preview URL):
+   - New **Shop** tab between Bookings and Profile
+   - Product detail → postal code → rates → checkout → PaymentSheet
+   - **Profile → Orders** shows shop purchases (workshops stay under Bookings)
+5. Seller still fulfills in Phase 3 (Print label) — orders land as `paid_awaiting_fulfillment`

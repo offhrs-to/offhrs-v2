@@ -293,6 +293,8 @@ export default function RootLayout() {
                 <Stack.Screen name="workshop-search" options={{ headerShown: false }} />
                 <Stack.Screen name="workshop-map" options={{ headerShown: false }} />
                 <Stack.Screen name="workshop-browse" options={{ headerShown: false }} />
+                <Stack.Screen name="shop/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="shop-checkout" options={{ headerShown: false }} />
                 <Stack.Screen name="contact" options={{ headerShown: false }} />
                 <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
               </Stack>

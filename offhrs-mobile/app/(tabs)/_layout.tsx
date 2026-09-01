@@ -8,6 +8,7 @@ import {
   CalendarIcon,
   HomeIcon,
   MagnifyingGlassIcon,
+  ShoppingBagIcon,
   UserIcon,
 } from 'react-native-heroicons/outline';
 
@@ -72,6 +73,7 @@ const ICON_MAP: Record<string, typeof HomeIcon> = {
   index: HomeIcon,
   workshops: MagnifyingGlassIcon,
   bookings: CalendarIcon,
+  shop: ShoppingBagIcon,
   profile: UserIcon,
 };
 
@@ -533,6 +535,15 @@ export default function TabLayout() {
           title: 'Bookings',
           tabBarIcon: ({ focused }) => (
             <TabIcon IconComponent={CalendarIcon} focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="shop"
+        options={{
+          title: 'Shop',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon IconComponent={ShoppingBagIcon} focused={focused} />
           ),
         }}
       />

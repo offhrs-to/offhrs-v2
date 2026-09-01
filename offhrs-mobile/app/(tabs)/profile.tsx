@@ -30,6 +30,7 @@ import { subscribeEventSavesChanged } from '@/lib/event-saves';
 import { normalizeProfilePhone } from '@/lib/profile-phone';
 import { geocodeAddress, reverseGeocodeCanadianPostal } from '@/lib/geocode';
 import { deleteAuthenticatedUserAccount } from '@/lib/delete-account';
+import { fetchShopOrders, type ShopOrderListItem } from '@/lib/shop-api';
 import { emitProfileUpdated, PROFILE_UPDATED_EVENT } from '@/lib/profile-events';
 import { BOOK_API_BASE } from '@/constants/api';
 import { buildBookingApiHeaders } from '@/lib/booking-api-headers';
@@ -79,6 +80,7 @@ export default function ProfileScreen() {
   } | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [savedEventsCount, setSavedEventsCount] = useState(0);
+  const [ordersCount, setOrdersCount] = useState(0);
   const [reviewsCount, setReviewsCount] = useState(0);
   const [savedModalVisible, setSavedModalVisible] = useState(false);
   const [savedEvents, setSavedEvents] = useState<{
@@ -92,6 +94,9 @@ export default function ProfileScreen() {
   }[]>([]);
   const [savedEventsLoading, setSavedEventsLoading] = useState(false);
   const [reviewsModalVisible, setReviewsModalVisible] = useState(false);
+  const [ordersModalVisible, setOrdersModalVisible] = useState(false);
+  const [shopOrders, setShopOrders] = useState<ShopOrderListItem[]>([]);
+  const [shopOrdersLoading, setShopOrdersLoading] = useState(false);
   const [myReviews, setMyReviews] = useState<{ id: string; vendor_id: string; vendor_name: string; rating: number; comment: string | null; created_at: string }[]>([]);
   const [myReviewsLoading, setMyReviewsLoading] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -135,6 +140,10 @@ export default function ProfileScreen() {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .then(({ count }) => setReviewsCount(count ?? 0));
+
+    fetchShopOrders()
+      .then((orders) => setOrdersCount(orders.length))
+      .catch(() => setOrdersCount(0));
   }, [user?.id]);
 
   useFocusEffect(
@@ -152,6 +161,9 @@ export default function ProfileScreen() {
           .select('id', { count: 'exact', head: true })
           .eq('user_id', user.id)
           .then(({ count }) => setReviewsCount(count ?? 0));
+        fetchShopOrders()
+          .then((orders) => setOrdersCount(orders.length))
+          .catch(() => setOrdersCount(0));
         supabase
           .from('profiles')
           .select(
@@ -267,6 +279,20 @@ export default function ProfileScreen() {
     setMyReviewsLoading(false);
   }, [user?.id]);
 
+  const fetchShopOrdersList = useCallback(async () => {
+    if (!user?.id) return;
+    setShopOrdersLoading(true);
+    try {
+      const orders = await fetchShopOrders();
+      setShopOrders(orders);
+      setOrdersCount(orders.length);
+    } catch {
+      setShopOrders([]);
+    } finally {
+      setShopOrdersLoading(false);
+    }
+  }, [user?.id]);
+
   const refreshProfile = useCallback(() => {
     if (!user?.id) return;
     supabase
@@ -339,7 +365,7 @@ export default function ProfileScreen() {
     : null;
 
   const statsRowInnerWidth = windowWidth - DesignSpacing.horizontalPadding * 2;
-  const statsCellWidth = (statsRowInnerWidth - STATS_DIVIDER_WIDTH) / 2;
+  const statsCellWidth = (statsRowInnerWidth - STATS_DIVIDER_WIDTH * 2) / 3;
 
   return (
     <>
@@ -466,6 +492,29 @@ export default function ProfileScreen() {
           borderColor: DesignColors.lightGreenBorder,
         }}
       >
+        <RNTouchableOpacity
+          style={{
+            width: statsCellWidth,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onPress={() => {
+            setOrdersModalVisible(true);
+            fetchShopOrdersList();
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>{ordersCount}</Text>
+          <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 2 }}>Orders</Text>
+        </RNTouchableOpacity>
+        <View
+          style={{
+            width: STATS_DIVIDER_WIDTH,
+            alignSelf: 'center',
+            height: 32,
+            backgroundColor: DesignColors.lightGreenBorder,
+          }}
+        />
         <RNTouchableOpacity
           style={{
             width: statsCellWidth,
@@ -710,6 +759,88 @@ export default function ProfileScreen() {
                     ) : null}
                     <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 6 }}>View vendor →</Text>
                   </RNTouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Shop orders modal — Profile → Orders */}
+      <Modal
+        visible={ordersModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOrdersModalVisible(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+          }}
+          onPress={() => setOrdersModalVisible(false)}
+        >
+          <Pressable
+            style={{
+              width: '100%',
+              maxWidth: 400,
+              maxHeight: '80%',
+              backgroundColor: '#FFF',
+              borderRadius: 20,
+              overflow: 'hidden',
+            }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderBottomWidth: 1,
+                borderBottomColor: DesignColors.lightGreenBorder,
+              }}
+            >
+              <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>Orders</Text>
+              <Pressable onPress={() => setOrdersModalVisible(false)} style={{ padding: 8 }}>
+                <MaterialCommunityIcons name="close" size={22} color={DesignColors.charcoal} />
+              </Pressable>
+            </View>
+            {shopOrdersLoading ? (
+              <View style={{ padding: 32, alignItems: 'center' }}>
+                <ActivityIndicator color={DesignColors.primary} />
+              </View>
+            ) : shopOrders.length === 0 ? (
+              <View style={{ padding: 32 }}>
+                <Text style={{ textAlign: 'center', color: DesignColors.mediumGray }}>
+                  No shop orders yet. Browse the Shop tab to find maker goods.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 400 }}>
+                {shopOrders.map((o) => (
+                  <View
+                    key={o.id}
+                    style={{
+                      padding: 16,
+                      borderBottomWidth: 1,
+                      borderBottomColor: DesignColors.lightGreenBorder,
+                    }}
+                  >
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.charcoal }}>
+                      {o.product_title}
+                    </Text>
+                    <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 4 }}>
+                      {o.vendor_name} · ${o.total_cad.toFixed(2)} CAD
+                    </Text>
+                    <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginTop: 4 }}>
+                      {o.fulfillment_type === 'pickup' ? 'Pickup' : 'Shipping'} · {o.status.replace(/_/g, ' ')}
+                    </Text>
+                  </View>
                 ))}
               </ScrollView>
             )}

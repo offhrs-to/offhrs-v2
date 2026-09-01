@@ -258,7 +258,7 @@ Disputes UI; auto clawback; SNAD/damaged; App Store/Play; release
 - [x] Phase 0 (engineering): Terms + Marketplace Seller Addendum + FAQ + Shippo/fee/tax scaffolding + postage ledger design  
 - [x] Phase 0 (ops/counsel): Shippo account + `SHIPPO_API_KEY`; counsel review; CRA facilitator registration; confirm `STRIPE_SHOP_GOODS_TAX_CODE` *(ops done for build; counsel/CRA deferred to production)*  
 - [x] Phase 1: Access + Products CRUD + QA  
-- [ ] Phase 2: Checkout + tax + mobile Shop  
+- [x] Phase 2: Checkout + tax + mobile Shop  
 - [ ] Phase 3: Labels + SLA + ledger  
 - [ ] Phase 4: Disputes + launch  
 
