@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { createClient } from '@/lib/supabase/browser'
+import { createClient, tryCreateClient } from '@/lib/supabase/browser'
 
 type AuthContextType = {
   user: User | null
@@ -17,7 +17,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const supabase = createClient()
+    const supabase = tryCreateClient()
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
 
     const {
       data: { subscription },

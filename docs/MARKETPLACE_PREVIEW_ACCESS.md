@@ -2,6 +2,21 @@
 
 Preview URLs like `*-offhrs-projects.vercel.app` may redirect to **Vercel Login (SSO)** when Deployment Protection is on. That is not an app bug — anonymous requests never reach Next.js.
 
+## Fix “Application error: a client-side exception has occurred”
+
+This almost always means the **Preview build** did not have Supabase public env vars. The client bundle needs them at **build time**.
+
+1. Vercel → **offhrs-v2** → **Settings** → **Environment Variables**
+2. For each variable below, click it → ensure **Preview** is checked (not only Production):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (server routes / Partners dashboard)
+   - `ADMIN_USER`, `ADMIN_PASSWORD`, `ADMIN_API_SECRET` (admin QA approve)
+3. **Deployments** → latest preview → **⋯** → **Redeploy** (required after env changes)
+4. Reload the preview URL — you should see the site (yellow banner disappears once env is set)
+
+Copy values from Production if Preview rows are empty.
+
 ## Open preview for partner testing
 
 1. Vercel → **offhrs-v2** → **Settings** → **Deployment Protection**
@@ -9,9 +24,7 @@ Preview URLs like `*-offhrs-projects.vercel.app` may redirect to **Vercel Login 
 3. From the deployment page click **Visit** while logged into the Vercel team (SSO unlocks the preview), then go to `/partners/login`
 4. Optional: create a **Shareable Link** / protection bypass for QA without SSO
 
-Ensure Preview env has the same Supabase / Stripe keys as Production (Settings → Environment Variables → Preview checked).
-
-## After SSO / open preview
+## After preview loads
 
 1. `/partners/login` with your Lite/Pro test account  
 2. Confirm **Marketplace** in the sidebar  
