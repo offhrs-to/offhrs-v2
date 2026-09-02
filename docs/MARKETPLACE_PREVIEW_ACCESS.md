@@ -35,6 +35,7 @@ Copy values from Production if Preview rows are empty.
 1. Apply migration `20260828000000_marketplace_phase2.sql` in Supabase (creates `shop_orders`)
 2. Preview env (in addition to Phase 1):
    - `SHIPPO_API_KEY` — live Canada Post rates (test key OK on preview)
+   - `GOOGLE_MAPS_API_KEY` — Places autocomplete for shop checkout (server key; Places API enabled). Falls back to `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` if set.
    - `STRIPE_SECRET_KEY` / Stripe publishable key in mobile build
    - `STRIPE_SHOP_GOODS_TAX_CODE` — tangible goods tax code (optional; has default)
 3. Redeploy preview after env changes
