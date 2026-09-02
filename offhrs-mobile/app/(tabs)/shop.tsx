@@ -10,6 +10,7 @@ import {
   FlatList,
   Pressable,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,9 +23,11 @@ function formatCad(price: number): string {
 
 function ShopProductCard({
   item,
+  width,
   onPress,
 }: {
   item: ShopProductListItem;
+  width: number;
   onPress: () => void;
 }) {
   const image = item.image_urls?.[0];
@@ -32,7 +35,7 @@ function ShopProductCard({
     <Pressable
       onPress={onPress}
       style={{
-        flex: 1,
+        width,
         backgroundColor: '#fff',
         borderRadius: 12,
         borderWidth: 1,
@@ -45,18 +48,18 @@ function ShopProductCard({
           <Image source={{ uri: image }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
         ) : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: DesignColors.mediumGray }}>No image</Text>
+            <Text style={{ fontSize: 11, color: DesignColors.mediumGray }}>No image</Text>
           </View>
         )}
       </View>
-      <View style={{ padding: 10 }}>
-        <Text numberOfLines={2} style={{ fontSize: 15, fontWeight: '600', color: DesignColors.charcoal }}>
+      <View style={{ padding: 8 }}>
+        <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '600', color: DesignColors.charcoal }}>
           {item.title}
         </Text>
-        <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 4 }}>
+        <Text numberOfLines={1} style={{ fontSize: 11, color: DesignColors.mediumGray, marginTop: 2 }}>
           {item.vendor_name}
         </Text>
-        <Text style={{ fontSize: 15, fontWeight: '700', color: DesignColors.primary, marginTop: 6 }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: DesignColors.primary, marginTop: 4 }}>
           {formatCad(item.price_cad)}
         </Text>
       </View>
@@ -67,6 +70,8 @@ function ShopProductCard({
 export default function ShopScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const cardWidth = (windowWidth - DesignSpacing.horizontalPadding * 2 - LIST_GAP) / 2;
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string>('All');
   const [sort, setSort] = useState<'newest' | 'price_asc' | 'price_desc'>('newest');
@@ -106,6 +111,7 @@ export default function ShopScreen() {
         searchPlaceholder="Search shop…"
         searchValue={search}
         onSearchChangeText={setSearch}
+        hideDateAndClear
         showPriceFilter
         priceSort={sort === 'price_asc' ? 'price_low' : sort === 'price_desc' ? 'price_high' : 'default'}
         onPriceSortChange={(s) => {
@@ -173,7 +179,11 @@ export default function ShopScreen() {
           columnWrapperStyle={{ gap: LIST_GAP, paddingHorizontal: DesignSpacing.horizontalPadding }}
           contentContainerStyle={{ gap: LIST_GAP, paddingBottom: insets.bottom + 100 }}
           renderItem={({ item }) => (
-            <ShopProductCard item={item} onPress={() => router.push(`/shop/${item.id}`)} />
+            <ShopProductCard
+              item={item}
+              width={cardWidth}
+              onPress={() => router.push(`/shop/${item.id}`)}
+            />
           )}
         />
       )}

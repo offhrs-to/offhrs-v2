@@ -15,10 +15,12 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Pressable,
   ScrollView,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +33,7 @@ export default function ShopProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const { user } = useAuth();
 
   const [product, setProduct] = useState<ShopProductDetail | null>(null);
@@ -129,7 +132,8 @@ export default function ShopProductScreen() {
     );
   }
 
-  const image = product.image_urls?.[0];
+  const images = (product.image_urls ?? []).filter(Boolean);
+  const imageCarouselWidth = windowWidth - DesignSpacing.horizontalPadding * 2;
 
   return (
     <View style={{ flex: 1, backgroundColor: DesignColors.creamBg }}>
@@ -138,6 +142,7 @@ export default function ShopProductScreen() {
         <View style={{ paddingHorizontal: DesignSpacing.horizontalPadding }}>
           <View
             style={{
+              width: imageCarouselWidth,
               aspectRatio: 1,
               borderRadius: 12,
               overflow: 'hidden',
@@ -146,8 +151,33 @@ export default function ShopProductScreen() {
               borderColor: DesignColors.lightGreenBorder,
             }}
           >
-            {image ? (
-              <Image source={{ uri: image }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+            {images.length > 1 ? (
+              <FlatList
+                data={images}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                decelerationRate="fast"
+                keyExtractor={(uri, index) => `${uri}-${index}`}
+                getItemLayout={(_, index) => ({
+                  length: imageCarouselWidth,
+                  offset: imageCarouselWidth * index,
+                  index,
+                })}
+                renderItem={({ item }) => (
+                  <Image
+                    source={{ uri: item }}
+                    style={{ width: imageCarouselWidth, height: imageCarouselWidth }}
+                    contentFit="cover"
+                  />
+                )}
+              />
+            ) : images.length === 1 ? (
+              <Image
+                source={{ uri: images[0] }}
+                style={{ width: '100%', height: '100%' }}
+                contentFit="cover"
+              />
             ) : null}
           </View>
 
