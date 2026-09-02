@@ -36,6 +36,28 @@ export function provinceFromCanadianPostalCode(postalCode: string): string | nul
   return FSA_LETTER_TO_PROVINCE[letter] ?? null
 }
 
+/** Representative city for rate quotes when only postal/province is known. */
+const PROVINCE_DEFAULT_CITY: Record<string, string> = {
+  NL: 'St. Johns',
+  NS: 'Halifax',
+  PE: 'Charlottetown',
+  NB: 'Moncton',
+  QC: 'Montreal',
+  ON: 'Toronto',
+  MB: 'Winnipeg',
+  SK: 'Saskatoon',
+  AB: 'Calgary',
+  BC: 'Vancouver',
+  NT: 'Yellowknife',
+  YT: 'Whitehorse',
+  NU: 'Iqaluit',
+}
+
+export function defaultCityForCanadianProvince(province: string | null | undefined): string {
+  const code = province?.trim().toUpperCase() ?? ''
+  return PROVINCE_DEFAULT_CITY[code] ?? 'Toronto'
+}
+
 export type CustomerTaxAddress = {
   country: 'CA'
   postal_code: string

@@ -83,26 +83,37 @@ type ShippoApiRate = {
   object_id: string
   amount: string
   currency: string
+  amount_local?: string
+  currency_local?: string
   provider: string
   servicelevel?: { name?: string; token?: string }
   estimated_days?: number
 }
 
+type ShippoApiMessage = {
+  source?: string
+  code?: string
+  text?: string
+}
+
 type ShippoApiShipment = {
   object_id: string
   rates: ShippoApiRate[]
+  messages?: ShippoApiMessage[]
 }
 
 function toShippoAddress(addr: ShippoAddressInput): ShippoApiAddress {
   const postal = normalizeCanadianPostalCode(addr.postal_code)
   if (!postal) throw new Error('Invalid Canadian postal code for Shippo')
+  // Canada Post prefers compact postal (no space) in some rate paths.
+  const zip = postal.replace(/\s+/g, '')
   return {
     name: addr.name.trim(),
     street1: addr.line1.trim(),
     ...(addr.line2?.trim() ? { street2: addr.line2.trim() } : {}),
     city: addr.city.trim(),
     state: addr.province.trim().toUpperCase(),
-    zip: postal,
+    zip,
     country: (addr.country ?? 'CA').toUpperCase(),
     ...(addr.phone?.trim() ? { phone: addr.phone.trim() } : {}),
   }
@@ -132,13 +143,37 @@ async function shippoFetch<T>(path: string, init: RequestInit): Promise<T> {
   return body
 }
 
+function rateAmountCad(r: ShippoApiRate): number | null {
+  const currency = (r.currency ?? '').toUpperCase()
+  const localCurrency = (r.currency_local ?? '').toUpperCase()
+  if (currency === 'CAD') {
+    const n = Number.parseFloat(r.amount)
+    return Number.isFinite(n) ? n : null
+  }
+  if (localCurrency === 'CAD' && r.amount_local) {
+    const n = Number.parseFloat(r.amount_local)
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}
+
+function formatShippoMessages(messages: ShippoApiMessage[] | undefined): string | null {
+  if (!messages?.length) return null
+  const texts = messages
+    .map((m) => m.text?.trim())
+    .filter((t): t is string => Boolean(t))
+  if (!texts.length) return null
+  // Dedupe + keep short for client alerts
+  return [...new Set(texts)].slice(0, 3).join(' · ')
+}
+
 /** Fetch live Canada Post rates for a single parcel. */
 export async function fetchShippoRates(params: {
   from: ShippoAddressInput
   to: ShippoAddressInput
   parcel: ShippoParcelInput
   itemSubtotalCad: number
-}): Promise<{ shipment_id: string; rates: ShippoRateOption[] }> {
+}): Promise<{ shipment_id: string; rates: ShippoRateOption[]; messages: string | null }> {
   const highValue =
     params.itemSubtotalCad >= SHOP_HIGH_VALUE_INSURANCE_CAD
 
@@ -152,11 +187,18 @@ export async function fetchShippoRates(params: {
     }
   }
 
+  const from = toShippoAddress(params.from)
+  const to = toShippoAddress(params.to)
+  if (from.zip === to.zip && from.city.toLowerCase() === to.city.toLowerCase()) {
+    // Same origin/destination often yields empty rates from carriers.
+    console.warn('Shippo rates: origin and destination look identical', from.zip)
+  }
+
   const shipment = await shippoFetch<ShippoApiShipment>('/shipments/', {
     method: 'POST',
     body: JSON.stringify({
-      address_from: toShippoAddress(params.from),
-      address_to: toShippoAddress(params.to),
+      address_from: from,
+      address_to: to,
       parcels: [
         {
           length: String(params.parcel.length_cm),
@@ -172,22 +214,37 @@ export async function fetchShippoRates(params: {
     }),
   })
 
+  const messages = formatShippoMessages(shipment.messages)
+
   const rates: ShippoRateOption[] = (shipment.rates ?? [])
-    .filter((r) => r.currency?.toUpperCase() === 'CAD')
-    .map((r) => ({
-      rate_id: r.object_id,
-      shipment_id: shipment.object_id,
-      amount_cad: Number.parseFloat(r.amount),
-      currency: r.currency,
-      carrier: r.provider,
-      service_level: r.servicelevel?.token ?? r.servicelevel?.name ?? 'standard',
-      service_name: r.servicelevel?.name ?? r.provider,
-      estimated_days: r.estimated_days ?? null,
-    }))
-    .filter((r) => Number.isFinite(r.amount_cad) && r.amount_cad >= 0)
+    .map((r) => {
+      const amount_cad = rateAmountCad(r)
+      if (amount_cad == null || amount_cad < 0) return null
+      return {
+        rate_id: r.object_id,
+        shipment_id: shipment.object_id,
+        amount_cad,
+        currency: 'CAD',
+        carrier: r.provider,
+        service_level: r.servicelevel?.token ?? r.servicelevel?.name ?? 'standard',
+        service_name: r.servicelevel?.name ?? r.provider,
+        estimated_days: r.estimated_days ?? null,
+      }
+    })
+    .filter((r): r is ShippoRateOption => r != null)
     .sort((a, b) => a.amount_cad - b.amount_cad)
 
-  return { shipment_id: shipment.object_id, rates }
+  if (!rates.length) {
+    console.warn('Shippo returned no CAD rates', {
+      shipment_id: shipment.object_id,
+      raw_rate_count: shipment.rates?.length ?? 0,
+      messages,
+      from_zip: from.zip,
+      to_zip: to.zip,
+    })
+  }
+
+  return { shipment_id: shipment.object_id, rates, messages }
 }
 
 /** Placeholder — implement with Shippo REST in Phase 3. */

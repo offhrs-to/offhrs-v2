@@ -1,5 +1,8 @@
 import { resolveApiUser } from '@/lib/api-auth-user'
-import { customerTaxAddressFromPostal } from '@/lib/canadian-postal-province'
+import {
+  customerTaxAddressFromPostal,
+  defaultCityForCanadianProvince,
+} from '@/lib/canadian-postal-province'
 import { isKillSwitchActive, killSwitchResponse } from '@/lib/kill-switch'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { shopRatesBodySchema } from '@/lib/shop/checkout-schema'
@@ -90,12 +93,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Enter a valid Canadian postal code' }, { status: 422 })
     }
 
-    const { shipment_id, rates } = await fetchShippoRates({
+    const destCity =
+      taxAddr.city?.trim() || defaultCityForCanadianProvince(taxAddr.state)
+
+    // Avoid identical origin/destination (Shippo often returns empty rates).
+    const originPostal = shipFrom.postal_code.replace(/[\s-]/g, '').toUpperCase()
+    const destPostal = taxAddr.postal_code.replace(/[\s-]/g, '').toUpperCase()
+    if (originPostal === destPostal) {
+      return NextResponse.json(
+        {
+          error:
+            'Enter a destination postal code different from the seller ship-from address to get rates.',
+        },
+        { status: 422 }
+      )
+    }
+
+    const { shipment_id, rates, messages } = await fetchShippoRates({
       from: shipFrom,
       to: {
         name: 'Recipient',
-        line1: '1 Main St',
-        city: taxAddr.city ?? 'Toronto',
+        line1: '123 Main Street',
+        city: destCity,
         province: taxAddr.state,
         postal_code: taxAddr.postal_code,
         country: 'CA',
@@ -111,7 +130,11 @@ export async function POST(request: NextRequest) {
 
     if (!rates.length) {
       return NextResponse.json(
-        { error: 'No shipping rates available to this postal code' },
+        {
+          error:
+            messages ??
+            'No shipping rates available. Confirm Canada Post is enabled on the Shippo account and seller weight/dims are valid.',
+        },
         { status: 422 }
       )
     }
