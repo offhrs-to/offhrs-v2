@@ -4,9 +4,6 @@ import type Stripe from 'stripe'
 import type { CustomerTaxAddress } from '@/lib/canadian-postal-province'
 import { SHOP_GOODS_STRIPE_TAX_CODE } from '@/lib/shop/tax-constants'
 
-/** Stripe Tax code for shipping/freight (buyer-paid postage). */
-const SHOP_SHIPPING_STRIPE_TAX_CODE = 'txcd_92010001'
-
 export type ShopTaxBreakdown = {
   calculationId: string
   itemSubtotalCad: number
@@ -22,7 +19,8 @@ function centsToCad(cents: number): number {
 
 /**
  * Marketplace facilitator tax on the **platform** Stripe account (not vendor Connect).
- * Item subtotal + shipping are taxed separately per Stripe Tax line items.
+ * Goods are line items; shipping must use Stripe Tax `shipping_cost` (not a shipping tax-code line item).
+ * @see https://docs.stripe.com/tax/custom#shipping-costs
  */
 export async function calculateShopOrderTax(
   stripe: Stripe,
@@ -39,32 +37,24 @@ export async function calculateShopOrderTax(
     throw new Error('Item subtotal must be positive for tax calculation')
   }
 
-  const lineItems: Array<{
-    amount: number
-    reference: string
-    tax_code: string
-    tax_behavior: 'exclusive' | 'inclusive'
-  }> = [
-    {
-      amount: itemSubtotalCents,
-      reference: params.reference ?? 'shop_item',
-      tax_code: SHOP_GOODS_STRIPE_TAX_CODE,
-      tax_behavior: 'exclusive',
-    },
-  ]
-
-  if (shippingCents > 0) {
-    lineItems.push({
-      amount: shippingCents,
-      reference: 'shop_shipping',
-      tax_code: SHOP_SHIPPING_STRIPE_TAX_CODE,
-      tax_behavior: 'exclusive',
-    })
-  }
-
   const calculation = await stripe.tax.calculations.create({
     currency: 'cad',
-    line_items: lineItems,
+    line_items: [
+      {
+        amount: itemSubtotalCents,
+        reference: params.reference ?? 'shop_item',
+        tax_code: SHOP_GOODS_STRIPE_TAX_CODE,
+        tax_behavior: 'exclusive',
+      },
+    ],
+    ...(shippingCents > 0
+      ? {
+          shipping_cost: {
+            amount: shippingCents,
+            tax_behavior: 'exclusive' as const,
+          },
+        }
+      : {}),
     customer_details: {
       address: params.customerAddress,
       address_source: 'shipping',
