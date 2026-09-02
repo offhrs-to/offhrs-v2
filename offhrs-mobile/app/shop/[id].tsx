@@ -115,7 +115,7 @@ export default function ShopProductScreen() {
         fulfillment,
         rateId: selectedRate?.rate_id ?? '',
         shipmentId: selectedRate?.shipment_id ?? '',
-        rateAmount: selectedRate ? String(selectedRate.base_rate_cad) : '',
+        rateAmount: selectedRate ? String(selectedRate.amount_cad) : '',
         postalCode: parseCanadianPostalCode(postalCode) ?? '',
       },
     });

@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
 
     const itemSubtotalCad = product.price_cad
     const highValue = shopHighValueFlags(itemSubtotalCad)
-    const handlingFee = Number(vendor.shipping_handling_fee_cad ?? 0)
 
     let shippingCad = 0
     let shippoRateId: string | null = null
@@ -90,7 +89,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Seller shipping address is not configured' }, { status: 422 })
       }
 
-      shippingCad = Math.round((body.shippo_rate_amount_cad + handlingFee) * 100) / 100
+      shippingCad = Math.round(body.shippo_rate_amount_cad * 100) / 100
+      // Buyer-facing rate from /api/shop/rates already includes handling; do not add again.
+      if (!(shippingCad >= 0) || !Number.isFinite(shippingCad)) {
+        return NextResponse.json({ error: 'Invalid shipping rate amount' }, { status: 422 })
+      }
       shippoRateId = body.shippo_rate_id
       shippoShipmentId = body.shippo_shipment_id
     }
@@ -143,6 +146,12 @@ export async function POST(request: NextRequest) {
       /* keep combined fee */
     }
 
+    // Connect requires application_fee_amount < charge amount.
+    applicationFeeAmount = Math.min(
+      Math.max(0, applicationFeeAmount),
+      Math.max(0, taxBreakdown.amountTotalCents - 1)
+    )
+
     let stripeCustomerId: string
     try {
       stripeCustomerId = await getOrCreateStripeCustomerId(admin, stripe, user.id, user.email)
@@ -151,50 +160,62 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Could not start checkout. Please try again.' }, { status: 500 })
     }
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: taxBreakdown.amountTotalCents,
-      currency: 'cad',
-      automatic_payment_methods: {
-        enabled: true,
-        allow_redirects: 'never',
-      },
-      on_behalf_of: vendor.stripe_account_id!,
-      application_fee_amount: applicationFeeAmount,
-      transfer_data: {
-        destination: vendor.stripe_account_id!,
-      },
-      customer: stripeCustomerId,
-      setup_future_usage: 'off_session',
-      metadata: {
-        order_type: 'shop',
-        product_id: product.id,
-        vendor_id: vendor.id,
-        user_id: user.id,
-        buyer_name: body.buyer_name,
-        buyer_email: body.buyer_email,
-        fulfillment_type: body.fulfillment_type,
-        item_subtotal_cad: String(itemSubtotalCad),
-        shipping_cad: String(shippingCad),
-        tax_cad: String(taxBreakdown.taxCad),
-        total_cad: String(taxBreakdown.totalCad),
-        tax_calculation: taxBreakdown.calculationId,
-        platform_fee_cents: String(platformFeeCents),
-        estimated_stripe_fee_cents: String(estimatedStripeFeeCents),
-        shippo_rate_id: shippoRateId ?? '',
-        shippo_shipment_id: shippoShipmentId ?? '',
-        requires_signature: String(highValue.requires_signature),
-        requires_insurance: String(highValue.requires_insurance),
-        ship_by_business_days: String(product.ship_by_business_days),
-        ship_to_name: body.ship_address?.name ?? '',
-        ship_to_line1: body.ship_address?.line1 ?? '',
-        ship_to_line2: body.ship_address?.line2 ?? '',
-        ship_to_city: body.ship_address?.city ?? '',
-        ship_to_province: body.ship_address?.province ?? '',
-        ship_to_postal_code: body.ship_address?.postal_code ?? '',
-      },
-      description: `${vendor.business_name ?? 'Maker'} — ${product.title}`,
-      receipt_email: body.buyer_email,
-    })
+    let paymentIntent: Stripe.PaymentIntent
+    try {
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: taxBreakdown.amountTotalCents,
+        currency: 'cad',
+        automatic_payment_methods: {
+          enabled: true,
+          allow_redirects: 'never',
+        },
+        on_behalf_of: vendor.stripe_account_id!,
+        ...(applicationFeeAmount > 0 ? { application_fee_amount: applicationFeeAmount } : {}),
+        transfer_data: {
+          destination: vendor.stripe_account_id!,
+        },
+        customer: stripeCustomerId,
+        setup_future_usage: 'off_session',
+        metadata: {
+          order_type: 'shop',
+          product_id: product.id,
+          vendor_id: vendor.id,
+          user_id: user.id,
+          buyer_name: body.buyer_name,
+          buyer_email: body.buyer_email,
+          fulfillment_type: body.fulfillment_type,
+          item_subtotal_cad: String(itemSubtotalCad),
+          shipping_cad: String(shippingCad),
+          tax_cad: String(taxBreakdown.taxCad),
+          total_cad: String(taxBreakdown.totalCad),
+          tax_calculation: taxBreakdown.calculationId,
+          platform_fee_cents: String(platformFeeCents),
+          estimated_stripe_fee_cents: String(estimatedStripeFeeCents),
+          shippo_rate_id: shippoRateId ?? '',
+          shippo_shipment_id: shippoShipmentId ?? '',
+          requires_signature: String(highValue.requires_signature),
+          requires_insurance: String(highValue.requires_insurance),
+          ship_by_business_days: String(product.ship_by_business_days),
+          ship_to_name: body.ship_address?.name ?? '',
+          ship_to_line1: body.ship_address?.line1 ?? '',
+          ship_to_line2: body.ship_address?.line2 ?? '',
+          ship_to_city: body.ship_address?.city ?? '',
+          ship_to_province: body.ship_address?.province ?? '',
+          ship_to_postal_code: body.ship_address?.postal_code ?? '',
+        },
+        description: `${vendor.business_name ?? 'Maker'} — ${product.title}`,
+        receipt_email: body.buyer_email,
+      })
+    } catch (piErr) {
+      console.error('Shop PaymentIntent create error:', piErr)
+      const detail =
+        piErr instanceof Stripe.errors.StripeError
+          ? piErr.message
+          : piErr instanceof Error
+            ? piErr.message
+            : 'Could not start payment'
+      return NextResponse.json({ error: detail }, { status: 422 })
+    }
 
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
@@ -210,6 +231,12 @@ export async function POST(request: NextRequest) {
     })
   } catch (err) {
     console.error('shop checkout POST', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const detail =
+      err instanceof Stripe.errors.StripeError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : 'Internal server error'
+    return NextResponse.json({ error: detail }, { status: 500 })
   }
 }
