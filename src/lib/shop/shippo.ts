@@ -12,6 +12,9 @@ import { normalizeCanadianPostalCode } from '@/lib/canadian-postal-province'
 
 const SHIPPO_API_BASE = 'https://api.goshippo.com'
 
+/** Shippo carrier object ids / provider names for Canada Post. */
+const CANADA_POST_CARRIER_IDS = new Set(['canada_post', 'canadapost'])
+
 export function shippoApiKey(): string | null {
   const key = process.env.SHIPPO_API_KEY?.trim()
   return key || null
@@ -102,6 +105,13 @@ type ShippoApiShipment = {
   messages?: ShippoApiMessage[]
 }
 
+type ShippoCarrierAccount = {
+  object_id: string
+  carrier: string
+  active?: boolean
+  account_id?: string
+}
+
 function toShippoAddress(addr: ShippoAddressInput): ShippoApiAddress {
   const postal = normalizeCanadianPostalCode(addr.postal_code)
   if (!postal) throw new Error('Invalid Canadian postal code for Shippo')
@@ -119,7 +129,7 @@ function toShippoAddress(addr: ShippoAddressInput): ShippoApiAddress {
   }
 }
 
-async function shippoFetch<T>(path: string, init: RequestInit): Promise<T> {
+async function shippoFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const key = shippoApiKey()
   if (!key) throw new Error('SHIPPO_API_KEY is not configured')
 
@@ -128,7 +138,7 @@ async function shippoFetch<T>(path: string, init: RequestInit): Promise<T> {
     headers: {
       Authorization: `ShippoToken ${key}`,
       'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
+      ...(init?.headers ?? {}),
     },
   })
 
@@ -141,6 +151,38 @@ async function shippoFetch<T>(path: string, init: RequestInit): Promise<T> {
     throw new Error(msg)
   }
   return body
+}
+
+function isCanadaPostCarrier(carrier: string | undefined | null): boolean {
+  if (!carrier) return false
+  const normalized = carrier.trim().toLowerCase().replace(/[\s_-]+/g, '')
+  return (
+    normalized === 'canadapost' ||
+    normalized.includes('canadapost') ||
+    CANADA_POST_CARRIER_IDS.has(carrier.trim().toLowerCase())
+  )
+}
+
+function isCanadaPostProvider(provider: string | undefined | null): boolean {
+  if (!provider) return false
+  return /canada\s*post/i.test(provider) || isCanadaPostCarrier(provider)
+}
+
+/** Resolve active Canada Post carrier account object_ids for rate requests. */
+export async function listCanadaPostCarrierAccountIds(): Promise<string[]> {
+  const fromEnv = process.env.SHIPPO_CANADA_POST_CARRIER_ACCOUNT_ID?.trim()
+  if (fromEnv) return [fromEnv]
+
+  const listed = await shippoFetch<{ results?: ShippoCarrierAccount[] }>(
+    '/carrier_accounts/?results=100'
+  )
+  const accounts = listed.results ?? []
+  const ids = accounts
+    .filter((a) => a.active !== false && isCanadaPostCarrier(a.carrier))
+    .map((a) => a.object_id)
+    .filter(Boolean)
+
+  return [...new Set(ids)]
 }
 
 function rateAmountCad(r: ShippoApiRate): number | null {
@@ -159,12 +201,47 @@ function rateAmountCad(r: ShippoApiRate): number | null {
 
 function formatShippoMessages(messages: ShippoApiMessage[] | undefined): string | null {
   if (!messages?.length) return null
-  const texts = messages
+
+  // Prefer Canada Post / approval messages; ignore irrelevant UK carriers etc.
+  const preferred = messages.filter((m) => {
+    const src = (m.source ?? '').toLowerCase()
+    const text = (m.text ?? '').toLowerCase()
+    if (src.includes('canada') || text.includes('canada post')) return true
+    if (text.includes('not approved') || text.includes('shared account')) return true
+    if (text.includes('restricted from using this carrier')) return true
+    return false
+  })
+
+  const pool = preferred.length ? preferred : messages
+  const texts = pool
     .map((m) => m.text?.trim())
     .filter((t): t is string => Boolean(t))
+    // Drop Hermes UK / unrelated EU noise when we have better signal
+    .filter((t) => !/hermes_uk|evri/i.test(t))
+
   if (!texts.length) return null
-  // Dedupe + keep short for client alerts
-  return [...new Set(texts)].slice(0, 3).join(' · ')
+  return [...new Set(texts)].slice(0, 2).join(' · ')
+}
+
+function canadaPostSetupHint(messages: string | null, hasCarrierAccount: boolean): string {
+  if (!hasCarrierAccount) {
+    return (
+      'No Canada Post carrier account found on this Shippo key. ' +
+      'In Shippo → Carriers, activate Canada Post (Shippo shared account), ' +
+      'wait for approval if prompted, then use a live API key that can see that carrier.'
+    )
+  }
+  if (messages && /not approved|shared account|restricted/i.test(messages)) {
+    return (
+      'Shippo has not approved Canada Post on this account yet. ' +
+      'Open Shippo → Carriers → Canada Post, finish activation, and contact Shippo support if it still says not approved. ' +
+      `(${messages})`
+    )
+  }
+  return (
+    messages ??
+    'No Canada Post rates returned. Confirm Canada Post is active/approved in Shippo and seller weight/dims are valid.'
+  )
 }
 
 /** Fetch live Canada Post rates for a single parcel. */
@@ -190,33 +267,50 @@ export async function fetchShippoRates(params: {
   const from = toShippoAddress(params.from)
   const to = toShippoAddress(params.to)
   if (from.zip === to.zip && from.city.toLowerCase() === to.city.toLowerCase()) {
-    // Same origin/destination often yields empty rates from carriers.
     console.warn('Shippo rates: origin and destination look identical', from.zip)
+  }
+
+  let canadaPostAccountIds: string[] = []
+  try {
+    canadaPostAccountIds = await listCanadaPostCarrierAccountIds()
+  } catch (err) {
+    console.warn(
+      'Could not list Shippo carrier accounts',
+      err instanceof Error ? err.message : err
+    )
+  }
+
+  const shipmentBody: Record<string, unknown> = {
+    address_from: from,
+    address_to: to,
+    parcels: [
+      {
+        length: String(params.parcel.length_cm),
+        width: String(params.parcel.width_cm),
+        height: String(params.parcel.height_cm),
+        distance_unit: 'cm',
+        weight: String(params.parcel.weight_g),
+        mass_unit: 'g',
+      },
+    ],
+    async: false,
+    ...(Object.keys(extra).length ? { extra } : {}),
+  }
+
+  // Restrict to Canada Post so Hermes UK / other carriers don't pollute errors.
+  if (canadaPostAccountIds.length) {
+    shipmentBody.carrier_accounts = canadaPostAccountIds
   }
 
   const shipment = await shippoFetch<ShippoApiShipment>('/shipments/', {
     method: 'POST',
-    body: JSON.stringify({
-      address_from: from,
-      address_to: to,
-      parcels: [
-        {
-          length: String(params.parcel.length_cm),
-          width: String(params.parcel.width_cm),
-          height: String(params.parcel.height_cm),
-          distance_unit: 'cm',
-          weight: String(params.parcel.weight_g),
-          mass_unit: 'g',
-        },
-      ],
-      async: false,
-      ...(Object.keys(extra).length ? { extra } : {}),
-    }),
+    body: JSON.stringify(shipmentBody),
   })
 
-  const messages = formatShippoMessages(shipment.messages)
+  const rawMessages = formatShippoMessages(shipment.messages)
 
   const rates: ShippoRateOption[] = (shipment.rates ?? [])
+    .filter((r) => isCanadaPostProvider(r.provider))
     .map((r) => {
       const amount_cad = rateAmountCad(r)
       if (amount_cad == null || amount_cad < 0) return null
@@ -234,10 +328,15 @@ export async function fetchShippoRates(params: {
     .filter((r): r is ShippoRateOption => r != null)
     .sort((a, b) => a.amount_cad - b.amount_cad)
 
+  const messages = rates.length
+    ? rawMessages
+    : canadaPostSetupHint(rawMessages, canadaPostAccountIds.length > 0)
+
   if (!rates.length) {
-    console.warn('Shippo returned no CAD rates', {
+    console.warn('Shippo returned no Canada Post rates', {
       shipment_id: shipment.object_id,
       raw_rate_count: shipment.rates?.length ?? 0,
+      canada_post_accounts: canadaPostAccountIds.length,
       messages,
       from_zip: from.zip,
       to_zip: to.zip,

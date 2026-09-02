@@ -27,6 +27,12 @@ Use **Shippo’s Canada Post account** (instant discounted rates; no separate CP
 5. Agree to Canada Post terms → **Submit**.
 6. Confirm Canada Post shows as **active** and rates appear for a test CA → CA shipment in the Shippo UI.
 
+**Important:** Shippo’s **shared** Canada Post account often requires **Shippo approval** before API rates work. If the app/API says “not approved to use this carrier through Shippo's shared account”, email [support@goshippo.com](mailto:support@goshippo.com) (or use in-app support) and ask them to approve **Canada Post** for your account. Until then, rates will stay empty even with a valid API key.
+
+**API keys:** Prefer a **`shippo_live_…`** key for Preview rate testing (test keys often cannot see live carrier accounts). Do not purchase labels until Phase 3; rate quotes alone do not buy postage.
+
+Optional: set `SHIPPO_CANADA_POST_CARRIER_ACCOUNT_ID` to the Canada Post carrier account `object_id` from Shippo (Carriers / API) so rate requests only hit CP.
+
 Official guide: [How to Add Shippo's Canada Post Carrier Account](https://support.goshippo.com/hc/en-us/articles/4403267961499-How-to-Add-Shippo-s-Canada-Post-Carrier-Account).
 
 **Optional later:** connect your **own** Canada Post business account (Settings → Carriers → Connect Carrier Account → Canada Post → OAuth login). Not required for platform-funded labels in v1.
