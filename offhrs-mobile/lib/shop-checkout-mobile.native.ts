@@ -6,6 +6,9 @@ import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-nati
 import { BOOK_API_BASE } from '@/constants/api';
 import { bookingApiErrorMessage, buildBookingApiHeaders } from '@/lib/booking-api-headers';
 import { supabase } from '@/lib/supabase';
+import type { ShopCheckoutAddress, ShopCheckoutResult } from '@/lib/shop-checkout-mobile.types';
+
+export type { ShopCheckoutAddress, ShopCheckoutResult } from '@/lib/shop-checkout-mobile.types';
 
 function resolveStripePublishableKey(): string {
   const extra = (
@@ -13,19 +16,6 @@ function resolveStripePublishableKey(): string {
   )?.stripePublishableKey;
   return (extra ?? process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').trim();
 }
-
-export type ShopCheckoutAddress = {
-  name: string;
-  line1: string;
-  line2?: string;
-  city: string;
-  province: string;
-  postal_code: string;
-};
-
-export type ShopCheckoutResult =
-  | { ok: true; orderId?: string }
-  | { ok: false; cancelled?: boolean; message: string };
 
 export async function runShopCheckout(params: {
   productId: string;
@@ -79,10 +69,6 @@ export async function runShopCheckout(params: {
     return { ok: false, message: (checkoutData.error as string) || 'Invalid payment response' };
   }
 
-  if (Platform.OS === 'web') {
-    return { ok: false, message: 'Use the iOS or Android app to complete payment.' };
-  }
-
   const returnURL = Linking.createURL('stripe-redirect');
   const stripePublishableKey = resolveStripePublishableKey();
   const googlePayTestEnv = __DEV__ || stripePublishableKey.startsWith('pk_test_');
@@ -131,7 +117,10 @@ export async function runShopCheckout(params: {
   };
 
   if (!confirmRes.ok) {
-    return { ok: false, message: confirmData.error ?? 'Payment succeeded but order confirmation failed.' };
+    return {
+      ok: false,
+      message: confirmData.error ?? 'Payment succeeded but order confirmation failed.',
+    };
   }
 
   return { ok: true, orderId: confirmData.order_id };
