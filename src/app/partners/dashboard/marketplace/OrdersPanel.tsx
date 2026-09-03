@@ -86,8 +86,15 @@ export function OrdersPanel() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Action failed')
-      if (path === 'label' && data.label_url) {
-        window.open(data.label_url as string, '_blank', 'noopener,noreferrer')
+      if (path === 'label') {
+        if (data.label_url) {
+          window.open(data.label_url as string, '_blank', 'noopener,noreferrer')
+        } else if (data.tracking_url) {
+          window.open(data.tracking_url as string, '_blank', 'noopener,noreferrer')
+          setError('Label PDF was not returned; opened tracking instead. Try Print label again for the PDF.')
+        } else {
+          setError('Label purchased but no PDF URL yet. Wait a few seconds and try Print label again.')
+        }
       }
       await load()
     } catch (e) {

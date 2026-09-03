@@ -382,16 +382,43 @@ function parseLabelCostCad(tx: ShippoApiTransaction): number | null {
   return null
 }
 
-export async function getShippoTransaction(transactionId: string): Promise<PurchasedShippoLabel> {
-  const tx = await shippoFetch<ShippoApiTransaction>(`/transactions/${transactionId}`)
+function toPurchasedLabel(tx: ShippoApiTransaction): PurchasedShippoLabel {
   return {
     transaction_id: tx.object_id,
     tracking_number: tx.tracking_number ?? null,
     tracking_url: tx.tracking_url_provider ?? null,
     label_url: tx.label_url ?? null,
     label_cost_cad: parseLabelCostCad(tx),
-    status: tx.status ?? 'UNKNOWN',
+    status: (tx.status ?? 'UNKNOWN').toUpperCase(),
   }
+}
+
+/** Poll until Shippo attaches a PDF label URL (often lags a second behind SUCCESS + tracking). */
+async function waitForShippoLabelPdf(
+  transactionId: string,
+  initial?: ShippoApiTransaction
+): Promise<PurchasedShippoLabel> {
+  let tx = initial ?? (await shippoFetch<ShippoApiTransaction>(`/transactions/${transactionId}`))
+  for (let i = 0; i < 12; i++) {
+    const status = (tx.status ?? '').toUpperCase()
+    if (status === 'ERROR') throw new Error(transactionErrorMessage(tx))
+    if (status === 'SUCCESS' && tx.label_url) return toPurchasedLabel(tx)
+    await sleep(700)
+    tx = await shippoFetch<ShippoApiTransaction>(`/transactions/${transactionId}`)
+  }
+  return toPurchasedLabel(tx)
+}
+
+export async function getShippoTransaction(transactionId: string): Promise<PurchasedShippoLabel> {
+  const tx = await shippoFetch<ShippoApiTransaction>(`/transactions/${transactionId}`)
+  const status = (tx.status ?? '').toUpperCase()
+  if (status === 'SUCCESS' && !tx.label_url) {
+    return waitForShippoLabelPdf(transactionId, tx)
+  }
+  if (status === 'QUEUED' || status === 'WAITING') {
+    return waitForShippoLabelPdf(transactionId, tx)
+  }
+  return toPurchasedLabel(tx)
 }
 
 /** Buy a prepaid Canada Post label for a previously quoted rate. Idempotent if already SUCCESS. */
@@ -406,26 +433,16 @@ export async function purchaseShippoLabel(rateId: string): Promise<PurchasedShip
   })
 
   let tx = created
-  if (tx.status === 'QUEUED' || tx.status === 'WAITING') {
-    for (let i = 0; i < 10; i++) {
-      await sleep(700)
-      tx = await shippoFetch<ShippoApiTransaction>(`/transactions/${created.object_id}`)
-      if (tx.status === 'SUCCESS' || tx.status === 'ERROR') break
-    }
+  const status = (tx.status ?? '').toUpperCase()
+  if (status === 'QUEUED' || status === 'WAITING' || (status === 'SUCCESS' && !tx.label_url)) {
+    return waitForShippoLabelPdf(created.object_id, tx)
   }
 
-  if (tx.status !== 'SUCCESS') {
+  if (status !== 'SUCCESS') {
     throw new Error(transactionErrorMessage(tx))
   }
 
-  return {
-    transaction_id: tx.object_id,
-    tracking_number: tx.tracking_number ?? null,
-    tracking_url: tx.tracking_url_provider ?? null,
-    label_url: tx.label_url ?? null,
-    label_cost_cad: parseLabelCostCad(tx),
-    status: tx.status,
-  }
+  return toPurchasedLabel(tx)
 }
 
 /** Void an unused label (pre-scan). Shippo refunds postage when the carrier allows it. */

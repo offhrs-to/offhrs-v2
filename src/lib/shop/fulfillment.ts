@@ -62,10 +62,20 @@ export async function purchaseLabelForShopOrder(
   if (!canCancelShopOrder(order) && order.status !== 'label_purchased') {
     throw new Error('This order can no longer be labeled')
   }
+  if (order.shippo_label_url) {
+    return {
+      label_url: order.shippo_label_url,
+      tracking_number: order.tracking_number,
+      tracking_url: order.tracking_url,
+    }
+  }
+
   if (order.shippo_transaction_id) {
     try {
       const existing = await getShippoTransaction(order.shippo_transaction_id)
-      if (existing.status === 'SUCCESS' && existing.label_url) {
+      const status = existing.status.toUpperCase()
+
+      if (status === 'SUCCESS' && existing.label_url) {
         const patch: Record<string, unknown> = {
           status: order.status === 'paid_awaiting_fulfillment' ? 'label_purchased' : order.status,
           shippo_label_url: existing.label_url,
@@ -83,24 +93,36 @@ export async function purchaseLabelForShopOrder(
           tracking_url: existing.tracking_url ?? order.tracking_url,
         }
       }
-      if (existing.status !== 'ERROR') {
-        if (order.shippo_label_url) {
-          return {
-            label_url: order.shippo_label_url,
-            tracking_number: order.tracking_number,
-            tracking_url: order.tracking_url,
-          }
-        }
+
+      if (status === 'QUEUED' || status === 'WAITING') {
         throw new Error('Label is still processing. Try again in a moment.')
       }
+
+      if (status === 'SUCCESS' && !existing.label_url) {
+        // Tracking exists but Shippo has not attached a PDF yet — keep order labeled, surface a clear error.
+        await admin
+          .from('shop_orders')
+          .update({
+            tracking_number: existing.tracking_number ?? order.tracking_number,
+            tracking_url: existing.tracking_url ?? order.tracking_url,
+            status: order.status === 'paid_awaiting_fulfillment' ? 'label_purchased' : order.status,
+          })
+          .eq('id', order.id)
+        throw new Error(
+          'Tracking is ready but the PDF label is not available yet. Wait a few seconds and click Print label again, or open the label from your Shippo dashboard.'
+        )
+      }
+
+      if (status !== 'ERROR') {
+        throw new Error('Label is still processing. Try again in a moment.')
+      }
+      // ERROR: fall through and purchase a new label from rates
     } catch (err) {
-      if (err instanceof Error && err.message.startsWith('Label is still processing')) throw err
-      if (order.shippo_label_url) {
-        return {
-          label_url: order.shippo_label_url,
-          tracking_number: order.tracking_number,
-          tracking_url: order.tracking_url,
-        }
+      if (err instanceof Error && (
+        err.message.startsWith('Label is still processing') ||
+        err.message.startsWith('Tracking is ready')
+      )) {
+        throw err
       }
       console.error('getShippoTransaction', err)
       throw new Error('Could not load the existing shipping label. Try again.')
