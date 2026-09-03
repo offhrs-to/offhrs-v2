@@ -2,15 +2,10 @@ import { DesignColors, DesignSpacing } from '@/constants/design-template';
 import { CA_PROVINCES, isCaProvinceCode, provinceLabel } from '@/constants/ca-provinces';
 import { useAuth } from '@/contexts/AuthContext';
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
-import {
-  fetchShopCheckoutQuote,
-  fetchShopProduct,
-  type ShopCheckoutQuote,
-  type ShopVendorSummary,
-} from '@/lib/shop-api';
+import { fetchShopProduct, type ShopVendorSummary } from '@/lib/shop-api';
 import { runShopCheckout } from '@/lib/shop-checkout-mobile';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -66,9 +61,6 @@ export default function ShopCheckoutScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [provincePickerOpen, setProvincePickerOpen] = useState(false);
   const [pickupVendor, setPickupVendor] = useState<ShopVendorSummary | null>(null);
-  const [quote, setQuote] = useState<ShopCheckoutQuote | null>(null);
-  const [quoteLoading, setQuoteLoading] = useState(false);
-  const [quoteError, setQuoteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (fulfillment !== 'pickup' || !params.productId) return;
@@ -76,67 +68,6 @@ export default function ShopCheckoutScreen() {
       .then((data) => setPickupVendor(data.vendor))
       .catch(() => setPickupVendor(null));
   }, [fulfillment, params.productId]);
-
-  const loadQuote = useCallback(async () => {
-    if (!params.productId || !name.trim() || !email.trim()) return;
-    if (fulfillment === 'ship') {
-      const postal = parseCanadianPostalCode(postalCode);
-      if (!line1.trim() || !city.trim() || !postal || !isCaProvinceCode(province)) return;
-      if (!params.rateId || !params.shipmentId || params.rateAmount == null) return;
-    }
-
-    setQuoteLoading(true);
-    setQuoteError(null);
-    try {
-      const result = await fetchShopCheckoutQuote({
-        product_id: params.productId,
-        fulfillment_type: fulfillment,
-        buyer_name: name.trim(),
-        buyer_email: email.trim(),
-        ...(fulfillment === 'ship'
-          ? {
-              ship_address: {
-                name: name.trim(),
-                line1: line1.trim(),
-                line2: line2.trim() || undefined,
-                city: city.trim(),
-                province: province.trim(),
-                postal_code: parseCanadianPostalCode(postalCode) ?? postalCode.trim(),
-              },
-              shippo_rate_id: params.rateId,
-              shippo_shipment_id: params.shipmentId,
-              shippo_rate_amount_cad: Number(params.rateAmount),
-            }
-          : {}),
-      });
-      setQuote(result);
-    } catch (e) {
-      setQuote(null);
-      setQuoteError(e instanceof Error ? e.message : 'Could not calculate total');
-    } finally {
-      setQuoteLoading(false);
-    }
-  }, [
-    params.productId,
-    params.rateId,
-    params.shipmentId,
-    params.rateAmount,
-    fulfillment,
-    name,
-    email,
-    line1,
-    line2,
-    city,
-    province,
-    postalCode,
-  ]);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      void loadQuote();
-    }, fulfillment === 'ship' ? 400 : 0);
-    return () => clearTimeout(t);
-  }, [loadQuote, fulfillment]);
 
   const onPay = async () => {
     if (!params.productId) return;
@@ -190,10 +121,10 @@ export default function ShopCheckoutScreen() {
     Alert.alert('Checkout', result.message);
   };
 
-  const summaryItem = quote?.itemSubtotalCad ?? itemPrice;
-  const summaryShipping = quote?.shippingCad ?? (fulfillment === 'ship' ? shippingPrice : 0);
-  const summaryTax = quote?.taxCad ?? 0;
-  const summaryTotal = quote?.totalCad ?? (summaryItem != null ? summaryItem + summaryShipping + summaryTax : null);
+  const summaryItem = itemPrice;
+  const summaryShipping = fulfillment === 'ship' ? shippingPrice : 0;
+  const summaryBeforeTax =
+    summaryItem != null ? summaryItem + (Number.isFinite(summaryShipping) ? summaryShipping : 0) : null;
 
   return (
     <KeyboardAvoidingView
@@ -334,40 +265,46 @@ export default function ShopCheckoutScreen() {
             </View>
             <View style={summaryRowStyle}>
               <Text style={summaryLabelStyle}>Tax</Text>
-              {quoteLoading ? (
-                <ActivityIndicator size="small" color={DesignColors.primary} />
-              ) : (
-                <Text style={summaryValueStyle}>{formatCad(summaryTax)}</Text>
-              )}
+              <Text style={summaryValueStyle}>At payment</Text>
             </View>
-            <View style={[summaryRowStyle, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: DesignColors.lightGreenBorder }]}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: DesignColors.charcoal }}>Total</Text>
-              {quoteLoading ? (
-                <ActivityIndicator size="small" color={DesignColors.primary} />
-              ) : summaryTotal != null ? (
+            <View
+              style={[
+                summaryRowStyle,
+                {
+                  marginTop: 8,
+                  paddingTop: 8,
+                  borderTopWidth: 1,
+                  borderTopColor: DesignColors.lightGreenBorder,
+                },
+              ]}
+            >
+              <Text style={{ fontSize: 15, fontWeight: '700', color: DesignColors.charcoal }}>
+                Subtotal
+              </Text>
+              {summaryBeforeTax != null ? (
                 <Text style={{ fontSize: 15, fontWeight: '700', color: DesignColors.primary }}>
-                  {formatCad(summaryTotal)} CAD
+                  {formatCad(summaryBeforeTax)} CAD
                 </Text>
               ) : (
                 <Text style={summaryValueStyle}>—</Text>
               )}
             </View>
-            {quoteError ? (
-              <Text style={{ marginTop: 8, fontSize: 12, color: '#B85C5C' }}>{quoteError}</Text>
-            ) : null}
+            <Text style={{ marginTop: 8, fontSize: 12, color: DesignColors.mediumGray }}>
+              GST/HST is calculated when you pay.
+            </Text>
           </View>
         ) : null}
 
         <Pressable
           onPress={onPay}
-          disabled={submitting || quoteLoading}
+          disabled={submitting}
           style={{
             marginTop: 24,
             paddingVertical: 14,
             borderRadius: 24,
             backgroundColor: DesignColors.primary,
             alignItems: 'center',
-            opacity: submitting || quoteLoading ? 0.6 : 1,
+            opacity: submitting ? 0.6 : 1,
           }}
         >
           {submitting ? (

@@ -45,12 +45,6 @@ export type ShopVendorSummary = {
   shop_pickup_hours?: string | null;
 };
 
-export type ShopCheckoutQuote = {
-  itemSubtotalCad: number;
-  shippingCad: number;
-  taxCad: number;
-  totalCad: number;
-};
 
 export type ShippoRateOption = {
   rate_id: string;
@@ -148,34 +142,6 @@ export async function fetchShopRates(body: {
   });
   const data = (await res.json().catch(() => ({}))) as ShopRatesResponse & { error?: string };
   if (!res.ok) throw new Error(data.error ?? 'Could not fetch shipping rates');
-  return data;
-}
-
-export async function fetchShopCheckoutQuote(body: {
-  product_id: string;
-  fulfillment_type: 'ship' | 'pickup';
-  buyer_name: string;
-  buyer_email: string;
-  ship_address?: {
-    name: string;
-    line1: string;
-    line2?: string;
-    city: string;
-    province: string;
-    postal_code: string;
-  };
-  shippo_rate_id?: string;
-  shippo_shipment_id?: string;
-  shippo_rate_amount_cad?: number;
-}): Promise<ShopCheckoutQuote> {
-  const headers = await shopHeaders();
-  const res = await fetch(`${BOOK_API_BASE}/api/shop/checkout/quote`, {
-    method: 'POST',
-    headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const data = (await res.json().catch(() => ({}))) as ShopCheckoutQuote & { error?: string };
-  if (!res.ok) throw new Error(data.error ?? 'Could not calculate order total');
   return data;
 }
 
