@@ -72,13 +72,19 @@ export default function TermsOfUsePage() {
           <li>
             <strong>Artist Marketplace goods.</strong> The Vendor is the Seller of Record for physical goods.
             Where CRA marketplace facilitator rules apply, offhrs may calculate, collect, and remit applicable
-            GST/HST on Marketplace sales via Stripe Tax. Workshop ticket tax handling may differ; see your
-            dashboard settings and the Marketplace Seller Addendum.
+            GST/HST on Marketplace sales via Stripe Tax on the platform account (facilitator tax is not paid out
+            as Vendor merchandise earnings). Workshop ticket tax handling may differ; see your dashboard
+            settings and the Marketplace Seller Addendum.
           </li>
           <li>
             <strong>Tax remittance (workshops).</strong> Where workshop HST is collected into the
             Vendor&rsquo;s Stripe Connect account under the Vendor&rsquo;s registration settings, remittance
             remains the Vendor&rsquo;s responsibility unless we notify you otherwise in writing.
+          </li>
+          <li>
+            <strong>Tax remittance (Marketplace).</strong> Facilitator GST/HST collected on Marketplace goods
+            is remitted by offhrs under applicable CRA rules once registration and processes are in place;
+            Vendors remain responsible for their own income tax and any non-facilitated tax obligations.
           </li>
         </ul>
       </section>
