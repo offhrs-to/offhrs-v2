@@ -89,8 +89,8 @@ export default function DataProtectionPage() {
           </li>
           <li>
             <strong>Marketplace shipping data.</strong> Partners may use buyer name and address only to fulfill
-            the order (label or pickup). Marketing use requires explicit opt-in (see Privacy Policy and
-            Marketplace Seller Addendum).
+            the order (label or pickup) or respond to a quality claim. Marketing use requires explicit opt-in
+            (see Privacy Policy and Marketplace Seller Addendum).
           </li>
           <li>
             <strong>Permitted staff data:</strong> names, role titles, class specializations, and

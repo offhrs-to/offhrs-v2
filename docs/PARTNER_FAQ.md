@@ -80,9 +80,24 @@ transaction)**, which is borne by you as the vendor.
 
 ### What fees apply to Artist Marketplace sales?
 Marketplace goods: **5%** platform fee on the item subtotal (excluding tax and shipping),
-**plus** Stripe processing (about 2.9% + $0.30 CAD). Buyer-paid shipping funds the prepaid
-Canada Post label. Lite/Pro include Marketplace access; a free Marketplace-only plan is
-also planned. See `/terms/marketplace-seller-addendum`.
+**plus** Stripe processing (about 2.9% + $0.30 CAD). Buyer shipping (Canada Post quote + any
+handling fee you set) and applicable facilitator tax are **held by offhrs** — not paid out as
+your merchandise earnings — so prepaid Canada Post labels can be purchased on the platform
+Shippo account. Lite/Pro include Marketplace access; a free Marketplace-only plan is also
+available. See `/terms/marketplace-seller-addendum`.
+
+### How do Marketplace orders and shipping work?
+Buyers pay in the app **Shop** tab. You fulfill under **Marketplace → Orders**: print the
+prepaid label, drop at Canada Post, confirm drop-off. Tracking shows after carrier **First
+Scan**. Local pickup is marked picked up when the buyer collects. Full refunds are allowed
+**before First Scan** when the carrier can void the label. Default ship-by is **5 business
+days** unless you disclose a longer made-to-order window.
+
+### What if a buyer says an item arrived damaged or not as described?
+Damaged / SNAD claims are required within **14 days** of delivery or pickup. Buyers report in
+**Profile → Orders** or via hello@offhrs.app. You respond in **Marketplace → Orders**. You may
+decline buyer's-remorse returns if disclosed; SNAD/damaged cannot be waived. Card disputes and
+underpaid postage (APV) may be clawed back from Connect (including Stripe's dispute fee).
 
 ### When do payouts arrive?
 Payouts are issued by Stripe on Stripe's standard schedule for your account.
@@ -119,10 +134,15 @@ it are automatically refunded, and the workshop is hidden from customers.
 ## Taxes
 
 ### How is sales tax handled?
-Sales tax (GST/HST) is calculated with **Stripe Tax on your connected
-account**, meaning the tax is collected under your registration and is your tax
-liability — not the platform's. When you connect your payout account, we attempt
-to set up your Canadian GST/HST tax registration automatically.
+**Workshops:** GST/HST is calculated with **Stripe Tax on your connected account** after
+you open Settings → Workshop sales tax and confirm you are CRA-registered. Small suppliers
+leave that off — ticket prices will not include GST/HST. When registered, workshop tax
+remittance is your liability.
+
+**Artist Marketplace goods:** where CRA marketplace facilitator rules apply, offhrs may
+calculate, collect, and remit GST/HST via Stripe Tax on the **platform** account. Buyer
+shipping and facilitator tax are held by offhrs (not paid out as seller merchandise
+earnings). See `/terms/marketplace-seller-addendum`.
 
 ### When is tax shown to the customer?
 Tax is calculated **at checkout**, not while browsing. The customer sees the

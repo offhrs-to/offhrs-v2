@@ -119,8 +119,13 @@ export default function PrivacyPolicyPage() {
           <li>
             <strong>Between consumer and vendor (Marketplace).</strong> When you purchase Marketplace goods,
             your shipping name, address, phone (if provided), and email are shared with the Vendor solely to
-            fulfill the order (print a shipping label or coordinate pickup). Vendors must not use that data for
-            off-platform marketing without your explicit opt-in.
+            fulfill the order (print a shipping label or coordinate pickup) or respond to an order claim. Vendors
+            must not use that data for off-platform marketing without your explicit opt-in.
+          </li>
+          <li>
+            <strong>Marketplace claims.</strong> If you submit a damaged / not-as-described claim, we process
+            your description and any photo links you provide so we and the Vendor can investigate. Claim records
+            are retained with the order for support and compliance.
           </li>
           <li>
             <strong>Sensitive data note.</strong> If a Vendor requests health or accommodation information via
@@ -154,8 +159,8 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Resend</strong> &mdash; sending transactional emails (booking confirmations, order and
-            shipping notices, refund notices, account alerts) and any marketing emails you have explicitly
-            agreed to receive.
+            shipping notices, refund and dispute notices, account alerts) and any marketing emails you have
+            explicitly agreed to receive.
           </li>
           <li>
             <strong>Vercel</strong> &mdash; web hosting and edge delivery for offhrs.app and

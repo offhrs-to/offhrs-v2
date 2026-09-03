@@ -107,9 +107,10 @@ export default function TermsOfUsePage() {
         <ul>
           <li>
             <strong>Direct payouts.</strong> Workshop and Marketplace payouts use Stripe Connect Express
-            destination charges, with funds settling to the Vendor&rsquo;s connected bank account (postage
-            collected for Marketplace labels is used to purchase carrier labels and is not Vendor merchandise
-            revenue).
+            destination charges, with funds settling to the Vendor&rsquo;s connected bank account. For
+            Marketplace orders, buyer-paid shipping (and any seller handling fee collected as shipping) and
+            applicable facilitator tax are held on the platform so they are not paid out as Vendor merchandise
+            earnings; shipping funds prepaid Canada Post labels purchased via Shippo.
           </li>
           <li>
             <strong>Workshop fee structure.</strong> For workshop bookings, offhrs does{' '}
@@ -121,22 +122,27 @@ export default function TermsOfUsePage() {
             <strong>Marketplace fee structure.</strong> For Artist Marketplace sales, offhrs charges a{' '}
             <strong>5% platform fee</strong> on the item subtotal (excluding tax and shipping postage),{' '}
             <strong>plus</strong> Stripe processing fees (about <strong>2.9% + $0.30 CAD</strong>), which are
-            separate and also borne by the Vendor. Fees are collected via Stripe application fees on the
-            payment.
+            separate and also borne by the Vendor. Platform fee, estimated Stripe processing (when applicable),
+            shipping collected, and facilitator tax may be collected via Stripe application fees on the payment.
           </li>
           <li>
-            <strong>Refund window.</strong> Consumers may self-serve cancellations and refunds inside the
+            <strong>Workshop refund window.</strong> Consumers may self-serve cancellations and refunds inside the
             mobile app or web checkout history when the workshop start time is outside the Vendor&rsquo;s
             configured refund window. The Platform minimum is <strong>24 hours</strong>; Vendors may set a
             longer window (e.g. 48 hours).
           </li>
           <li>
+            <strong>Marketplace cancellations.</strong> Marketplace orders may be refunded before carrier First
+            Scan (or before pickup completion) when permitted by the Platform and carrier void rules. After First
+            Scan, order cancellation via the Platform is blocked; damaged / not-as-described issues follow the
+            Marketplace Seller Addendum claim rules.
+          </li>
+          <li>
             <strong>Refund fees.</strong> Stripe does not return its processing fee when a charge is
-            refunded. When a booking is refunded, the consumer receives the full amount paid (including
-            HST) back to their original payment method, and the non-refundable Stripe processing fee
-            remains the <strong>Vendor&rsquo;s responsibility</strong>. The fee is netted against the
-            reversed payout in the Vendor&rsquo;s Stripe Connect Express balance and surfaced in the
-            Vendor dashboard&rsquo;s refund notification.
+            refunded. When a booking or eligible Marketplace order is refunded, the consumer receives the full amount paid (including
+            applicable tax) back to their original payment method, and the non-refundable Stripe processing fee
+            remains the <strong>Vendor&rsquo;s responsibility</strong> unless we state otherwise. The fee is netted against the
+            reversed payout in the Vendor&rsquo;s Stripe Connect Express balance where applicable.
           </li>
         </ul>
 
@@ -154,9 +160,11 @@ export default function TermsOfUsePage() {
           </li>
           <li>
             You authorize offhrs to debit or offset such amounts from your Stripe Connect Express account,
-            future payouts, or by invoice if your balance is insufficient. You agree to cooperate promptly
+            future payouts, or by invoice if your balance is insufficient, including via transfer reversal where
+            available. You agree to cooperate promptly
             with evidence requests (for Marketplace orders, this includes shipping labels, tracking, and proof
-            of packing or pickup where relevant).
+            of packing or pickup where relevant). Marketplace carrier postage adjustments (APV) may likewise be
+            debited.
           </li>
           <li>
             offhrs is not responsible for chargebacks arising from your conduct, inaccurate listings, failure

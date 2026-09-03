@@ -162,6 +162,11 @@ export default function ContentPolicyPage() {
           </li>
           <li>
             <strong>Shipable as described.</strong> Weight and dimensions must be accurate for carrier rating.
+            Underpaid postage adjustments may be charged back to you.
+          </li>
+          <li>
+            <strong>Return policy disclosed.</strong> If you do not accept buyer&rsquo;s-remorse returns, say so
+            clearly before purchase. Damaged / significantly not-as-described remedies cannot be waived.
           </li>
           <li>
             <strong>Lawful.</strong> No weapons, controlled substances, hazardous materials, recalled goods,

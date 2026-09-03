@@ -217,18 +217,66 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'What fees apply to Artist Marketplace sales?',
         aText:
-          'Marketplace sales: 5% platform fee on the item subtotal (excluding tax and shipping), plus Stripe processing (about 2.9% + $0.30 CAD). Buyer-paid shipping funds the prepaid Canada Post label. Lite/Pro includes Marketplace; there is also a free Marketplace-only signup.',
+          'Marketplace sales: 5% platform fee on the item subtotal (excluding tax and shipping), plus Stripe processing (about 2.9% + $0.30 CAD). Buyer shipping and facilitator tax are held by offhrs—not paid out as your merchandise earnings—so prepaid Canada Post labels can be bought on the platform Shippo account. Lite/Pro includes Marketplace; free Marketplace-only signup is available.',
         a: (
           <>
             <p>
               For <strong>Artist Marketplace</strong> goods, offhrs charges a{' '}
               <strong>5% platform fee</strong> on the item subtotal (excluding tax and shipping postage),{' '}
-              <strong>plus</strong> Stripe processing (about 2.9% + $0.30 CAD). Shipping paid by the buyer is
-              used to purchase the prepaid Canada Post label and is not merchandise revenue.
+              <strong>plus</strong> Stripe processing (about 2.9% + $0.30 CAD). Shipping paid by the buyer
+              (Canada Post quote + any handling fee you set) and applicable facilitator tax are{' '}
+              <strong>held by offhrs</strong> — they are not merchandise revenue and are not paid out as seller
+              earnings. Shipping funds the prepaid Canada Post label.
             </p>
             <p className="mt-2 text-[#555]">
               Lite and Pro include Marketplace access. Artists who only want to sell goods can enroll in a
               free Marketplace-only plan (same 5% + Stripe on sales). See the{' '}
+              <a className="underline" href="/terms/marketplace-seller-addendum">
+                Marketplace Seller Addendum
+              </a>
+              .
+            </p>
+          </>
+        ),
+      },
+      {
+        q: 'How do Marketplace orders and shipping work?',
+        aText:
+          'Buyers pay in the app Shop tab. You fulfill under Marketplace → Orders: print the prepaid label, drop at Canada Post, confirm drop-off. Tracking shows after First Scan. Refunds are allowed before First Scan when the carrier can void the label. Default ship-by is 5 business days unless you set a longer made-to-order window.',
+        a: (
+          <>
+            <p>
+              Buyers checkout in the mobile <strong>Shop</strong> tab. You manage fulfillment under{' '}
+              <strong>Marketplace → Orders</strong>: print the prepaid label, drop off at Canada Post, and
+              confirm drop-off. Tracking appears for the buyer after carrier <strong>First Scan</strong>. Local
+              pickup orders are marked picked up when the buyer collects.
+            </p>
+            <p className="mt-2 text-[#555]">
+              Full refunds are allowed <strong>before First Scan</strong> when the carrier can void the label
+              (Canada Post may block voids briefly after purchase). After First Scan, cancel/refund is blocked.
+              Default ship-by is <strong>5 business days</strong> unless you disclose a longer made-to-order
+              window.
+            </p>
+          </>
+        ),
+      },
+      {
+        q: 'What if a buyer says an item arrived damaged or not as described?',
+        aText:
+          'Damaged / SNAD claims are required within 14 days of delivery or pickup. Buyers report in Profile → Orders or via hello@offhrs.app. You respond in Marketplace → Orders. You may decline buyer’s-remorse returns if disclosed; SNAD/damaged cannot be waived. Chargebacks may be clawed back from Connect including Stripe’s dispute fee.',
+        a: (
+          <>
+            <p>
+              You must address <strong>damaged</strong> or <strong>significantly not-as-described (SNAD)</strong>{' '}
+              issues within <strong>14 days</strong> of delivery or pickup. Buyers can report from{' '}
+              <strong>Profile → Orders</strong> (or email hello@offhrs.app). Respond in{' '}
+              <strong>Marketplace → Orders</strong>; admin may resolve or reject claims.
+            </p>
+            <p className="mt-2 text-[#555]">
+              You may decline buyer&rsquo;s-remorse returns if that policy was disclosed before purchase. SNAD /
+              damaged remedies cannot be waived. Lost card disputes are clawed back from your Connect balance
+              (disputed amount + Stripe dispute fee, currently about CAD $15). Underpaid postage (APV) can also
+              be debited. See the{' '}
               <a className="underline" href="/terms/marketplace-seller-addendum">
                 Marketplace Seller Addendum
               </a>
@@ -321,15 +369,27 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'How is sales tax handled?',
         aText:
-          'Sales tax (GST/HST) is calculated with Stripe Tax on your connected account only after you open Settings → Workshop sales tax and confirm you are registered with the CRA. If you are a small supplier and not registered, leave that off and save — ticket prices will not include GST/HST. When registered, tax is your liability, not the platform’s.',
+          'Workshop tax: GST/HST via Stripe Tax on your Connect account after Settings → Workshop sales tax if you are CRA-registered; small suppliers leave it off. Marketplace goods tax may be collected and remitted by offhrs as marketplace facilitator via Stripe Tax on the platform (counsel/CRA confirmation for production). Shipping and facilitator tax are not paid out as your merchandise earnings.',
         a: (
-          <p>
-            Sales tax (GST/HST) is calculated with <strong>Stripe Tax on your connected
-            account</strong> only after you open <strong>Settings → Workshop sales tax</strong> and
-            confirm you are registered with the CRA. If you are a small supplier and not registered,
-            leave that off and save — ticket prices will not include GST/HST. When registered, tax is
-            your liability, not the platform&apos;s.
-          </p>
+          <>
+            <p>
+              <strong>Workshops:</strong> GST/HST is calculated with{' '}
+              <strong>Stripe Tax on your connected account</strong> only after you open{' '}
+              <strong>Settings → Workshop sales tax</strong> and confirm you are registered with the CRA. If
+              you are a small supplier and not registered, leave that off and save — ticket prices will not
+              include GST/HST. When registered, workshop tax remittance is your liability.
+            </p>
+            <p className="mt-2">
+              <strong>Artist Marketplace goods:</strong> where CRA marketplace facilitator rules apply, offhrs
+              may calculate, collect, and remit GST/HST via Stripe Tax on the <strong>platform</strong> account.
+              Buyer shipping and that facilitator tax are held by offhrs (not paid out as seller merchandise
+              earnings). See the{' '}
+              <a className="underline" href="/terms/marketplace-seller-addendum">
+                Marketplace Seller Addendum
+              </a>
+              .
+            </p>
+          </>
         ),
       },
       {

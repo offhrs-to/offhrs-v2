@@ -72,8 +72,13 @@ export default function ServiceTermsPage() {
             CAD/month (Pro), plus 13% Ontario HST.
           </li>
           <li>
+            <strong>&ldquo;Marketplace Order&rdquo;</strong> &mdash; a purchase of physical goods from a Vendor
+            through the Artist Marketplace (Shop) in the offhrs apps, including shipped and local-pickup
+            fulfillment.
+          </li>
+          <li>
             <strong>&ldquo;Vendor / Partner&rdquo;</strong> &mdash; the creative studio, independent artisan,
-            or business hosting the workshop or class.
+            or business hosting the workshop or class, or selling Marketplace goods.
           </li>
         </ul>
       </section>
@@ -104,10 +109,16 @@ export default function ServiceTermsPage() {
             Business Number <strong>717928832 RT 0001</strong>.
           </li>
           <li>
-            <strong>Marketplace billing.</strong> Vendors are responsible for setting up their tax status in
-            their profile. If a Vendor is HST-registered, our tax calculation applies the correct provincial
-            rate at checkout, routing the tax portion directly into the Vendor&rsquo;s Stripe Connect Express
-            balance.
+            <strong>Workshop billing.</strong> Vendors configure workshop GST/HST status in their dashboard.
+            Where the Vendor is registered and workshop tax is collected into their Stripe Connect account,
+            remittance of that workshop tax remains the Vendor&rsquo;s responsibility unless we notify you
+            otherwise in writing.
+          </li>
+          <li>
+            <strong>Marketplace billing.</strong> For Artist Marketplace goods, where CRA marketplace
+            facilitator rules apply, offhrs may calculate, collect, and remit applicable GST/HST via Stripe Tax
+            on the platform account. Buyer-paid shipping is held to fund prepaid Canada Post labels and is not
+            Vendor merchandise earnings. See the Marketplace Seller Addendum and Terms of Use.
           </li>
         </ul>
 
@@ -123,16 +134,23 @@ export default function ServiceTermsPage() {
             These processing fees are borne by the Vendor and are deducted from the Vendor&rsquo;s net
             payout.
           </strong>{' '}
-          offhrs does not mark up, retain, or otherwise share in Stripe&rsquo;s processing fees.
+          offhrs does not mark up, retain, or otherwise share in Stripe&rsquo;s processing fees. For Marketplace
+          sales, offhrs also charges a separate 5% platform fee on the item subtotal (excluding tax and
+          shipping postage).
         </p>
 
         <h3 className="mt-4">3.3 Refunds</h3>
         <p>
-          When a consumer self-serves a refund or a Vendor issues a refund from the dashboard, offhrs creates
-          a Stripe refund against the original PaymentIntent, updates the booking status to{' '}
+          When a consumer self-serves a workshop refund or a Vendor issues a workshop refund from the dashboard,
+          offhrs creates a Stripe refund against the original PaymentIntent, updates the booking status to{' '}
           <em>refunded</em>, and reconciles the affected event&rsquo;s available slots so capacity is
-          restored. The full amount paid by the consumer (including HST) is returned to the
+          restored. The full amount paid by the consumer (including applicable tax) is returned to the
           consumer&rsquo;s original payment method.
+        </p>
+        <p>
+          For Marketplace Orders, refunds before carrier First Scan (or before completed pickup) may be issued
+          when permitted by the Platform and carrier label-void rules. After First Scan, Platform cancellation
+          of the paid order is generally blocked; see Section 3.5 for quality claims.
         </p>
         <p>
           <strong>
@@ -172,9 +190,28 @@ export default function ServiceTermsPage() {
           </li>
           <li>
             <strong>How disputes are handled.</strong> Payments are routed to the Vendor&rsquo;s Stripe
-            Connect account. Dispute fees and reversed amounts are handled under Stripe Connect rules and may
+            Connect account (with Marketplace shipping and facilitator tax held on the platform as described
+            above). Dispute fees and reversed amounts are handled under Stripe Connect rules and may
             affect the Vendor&rsquo;s payout balance; Vendors authorize offhrs to claw back amounts as set out
             in the Terms of Use.
+          </li>
+        </ul>
+
+        <h3 className="mt-4">3.5 Marketplace Orders, tracking, and quality claims</h3>
+        <ul>
+          <li>
+            You can view Marketplace purchases under <strong>Profile → Orders</strong> in the mobile app.
+            Tracking appears after the carrier First Scan when available.
+          </li>
+          <li>
+            For damaged goods or items significantly not as described, report the issue within{' '}
+            <strong>14 days</strong> of delivery or pickup using in-app reporting where available, or email{' '}
+            <a href="mailto:hello@offhrs.app">hello@offhrs.app</a> with photos. Buyer&rsquo;s-remorse returns
+            may be declined if the listing disclosed a no-remorse-returns policy.
+          </li>
+          <li>
+            offhrs does not warehouse goods and does not operate a platform shipping-protection guarantee.
+            Lost-in-transit coverage follows the carrier insurance purchased for the label.
           </li>
         </ul>
       </section>

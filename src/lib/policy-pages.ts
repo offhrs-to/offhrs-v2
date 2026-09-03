@@ -1,5 +1,5 @@
 /** Last-updated date shown on every policy page and reused for sitemaps/SEO. */
-export const POLICY_LAST_UPDATED = 'August 25, 2026'
+export const POLICY_LAST_UPDATED = 'September 3, 2026'
 
 export type PolicyAudience = 'consumer' | 'vendor' | 'both'
 
@@ -37,7 +37,7 @@ export const POLICY_PAGES: PolicyPage[] = [
     slug: 'service-terms',
     title: 'Service Terms',
     summary:
-      'Please carefully read our Service Terms and what that means for you when you book or host a workshop.',
+      'Please carefully read our Service Terms for workshops and Artist Marketplace purchases in the offhrs apps.',
     audience: 'consumer',
   },
   {
@@ -65,7 +65,7 @@ export const POLICY_PAGES: PolicyPage[] = [
     slug: 'marketplace-seller-addendum',
     title: 'Marketplace Seller Addendum',
     summary:
-      'Additional terms for Vendors selling physical goods on the offhrs Artist Marketplace (shipping, insurance, returns, and data use).',
+      'Additional terms for Vendors selling physical goods on the offhrs Artist Marketplace (fees, postage hold, tax, shipping, claims, and clawbacks).',
     audience: 'vendor',
   },
 ]
