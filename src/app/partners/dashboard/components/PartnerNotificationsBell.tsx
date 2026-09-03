@@ -18,6 +18,7 @@ export type PartnerNotificationDto = {
     | 'workshop_published'
     | 'workshop_reminder'
     | 'onboarding_tax_settings'
+    | 'shop_order_new'
   title: string
   message: string
   createdAt: string
@@ -151,7 +152,7 @@ export function PartnerNotificationsBell({
           <div className="border-b border-partner-border bg-partner-canvas px-4 py-3">
             <p className="text-sm font-semibold text-foreground">Notifications</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Bookings, refunds, publishes, tax setup, and tomorrow&apos;s workshops
+              Bookings, shop orders, refunds, publishes, tax setup, and tomorrow&apos;s workshops
             </p>
           </div>
           <div className="max-h-[min(70vh,420px)] overflow-y-auto">

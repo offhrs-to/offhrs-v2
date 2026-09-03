@@ -12,6 +12,7 @@ export type PartnerNotificationDto = {
     | 'workshop_published'
     | 'workshop_reminder'
     | 'onboarding_tax_settings'
+    | 'shop_order_new'
   title: string
   message: string
   createdAt: string
@@ -51,7 +52,7 @@ export async function GET() {
     const sinceIso = sinceDate.toISOString()
     const { start: tomorrowStart, end: tomorrowEnd } = utcTomorrowWindow()
 
-    const [bookingsRes, publishedRes, reminderRes] = await Promise.all([
+    const [bookingsRes, publishedRes, reminderRes, shopOrdersRes] = await Promise.all([
       admin
         .from('bookings')
         .select(
@@ -76,6 +77,13 @@ export async function GET() {
         .not('date', 'is', null)
         .gte('date', tomorrowStart)
         .lte('date', tomorrowEnd),
+      admin
+        .from('shop_orders')
+        .select('id, product_title, status, paid_at, created_at, total_cad, fulfillment_type, buyer_name')
+        .eq('vendor_id', vendorId)
+        .gte('paid_at', sinceIso)
+        .order('paid_at', { ascending: false })
+        .limit(40),
     ])
 
     const notifications: PartnerNotificationDto[] = []
@@ -156,6 +164,19 @@ export async function GET() {
         message: `"${ev.title ?? 'Untitled'}" starts ${when || 'soon'} (UTC calendar day).`,
         createdAt: (ev.date as string) || new Date().toISOString(),
         href: `/partners/dashboard/calendar`,
+      })
+    }
+
+    for (const o of shopOrdersRes.data ?? []) {
+      const amt = o.total_cad != null ? cadFormatter.format(Number(o.total_cad)) : ''
+      const pickup = o.fulfillment_type === 'pickup'
+      notifications.push({
+        id: `shop:order:${o.id}`,
+        type: 'shop_order_new',
+        title: pickup ? 'New pickup order' : 'New Marketplace order',
+        message: `${o.buyer_name ?? 'A buyer'} purchased "${o.product_title ?? 'an item'}"${amt ? ` (${amt})` : ''}.`,
+        createdAt: (o.paid_at as string) || (o.created_at as string),
+        href: '/partners/dashboard/marketplace?tab=orders',
       })
     }
 

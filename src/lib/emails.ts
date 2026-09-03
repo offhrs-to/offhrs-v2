@@ -318,6 +318,123 @@ export async function sendConsumerRefundConfirmation(
   )
 }
 
+export async function sendShopBuyerOrderConfirmation(params: {
+  to: string
+  buyerName: string
+  productTitle: string
+  vendorName: string
+  totalCad: number
+  fulfillmentType: 'ship' | 'pickup'
+  shipByDays: number
+  pickupHours?: string | null
+}) {
+  const fulfillment =
+    params.fulfillmentType === 'pickup'
+      ? 'Local pickup — see pickup hours in the app (Profile → Orders).'
+      : `The maker will ship within ${params.shipByDays} business days.`
+  await send(
+    params.to,
+    `Order confirmed: ${params.productTitle}`,
+    wrap(`
+      ${h2('Order confirmed')}
+      ${p(`Hi ${escapeHtml(params.buyerName)}, thanks for your purchase from <strong>${escapeHtml(params.vendorName)}</strong>.`)}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Item</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">${escapeHtml(params.productTitle)}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Total</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#5D755D;">$${params.totalCad.toFixed(2)} CAD</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Fulfillment</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(fulfillment)}</td></tr>
+      </table>
+      ${params.pickupHours ? p(`Pickup hours: ${escapeHtml(params.pickupHours)}`) : ''}
+      ${p('View this order anytime in the offhrs app under Profile → Orders.')}
+    `)
+  )
+}
+
+export async function sendShopSellerNewOrder(params: {
+  to: string
+  businessName: string
+  buyerName: string
+  productTitle: string
+  totalCad: number
+  fulfillmentType: 'ship' | 'pickup'
+  shipByDays: number
+  dashboardUrl: string
+}) {
+  const action =
+    params.fulfillmentType === 'pickup'
+      ? 'Mark the order picked up when the buyer collects it.'
+      : `Print a Canada Post label in Marketplace → Orders. Ship within ${params.shipByDays} business days.`
+  await send(
+    params.to,
+    `New Marketplace order: ${params.productTitle}`,
+    wrap(`
+      ${h2('New Marketplace order')}
+      ${p(`<strong>${escapeHtml(params.buyerName)}</strong> purchased <strong>${escapeHtml(params.productTitle)}</strong>.`)}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Total paid</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#5D755D;">$${params.totalCad.toFixed(2)} CAD</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Fulfillment</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${params.fulfillmentType === 'pickup' ? 'Local pickup' : 'Ship'}</td></tr>
+      </table>
+      ${p(action)}
+      ${btn(params.dashboardUrl, 'Open orders')}
+    `)
+  )
+}
+
+export async function sendShopSellerDay3Reminder(params: {
+  to: string
+  productTitle: string
+  shipByDays: number
+  dashboardUrl: string
+}) {
+  await send(
+    params.to,
+    `Reminder: print label for ${params.productTitle}`,
+    wrap(`
+      ${h2('Ship-by reminder')}
+      ${p(`<strong>${escapeHtml(params.productTitle)}</strong> still needs a shipping label. Please print the label and drop it at Canada Post within your ${params.shipByDays}-business-day window.`)}
+      ${btn(params.dashboardUrl, 'Print label')}
+    `)
+  )
+}
+
+export async function sendShopBuyerShipped(params: {
+  to: string
+  buyerName: string
+  productTitle: string
+  trackingNumber?: string | null
+  trackingUrl?: string | null
+}) {
+  const tracking = params.trackingNumber
+    ? `<tr><td style="padding:6px 0;font-size:13px;color:#888;">Tracking</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(params.trackingNumber)}</td></tr>`
+    : ''
+  await send(
+    params.to,
+    `Your order is on the way: ${params.productTitle}`,
+    wrap(`
+      ${h2('Your order is on the way')}
+      ${p(`Hi ${escapeHtml(params.buyerName)}, <strong>${escapeHtml(params.productTitle)}</strong> has been scanned by Canada Post.`)}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">${tracking}</table>
+      ${params.trackingUrl ? btn(params.trackingUrl, 'Track package') : ''}
+    `)
+  )
+}
+
+export async function sendShopBuyerRefunded(params: {
+  to: string
+  buyerName: string
+  productTitle: string
+  totalCad: number
+}) {
+  await send(
+    params.to,
+    `Refund issued: ${params.productTitle}`,
+    wrap(`
+      ${h2('Refund issued')}
+      ${p(`Hi ${escapeHtml(params.buyerName)}, your order for <strong>${escapeHtml(params.productTitle)}</strong> has been refunded ($${params.totalCad.toFixed(2)} CAD).`)}
+      ${p('The refund will appear on your original payment method. This order was cancelled before the carrier scanned the parcel.')}
+    `)
+  )
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')

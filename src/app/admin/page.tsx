@@ -428,6 +428,12 @@ export default function AdminPage() {
               Shopify Sync preview →
             </Link>
             <Link
+              href="/admin/shop-orders"
+              className="text-sm font-medium text-moss hover:text-moss-dark hover:underline"
+            >
+              Shop orders →
+            </Link>
+            <Link
               href="/admin/saas"
               className="text-sm font-medium text-moss hover:text-moss-dark hover:underline"
             >

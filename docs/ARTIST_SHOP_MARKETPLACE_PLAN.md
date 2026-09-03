@@ -1,7 +1,7 @@
 # Artist Marketplace Plan (FINAL)
 
 > **Status:** FINAL — ready to execute engineering (Phase 1+) with Phase 0 legal/Shippo in parallel.  
-> **Updated:** 2026-08-25  
+> **Updated:** 2026-09-02  
 > **Single source of truth:** this file only (`docs/ARTIST_SHOP_MARKETPLACE_PLAN.md`). Do not create duplicate plan copies.
 
 ---
@@ -259,7 +259,7 @@ Disputes UI; auto clawback; SNAD/damaged; App Store/Play; release
 - [x] Phase 0 (ops/counsel): Shippo account + `SHIPPO_API_KEY`; counsel review; CRA facilitator registration; confirm `STRIPE_SHOP_GOODS_TAX_CODE` *(ops done for build; counsel/CRA deferred to production)*  
 - [x] Phase 1: Access + Products CRUD + QA  
 - [x] Phase 2: Checkout + tax + mobile Shop  
-- [ ] Phase 3: Labels + SLA + ledger  
+- [x] Phase 3: Labels + SLA + ledger  
 - [ ] Phase 4: Disputes + launch  
 
 ---

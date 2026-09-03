@@ -13,6 +13,7 @@ import {
   Alert,
   DeviceEventEmitter,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -30,7 +31,7 @@ import { subscribeEventSavesChanged } from '@/lib/event-saves';
 import { normalizeProfilePhone } from '@/lib/profile-phone';
 import { geocodeAddress, reverseGeocodeCanadianPostal } from '@/lib/geocode';
 import { deleteAuthenticatedUserAccount } from '@/lib/delete-account';
-import { fetchShopOrders, type ShopOrderListItem } from '@/lib/shop-api';
+import { fetchShopOrders, formatShopOrderStatus, type ShopOrderListItem } from '@/lib/shop-api';
 import { emitProfileUpdated, PROFILE_UPDATED_EVENT } from '@/lib/profile-events';
 import { BOOK_API_BASE } from '@/constants/api';
 import { buildBookingApiHeaders } from '@/lib/booking-api-headers';
@@ -842,8 +843,20 @@ export default function ProfileScreen() {
                       {o.vendor_name} · ${o.total_cad.toFixed(2)} CAD
                     </Text>
                     <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginTop: 4 }}>
-                      {o.fulfillment_type === 'pickup' ? 'Pickup' : 'Shipping'} · {o.status.replace(/_/g, ' ')}
+                      {o.fulfillment_type === 'pickup' ? 'Pickup' : 'Shipping'} · {formatShopOrderStatus(o)}
                     </Text>
+                    {o.tracking_number ? (
+                      <Pressable
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          if (o.tracking_url) void Linking.openURL(o.tracking_url);
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 4, fontWeight: '600' }}>
+                          {o.tracking_url ? `Track ${o.tracking_number}` : `Tracking ${o.tracking_number}`}
+                        </Text>
+                      </Pressable>
+                    ) : null}
                     <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 6, fontWeight: '600' }}>
                       View item →
                     </Text>

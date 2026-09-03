@@ -346,9 +346,92 @@ export async function fetchShippoRates(params: {
   return { shipment_id: shipment.object_id, rates, messages }
 }
 
-/** Placeholder — implement with Shippo REST in Phase 3. */
-export async function shippoNotImplemented(operation: string): Promise<never> {
-  throw new Error(
-    `Shippo ${operation} is not implemented yet (Phase 3). Configured=${isShippoConfigured()}`
-  )
+type ShippoApiTransaction = {
+  object_id: string
+  status?: string
+  tracking_number?: string
+  tracking_url_provider?: string
+  label_url?: string
+  rate?: string | { object_id?: string; amount?: string; currency?: string }
+  messages?: ShippoApiMessage[]
+}
+
+function transactionErrorMessage(tx: ShippoApiTransaction): string {
+  return formatShippoMessages(tx.messages) ?? `Shippo label failed (${tx.status ?? 'ERROR'})`
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export type PurchasedShippoLabel = {
+  transaction_id: string
+  tracking_number: string | null
+  tracking_url: string | null
+  label_url: string | null
+  label_cost_cad: number | null
+  status: string
+}
+
+function parseLabelCostCad(tx: ShippoApiTransaction): number | null {
+  if (tx.rate && typeof tx.rate === 'object') {
+    const currency = (tx.rate.currency ?? '').toUpperCase()
+    const n = Number.parseFloat(tx.rate.amount ?? '')
+    if (currency === 'CAD' && Number.isFinite(n)) return n
+  }
+  return null
+}
+
+export async function getShippoTransaction(transactionId: string): Promise<PurchasedShippoLabel> {
+  const tx = await shippoFetch<ShippoApiTransaction>(`/transactions/${transactionId}`)
+  return {
+    transaction_id: tx.object_id,
+    tracking_number: tx.tracking_number ?? null,
+    tracking_url: tx.tracking_url_provider ?? null,
+    label_url: tx.label_url ?? null,
+    label_cost_cad: parseLabelCostCad(tx),
+    status: tx.status ?? 'UNKNOWN',
+  }
+}
+
+/** Buy a prepaid Canada Post label for a previously quoted rate. Idempotent if already SUCCESS. */
+export async function purchaseShippoLabel(rateId: string): Promise<PurchasedShippoLabel> {
+  const created = await shippoFetch<ShippoApiTransaction>('/transactions/', {
+    method: 'POST',
+    body: JSON.stringify({
+      rate: rateId,
+      label_file_type: 'PDF_4x6',
+      async: false,
+    }),
+  })
+
+  let tx = created
+  if (tx.status === 'QUEUED' || tx.status === 'WAITING') {
+    for (let i = 0; i < 10; i++) {
+      await sleep(700)
+      tx = await shippoFetch<ShippoApiTransaction>(`/transactions/${created.object_id}`)
+      if (tx.status === 'SUCCESS' || tx.status === 'ERROR') break
+    }
+  }
+
+  if (tx.status !== 'SUCCESS') {
+    throw new Error(transactionErrorMessage(tx))
+  }
+
+  return {
+    transaction_id: tx.object_id,
+    tracking_number: tx.tracking_number ?? null,
+    tracking_url: tx.tracking_url_provider ?? null,
+    label_url: tx.label_url ?? null,
+    label_cost_cad: parseLabelCostCad(tx),
+    status: tx.status,
+  }
+}
+
+/** Void an unused label (pre-scan). Shippo refunds postage when the carrier allows it. */
+export async function voidShippoLabel(transactionId: string): Promise<void> {
+  await shippoFetch('/refunds/', {
+    method: 'POST',
+    body: JSON.stringify({ transaction: transactionId }),
+  })
 }

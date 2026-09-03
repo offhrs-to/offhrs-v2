@@ -44,3 +44,16 @@ Copy values from Production if Preview rows are empty.
    - Product detail → postal code → rates → checkout → PaymentSheet
    - **Profile → Orders** shows shop purchases (workshops stay under Bookings)
 5. Seller still fulfills in Phase 3 (Print label) — orders land as `paid_awaiting_fulfillment`
+
+## Phase 3 (labels + orders)
+
+1. Apply migration `20260830000000_marketplace_phase3.sql` in Supabase (label/tracking/SLA/APV columns)
+2. Preview env (in addition to Phase 2):
+   - `SHIPPO_API_KEY` — required to print labels
+   - `SHIPPO_WEBHOOK_SECRET` — optional; if set, Shippo must send `Authorization: Bearer <secret>` or `?token=`
+   - `RESEND_API_KEY` — buyer/seller order emails
+   - `CRON_SECRET` — Day-3 ship-by reminder cron (`/api/cron/shop-sla-reminders`)
+3. In Shippo, point tracking webhooks at `https://<host>/api/webhooks/shippo`
+4. Partner dashboard → **Marketplace → Orders**: Print label, confirm drop-off, mark picked up, refund pre-scan
+5. Admin → **Shop orders**: retry label / refund
+6. Mobile **Profile → Orders** shows status + tracking after First Scan

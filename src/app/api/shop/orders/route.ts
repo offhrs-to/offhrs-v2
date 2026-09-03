@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const { data, error, count } = await admin
       .from('shop_orders')
       .select(
-        'id, product_id, product_title, product_price_cad, quantity, item_subtotal_cad, shipping_collected_cad, tax_cad, total_cad, status, fulfillment_type, ship_by_business_days, paid_at, created_at, vendor_id, vendor_profiles(business_name, slug)',
+        'id, product_id, product_title, product_price_cad, quantity, item_subtotal_cad, shipping_collected_cad, tax_cad, total_cad, status, fulfillment_type, ship_by_business_days, paid_at, created_at, vendor_id, tracking_number, tracking_url, tracking_status, first_scan_at, delivered_at, vendor_profiles(business_name, slug)',
         { count: 'exact' }
       )
       .eq('user_id', user.id)
@@ -56,6 +56,11 @@ export async function GET(request: NextRequest) {
         vendor_id: row.vendor_id,
         vendor_name: vp?.business_name ?? 'Maker',
         vendor_slug: vp?.slug ?? null,
+        tracking_number: row.tracking_number ?? null,
+        tracking_url: row.tracking_url ?? null,
+        tracking_status: row.tracking_status ?? null,
+        first_scan_at: row.first_scan_at ?? null,
+        delivered_at: row.delivered_at ?? null,
       }
     })
 

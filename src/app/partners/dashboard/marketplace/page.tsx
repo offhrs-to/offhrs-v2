@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useCallback, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Pencil, Plus, Store, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PartnerEmptyState } from '../components/PartnerEmptyState'
+import { OrdersPanel } from './OrdersPanel'
 import { ProductForm, type ShopProductFormValues } from './ProductForm'
 import { ShippingSettingsPanel } from './ShippingSettingsPanel'
 import { cn } from '@/lib/utils'
@@ -35,10 +37,17 @@ function productStatusBadge(product: ShopProduct) {
 }
 
 type BulkAction = 'publish' | 'draft' | 'archive'
-type Tab = 'products' | 'shipping'
+type Tab = 'products' | 'orders' | 'shipping'
+
+function tabFromParam(value: string | null): Tab | null {
+  if (value === 'products' || value === 'orders' || value === 'shipping') return value
+  return null
+}
 
 function MarketplacePageInner() {
-  const [tab, setTab] = useState<Tab>('products')
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const [tab, setTabState] = useState<Tab>(() => tabFromParam(searchParams.get('tab')) ?? 'products')
   const [products, setProducts] = useState<ShopProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('all')
@@ -51,6 +60,19 @@ function MarketplacePageInner() {
   const [bulkAction, setBulkAction] = useState<BulkAction | ''>('')
   const [bulkApplying, setBulkApplying] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const setTab = useCallback(
+    (next: Tab) => {
+      setTabState(next)
+      router.replace(`/partners/dashboard/marketplace?tab=${next}`, { scroll: false })
+    },
+    [router]
+  )
+
+  useEffect(() => {
+    const fromUrl = tabFromParam(searchParams.get('tab'))
+    if (fromUrl) setTabState(fromUrl)
+  }, [searchParams])
 
   const fetchProducts = useCallback(async () => {
     setLoading(true)
@@ -177,7 +199,7 @@ function MarketplacePageInner() {
       </div>
 
       <div className="flex gap-2 border-b border-partner-border">
-        {(['products', 'shipping'] as Tab[]).map((t) => (
+        {(['products', 'orders', 'shipping'] as Tab[]).map((t) => (
           <button
             key={t}
             type="button"
@@ -189,7 +211,7 @@ function MarketplacePageInner() {
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             )}
           >
-            {t === 'products' ? 'Products' : 'Shipping settings'}
+            {t === 'products' ? 'Products' : t === 'orders' ? 'Orders' : 'Shipping settings'}
           </button>
         ))}
       </div>
@@ -225,6 +247,8 @@ function MarketplacePageInner() {
             void fetchShippingMeta()
           }}
         />
+      ) : tab === 'orders' ? (
+        <OrdersPanel />
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3">

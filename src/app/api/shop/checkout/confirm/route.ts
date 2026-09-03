@@ -8,6 +8,7 @@ import { logSecurityEvent } from '@/lib/security-monitor'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { commitShopTaxTransaction } from '@/lib/stripe-shop-tax'
 import { shopConfirmBodySchema } from '@/lib/shop/checkout-schema'
+import { notifyShopOrderCreated } from '@/lib/shop/order-emails'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
@@ -59,6 +60,11 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (existing) {
+      try {
+        await notifyShopOrderCreated(admin, existing.id)
+      } catch (emailErr) {
+        console.error('shop order emails retry', emailErr)
+      }
       return NextResponse.json({ success: true, order_id: existing.id, already_confirmed: true })
     }
 
@@ -169,13 +175,23 @@ export async function POST(request: NextRequest) {
 
     if (taxCalculationId) {
       try {
-        await commitShopTaxTransaction(stripe, {
+        const taxTxId = await commitShopTaxTransaction(stripe, {
           calculationId: taxCalculationId,
           reference: `shop_order_${order.id}`,
         })
+        await admin
+          .from('shop_orders')
+          .update({ stripe_tax_transaction_id: taxTxId })
+          .eq('id', order.id)
       } catch (taxErr) {
         console.error('shop tax commit failed', taxErr)
       }
+    }
+
+    try {
+      await notifyShopOrderCreated(admin, order.id)
+    } catch (emailErr) {
+      console.error('shop order emails', emailErr)
     }
 
     return NextResponse.json({ success: true, order_id: order.id })

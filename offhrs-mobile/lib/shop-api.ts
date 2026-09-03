@@ -81,7 +81,29 @@ export type ShopOrderListItem = {
   ship_by_business_days: number;
   paid_at: string | null;
   vendor_name: string;
+  tracking_number?: string | null;
+  tracking_url?: string | null;
+  tracking_status?: string | null;
+  first_scan_at?: string | null;
+  delivered_at?: string | null;
 };
+
+export function formatShopOrderStatus(order: ShopOrderListItem): string {
+  if (order.fulfillment_type === 'pickup') {
+    if (order.status === 'paid_awaiting_fulfillment') return 'Ready for pickup';
+    if (order.status === 'completed') return 'Picked up';
+  }
+  const labels: Record<string, string> = {
+    paid_awaiting_fulfillment: 'Processing',
+    label_purchased: 'Label printed',
+    shipped: 'Shipped',
+    completed: 'Delivered',
+    cancelled: 'Cancelled',
+    refunded: 'Refunded',
+    disputed: 'Disputed',
+  };
+  return labels[order.status] ?? order.status.replace(/_/g, ' ');
+}
 
 async function shopHeaders(): Promise<Record<string, string>> {
   const {
