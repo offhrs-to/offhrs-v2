@@ -57,3 +57,19 @@ Copy values from Production if Preview rows are empty.
 4. Partner dashboard → **Marketplace → Orders**: Print label, confirm drop-off, mark picked up, refund pre-scan
 5. Admin → **Shop orders**: retry label / refund
 6. Mobile **Profile → Orders** shows status + tracking after First Scan
+
+## Phase 4 (harden / launch)
+
+1. Apply migration `20260831000000_marketplace_phase4.sql` (dispute columns + `shop_order_claims`)
+2. Stripe Dashboard → webhook endpoint → enable `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`
+3. Smoke-test **new** checkout: seller Connect payout should **exclude** shipping + tax (held in `application_fee`)
+4. Admin → **Shop orders**: filters for disputed / APV clawback; resolve SNAD claims
+5. Optional: `GET /api/cron/shop-clawbacks` with `Authorization: Bearer $CRON_SECRET` to retry pending clawbacks
+6. App Store / Play “What’s New”: mention Shop tab + Profile Orders (ops)
+
+## Store release notes (ops template)
+
+```
+• Shop marketplace — browse maker goods, checkout with Canada Post rates, and track orders under Profile → Orders
+• Report damaged / not-as-described issues within 14 days of delivery
+```

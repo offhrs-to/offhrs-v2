@@ -104,6 +104,11 @@ export async function POST(request: NextRequest) {
     const taxCad = Number(pi.metadata.tax_cad ?? 0)
     const totalCad = Number(pi.metadata.total_cad ?? 0)
     const taxCalculationId = pi.metadata.tax_calculation ?? ''
+    const shippoBaseRateCad = pi.metadata.shippo_base_rate_cad
+      ? Number(pi.metadata.shippo_base_rate_cad)
+      : fulfillmentType === 'ship'
+        ? shippingCad
+        : null
 
     const { data: order, error: insertErr } = await admin
       .from('shop_orders')
@@ -134,7 +139,7 @@ export async function POST(request: NextRequest) {
         postage_held: fulfillmentType === 'ship',
         shippo_shipment_id: pi.metadata.shippo_shipment_id || null,
         shippo_rate_id: pi.metadata.shippo_rate_id || null,
-        shippo_rate_amount_cad: fulfillmentType === 'ship' ? shippingCad : null,
+        shippo_rate_amount_cad: shippoBaseRateCad,
         requires_signature: pi.metadata.requires_signature === 'true',
         requires_insurance: pi.metadata.requires_insurance === 'true',
         ship_by_business_days: Number(pi.metadata.ship_by_business_days ?? 5),

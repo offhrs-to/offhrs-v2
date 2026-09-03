@@ -1,7 +1,7 @@
 # Artist Marketplace Plan (FINAL)
 
 > **Status:** FINAL — ready to execute engineering (Phase 1+) with Phase 0 legal/Shippo in parallel.  
-> **Updated:** 2026-09-02  
+> **Updated:** 2026-09-03  
 > **Single source of truth:** this file only (`docs/ARTIST_SHOP_MARKETPLACE_PLAN.md`). Do not create duplicate plan copies.
 
 ---
@@ -260,7 +260,7 @@ Disputes UI; auto clawback; SNAD/damaged; App Store/Play; release
 - [x] Phase 1: Access + Products CRUD + QA  
 - [x] Phase 2: Checkout + tax + mobile Shop  
 - [x] Phase 3: Labels + SLA + ledger  
-- [ ] Phase 4: Disputes + launch  
+- [x] Phase 4: Disputes + launch  
 
 ---
 

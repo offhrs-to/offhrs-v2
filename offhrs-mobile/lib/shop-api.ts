@@ -86,6 +86,7 @@ export type ShopOrderListItem = {
   tracking_status?: string | null;
   first_scan_at?: string | null;
   delivered_at?: string | null;
+  picked_up_at?: string | null;
 };
 
 export function formatShopOrderStatus(order: ShopOrderListItem): string {
@@ -176,4 +177,23 @@ export async function fetchShopOrders(): Promise<ShopOrderListItem[]> {
   };
   if (!res.ok) throw new Error(data.error ?? 'Could not load orders');
   return data.orders ?? [];
+}
+
+export async function createShopOrderClaim(
+  orderId: string,
+  body: { reason: 'damaged' | 'snad' | 'other'; description: string; photo_urls?: string[] }
+): Promise<void> {
+  const headers = await shopHeaders();
+  const res = await fetch(`${BOOK_API_BASE}/api/shop/orders/${orderId}/claims`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new Error(data.error ?? 'Could not submit claim');
+}
+
+export function shopOrderCanClaim(order: ShopOrderListItem): boolean {
+  if (order.delivered_at || order.picked_up_at) return true;
+  return order.status === 'completed' || order.status === 'shipped';
 }

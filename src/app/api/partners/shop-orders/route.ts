@@ -34,6 +34,33 @@ export async function GET(request: NextRequest) {
     const { data, error: qErr } = await query.limit(80)
     if (qErr) return NextResponse.json({ error: qErr.message }, { status: 500 })
 
+    type PartnerClaimRow = {
+      id: string
+      order_id: string
+      reason: string
+      description: string
+      photo_urls: string[] | null
+      status: string
+      seller_response: string | null
+      created_at: string
+    }
+
+    const orderIds = (data ?? []).map((r) => r.id)
+    const { data: claims } = orderIds.length
+      ? await admin
+          .from('shop_order_claims')
+          .select('id, order_id, reason, description, photo_urls, status, seller_response, created_at')
+          .in('order_id', orderIds)
+          .in('status', ['open', 'seller_responded'])
+      : { data: [] as PartnerClaimRow[] }
+
+    const claimsByOrder = new Map<string, PartnerClaimRow[]>()
+    for (const c of (claims ?? []) as PartnerClaimRow[]) {
+      const list = claimsByOrder.get(c.order_id) ?? []
+      list.push(c)
+      claimsByOrder.set(c.order_id, list)
+    }
+
     const orders = (data ?? []).map((row) => ({
       ...row,
       item_subtotal_cad: Number(row.item_subtotal_cad),
@@ -45,6 +72,7 @@ export async function GET(request: NextRequest) {
       can_mark_pickup: row.fulfillment_type === 'pickup' && row.status === 'paid_awaiting_fulfillment',
       can_confirm_dropoff: row.fulfillment_type === 'ship' && ['label_purchased', 'shipped'].includes(row.status) && !row.dropoff_receipt_at,
       can_refund: canCancelShopOrder(row),
+      open_claims: claimsByOrder.get(row.id) ?? [],
     }))
 
     return NextResponse.json({ orders })

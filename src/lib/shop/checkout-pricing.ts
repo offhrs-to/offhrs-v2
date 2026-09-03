@@ -30,6 +30,9 @@ export type ShopCheckoutPricing = {
   applicationFeeAmount: number
   shippoRateId: string | null
   shippoShipmentId: string | null
+  /** Canada Post quote only (ex-handling). */
+  shippoBaseRateCad: number | null
+  handlingFeeCad: number
   highValue: ReturnType<typeof shopHighValueFlags>
   shipByBusinessDays: number
   madeToOrder: boolean
@@ -121,13 +124,19 @@ export async function resolveShopCheckoutPricing(
     Math.max(0, Math.round(estimateCanadianStripeFee(taxBreakdown.totalCad).feeCad * 100))
   )
 
-  let applicationFeeAmount = platformFeeCents + estimatedStripeFeeCents
+  const shippingCents = Math.round(shippingCad * 100)
+  const taxCents = Math.round(taxBreakdown.taxCad * 100)
+
+  // Hold postage (+ handling) and facilitator tax on the platform so they are not
+  // paid out as seller Connect earnings. Seller net ≈ item − 5% (− Stripe fee when
+  // the platform pays processing).
+  let applicationFeeAmount = platformFeeCents + estimatedStripeFeeCents + shippingCents + taxCents
 
   try {
     const connectedAccount = await stripe.accounts.retrieve(vendor.stripe_account_id!)
     const feePayer = connectedAccount.controller?.fees?.payer
     if (feePayer === 'account') {
-      applicationFeeAmount = platformFeeCents
+      applicationFeeAmount = platformFeeCents + shippingCents + taxCents
     }
   } catch {
     /* keep combined fee */
@@ -137,6 +146,12 @@ export async function resolveShopCheckoutPricing(
     Math.max(0, applicationFeeAmount),
     Math.max(0, taxBreakdown.amountTotalCents - 1)
   )
+
+  const handlingFeeCad = Math.round(Number(vendor.shipping_handling_fee_cad ?? 0) * 100) / 100
+  const shippoBaseRateCad =
+    body.fulfillment_type === 'ship'
+      ? Math.max(0, Math.round((shippingCad - handlingFeeCad) * 100) / 100)
+      : null
 
   return {
     itemSubtotalCad,
@@ -150,6 +165,8 @@ export async function resolveShopCheckoutPricing(
     applicationFeeAmount,
     shippoRateId,
     shippoShipmentId,
+    shippoBaseRateCad,
+    handlingFeeCad: body.fulfillment_type === 'ship' ? handlingFeeCad : 0,
     highValue,
     shipByBusinessDays: product.ship_by_business_days,
     madeToOrder: product.made_to_order,

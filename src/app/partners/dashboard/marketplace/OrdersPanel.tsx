@@ -6,6 +6,15 @@ import { Button } from '@/components/ui/button'
 import { PartnerEmptyState } from '../components/PartnerEmptyState'
 import { Package } from 'lucide-react'
 
+type ShopClaim = {
+  id: string
+  reason: string
+  description: string
+  status: string
+  seller_response: string | null
+  photo_urls?: string[]
+}
+
 type ShopOrder = {
   id: string
   product_title: string
@@ -28,6 +37,7 @@ type ShopOrder = {
   can_mark_pickup: boolean
   can_confirm_dropoff: boolean
   can_refund: boolean
+  open_claims?: ShopClaim[]
 }
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
@@ -117,6 +127,7 @@ export function OrdersPanel() {
           <option value="label_purchased">Label printed</option>
           <option value="shipped">Shipped</option>
           <option value="completed">Completed</option>
+          <option value="disputed">Disputed</option>
           <option value="refunded">Refunded</option>
         </select>
       </div>
@@ -173,6 +184,32 @@ export function OrdersPanel() {
                         )}
                       </p>
                     ) : null}
+                    {(o.open_claims ?? []).map((c) => (
+                      <div key={c.id} className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+                        <p className="font-medium text-amber-900">
+                          Claim ({c.reason}) · {c.status.replace(/_/g, ' ')}
+                        </p>
+                        <p className="mt-1 text-amber-900/80">{c.description}</p>
+                        {c.seller_response ? (
+                          <p className="mt-1 text-muted-foreground">Your reply: {c.seller_response}</p>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="mt-2"
+                            disabled={busy}
+                            onClick={() => {
+                              const reply = window.prompt('Reply to this claim (visible to admin / buyer support):')
+                              if (!reply?.trim()) return
+                              void runAction(o.id, `claims?claim_id=${c.id}`, { seller_response: reply.trim() })
+                            }}
+                          >
+                            Respond to claim
+                          </Button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {o.can_print_label ? (

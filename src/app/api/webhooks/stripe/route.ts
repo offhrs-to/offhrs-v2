@@ -579,6 +579,20 @@ async function handleStripeEvent(
       break
     }
 
+    case 'charge.dispute.created':
+    case 'charge.dispute.updated':
+    case 'charge.dispute.closed': {
+      const dispute = event.data.object as Stripe.Dispute
+      const { handleShopChargeDispute } = await import('@/lib/shop/disputes')
+      await handleShopChargeDispute({
+        admin,
+        stripe,
+        eventType: event.type,
+        dispute,
+      })
+      break
+    }
+
     // ── Reconcile real Stripe processing fee once it's published ──────────
     // `charge.succeeded` can arrive before Stripe exposes the connected
     // account's balance transaction, while `charge.updated` often fires once

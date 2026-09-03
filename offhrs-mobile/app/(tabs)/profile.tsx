@@ -31,7 +31,7 @@ import { subscribeEventSavesChanged } from '@/lib/event-saves';
 import { normalizeProfilePhone } from '@/lib/profile-phone';
 import { geocodeAddress, reverseGeocodeCanadianPostal } from '@/lib/geocode';
 import { deleteAuthenticatedUserAccount } from '@/lib/delete-account';
-import { fetchShopOrders, formatShopOrderStatus, type ShopOrderListItem } from '@/lib/shop-api';
+import { createShopOrderClaim, fetchShopOrders, formatShopOrderStatus, shopOrderCanClaim, type ShopOrderListItem } from '@/lib/shop-api';
 import { emitProfileUpdated, PROFILE_UPDATED_EVENT } from '@/lib/profile-events';
 import { BOOK_API_BASE } from '@/constants/api';
 import { buildBookingApiHeaders } from '@/lib/booking-api-headers';
@@ -854,6 +854,49 @@ export default function ProfileScreen() {
                       >
                         <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 4, fontWeight: '600' }}>
                           {o.tracking_url ? `Track ${o.tracking_number}` : `Tracking ${o.tracking_number}`}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                    {shopOrderCanClaim(o) ? (
+                      <Pressable
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          const submitClaim = async (text: string) => {
+                            if (!text || text.trim().length < 10) {
+                              Alert.alert('Please enter at least 10 characters.');
+                              return;
+                            }
+                            try {
+                              await createShopOrderClaim(o.id, {
+                                reason: 'snad',
+                                description: text.trim(),
+                              });
+                              Alert.alert('Claim submitted', 'We’ll review this with the maker.');
+                            } catch (err) {
+                              Alert.alert(
+                                'Could not submit',
+                                err instanceof Error ? err.message : 'Try again later'
+                              );
+                            }
+                          };
+                          if (Platform.OS === 'ios' && typeof Alert.prompt === 'function') {
+                            Alert.prompt(
+                              'Report a problem',
+                              'Describe the issue (damaged / not as described).',
+                              (text) => {
+                                void submitClaim(text ?? '');
+                              }
+                            );
+                            return;
+                          }
+                          Alert.alert(
+                            'Report a problem',
+                            'Email hello@offhrs.app with your order ID and photos (damaged / not as described). Claims must be within 14 days of delivery.'
+                          );
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 6, fontWeight: '600' }}>
+                          Report a problem
                         </Text>
                       </Pressable>
                     ) : null}

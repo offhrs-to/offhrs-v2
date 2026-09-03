@@ -435,6 +435,60 @@ export async function sendShopBuyerRefunded(params: {
   )
 }
 
+export async function sendShopDisputeOpened(params: {
+  to: string
+  productTitle: string
+  disputeId: string
+  amountCad: number
+  reason?: string | null
+}) {
+  await send(
+    params.to,
+    `Marketplace dispute opened: ${params.productTitle}`,
+    wrap(`
+      ${h2('Chargeback / dispute opened')}
+      ${p(`A Stripe dispute was opened for <strong>${escapeHtml(params.productTitle)}</strong>.`)}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Amount</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${params.amountCad.toFixed(2)} CAD</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Reason</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(params.reason ?? '—')}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Dispute ID</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;"><code>${escapeHtml(params.disputeId)}</code></td></tr>
+      </table>
+      ${p('Please gather evidence (label, tracking, packing/pickup proof) and respond in Stripe. Lost disputes are clawed back from your Connect balance per our Service Terms.')}
+    `)
+  )
+}
+
+export async function sendShopDisputeLost(params: {
+  to: string
+  productTitle: string
+  amountCad: number
+  clawbackOk: boolean
+}) {
+  await send(
+    params.to,
+    `Marketplace dispute lost: ${params.productTitle}`,
+    wrap(`
+      ${h2('Dispute lost')}
+      ${p(`The dispute for <strong>${escapeHtml(params.productTitle)}</strong> was lost. Clawback amount: <strong>$${params.amountCad.toFixed(2)} CAD</strong> (includes Stripe dispute fee where applicable).`)}
+      ${p(params.clawbackOk ? 'The amount was debited from your Connect balance.' : 'Automatic clawback could not complete — offhrs will follow up or retry.')}
+    `)
+  )
+}
+
+export async function sendShopDisputeWon(params: {
+  to: string
+  productTitle: string
+}) {
+  await send(
+    params.to,
+    `Marketplace dispute won: ${params.productTitle}`,
+    wrap(`
+      ${h2('Dispute won')}
+      ${p(`Good news — the dispute for <strong>${escapeHtml(params.productTitle)}</strong> was won. No clawback is due for this dispute.`)}
+    `)
+  )
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')

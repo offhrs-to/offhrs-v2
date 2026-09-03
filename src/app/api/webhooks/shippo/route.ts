@@ -111,6 +111,24 @@ export async function POST(request: NextRequest) {
       trackingNumber,
       adjustmentCad,
     })
+
+    // Attempt immediate Connect clawback for pending APV.
+    try {
+      let orderQuery = admin.from('shop_orders').select('id')
+      if (transactionId) orderQuery = orderQuery.eq('shippo_transaction_id', transactionId)
+      else if (trackingNumber) orderQuery = orderQuery.eq('tracking_number', trackingNumber)
+      const { data: apvOrder } = await orderQuery.maybeSingle()
+      if (apvOrder?.id) {
+        const Stripe = (await import('stripe')).default
+        const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
+          apiVersion: '2026-04-22.dahlia',
+        })
+        const { applyShopOrderClawback } = await import('@/lib/shop/clawback')
+        await applyShopOrderClawback({ admin, stripe, orderId: apvOrder.id, kind: 'apv' })
+      }
+    } catch (clawErr) {
+      console.error('APV clawback', clawErr)
+    }
   }
 
   return NextResponse.json({ received: true, event })
