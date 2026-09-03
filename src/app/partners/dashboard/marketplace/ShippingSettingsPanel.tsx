@@ -16,6 +16,12 @@ type Settings = {
   ship_from_phone: string
   shipping_handling_fee_cad: number
   shop_pickup_enabled: boolean
+  shop_pickup_line1: string
+  shop_pickup_line2: string
+  shop_pickup_city: string
+  shop_pickup_province: string
+  shop_pickup_postal_code: string
+  shop_pickup_hours: string
   shop_return_policy: string
   canada_ship_attested: boolean
   shop_status: string
@@ -32,6 +38,12 @@ const empty: Settings = {
   ship_from_phone: '',
   shipping_handling_fee_cad: 0,
   shop_pickup_enabled: false,
+  shop_pickup_line1: '',
+  shop_pickup_line2: '',
+  shop_pickup_city: '',
+  shop_pickup_province: '',
+  shop_pickup_postal_code: '',
+  shop_pickup_hours: '',
   shop_return_policy: '',
   canada_ship_attested: false,
   shop_status: 'off',
@@ -225,6 +237,70 @@ export function ShippingSettingsPanel({ onSaved }: { onSaved?: () => void }) {
         />
         Offer local pickup (optional)
       </label>
+
+      {settings.shop_pickup_enabled ? (
+        <div className="space-y-3 rounded-md border border-partner-border bg-partner-canvas/40 p-4">
+          <p className="text-sm font-medium text-foreground">Pickup location & hours</p>
+          <p className="text-xs text-muted-foreground">
+            Shown to buyers when they choose local pickup at checkout.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label>Pickup address line 1</Label>
+              <Input
+                className={inputClass}
+                value={settings.shop_pickup_line1}
+                onChange={(e) => setSettings((s) => ({ ...s, shop_pickup_line1: e.target.value }))}
+              />
+            </div>
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label>Pickup address line 2</Label>
+              <Input
+                className={inputClass}
+                value={settings.shop_pickup_line2}
+                onChange={(e) => setSettings((s) => ({ ...s, shop_pickup_line2: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>City</Label>
+              <Input
+                className={inputClass}
+                value={settings.shop_pickup_city}
+                onChange={(e) => setSettings((s) => ({ ...s, shop_pickup_city: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Province</Label>
+              <Input
+                className={inputClass}
+                value={settings.shop_pickup_province}
+                onChange={(e) => setSettings((s) => ({ ...s, shop_pickup_province: e.target.value }))}
+                placeholder="ON"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Postal code</Label>
+              <Input
+                className={inputClass}
+                value={settings.shop_pickup_postal_code}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, shop_pickup_postal_code: e.target.value }))
+                }
+                placeholder="M5V 2T6"
+              />
+            </div>
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label>Pickup hours / availability</Label>
+              <Textarea
+                rows={2}
+                value={settings.shop_pickup_hours}
+                onChange={(e) => setSettings((s) => ({ ...s, shop_pickup_hours: e.target.value }))}
+                placeholder="e.g. Saturdays 10am–2pm, or by appointment"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <label className="flex items-start gap-2 text-sm">
         <input

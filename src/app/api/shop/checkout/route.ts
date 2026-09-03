@@ -1,18 +1,11 @@
 import { resolveApiUser } from '@/lib/api-auth-user'
-import { customerTaxAddressFromPostal } from '@/lib/canadian-postal-province'
 import { isKillSwitchActive, killSwitchResponse } from '@/lib/kill-switch'
 import { logSecurityEvent } from '@/lib/security-monitor'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
-import { estimateCanadianStripeFee } from '@/lib/stripe-charge-fees'
 import { getOrCreateStripeCustomerId } from '@/lib/stripe-consumer-customer'
-import { calculateShopOrderTax } from '@/lib/stripe-shop-tax'
-import { shopPlatformFeeCents } from '@/lib/shop/fees'
 import { shopCheckoutBodySchema } from '@/lib/shop/checkout-schema'
-import {
-  loadPublishedShopProduct,
-  shopHighValueFlags,
-  vendorShipFromAddress,
-} from '@/lib/shop/checkout'
+import { CheckoutPricingError, resolveShopCheckoutPricing } from '@/lib/shop/checkout-pricing'
+import { loadPublishedShopProduct } from '@/lib/shop/checkout'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
@@ -65,92 +58,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Out of stock' }, { status: 409 })
     }
 
-    const itemSubtotalCad = product.price_cad
-    const highValue = shopHighValueFlags(itemSubtotalCad)
-
-    let shippingCad = 0
-    let shippoRateId: string | null = null
-    let shippoShipmentId: string | null = null
-
-    if (body.fulfillment_type === 'pickup') {
-      if (!product.pickup_available || !vendor.shop_pickup_enabled) {
-        return NextResponse.json({ error: 'Pickup is not available for this item' }, { status: 422 })
-      }
-    } else {
-      if (!body.ship_address) {
-        return NextResponse.json({ error: 'Shipping address required' }, { status: 422 })
-      }
-      if (!body.shippo_rate_id || !body.shippo_shipment_id || body.shippo_rate_amount_cad == null) {
-        return NextResponse.json({ error: 'Select a shipping rate' }, { status: 422 })
-      }
-
-      const shipFrom = vendorShipFromAddress(vendor)
-      if (!shipFrom) {
-        return NextResponse.json({ error: 'Seller shipping address is not configured' }, { status: 422 })
-      }
-
-      shippingCad = Math.round(body.shippo_rate_amount_cad * 100) / 100
-      // Buyer-facing rate from /api/shop/rates already includes handling; do not add again.
-      if (!(shippingCad >= 0) || !Number.isFinite(shippingCad)) {
-        return NextResponse.json({ error: 'Invalid shipping rate amount' }, { status: 422 })
-      }
-      shippoRateId = body.shippo_rate_id
-      shippoShipmentId = body.shippo_shipment_id
-    }
-
-    const customerTaxAddr =
-      body.fulfillment_type === 'ship' && body.ship_address
-        ? customerTaxAddressFromPostal(body.ship_address.postal_code, {
-            state: body.ship_address.province,
-            city: body.ship_address.city,
-            line1: body.ship_address.line1,
-          })
-        : null
-
-    if (!customerTaxAddr) {
-      return NextResponse.json({ error: 'Valid Canadian shipping address required' }, { status: 422 })
-    }
-
-    let taxBreakdown
+    let pricing
     try {
-      taxBreakdown = await calculateShopOrderTax(stripe, {
-        itemSubtotalCad,
-        shippingCad,
-        customerAddress: customerTaxAddr,
-        reference: `shop_product_${product.id}`,
-      })
-    } catch (taxErr) {
-      console.error('Shop tax calculation error:', taxErr)
-      const detail = taxErr instanceof Stripe.errors.StripeError ? taxErr.message : undefined
-      return NextResponse.json(
-        { error: detail ?? 'Could not calculate tax for this order.' },
-        { status: 422 }
-      )
-    }
-
-    const platformFeeCents = shopPlatformFeeCents(Math.round(itemSubtotalCad * 100))
-    const estimatedStripeFeeCents = Math.min(
-      taxBreakdown.amountTotalCents,
-      Math.max(0, Math.round(estimateCanadianStripeFee(taxBreakdown.totalCad).feeCad * 100))
-    )
-
-    let applicationFeeAmount = platformFeeCents + estimatedStripeFeeCents
-
-    try {
-      const connectedAccount = await stripe.accounts.retrieve(vendor.stripe_account_id!)
-      const feePayer = connectedAccount.controller?.fees?.payer
-      if (feePayer === 'account') {
-        applicationFeeAmount = platformFeeCents
+      pricing = await resolveShopCheckoutPricing(admin, stripe, body, vendor, product)
+    } catch (e) {
+      if (e instanceof CheckoutPricingError) {
+        return NextResponse.json({ error: e.message }, { status: e.status })
       }
-    } catch {
-      /* keep combined fee */
+      throw e
     }
-
-    // Connect requires application_fee_amount < charge amount.
-    applicationFeeAmount = Math.min(
-      Math.max(0, applicationFeeAmount),
-      Math.max(0, taxBreakdown.amountTotalCents - 1)
-    )
 
     let stripeCustomerId: string
     try {
@@ -163,14 +79,16 @@ export async function POST(request: NextRequest) {
     let paymentIntent: Stripe.PaymentIntent
     try {
       paymentIntent = await stripe.paymentIntents.create({
-        amount: taxBreakdown.amountTotalCents,
+        amount: pricing.amountTotalCents,
         currency: 'cad',
         automatic_payment_methods: {
           enabled: true,
           allow_redirects: 'never',
         },
         on_behalf_of: vendor.stripe_account_id!,
-        ...(applicationFeeAmount > 0 ? { application_fee_amount: applicationFeeAmount } : {}),
+        ...(pricing.applicationFeeAmount > 0
+          ? { application_fee_amount: pricing.applicationFeeAmount }
+          : {}),
         transfer_data: {
           destination: vendor.stripe_account_id!,
         },
@@ -184,18 +102,18 @@ export async function POST(request: NextRequest) {
           buyer_name: body.buyer_name,
           buyer_email: body.buyer_email,
           fulfillment_type: body.fulfillment_type,
-          item_subtotal_cad: String(itemSubtotalCad),
-          shipping_cad: String(shippingCad),
-          tax_cad: String(taxBreakdown.taxCad),
-          total_cad: String(taxBreakdown.totalCad),
-          tax_calculation: taxBreakdown.calculationId,
-          platform_fee_cents: String(platformFeeCents),
-          estimated_stripe_fee_cents: String(estimatedStripeFeeCents),
-          shippo_rate_id: shippoRateId ?? '',
-          shippo_shipment_id: shippoShipmentId ?? '',
-          requires_signature: String(highValue.requires_signature),
-          requires_insurance: String(highValue.requires_insurance),
-          ship_by_business_days: String(product.ship_by_business_days),
+          item_subtotal_cad: String(pricing.itemSubtotalCad),
+          shipping_cad: String(pricing.shippingCad),
+          tax_cad: String(pricing.taxCad),
+          total_cad: String(pricing.totalCad),
+          tax_calculation: pricing.taxCalculationId,
+          platform_fee_cents: String(pricing.platformFeeCents),
+          estimated_stripe_fee_cents: String(pricing.estimatedStripeFeeCents),
+          shippo_rate_id: pricing.shippoRateId ?? '',
+          shippo_shipment_id: pricing.shippoShipmentId ?? '',
+          requires_signature: String(pricing.highValue.requires_signature),
+          requires_insurance: String(pricing.highValue.requires_insurance),
+          ship_by_business_days: String(pricing.shipByBusinessDays),
           ship_to_name: body.ship_address?.name ?? '',
           ship_to_line1: body.ship_address?.line1 ?? '',
           ship_to_line2: body.ship_address?.line2 ?? '',
@@ -220,14 +138,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
-      itemSubtotalCad,
-      shippingCad,
-      taxCad: taxBreakdown.taxCad,
-      totalCad: taxBreakdown.totalCad,
-      platformFeeCad: platformFeeCents / 100,
-      shipByBusinessDays: product.ship_by_business_days,
-      madeToOrder: product.made_to_order,
-      highValue,
+      itemSubtotalCad: pricing.itemSubtotalCad,
+      shippingCad: pricing.shippingCad,
+      taxCad: pricing.taxCad,
+      totalCad: pricing.totalCad,
+      platformFeeCad: pricing.platformFeeCents / 100,
+      shipByBusinessDays: pricing.shipByBusinessDays,
+      madeToOrder: pricing.madeToOrder,
+      highValue: pricing.highValue,
     })
   } catch (err) {
     console.error('shop checkout POST', err)

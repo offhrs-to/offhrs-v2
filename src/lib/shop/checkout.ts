@@ -37,6 +37,12 @@ export type ShopVendorForCheckout = {
   ship_from_phone: string | null
   shipping_handling_fee_cad: number | null
   shop_pickup_enabled: boolean
+  shop_pickup_line1: string | null
+  shop_pickup_line2: string | null
+  shop_pickup_city: string | null
+  shop_pickup_province: string | null
+  shop_pickup_postal_code: string | null
+  shop_pickup_hours: string | null
   marketplace_enabled: boolean
   shop_status: string
   marketplace_qa_status: string
@@ -61,7 +67,7 @@ export async function loadPublishedShopProduct(
   const { data: vendor } = await admin
     .from('vendor_profiles')
     .select(
-      'id, business_name, stripe_account_id, ship_from_name, ship_from_line1, ship_from_line2, ship_from_city, ship_from_province, ship_from_postal_code, ship_from_country, ship_from_phone, shipping_handling_fee_cad, shop_pickup_enabled, marketplace_enabled, shop_status, marketplace_qa_status, status'
+      'id, business_name, stripe_account_id, ship_from_name, ship_from_line1, ship_from_line2, ship_from_city, ship_from_province, ship_from_postal_code, ship_from_country, ship_from_phone, shipping_handling_fee_cad, shop_pickup_enabled, shop_pickup_line1, shop_pickup_line2, shop_pickup_city, shop_pickup_province, shop_pickup_postal_code, shop_pickup_hours, marketplace_enabled, shop_status, marketplace_qa_status, status'
     )
     .eq('id', product.vendor_id)
     .maybeSingle()
@@ -111,5 +117,24 @@ export function vendorShipFromAddress(vendor: ShopVendorForCheckout) {
     postal_code: vendor.ship_from_postal_code.trim(),
     country: vendor.ship_from_country?.trim() || 'CA',
     phone: vendor.ship_from_phone,
+  }
+}
+
+export function vendorPickupAddress(vendor: ShopVendorForCheckout) {
+  if (
+    !vendor.shop_pickup_line1?.trim() ||
+    !vendor.shop_pickup_city?.trim() ||
+    !vendor.shop_pickup_province?.trim() ||
+    !vendor.shop_pickup_postal_code?.trim()
+  ) {
+    return null
+  }
+  return {
+    line1: vendor.shop_pickup_line1.trim(),
+    line2: vendor.shop_pickup_line2?.trim() || null,
+    city: vendor.shop_pickup_city.trim(),
+    province: vendor.shop_pickup_province.trim(),
+    postal_code: vendor.shop_pickup_postal_code.trim(),
+    hours: vendor.shop_pickup_hours?.trim() || null,
   }
 }

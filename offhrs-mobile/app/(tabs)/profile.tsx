@@ -823,8 +823,12 @@ export default function ProfileScreen() {
             ) : (
               <ScrollView style={{ maxHeight: 400 }}>
                 {shopOrders.map((o) => (
-                  <View
+                  <Pressable
                     key={o.id}
+                    onPress={() => {
+                      setOrdersModalVisible(false);
+                      router.push(`/shop/${o.product_id}`);
+                    }}
                     style={{
                       padding: 16,
                       borderBottomWidth: 1,
@@ -840,7 +844,10 @@ export default function ProfileScreen() {
                     <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginTop: 4 }}>
                       {o.fulfillment_type === 'pickup' ? 'Pickup' : 'Shipping'} · {o.status.replace(/_/g, ' ')}
                     </Text>
-                  </View>
+                    <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 6, fontWeight: '600' }}>
+                      View item →
+                    </Text>
+                  </Pressable>
                 ))}
               </ScrollView>
             )}

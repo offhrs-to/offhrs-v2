@@ -27,6 +27,13 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   archived: { label: 'Archived', className: 'border-transparent bg-red-50 text-red-400' },
 }
 
+function productStatusBadge(product: ShopProduct) {
+  if (product.quantity < 1 && product.status === 'archived') {
+    return { label: 'Sold out', className: 'border-transparent bg-amber-100 text-amber-800' }
+  }
+  return STATUS_BADGE[product.status] ?? STATUS_BADGE.draft
+}
+
 type BulkAction = 'publish' | 'draft' | 'archive'
 type Tab = 'products' | 'shipping'
 
@@ -284,7 +291,7 @@ function MarketplacePageInner() {
           ) : (
             <ul className="space-y-3">
               {products.map((p) => {
-                const badge = STATUS_BADGE[p.status] ?? STATUS_BADGE.draft
+                const badge = productStatusBadge(p)
                 const selected = selectedIds.has(p.id)
                 return (
                   <li

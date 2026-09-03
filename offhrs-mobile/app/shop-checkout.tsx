@@ -3,13 +3,14 @@ import { CA_PROVINCES, isCaProvinceCode, provinceLabel } from '@/constants/ca-pr
 import { useAuth } from '@/contexts/AuthContext';
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
 import {
-  fetchPlaceAddress,
-  fetchPlaceSuggestions,
-  type PlaceSuggestion,
-} from '@/lib/places-autocomplete';
+  fetchShopCheckoutQuote,
+  fetchShopProduct,
+  type ShopCheckoutQuote,
+  type ShopVendorSummary,
+} from '@/lib/shop-api';
 import { runShopCheckout } from '@/lib/shop-checkout-mobile';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,10 +25,24 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+function formatCad(price: number): string {
+  return `$${price.toFixed(2)}`;
+}
+
+function formatPickupLocation(vendor: ShopVendorSummary): string | null {
+  if (!vendor.shop_pickup_line1?.trim()) return null;
+  const cityLine = [vendor.shop_pickup_city, vendor.shop_pickup_province, vendor.shop_pickup_postal_code]
+    .filter(Boolean)
+    .join(', ');
+  return [vendor.shop_pickup_line1, vendor.shop_pickup_line2, cityLine].filter(Boolean).join('\n');
+}
+
 export default function ShopCheckoutScreen() {
   const params = useLocalSearchParams<{
     productId: string;
     fulfillment: string;
+    productTitle?: string;
+    itemPrice?: string;
     rateId?: string;
     shipmentId?: string;
     rateAmount?: string;
@@ -38,6 +53,8 @@ export default function ShopCheckoutScreen() {
   const { user } = useAuth();
 
   const fulfillment = params.fulfillment === 'pickup' ? 'pickup' : 'ship';
+  const itemPrice = params.itemPrice ? Number(params.itemPrice) : null;
+  const shippingPrice = params.rateAmount ? Number(params.rateAmount) : 0;
 
   const [name, setName] = useState(user?.user_metadata?.display_name ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
@@ -47,75 +64,79 @@ export default function ShopCheckoutScreen() {
   const [province, setProvince] = useState('ON');
   const [postalCode, setPostalCode] = useState(params.postalCode ?? '');
   const [submitting, setSubmitting] = useState(false);
-
-  const [addressQuery, setAddressQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
-  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [provincePickerOpen, setProvincePickerOpen] = useState(false);
-  const suggestSeq = useRef(0);
-
-  const onAddressQueryChange = useCallback((text: string) => {
-    setAddressQuery(text);
-    setLine1(text);
-    setSuggestionsOpen(true);
-  }, []);
+  const [pickupVendor, setPickupVendor] = useState<ShopVendorSummary | null>(null);
+  const [quote, setQuote] = useState<ShopCheckoutQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (fulfillment !== 'ship') return;
-    const q = addressQuery.trim();
-    if (q.length < 3) {
-      setSuggestions([]);
-      setSuggestionsLoading(false);
-      return;
+    if (fulfillment !== 'pickup' || !params.productId) return;
+    void fetchShopProduct(params.productId)
+      .then((data) => setPickupVendor(data.vendor))
+      .catch(() => setPickupVendor(null));
+  }, [fulfillment, params.productId]);
+
+  const loadQuote = useCallback(async () => {
+    if (!params.productId || !name.trim() || !email.trim()) return;
+    if (fulfillment === 'ship') {
+      const postal = parseCanadianPostalCode(postalCode);
+      if (!line1.trim() || !city.trim() || !postal || !isCaProvinceCode(province)) return;
+      if (!params.rateId || !params.shipmentId || params.rateAmount == null) return;
     }
 
-    const seq = ++suggestSeq.current;
-    setSuggestionsLoading(true);
-    const t = setTimeout(() => {
-      void (async () => {
-        try {
-          const list = await fetchPlaceSuggestions(q);
-          if (seq !== suggestSeq.current) return;
-          setSuggestions(list);
-        } catch {
-          if (seq !== suggestSeq.current) return;
-          setSuggestions([]);
-        } finally {
-          if (seq === suggestSeq.current) setSuggestionsLoading(false);
-        }
-      })();
-    }, 300);
-
-    return () => clearTimeout(t);
-  }, [addressQuery, fulfillment]);
-
-  const onSelectSuggestion = async (s: PlaceSuggestion) => {
-    setSuggestionsOpen(false);
-    setSuggestions([]);
-    setSuggestionsLoading(true);
+    setQuoteLoading(true);
+    setQuoteError(null);
     try {
-      const address = await fetchPlaceAddress(s.place_id);
-      setAddressQuery(address.line1);
-      setLine1(address.line1);
-      setLine2(address.line2 ?? '');
-      setCity(address.city);
-      if (isCaProvinceCode(address.province)) {
-        setProvince(address.province);
-      }
-      const postal = parseCanadianPostalCode(address.postal_code) ?? address.postal_code;
-      setPostalCode(postal);
+      const result = await fetchShopCheckoutQuote({
+        product_id: params.productId,
+        fulfillment_type: fulfillment,
+        buyer_name: name.trim(),
+        buyer_email: email.trim(),
+        ...(fulfillment === 'ship'
+          ? {
+              ship_address: {
+                name: name.trim(),
+                line1: line1.trim(),
+                line2: line2.trim() || undefined,
+                city: city.trim(),
+                province: province.trim(),
+                postal_code: parseCanadianPostalCode(postalCode) ?? postalCode.trim(),
+              },
+              shippo_rate_id: params.rateId,
+              shippo_shipment_id: params.shipmentId,
+              shippo_rate_amount_cad: Number(params.rateAmount),
+            }
+          : {}),
+      });
+      setQuote(result);
     } catch (e) {
-      Alert.alert(
-        'Address',
-        e instanceof Error ? e.message : 'Could not fill address from Google Places.'
-      );
-      setAddressQuery(s.main_text);
-      setLine1(s.main_text);
+      setQuote(null);
+      setQuoteError(e instanceof Error ? e.message : 'Could not calculate total');
     } finally {
-      setSuggestionsLoading(false);
+      setQuoteLoading(false);
     }
-  };
+  }, [
+    params.productId,
+    params.rateId,
+    params.shipmentId,
+    params.rateAmount,
+    fulfillment,
+    name,
+    email,
+    line1,
+    line2,
+    city,
+    province,
+    postalCode,
+  ]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      void loadQuote();
+    }, fulfillment === 'ship' ? 400 : 0);
+    return () => clearTimeout(t);
+  }, [loadQuote, fulfillment]);
 
   const onPay = async () => {
     if (!params.productId) return;
@@ -169,6 +190,11 @@ export default function ShopCheckoutScreen() {
     Alert.alert('Checkout', result.message);
   };
 
+  const summaryItem = quote?.itemSubtotalCad ?? itemPrice;
+  const summaryShipping = quote?.shippingCad ?? (fulfillment === 'ship' ? shippingPrice : 0);
+  const summaryTax = quote?.taxCad ?? 0;
+  const summaryTotal = quote?.totalCad ?? (summaryItem != null ? summaryItem + summaryShipping + summaryTax : null);
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: DesignColors.creamBg }}
@@ -190,6 +216,42 @@ export default function ShopCheckoutScreen() {
         <Text style={{ marginTop: 8, color: DesignColors.mediumGray }}>
           {fulfillment === 'pickup' ? 'Local pickup' : 'Ship to address'}
         </Text>
+        {params.productTitle ? (
+          <Text style={{ marginTop: 8, fontSize: 15, fontWeight: '600', color: DesignColors.charcoal }}>
+            {params.productTitle}
+          </Text>
+        ) : null}
+
+        {fulfillment === 'pickup' && pickupVendor ? (
+          <View
+            style={{
+              marginTop: 16,
+              padding: 12,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: DesignColors.lightGreenBorder,
+              backgroundColor: '#fff',
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '700', color: DesignColors.charcoal }}>
+              Pickup location
+            </Text>
+            {formatPickupLocation(pickupVendor) ? (
+              <Text style={{ marginTop: 6, fontSize: 14, color: DesignColors.charcoal, lineHeight: 20 }}>
+                {formatPickupLocation(pickupVendor)}
+              </Text>
+            ) : (
+              <Text style={{ marginTop: 6, fontSize: 13, color: DesignColors.mediumGray }}>
+                Pickup address not configured by seller.
+              </Text>
+            )}
+            {pickupVendor.shop_pickup_hours ? (
+              <Text style={{ marginTop: 8, fontSize: 13, color: DesignColors.mediumGray }}>
+                Hours: {pickupVendor.shop_pickup_hours}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
 
         <Text style={{ marginTop: 20, fontWeight: '600' }}>Name</Text>
         <TextInput value={name} onChangeText={setName} style={inputStyle} />
@@ -206,71 +268,24 @@ export default function ShopCheckoutScreen() {
         {fulfillment === 'ship' ? (
           <>
             <Text style={{ marginTop: 12, fontWeight: '600' }}>Street address</Text>
-            <Text style={{ marginTop: 4, fontSize: 12, color: DesignColors.mediumGray }}>
-              Start typing — Google suggestions will appear
-            </Text>
             <TextInput
-              value={addressQuery}
-              onChangeText={onAddressQueryChange}
-              onFocus={() => setSuggestionsOpen(true)}
+              value={line1}
+              onChangeText={setLine1}
               placeholder="123 Main Street"
               autoCorrect={false}
               style={inputStyle}
             />
 
-            {suggestionsOpen && (suggestionsLoading || suggestions.length > 0) ? (
-              <View
-                style={{
-                  marginTop: 4,
-                  borderWidth: 1,
-                  borderColor: DesignColors.lightGreenBorder,
-                  borderRadius: 8,
-                  backgroundColor: '#fff',
-                  overflow: 'hidden',
-                }}
-              >
-                {suggestionsLoading ? (
-                  <View style={{ padding: 12, alignItems: 'center' }}>
-                    <ActivityIndicator color={DesignColors.primary} />
-                  </View>
-                ) : (
-                  suggestions.map((s) => (
-                    <Pressable
-                      key={s.place_id}
-                      onPress={() => void onSelectSuggestion(s)}
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 12,
-                        borderBottomWidth: 1,
-                        borderBottomColor: DesignColors.lightGreenBorder,
-                      }}
-                    >
-                      <Text style={{ fontWeight: '600', color: DesignColors.charcoal }}>
-                        {s.main_text}
-                      </Text>
-                      {s.secondary_text ? (
-                        <Text style={{ marginTop: 2, fontSize: 12, color: DesignColors.mediumGray }}>
-                          {s.secondary_text}
-                        </Text>
-                      ) : null}
-                    </Pressable>
-                  ))
-                )}
-              </View>
-            ) : null}
-
+            <Text style={{ marginTop: 12, fontWeight: '600' }}>Apt / unit (optional)</Text>
             <TextInput
               value={line2}
               onChangeText={setLine2}
-              placeholder="Apt / unit (optional)"
-              style={[inputStyle, { marginTop: 8 }]}
+              placeholder="Apt, suite, buzzer"
+              style={inputStyle}
             />
-            <TextInput
-              value={city}
-              onChangeText={setCity}
-              placeholder="City"
-              style={[inputStyle, { marginTop: 8 }]}
-            />
+
+            <Text style={{ marginTop: 12, fontWeight: '600' }}>City</Text>
+            <TextInput value={city} onChangeText={setCity} placeholder="City" style={inputStyle} />
 
             <Text style={{ marginTop: 12, fontWeight: '600' }}>Province / territory</Text>
             <Pressable
@@ -291,16 +306,68 @@ export default function ShopCheckoutScreen() {
           </>
         ) : null}
 
+        {summaryItem != null ? (
+          <View
+            style={{
+              marginTop: 20,
+              padding: 14,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: DesignColors.lightGreenBorder,
+              backgroundColor: '#fff',
+            }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: '700', color: DesignColors.charcoal, marginBottom: 10 }}>
+              Order summary
+            </Text>
+            <View style={summaryRowStyle}>
+              <Text style={summaryLabelStyle}>Item</Text>
+              <Text style={summaryValueStyle}>{formatCad(summaryItem)}</Text>
+            </View>
+            <View style={summaryRowStyle}>
+              <Text style={summaryLabelStyle}>
+                {fulfillment === 'pickup' ? 'Pickup' : 'Shipping'}
+              </Text>
+              <Text style={summaryValueStyle}>
+                {summaryShipping > 0 ? formatCad(summaryShipping) : 'Free'}
+              </Text>
+            </View>
+            <View style={summaryRowStyle}>
+              <Text style={summaryLabelStyle}>Tax</Text>
+              {quoteLoading ? (
+                <ActivityIndicator size="small" color={DesignColors.primary} />
+              ) : (
+                <Text style={summaryValueStyle}>{formatCad(summaryTax)}</Text>
+              )}
+            </View>
+            <View style={[summaryRowStyle, { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: DesignColors.lightGreenBorder }]}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: DesignColors.charcoal }}>Total</Text>
+              {quoteLoading ? (
+                <ActivityIndicator size="small" color={DesignColors.primary} />
+              ) : summaryTotal != null ? (
+                <Text style={{ fontSize: 15, fontWeight: '700', color: DesignColors.primary }}>
+                  {formatCad(summaryTotal)} CAD
+                </Text>
+              ) : (
+                <Text style={summaryValueStyle}>—</Text>
+              )}
+            </View>
+            {quoteError ? (
+              <Text style={{ marginTop: 8, fontSize: 12, color: '#B85C5C' }}>{quoteError}</Text>
+            ) : null}
+          </View>
+        ) : null}
+
         <Pressable
           onPress={onPay}
-          disabled={submitting}
+          disabled={submitting || quoteLoading}
           style={{
             marginTop: 24,
             paddingVertical: 14,
             borderRadius: 24,
             backgroundColor: DesignColors.primary,
             alignItems: 'center',
-            opacity: submitting ? 0.6 : 1,
+            opacity: submitting || quoteLoading ? 0.6 : 1,
           }}
         >
           {submitting ? (
@@ -384,3 +451,13 @@ const inputStyle = {
   backgroundColor: '#fff',
   marginTop: 6,
 } as const;
+
+const summaryRowStyle = {
+  flexDirection: 'row' as const,
+  justifyContent: 'space-between' as const,
+  alignItems: 'center' as const,
+  marginBottom: 6,
+};
+
+const summaryLabelStyle = { fontSize: 14, color: DesignColors.mediumGray };
+const summaryValueStyle = { fontSize: 14, color: DesignColors.charcoal, fontWeight: '600' as const };

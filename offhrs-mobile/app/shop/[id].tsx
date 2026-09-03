@@ -29,6 +29,35 @@ function formatCad(price: number): string {
   return `$${price.toFixed(2)} CAD`;
 }
 
+function buildCheckoutRedirect(
+  product: ShopProductDetail,
+  fulfillment: 'ship' | 'pickup',
+  selectedRate: ShippoRateOption | null,
+  postalCode: string
+): string {
+  const q = new URLSearchParams();
+  q.set('productId', product.id);
+  q.set('fulfillment', fulfillment);
+  q.set('productTitle', product.title);
+  q.set('itemPrice', String(product.price_cad));
+  if (selectedRate) {
+    q.set('rateId', selectedRate.rate_id);
+    q.set('shipmentId', selectedRate.shipment_id);
+    q.set('rateAmount', String(selectedRate.amount_cad));
+  }
+  const postal = parseCanadianPostalCode(postalCode);
+  if (postal) q.set('postalCode', postal);
+  return `/shop-checkout?${q.toString()}`;
+}
+
+function formatPickupLocation(vendor: ShopVendorSummary): string | null {
+  if (!vendor.shop_pickup_line1?.trim()) return null;
+  const cityLine = [vendor.shop_pickup_city, vendor.shop_pickup_province, vendor.shop_pickup_postal_code]
+    .filter(Boolean)
+    .join(', ');
+  return [vendor.shop_pickup_line1, vendor.shop_pickup_line2, cityLine].filter(Boolean).join('\n');
+}
+
 export default function ShopProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -96,32 +125,18 @@ export default function ShopProductScreen() {
     }
   }, [product, fulfillment, postalCode]);
 
-  const canBuy =
-    product &&
-    product.quantity > 0 &&
-    (fulfillment === 'pickup' || (selectedRate != null && parseCanadianPostalCode(postalCode)));
-
   const onBuy = () => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
     if (!product) return;
     if (fulfillment === 'ship' && !selectedRate) {
       Alert.alert('Shipping', 'Select a shipping rate first.');
       return;
     }
-    router.push({
-      pathname: '/shop-checkout',
-      params: {
-        productId: product.id,
-        fulfillment,
-        rateId: selectedRate?.rate_id ?? '',
-        shipmentId: selectedRate?.shipment_id ?? '',
-        rateAmount: selectedRate ? String(selectedRate.amount_cad) : '',
-        postalCode: parseCanadianPostalCode(postalCode) ?? '',
-      },
-    });
+    const checkoutRedirect = buildCheckoutRedirect(product, fulfillment, selectedRate, postalCode);
+    if (!user) {
+      router.push({ pathname: '/login', params: { redirect: checkoutRedirect } });
+      return;
+    }
+    router.push(checkoutRedirect as never);
   };
 
   if (loading || !product) {
@@ -134,11 +149,23 @@ export default function ShopProductScreen() {
 
   const images = (product.image_urls ?? []).filter(Boolean);
   const imageCarouselWidth = windowWidth - DesignSpacing.horizontalPadding * 2;
+  const isPurchasable = product.purchasable ?? product.quantity > 0;
+  const isSoldOut = !isPurchasable && product.status !== 'archived';
+  const isArchived = product.status === 'archived';
+  const canBuy =
+    isPurchasable &&
+    (fulfillment === 'pickup' || (selectedRate != null && parseCanadianPostalCode(postalCode)));
 
   return (
     <View style={{ flex: 1, backgroundColor: DesignColors.creamBg }}>
-      <WorkshopsChrome showBack onBackPress={() => router.back()} searchValue="" searchPlaceholder="" />
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}>
+      <WorkshopsChrome
+        showBack
+        onBackPress={() => router.back()}
+        hideSearchBar
+        searchValue=""
+        searchPlaceholder=""
+      />
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + (isPurchasable ? 120 : 32) }}>
         <View style={{ paddingHorizontal: DesignSpacing.horizontalPadding }}>
           <View
             style={{
@@ -168,7 +195,7 @@ export default function ShopProductScreen() {
                   <Image
                     source={{ uri: item }}
                     style={{ width: imageCarouselWidth, height: imageCarouselWidth }}
-                    contentFit="cover"
+                    contentFit="contain"
                   />
                 )}
               />
@@ -176,7 +203,7 @@ export default function ShopProductScreen() {
               <Image
                 source={{ uri: images[0] }}
                 style={{ width: '100%', height: '100%' }}
-                contentFit="cover"
+                contentFit="contain"
               />
             ) : null}
           </View>
@@ -191,18 +218,45 @@ export default function ShopProductScreen() {
             {formatCad(product.price_cad)}
           </Text>
 
+          {isSoldOut || isArchived ? (
+            <View
+              style={{
+                alignSelf: 'flex-start',
+                marginTop: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 9999,
+                backgroundColor: isArchived ? '#F3F3F3' : '#E8F0E5',
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+              }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '700', color: DesignColors.charcoal }}>
+                {isArchived ? 'Listing archived' : 'Sold'}
+              </Text>
+            </View>
+          ) : null}
+
           {product.description ? (
             <Text style={{ fontSize: 15, color: DesignColors.charcoal, marginTop: 16, lineHeight: 22 }}>
               {product.description}
             </Text>
           ) : null}
 
-          <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 16 }}>
-            Ships within {shipByDays} business days{madeToOrder ? ' (made to order)' : ''}.
-            {highValue ? ' Signature + insurance included (items over $250).' : ''}
-          </Text>
+          {isPurchasable ? (
+            <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 16 }}>
+              Ships within {shipByDays} business days{madeToOrder ? ' (made to order)' : ''}.
+              {highValue ? ' Signature + insurance included (items over $250).' : ''}
+            </Text>
+          ) : (
+            <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 16 }}>
+              {isArchived
+                ? 'This listing is no longer available to purchase.'
+                : 'This item has sold out.'}
+            </Text>
+          )}
 
-          {product.pickup_available && vendor?.shop_pickup_enabled ? (
+          {isPurchasable && product.pickup_available && vendor?.shop_pickup_enabled ? (
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
               {(['ship', 'pickup'] as const).map((f) => (
                 <Pressable
@@ -230,7 +284,7 @@ export default function ShopProductScreen() {
             </View>
           ) : null}
 
-          {fulfillment === 'ship' ? (
+          {isPurchasable && fulfillment === 'ship' ? (
             <View style={{ marginTop: 16 }}>
               <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Your postal code</Text>
               <TextInput
@@ -287,44 +341,69 @@ export default function ShopProductScreen() {
                 </Pressable>
               ))}
             </View>
-          ) : (
-            <Text style={{ marginTop: 16, color: DesignColors.mediumGray }}>
-              Local pickup — coordinate with the maker after purchase. No shipping charge.
-            </Text>
-          )}
+          ) : isPurchasable && fulfillment === 'pickup' && vendor ? (
+            <View
+              style={{
+                marginTop: 16,
+                padding: 12,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+                backgroundColor: '#fff',
+              }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: '700', color: DesignColors.charcoal }}>
+                Pickup location
+              </Text>
+              {formatPickupLocation(vendor) ? (
+                <Text style={{ marginTop: 6, fontSize: 14, color: DesignColors.charcoal, lineHeight: 20 }}>
+                  {formatPickupLocation(vendor)}
+                </Text>
+              ) : (
+                <Text style={{ marginTop: 6, fontSize: 13, color: DesignColors.mediumGray }}>
+                  The maker has not published pickup details yet.
+                </Text>
+              )}
+              {vendor.shop_pickup_hours ? (
+                <Text style={{ marginTop: 8, fontSize: 13, color: DesignColors.mediumGray }}>
+                  Hours: {vendor.shop_pickup_hours}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          paddingHorizontal: DesignSpacing.horizontalPadding,
-          paddingBottom: insets.bottom + 16,
-          paddingTop: 12,
-          backgroundColor: DesignColors.creamBg,
-          borderTopWidth: 1,
-          borderTopColor: DesignColors.lightGreenBorder,
-        }}
-      >
-        <Pressable
-          onPress={onBuy}
-          disabled={!canBuy}
+      {isPurchasable ? (
+        <View
           style={{
-            paddingVertical: 14,
-            borderRadius: 24,
-            backgroundColor: DesignColors.primary,
-            opacity: canBuy ? 1 : 0.5,
-            alignItems: 'center',
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            paddingHorizontal: DesignSpacing.horizontalPadding,
+            paddingBottom: insets.bottom + 16,
+            paddingTop: 12,
+            backgroundColor: DesignColors.creamBg,
+            borderTopWidth: 1,
+            borderTopColor: DesignColors.lightGreenBorder,
           }}
         >
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>
-            {product.quantity < 1 ? 'Sold out' : 'Buy now'}
-          </Text>
-        </Pressable>
-      </View>
+          <Pressable
+            onPress={onBuy}
+            disabled={!canBuy}
+            style={{
+              paddingVertical: 14,
+              borderRadius: 24,
+              backgroundColor: DesignColors.primary,
+              opacity: canBuy ? 1 : 0.5,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Buy now</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }

@@ -154,7 +154,10 @@ export async function POST(request: NextRequest) {
 
     const { data: decremented, error: decErr } = await admin
       .from('shop_products')
-      .update({ quantity: product.quantity - 1 })
+      .update({
+        quantity: product.quantity - 1,
+        ...(product.quantity - 1 < 1 ? { status: 'archived' } : {}),
+      })
       .eq('id', productId)
       .eq('quantity', product.quantity)
       .select('id')

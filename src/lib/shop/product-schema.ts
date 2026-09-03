@@ -44,7 +44,39 @@ export const shopShippingSettingsSchema = z.object({
   ship_from_phone: z.string().max(30).optional().nullable(),
   shipping_handling_fee_cad: z.number().min(0).max(100),
   shop_pickup_enabled: z.boolean(),
+  shop_pickup_line1: z.string().max(200).optional().nullable(),
+  shop_pickup_line2: z.string().max(200).optional().nullable(),
+  shop_pickup_city: z.string().max(100).optional().nullable(),
+  shop_pickup_province: z.string().max(40).optional().nullable(),
+  shop_pickup_postal_code: z
+    .string()
+    .trim()
+    .regex(/^[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z][ ]?\d[ABCEGHJ-NPRSTV-Z]\d$/i, {
+      message: 'Enter a valid Canadian postal code',
+    })
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  shop_pickup_hours: z.string().max(500).optional().nullable(),
   shop_return_policy: z.string().max(4000).optional().nullable(),
   canada_ship_attested: z.boolean(),
   shop_status: z.enum(['off', 'draft', 'live', 'paused']).optional(),
+}).superRefine((data, ctx) => {
+  if (!data.shop_pickup_enabled) return
+  if (!data.shop_pickup_line1?.trim()) {
+    ctx.addIssue({ code: 'custom', message: 'Pickup address line 1 is required', path: ['shop_pickup_line1'] })
+  }
+  if (!data.shop_pickup_city?.trim()) {
+    ctx.addIssue({ code: 'custom', message: 'Pickup city is required', path: ['shop_pickup_city'] })
+  }
+  if (!data.shop_pickup_province?.trim()) {
+    ctx.addIssue({ code: 'custom', message: 'Pickup province is required', path: ['shop_pickup_province'] })
+  }
+  const postal = data.shop_pickup_postal_code?.trim() ?? ''
+  if (!postal) {
+    ctx.addIssue({ code: 'custom', message: 'Pickup postal code is required', path: ['shop_pickup_postal_code'] })
+  }
+  if (!data.shop_pickup_hours?.trim()) {
+    ctx.addIssue({ code: 'custom', message: 'Pickup hours are required', path: ['shop_pickup_hours'] })
+  }
 })

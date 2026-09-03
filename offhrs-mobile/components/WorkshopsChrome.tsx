@@ -29,6 +29,8 @@ export type WorkshopsChromeProps = {
   showAllFiltersButton?: boolean;
   allFiltersActive?: boolean;
   onAllFiltersPress?: () => void;
+  /** Stack screens (product detail, checkout): logo + optional back only. */
+  hideSearchBar?: boolean;
 };
 
 export default function WorkshopsChrome({
@@ -49,6 +51,7 @@ export default function WorkshopsChrome({
   showAllFiltersButton = false,
   allFiltersActive = false,
   onAllFiltersPress,
+  hideSearchBar = false,
 }: WorkshopsChromeProps) {
   const [priceMenuOpen, setPriceMenuOpen] = useState(false);
   const priceFilterActive = priceSort !== 'default';
@@ -74,6 +77,7 @@ export default function WorkshopsChrome({
         </View>
       </View>
 
+      {!hideSearchBar ? (
       <View style={{ flexShrink: 0 }}>
         <View
           style={{
@@ -235,6 +239,7 @@ export default function WorkshopsChrome({
           ) : null}
         </View>
       </View>
+      ) : null}
       {!showAllFiltersButton && showPriceFilter && onPriceSortChange ? (
         <WorkshopPriceSortMenu
           visible={priceMenuOpen}

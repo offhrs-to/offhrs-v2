@@ -21,6 +21,8 @@ export type ShopProductDetail = {
   price_cad: number;
   category: string;
   quantity: number;
+  status?: string;
+  purchasable?: boolean;
   pickup_available: boolean;
   made_to_order: boolean;
   ship_by_business_days: number;
@@ -35,6 +37,19 @@ export type ShopVendorSummary = {
   slug: string | null;
   bio: string | null;
   shop_pickup_enabled: boolean;
+  shop_pickup_line1?: string | null;
+  shop_pickup_line2?: string | null;
+  shop_pickup_city?: string | null;
+  shop_pickup_province?: string | null;
+  shop_pickup_postal_code?: string | null;
+  shop_pickup_hours?: string | null;
+};
+
+export type ShopCheckoutQuote = {
+  itemSubtotalCad: number;
+  shippingCad: number;
+  taxCad: number;
+  totalCad: number;
 };
 
 export type ShippoRateOption = {
@@ -108,7 +123,8 @@ export async function fetchShopProducts(params?: {
 export async function fetchShopProduct(
   id: string
 ): Promise<{ product: ShopProductDetail; vendor: ShopVendorSummary }> {
-  const res = await fetch(`${BOOK_API_BASE}/api/shop/products/${id}`);
+  const headers = await shopHeaders();
+  const res = await fetch(`${BOOK_API_BASE}/api/shop/products/${id}`, { headers });
   const data = (await res.json().catch(() => ({}))) as {
     product?: ShopProductDetail;
     vendor?: ShopVendorSummary;
@@ -132,6 +148,34 @@ export async function fetchShopRates(body: {
   });
   const data = (await res.json().catch(() => ({}))) as ShopRatesResponse & { error?: string };
   if (!res.ok) throw new Error(data.error ?? 'Could not fetch shipping rates');
+  return data;
+}
+
+export async function fetchShopCheckoutQuote(body: {
+  product_id: string;
+  fulfillment_type: 'ship' | 'pickup';
+  buyer_name: string;
+  buyer_email: string;
+  ship_address?: {
+    name: string;
+    line1: string;
+    line2?: string;
+    city: string;
+    province: string;
+    postal_code: string;
+  };
+  shippo_rate_id?: string;
+  shippo_shipment_id?: string;
+  shippo_rate_amount_cad?: number;
+}): Promise<ShopCheckoutQuote> {
+  const headers = await shopHeaders();
+  const res = await fetch(`${BOOK_API_BASE}/api/shop/checkout/quote`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json().catch(() => ({}))) as ShopCheckoutQuote & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? 'Could not calculate order total');
   return data;
 }
 

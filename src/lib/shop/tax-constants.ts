@@ -6,6 +6,6 @@
  * @see https://stripe.com/docs/tax/tax-codes
  */
 export const SHOP_GOODS_STRIPE_TAX_CODE =
-  process.env.STRIPE_SHOP_GOODS_TAX_CODE?.trim() || 'txcd_99999999'
+  process.env.STRIPE_SHOP_GOODS_TAX_CODE?.trim() || 'txcd_30011000'
 
 export { WORKSHOP_STRIPE_TAX_CODE } from '@/lib/stripe-tax-constants'

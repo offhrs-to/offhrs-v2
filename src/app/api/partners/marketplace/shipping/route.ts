@@ -9,7 +9,7 @@ import { shopShippingSettingsSchema } from '@/lib/shop/product-schema'
 import { canPublishShopProducts, marketplacePublishBlockers } from '@/lib/shop/publish-gates'
 
 const SHIP_SELECT =
-  'ship_from_name, ship_from_line1, ship_from_line2, ship_from_city, ship_from_province, ship_from_postal_code, ship_from_country, ship_from_phone, shipping_handling_fee_cad, shop_pickup_enabled, shop_return_policy, canada_ship_attested_at, shop_status, marketplace_qa_status, marketplace_plan'
+  'ship_from_name, ship_from_line1, ship_from_line2, ship_from_city, ship_from_province, ship_from_postal_code, ship_from_country, ship_from_phone, shipping_handling_fee_cad, shop_pickup_enabled, shop_pickup_line1, shop_pickup_line2, shop_pickup_city, shop_pickup_province, shop_pickup_postal_code, shop_pickup_hours, shop_return_policy, canada_ship_attested_at, shop_status, marketplace_qa_status, marketplace_plan'
 
 export async function GET() {
   try {
@@ -53,6 +53,12 @@ export async function GET() {
         ship_from_phone: row.ship_from_phone ?? '',
         shipping_handling_fee_cad: Number(row.shipping_handling_fee_cad ?? 0),
         shop_pickup_enabled: Boolean(row.shop_pickup_enabled),
+        shop_pickup_line1: row.shop_pickup_line1 ?? '',
+        shop_pickup_line2: row.shop_pickup_line2 ?? '',
+        shop_pickup_city: row.shop_pickup_city ?? '',
+        shop_pickup_province: row.shop_pickup_province ?? '',
+        shop_pickup_postal_code: row.shop_pickup_postal_code ?? '',
+        shop_pickup_hours: row.shop_pickup_hours ?? '',
         shop_return_policy: row.shop_return_policy ?? '',
         canada_ship_attested: Boolean(row.canada_ship_attested_at),
         shop_status: row.shop_status ?? 'off',
@@ -124,6 +130,14 @@ export async function PUT(request: NextRequest) {
       ship_from_phone: data.ship_from_phone?.trim() || null,
       shipping_handling_fee_cad: data.shipping_handling_fee_cad,
       shop_pickup_enabled: data.shop_pickup_enabled,
+      shop_pickup_line1: data.shop_pickup_enabled ? data.shop_pickup_line1?.trim() || null : null,
+      shop_pickup_line2: data.shop_pickup_enabled ? data.shop_pickup_line2?.trim() || null : null,
+      shop_pickup_city: data.shop_pickup_enabled ? data.shop_pickup_city?.trim() || null : null,
+      shop_pickup_province: data.shop_pickup_enabled ? data.shop_pickup_province?.trim() || null : null,
+      shop_pickup_postal_code: data.shop_pickup_enabled
+        ? data.shop_pickup_postal_code?.trim().toUpperCase().replace(/\s+/g, ' ') || null
+        : null,
+      shop_pickup_hours: data.shop_pickup_enabled ? data.shop_pickup_hours?.trim() || null : null,
       shop_return_policy: data.shop_return_policy?.trim() || null,
       canada_ship_attested_at: attestedAt,
       marketplace_qa_status: qaStatus,
