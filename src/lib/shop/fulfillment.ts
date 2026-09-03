@@ -358,8 +358,12 @@ export async function refundShopOrderPreScan(params: {
       await voidShippoLabel(order.shippo_transaction_id)
     } catch (err) {
       console.error('voidShippoLabel', err)
+      const raw = err instanceof Error ? err.message : 'Could not void shipping label'
+      // Surface Canada Post's 60-minute void window with Toronto local time when present.
       throw new Error(
-        err instanceof Error ? `Could not void shipping label: ${err.message}` : 'Could not void shipping label'
+        raw.toLowerCase().includes('could not void')
+          ? raw
+          : `Could not void shipping label: ${raw}`
       )
     }
   }

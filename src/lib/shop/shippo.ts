@@ -4,6 +4,7 @@ import {
   SHOP_HIGH_VALUE_INSURANCE_CAD,
 } from '@/lib/shop/fees'
 import { normalizeCanadianPostalCode } from '@/lib/canadian-postal-province'
+import { WORKSHOP_TIMEZONE } from '@/lib/workshop-timezone'
 
 /**
  * Platform Shippo client (Phase 2+).
@@ -142,13 +143,19 @@ async function shippoFetch<T>(path: string, init?: RequestInit): Promise<T> {
     },
   })
 
-  const body = (await res.json().catch(() => ({}))) as T & { detail?: string; message?: string }
+  const body = (await res.json().catch(() => ({}))) as T & {
+    detail?: string
+    message?: string
+    messages?: ShippoApiMessage[]
+  }
   if (!res.ok) {
+    const fromMessages = formatShippoMessages(body.messages)
     const msg =
-      (body as { detail?: string }).detail ??
-      (body as { message?: string }).message ??
+      fromMessages ??
+      body.detail ??
+      body.message ??
       `Shippo API error (${res.status})`
-    throw new Error(msg)
+    throw new Error(localizeShippoUtcTimestamps(msg))
   }
   return body
 }
@@ -220,7 +227,38 @@ function formatShippoMessages(messages: ShippoApiMessage[] | undefined): string 
     .filter((t) => !/hermes_uk|evri/i.test(t))
 
   if (!texts.length) return null
-  return [...new Set(texts)].slice(0, 2).join(' · ')
+  return localizeShippoUtcTimestamps([...new Set(texts)].slice(0, 2).join(' · '))
+}
+
+/**
+ * Canada Post / Shippo often embeds times like "3:56:39 AM UTC, 09/03/2026".
+ * Rewrite those for partner UI as America/Toronto.
+ */
+function localizeShippoUtcTimestamps(message: string): string {
+  return message.replace(
+    /(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)\s*UTC,\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/gi,
+    (full, hourRaw, minute, second, ampm, month, day, year) => {
+      let hour = Number(hourRaw)
+      const meridiem = String(ampm).toUpperCase()
+      if (meridiem === 'PM' && hour < 12) hour += 12
+      if (meridiem === 'AM' && hour === 12) hour = 0
+      const utc = new Date(
+        Date.UTC(Number(year), Number(month) - 1, Number(day), hour, Number(minute), Number(second))
+      )
+      if (Number.isNaN(utc.getTime())) return full
+      return utc.toLocaleString('en-CA', {
+        timeZone: WORKSHOP_TIMEZONE,
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZoneName: 'short',
+      })
+    }
+  )
 }
 
 function canadaPostSetupHint(messages: string | null, hasCarrierAccount: boolean): string {
@@ -357,7 +395,10 @@ type ShippoApiTransaction = {
 }
 
 function transactionErrorMessage(tx: ShippoApiTransaction): string {
-  return formatShippoMessages(tx.messages) ?? `Shippo label failed (${tx.status ?? 'ERROR'})`
+  return (
+    formatShippoMessages(tx.messages) ??
+    localizeShippoUtcTimestamps(`Shippo label failed (${tx.status ?? 'ERROR'})`)
+  )
 }
 
 function sleep(ms: number): Promise<void> {
