@@ -18,7 +18,7 @@ import {
 } from '@/lib/event-saves';
 import { supabase } from '@/lib/supabase';
 import { Image } from 'expo-image';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from "expo-router/react-navigation";
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {

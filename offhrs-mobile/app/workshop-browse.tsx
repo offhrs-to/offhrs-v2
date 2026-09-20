@@ -34,7 +34,7 @@ import { fetchWorkshopEvents } from '@/lib/workshops-events-query';
 import { compareWorkshopEventsByStart, workshopEventTorontoYmd } from '@/lib/workshop-event-sort';
 import type { WorkshopPriceSort } from '@/lib/workshop-price-sort';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from "expo-router/react-navigation";
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, startTransition } from 'react';
 import {

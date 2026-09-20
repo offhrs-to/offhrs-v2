@@ -26,7 +26,7 @@ import {
 import { enrichWorkshopEventsWithVendorNames } from '@/lib/workshop-vendor-display';
 import { getCategoryTileImageSource } from '@/lib/category-master-images';
 import { Image } from 'expo-image';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from "expo-router/react-navigation";
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {

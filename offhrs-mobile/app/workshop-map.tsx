@@ -22,7 +22,7 @@ import {
   fetchWorkshopEventsNearAnchor,
   type WorkshopEventRow,
 } from '@/lib/workshops-events-query';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from "expo-router/react-navigation";
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Gesture, GestureDetector } from 'react-native-gesture-handler';

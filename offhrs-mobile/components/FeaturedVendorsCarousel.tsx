@@ -1,7 +1,7 @@
 import { View, Text, Pressable, FlatList, useWindowDimensions } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from "expo-router/react-navigation";
 
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import { DesignColors } from '@/constants/design-template';

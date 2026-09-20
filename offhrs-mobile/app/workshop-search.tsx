@@ -17,7 +17,7 @@ import { compareWorkshopEventsByStart, workshopEventTorontoYmd } from '@/lib/wor
 import { fetchWorkshopEvents, type WorkshopEventRow } from '@/lib/workshops-events-query';
 import { sortWorkshopGroupsByPrice, type WorkshopPriceSort } from '@/lib/workshop-price-sort';
 import { fetchNearbyVendorRows, type VendorNearbyRow } from '@/lib/workshop-vendors-nearby';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from "expo-router/react-navigation";
 import * as Location from 'expo-location';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
