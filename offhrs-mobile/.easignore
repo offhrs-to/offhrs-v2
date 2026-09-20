@@ -1,5 +1,53 @@
-# Keep machine-local env out of EAS uploads so profile/environment vars win.
+# IMPORTANT: when .easignore exists, EAS ignores .gitignore entirely.
+# Keep this in sync with .gitignore, then add EAS-only exclusions.
+# https://docs.expo.dev/build-reference/easignore/
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native (let EAS Prebuild generate fresh android/ios for current SDK)
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+/ios
+/android
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# typescript
+*.tsbuildinfo
+
+app-example
+
+.vercel
+
+# Machine-local env must not override eas.json / EAS environment
 .env
 .env.*
 !.env.example
 *.local
+
+# Local noise not needed on builders
+onboarding-*.txt
+docs/
+.vscode/
