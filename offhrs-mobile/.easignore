@@ -1,0 +1,5 @@
+# Keep machine-local env out of EAS uploads so profile/environment vars win.
+.env
+.env.*
+!.env.example
+*.local

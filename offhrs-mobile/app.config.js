@@ -88,9 +88,17 @@ const bookApiBase = (process.env.EXPO_PUBLIC_BOOK_API_BASE || 'https://offhrs.ap
 const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
 const supabaseAnonKey = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '').trim();
 
+/** Smoke APKs must not pull OTAs from the shared preview channel. */
+const easProfile = (process.env.EAS_BUILD_PROFILE || '').trim();
+const updatesDisabled = easProfile === 'smoke';
+
 module.exports = {
   expo: {
     ...appJson.expo,
+    updates: {
+      ...(appJson.expo.updates || {}),
+      ...(updatesDisabled ? { enabled: false } : null),
+    },
     plugins: withStripeAndroidPinPlugin(
       withStripePlugin(withAndroidSplashPlugins(appJson.expo.plugins || []))
     ),
@@ -115,6 +123,7 @@ module.exports = {
       bookApiBase,
       supabaseUrl,
       supabaseAnonKey,
+      easBuildProfile: easProfile || null,
     },
   },
 };
