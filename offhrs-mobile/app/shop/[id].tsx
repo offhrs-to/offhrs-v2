@@ -1,4 +1,5 @@
 import WorkshopsChrome from '@/components/WorkshopsChrome';
+import WorkshopRichTextContent from '@/components/WorkshopRichTextContent';
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -238,9 +239,9 @@ export default function ShopProductScreen() {
           ) : null}
 
           {product.description ? (
-            <Text style={{ fontSize: 15, color: DesignColors.charcoal, marginTop: 16, lineHeight: 22 }}>
-              {product.description}
-            </Text>
+            <View style={{ marginTop: 16 }}>
+              <WorkshopRichTextContent content={product.description} contentWidthPadding={48} />
+            </View>
           ) : null}
 
           {isPurchasable ? (

@@ -4,9 +4,13 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { WorkshopRichTextField } from '@/components/WorkshopRichTextField'
 import { SHOP_CATEGORIES, type ShopCategory } from '@/lib/shop/categories'
 import { SHOP_DEFAULT_SHIP_BY_BUSINESS_DAYS } from '@/lib/shop/fees'
+import {
+  workshopRichTextPlainLength,
+  WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH,
+} from '@/lib/workshop-rich-text'
 
 export type ShopProductFormValues = {
   id?: string
@@ -112,6 +116,11 @@ export function ProductForm({
       setSaving(false)
       return
     }
+    if (workshopRichTextPlainLength(values.description) > WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH) {
+      setError(`Description must be ${WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH} characters or less.`)
+      setSaving(false)
+      return
+    }
     try {
       const payload = { ...values, status }
       const url = values.id
@@ -170,12 +179,11 @@ export function ProductForm({
         </div>
         <div className="sm:col-span-2 space-y-1.5">
           <Label htmlFor="description">Description</Label>
-          <Textarea
-            id="description"
+          <WorkshopRichTextField
             value={values.description}
-            onChange={(e) => set('description', e.target.value)}
-            rows={4}
-            maxLength={6000}
+            onChange={(v) => set('description', v)}
+            placeholder="Materials, size notes, care instructions…"
+            rows={5}
           />
         </div>
         <div className="space-y-1.5">

@@ -1,10 +1,37 @@
 import { z } from 'zod'
 import { SHOP_CATEGORY_ENUM } from '@/lib/shop/categories'
 import { SHOP_DEFAULT_SHIP_BY_BUSINESS_DAYS } from '@/lib/shop/fees'
+import {
+  sanitizeWorkshopHtml,
+  workshopRichTextPlainLength,
+  WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH,
+} from '@/lib/workshop-rich-text'
 
 export const shopProductWriteSchema = z.object({
   title: z.string().min(2).max(120),
-  description: z.string().max(6000).optional().nullable(),
+  description: z
+    .string()
+    .max(6000)
+    .optional()
+    .nullable()
+    .transform((value, ctx) => {
+      if (value == null || value === '') return null
+      try {
+        const sanitized = sanitizeWorkshopHtml(value)
+        if (!sanitized) return null
+        if (workshopRichTextPlainLength(sanitized) > WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH) {
+          ctx.addIssue({
+            code: 'custom',
+            message: `Description must be ${WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH} characters or less`,
+          })
+          return z.NEVER
+        }
+        return sanitized
+      } catch {
+        ctx.addIssue({ code: 'custom', message: 'Invalid description formatting' })
+        return z.NEVER
+      }
+    }),
   category: z.enum(SHOP_CATEGORY_ENUM),
   price_cad: z.number().min(0).max(100000),
   quantity: z.number().int().min(0).max(100000),
