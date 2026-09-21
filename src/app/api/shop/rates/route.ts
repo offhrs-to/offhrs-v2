@@ -82,8 +82,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isShippoConfigured()) {
+      console.error(
+        'shop rates: SHIPPO_API_KEY is not set in this environment (Production needs the same secret as Preview)'
+      )
       return NextResponse.json(
-        { error: 'Shipping rates are temporarily unavailable. Try again later.' },
+        {
+          error:
+            'Shipping rates are not configured on this server. Add SHIPPO_API_KEY to Vercel Production and redeploy.',
+        },
         { status: 503 }
       )
     }
