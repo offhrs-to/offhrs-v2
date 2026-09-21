@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { normalizePartnerSessionCategory, primaryVendorCategory } from '@/constants/categories'
 import { shopifyAdminGraphql, shopifyGidToNumericId } from './admin-client'
 import {
   OFFHRS_METAFIELD_BOOK_URL,
@@ -21,9 +22,11 @@ import {
 } from './parse-session-start'
 import {
   getValidShopAccessToken,
+  isProductPublishedToOffhrsChannel,
   loadShopifyShopByDomain,
   type ShopifyShopRow,
 } from './sync-workshops'
+import { ensureStorefrontAccessToken, resolveShopifyBookUrl } from './cart-permalink'
 import { shopifyBillingAllowsSync } from './billing'
 import {
   parseShopifyProductUrl,
@@ -88,6 +91,8 @@ export type ConnectedDeepExtras = {
   billingStatus: string | null
   partnerLocation: string | null
   productStatus: string
+  publishedToChannel: boolean
+  channelGid: string | null
   offhrsMetafields: MetafieldPreview[]
   allMetafields: MetafieldPreview[]
   suggestedStartMetafields: MetafieldPreview[]
@@ -321,6 +326,8 @@ export async function analyzeConnectedShopifyProduct(
     }
   }
 
+  const previewStorefrontToken = await ensureStorefrontAccessToken(admin, shop, accessToken)
+
   let product: AdminProduct | null
   try {
     const data = await shopifyAdminGraphql<{ productByHandle: AdminProduct | null }>({
@@ -340,7 +347,7 @@ export async function analyzeConnectedShopifyProduct(
 
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('id, business_name, location_address')
+    .select('id, business_name, location_address, category')
     .eq('id', shop.vendor_id)
     .maybeSingle()
 
@@ -361,7 +368,20 @@ export async function analyzeConnectedShopifyProduct(
   const menuLike = optionNames.some(looksLikeMenuOption)
 
   const productUrl = `https://${storefrontHost}/products/${product.handle}`
-  const numericProductId = Number(shopifyGidToNumericId(product.id) ?? 0)
+  const numericProductId = shopifyGidToNumericId(product.id) ?? ''
+  const numericProductIdNum = Number(numericProductId || 0)
+
+  let publishedToChannel = false
+  if (numericProductId) {
+    try {
+      publishedToChannel = await isProductPublishedToOffhrsChannel(admin, shop, numericProductId)
+    } catch (e) {
+      console.warn(
+        '[shopify] preview publish check failed',
+        e instanceof Error ? e.message : e
+      )
+    }
+  }
 
   const sessions: SyncPreviewSession[] = (product.variants?.edges ?? []).map(({ node: variant }) => {
     const vMeta = offhrsMap(flattenMetafields(variant.metafields?.edges, 'variant'))
@@ -372,10 +392,15 @@ export async function analyzeConnectedShopifyProduct(
       productTitle: product!.title,
     })
     const variantId = shopifyGidToNumericId(variant.id) ?? variant.id
-    const bookOverride =
-      vMeta[OFFHRS_METAFIELD_BOOK_URL]?.trim() || productOffhrs[OFFHRS_METAFIELD_BOOK_URL]?.trim()
-    const bookUrl =
-      bookOverride || `https://${storefrontHost}/products/${product!.handle}?variant=${variantId}`
+    const bookUrl = resolveShopifyBookUrl({
+      shopDomain: shop.shop_domain,
+      variantId,
+      productMeta: productOffhrs,
+      variantMeta: vMeta,
+      storefrontAccessToken: previewStorefrontToken,
+      channelHandle: shop.shopify_channel_handle,
+      bookUrlMetafieldKey: OFFHRS_METAFIELD_BOOK_URL,
+    })
 
     return {
       variantId,
@@ -401,6 +426,11 @@ export async function analyzeConnectedShopifyProduct(
     shopDomain: shop.shop_domain,
   })
 
+  const category = normalizePartnerSessionCategory(
+    productOffhrs[OFFHRS_METAFIELD_CATEGORY] ??
+      primaryVendorCategory(vendor?.category as string[] | string | null | undefined)
+  )
+
   const checks: SyncPreviewCheck[] = [
     {
       id: 'connected_shop',
@@ -409,12 +439,22 @@ export async function analyzeConnectedShopifyProduct(
       detail: `${shop.shop_domain} · vendor ${vendor?.business_name ?? shop.vendor_id}`,
     },
     {
+      id: 'published_to_channel',
+      ok: publishedToChannel,
+      label: 'Published to offhrs channel',
+      detail: publishedToChannel
+        ? 'Product is published to the offhrs sales channel / app publication — included in channel Sync.'
+        : shop.shopify_channel_gid
+          ? 'Not published to offhrs. Retail/other products stay off the app until the merchant publishes this product to Sales channels → offhrs.'
+          : 'Channel connection not bootstrapped yet (no channel GID). After Connect + billing, publish products to offhrs.',
+    },
+    {
       id: 'sync_enabled',
       ok: shop.sync_enabled,
       label: 'Sync enabled',
       detail: shop.sync_enabled
         ? 'Shop has sync_enabled = true.'
-        : 'Sync is disabled on this shop row — enable in Settings after billing.',
+        : 'Sync is disabled on this shop row — enable after billing is active.',
     },
     {
       id: 'billing',
@@ -425,21 +465,23 @@ export async function analyzeConnectedShopifyProduct(
       }.`,
     },
     {
-      id: 'offhrs_tag',
-      ok: hasOffhrsTag,
-      label: `Tag \`${OFFHRS_WORKSHOP_TAG}\``,
-      detail: hasOffhrsTag
-        ? 'Product is tagged for Sync.'
-        : `Missing. Current tags: ${tags.length ? tags.join(', ') : '(none)'}.`,
-    },
-    {
       id: 'session_start',
       ok: syncable.length > 0,
       label: 'Parseable session start (Admin)',
       detail:
         syncable.length > 0
           ? `${syncable.length} of ${sessions.length} variant(s) would sync. Sources include metafields.`
-          : 'No parseable start from offhrs.starts_at, Date/Time options, or titles.',
+          : 'No parseable start from offhrs.starts_at, Date/Time options, or titles — product would be skipped even if published.',
+    },
+    {
+      id: 'offhrs_tag',
+      ok: hasOffhrsTag || publishedToChannel,
+      label: `Legacy tag \`${OFFHRS_WORKSHOP_TAG}\``,
+      detail: hasOffhrsTag
+        ? 'Tag present (legacy full-sync path). Channel Admin Sync uses publish, not this tag.'
+        : publishedToChannel
+          ? 'Tag not required when published to the offhrs channel.'
+          : `Optional. Prefer publish-to-offhrs. Current tags: ${tags.length ? tags.join(', ') : '(none)'}.`,
     },
   ]
 
@@ -458,6 +500,16 @@ export async function analyzeConnectedShopifyProduct(
   }
   if (product.status !== 'ACTIVE') {
     warnings.push(`Product status is ${product.status} — synced sessions would show as fully booked / inactive.`)
+  }
+  if (publishedToChannel && syncable.length === 0) {
+    warnings.push(
+      'Published to offhrs but no session datetime — Sync skips it and Admin ResourceFeedback asks for a date/time.'
+    )
+  }
+  if (!publishedToChannel && syncable.length > 0) {
+    warnings.push(
+      'Session times are parseable, but this product is not published to offhrs — it will not appear in the app until published (other catalog products are ignored the same way).'
+    )
   }
 
   const suggestedStartMetafields = suggestStartMetafields(allMetafields)
@@ -480,25 +532,58 @@ export async function analyzeConnectedShopifyProduct(
     )
   }
 
+  const wouldAppearOnApp =
+    publishedToChannel && syncable.length > 0 && shop.sync_enabled && billingOk
+
   let verdict: SyncPreviewVerdict = 'needs_setup'
   let summary: string
-  if (hasOffhrsTag && syncable.length > 0 && shop.sync_enabled && billingOk) {
+  if (wouldAppearOnApp) {
     verdict = 'ready'
-    summary = `Deep scan: would sync ${syncable.length} session(s) with current Admin data.`
-  } else if (hasOffhrsTag && syncable.length > 0) {
+    summary = `Would appear on offhrs as ${syncable.length} session(s) under one product card${
+      uniqueStarts.size > 1 ? ' with multiple dates' : ''
+    }.`
+  } else if (publishedToChannel && syncable.length > 0) {
     verdict = 'needs_setup'
-    summary = `Sessions are parseable (${syncable.length}), but sync_enabled/billing still need to be in place for production Sync.`
+    summary = `Published + parseable (${syncable.length} session(s)), but sync_enabled/billing still need to be active for production Sync.`
   } else if (syncable.length === 0) {
-    verdict = hasOffhrsTag ? 'blocked' : 'needs_setup'
-    summary = hasOffhrsTag
-      ? 'Tagged, but no parseable start even with Admin metafields — set offhrs.starts_at or Date options.'
-      : 'Connected shop can read the product, but tag and/or start time still need setup.'
+    verdict = publishedToChannel ? 'blocked' : 'needs_setup'
+    summary = publishedToChannel
+      ? 'Published to offhrs, but no parseable start — set offhrs.starts_at or Date options before it can appear.'
+      : 'Connected shop can read the product, but it needs publish-to-offhrs and/or a parseable session datetime.'
   } else {
     verdict = 'needs_setup'
-    summary = `Parseable starts for ${syncable.length} variant(s); finish tagging and Sync billing to go live.`
+    summary = `Parseable starts for ${syncable.length} variant(s); publish to Sales channels → offhrs (and finish billing) to go live on the app.`
   }
 
   const partnerLocation = (vendor?.location_address as string | null) ?? null
+  const uniqueStartList = [...uniqueStarts]
+  const isMultipleDates = uniqueStartList.length > 1
+  const earliestIso = uniqueStartList.slice().sort()[0]
+  const earliestDateLabel = earliestIso
+    ? new Date(earliestIso).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: 'America/Toronto',
+      })
+    : null
+
+  const firstPrice = syncable[0]?.price ?? product.variants?.edges?.[0]?.node.price ?? null
+  const priceCad = firstPrice != null ? Number.parseFloat(firstPrice) : null
+
+  const appearanceNote = wouldAppearOnApp
+    ? `Guests would see one EventCard for “${product.title}”${
+        isMultipleDates ? ` with “${earliestDateLabel} • Multiple dates”` : earliestDateLabel ? ` dated ${earliestDateLabel}` : ''
+      }. Book opens a Shopify cart permalink (not the Online Store product page).`
+    : !publishedToChannel
+      ? 'Would not appear — not published to the offhrs channel (same gate that keeps regular retail products off the app).'
+      : syncable.length === 0
+        ? 'Would not appear — published but no parseable session datetime.'
+        : !billingOk || !shop.sync_enabled
+          ? 'Would not appear in production until Sync billing is active and sync is enabled.'
+          : 'Would not appear with current setup.'
+
   const demo: SyncPreviewDemoCard = {
     title: product.title,
     description: stripHtml(product.descriptionHtml),
@@ -507,14 +592,20 @@ export async function analyzeConnectedShopifyProduct(
     locationNote: partnerLocation
       ? `Partner profile location: ${partnerLocation}`
       : 'No partner profile location set — map pin would be empty until they add an address.',
-    priceLabel: syncable[0]?.price != null ? `$${syncable[0].price}` : product.variants?.edges?.[0]?.node.price
-      ? `From $${product.variants.edges[0].node.price}`
-      : null,
+    locationLabel: partnerLocation?.trim() || 'Location TBD',
+    priceLabel: firstPrice != null ? `$${firstPrice}` : null,
+    priceCad: Number.isFinite(priceCad) ? priceCad : null,
     bookUrl: syncable[0]?.bookUrl ?? productUrl,
     sessionTimes: syncable
       .map((s) => (s.start.startsAt ? formatTorontoLabel(s.start.startsAt) : null))
       .filter((x): x is string => Boolean(x)),
     sessionCount: syncable.length,
+    category,
+    earliestDateLabel,
+    isMultipleDates,
+    wouldAppearOnApp,
+    appearanceNote,
+    bookingCta: 'Book',
   }
 
   const deep: ConnectedDeepExtras = {
@@ -526,6 +617,8 @@ export async function analyzeConnectedShopifyProduct(
     billingStatus: shop.billing_status ?? null,
     partnerLocation,
     productStatus: product.status,
+    publishedToChannel,
+    channelGid: shop.shopify_channel_gid ?? null,
     offhrsMetafields,
     allMetafields: allMetafields.slice(0, 80),
     suggestedStartMetafields,
@@ -541,7 +634,7 @@ export async function analyzeConnectedShopifyProduct(
     productUrl,
     handle: product.handle,
     product: {
-      id: numericProductId || 0,
+      id: numericProductIdNum || 0,
       title: product.title,
       vendor: product.vendor,
       productType: product.productType,
@@ -557,7 +650,8 @@ export async function analyzeConnectedShopifyProduct(
     demo,
     themeHints: null,
     limitations: [
-      'Deep scan uses Admin API (metafields, inventory, status) for a connected install.',
+      'Deep scan uses Admin API (publication, metafields, inventory, status) for a connected install.',
+      'Only products published to offhrs with a parseable session datetime appear in the app.',
       'Still does not write to the database.',
       `Known offhrs keys: ${OFFHRS_METAFIELD_STARTS_AT}, ${OFFHRS_METAFIELD_BOOK_URL}, ${OFFHRS_METAFIELD_CAPACITY}, ${OFFHRS_METAFIELD_DURATION}, ${OFFHRS_METAFIELD_CATEGORY}.`,
     ],

@@ -10,6 +10,8 @@ import {
   MapPin,
   XCircle,
   AlertTriangle,
+  Calendar,
+  DollarSign,
 } from 'lucide-react'
 import { adminFetch } from '@/lib/admin-fetch'
 import type { ConnectedShopListItem, ConnectedSyncPreviewResult } from '@/lib/shopify/preview-connected-product'
@@ -121,8 +123,9 @@ export default function ShopifySyncPreviewPage() {
         <header className="space-y-2">
           <h1 className="font-playfair text-3xl font-bold tracking-tight">Shopify Sync preview</h1>
           <p className="text-sm text-[#555] max-w-2xl leading-relaxed">
-            Public scan works on any Online Store product URL. Connected deep scan uses the
-            partner&apos;s Admin API token (metafields, inventory, billing).
+            Paste a Shopify product URL to see whether Sync would list it on offhrs, and how the
+            EventCard would look. Only products <em>published to the offhrs channel</em> with a
+            parseable session datetime appear — other catalog items stay off the app.
           </p>
         </header>
 
@@ -403,10 +406,31 @@ export default function ShopifySyncPreviewPage() {
 
               <section className="space-y-4">
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-[#888]">
-                  Demo card (approx.)
+                  How it would show on offhrs
                 </h2>
-                <div className="rounded-2xl overflow-hidden border border-[#E8E4DE] bg-white shadow-sm max-w-md">
-                  <div className="aspect-[4/3] bg-[#F0EDE8] relative">
+
+                <div
+                  className={`rounded-lg border px-3 py-2 text-xs leading-relaxed ${
+                    result.demo.wouldAppearOnApp
+                      ? 'border-green-200 bg-green-50 text-green-900'
+                      : 'border-amber-200 bg-amber-50 text-amber-950'
+                  }`}
+                >
+                  {result.demo.wouldAppearOnApp ? (
+                    <span className="font-semibold">Would appear in the app feed. </span>
+                  ) : (
+                    <span className="font-semibold">Would not appear yet. </span>
+                  )}
+                  {result.demo.appearanceNote}
+                </div>
+
+                {/* Mirrors src/components/event-card.tsx layout */}
+                <div
+                  className={`bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden flex flex-col max-w-sm ${
+                    result.demo.wouldAppearOnApp ? '' : 'opacity-60'
+                  }`}
+                >
+                  <div className="relative h-36 w-full overflow-hidden bg-gray-100">
                     {result.demo.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -419,63 +443,98 @@ export default function ShopifySyncPreviewPage() {
                         No image
                       </div>
                     )}
-                  </div>
-                  <div className="p-4 space-y-3">
-                    <div>
-                      <p className="text-[11px] uppercase tracking-wide text-[#5D755D] font-semibold">
-                        {result.demo.organizer ?? 'Partner'}
-                      </p>
-                      <h3 className="font-playfair text-xl font-bold leading-snug mt-0.5">
-                        {result.demo.title}
-                      </h3>
-                    </div>
-                    {result.demo.sessionTimes.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {result.demo.sessionTimes.slice(0, 6).map((t) => (
-                          <span
-                            key={t}
-                            className="rounded-full bg-[#EDF2ED] px-2.5 py-1 text-[11px] font-medium text-[#5D755D]"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                        {result.demo.sessionTimes.length > 6 && (
-                          <span className="text-[11px] text-[#888]">
-                            +{result.demo.sessionTimes.length - 6} more
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                        No session times Sync can parse yet — card would not appear until start is
-                        set.
-                      </p>
-                    )}
-                    <p className="text-xs text-[#555] flex gap-1.5 leading-relaxed">
-                      <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-[#5D755D]" />
-                      {result.demo.locationNote}
-                    </p>
-                    {result.demo.description && (
-                      <p className="text-xs text-[#555] leading-relaxed line-clamp-4">
-                        {result.demo.description}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between gap-3 pt-1">
-                      <span className="text-sm font-semibold">
-                        {result.demo.priceLabel ?? '—'}
+                    <div className="absolute top-2 left-2">
+                      <span className="bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-full text-[10px] font-semibold text-gray-700 shadow-sm">
+                        {result.demo.category}
                       </span>
+                    </div>
+                  </div>
+                  <div className="p-4 flex flex-col flex-grow">
+                    <h3 className="font-bold text-base text-gray-900 mb-1.5 line-clamp-1">
+                      {result.demo.title}
+                    </h3>
+                    <div className="space-y-1.5 mb-3 text-xs text-gray-600">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-[#5D755D] shrink-0" />
+                        <span
+                          className={
+                            result.demo.isMultipleDates ? 'font-medium text-[#5D755D]' : ''
+                          }
+                        >
+                          {result.demo.earliestDateLabel
+                            ? result.demo.isMultipleDates
+                              ? `${result.demo.earliestDateLabel} • Multiple dates`
+                              : result.demo.earliestDateLabel
+                            : 'Date TBD'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <span className="line-clamp-1">{result.demo.locationLabel}</span>
+                      </div>
+                      {result.demo.priceCad != null && (
+                        <div className="flex items-center gap-1.5">
+                          <DollarSign className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          <span className="font-medium text-gray-900">${result.demo.priceCad}</span>
+                        </div>
+                      )}
+                    </div>
+                    {result.demo.organizer && (
+                      <p className="text-[10px] text-[#5D755D] mb-1.5">
+                        {result.demo.organizer}
+                      </p>
+                    )}
+                    <div className="mt-auto pt-3 border-t border-gray-50">
+                      <p className="text-[10px] text-gray-400 mb-1.5">
+                        Opens Shopify checkout (cart permalink)
+                      </p>
                       <a
                         href={result.demo.bookUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#5D755D] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#4d634d]"
+                        className="w-full bg-black hover:bg-gray-800 text-white font-medium py-2 px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5"
                       >
-                        Book on Shopify
-                        <ExternalLink className="h-3.5 w-3.5" />
+                        {result.demo.bookingCta}
+                        <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     </div>
                   </div>
                 </div>
+
+                {result.demo.sessionTimes.length > 1 && (
+                  <div className="rounded-xl border border-[#E8E4DE] bg-white px-4 py-3 space-y-2 max-w-sm">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-[#888]">
+                      Session times (grouped under one card)
+                    </h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {result.demo.sessionTimes.slice(0, 8).map((t) => (
+                        <span
+                          key={t}
+                          className="rounded-full bg-[#EDF2ED] px-2.5 py-1 text-[11px] font-medium text-[#5D755D]"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                      {result.demo.sessionTimes.length > 8 && (
+                        <span className="text-[11px] text-[#888]">
+                          +{result.demo.sessionTimes.length - 8} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {deep && (
+                  <p className="text-[11px] text-[#888] max-w-sm leading-relaxed">
+                    Publish status:{' '}
+                    {deep.publishedToChannel ? (
+                      <span className="text-green-700 font-medium">on offhrs channel</span>
+                    ) : (
+                      <span className="text-amber-800 font-medium">not published to offhrs</span>
+                    )}
+                    {deep.channelGid ? '' : ' · channel not bootstrapped'}
+                  </p>
+                )}
 
                 <ul className="text-[11px] text-[#888] space-y-1.5 list-disc pl-4">
                   {result.limitations.map((l) => (

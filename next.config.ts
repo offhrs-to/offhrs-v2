@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
+    // frame-ancestors is set in src/proxy.ts (one CSP only — duplicate policies
+    // intersect, so 'none' + Shopify allowlist blocked Admin embedding in Firefox).
     return [
       {
         source: '/:path*',
@@ -27,7 +29,6 @@ const nextConfig: NextConfig = {
             value: 'max-age=63072000; includeSubDomains; preload',
           },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         ],
       },
@@ -36,4 +37,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-

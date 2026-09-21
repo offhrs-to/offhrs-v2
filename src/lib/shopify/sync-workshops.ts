@@ -19,6 +19,7 @@ import {
   OFFHRS_METAFIELD_STARTS_AT,
   OFFHRS_WORKSHOP_TAG,
 } from './conventions'
+import { resolveShopifyBookUrl, ensureStorefrontAccessToken } from './cart-permalink'
 import { resolveShopifySessionStart } from './parse-session-start'
 
 type Admin = SupabaseClient
@@ -40,6 +41,7 @@ type ProductNode = {
   title: string
   handle: string
   status: string
+  updatedAt: string | null
   descriptionHtml: string | null
   tags: string[]
   featuredImage: { url: string } | null
@@ -69,20 +71,6 @@ function stripHtml(html: string | null | undefined): string | null {
     .slice(0, 8000) || null
 }
 
-function resolveBookUrl(opts: {
-  shop: string
-  handle: string
-  variantId: string
-  productMeta: Record<string, string>
-  variantMeta: Record<string, string>
-}): string {
-  const override =
-    opts.variantMeta[OFFHRS_METAFIELD_BOOK_URL]?.trim() ||
-    opts.productMeta[OFFHRS_METAFIELD_BOOK_URL]?.trim()
-  if (override) return override
-  return `https://${opts.shop}/products/${opts.handle}?variant=${opts.variantId}`
-}
-
 export type ShopifyShopRow = {
   id: string
   vendor_id: string
@@ -95,10 +83,13 @@ export type ShopifyShopRow = {
   billing_status?: string | null
   app_subscription_gid?: string | null
   scope?: string | null
+  shopify_channel_gid?: string | null
+  shopify_channel_handle?: string | null
+  storefront_access_token_encrypted?: string | null
 }
 
 const SHOP_TOKEN_SELECT =
-  'id, vendor_id, shop_domain, access_token_encrypted, refresh_token_encrypted, access_token_expires_at, refresh_token_expires_at, sync_enabled, billing_status, app_subscription_gid, scope'
+  'id, vendor_id, shop_domain, access_token_encrypted, refresh_token_encrypted, access_token_expires_at, refresh_token_expires_at, sync_enabled, billing_status, app_subscription_gid, scope, shopify_channel_gid, shopify_channel_handle, storefront_access_token_encrypted'
 
 /** Refresh access token ~2 minutes before expiry. */
 const ACCESS_TOKEN_REFRESH_SKEW_MS = 2 * 60 * 1000
@@ -265,6 +256,7 @@ const PRODUCT_BY_ID_QUERY = `
       title
       handle
       status
+      updatedAt
       descriptionHtml
       tags
       featuredImage { url }
@@ -290,6 +282,151 @@ const PRODUCT_BY_ID_QUERY = `
   }
 `
 
+/** True when the product is published to this app's publication (or listed on the offhrs channel). */
+const PRODUCT_PUBLISHED_TO_APP_QUERY = `
+  query OffhrsProductPublishedToApp($id: ID!) {
+    currentAppInstallation {
+      publication { id }
+    }
+    product(id: $id) {
+      id
+      publishedOnCurrentPublication
+    }
+  }
+`
+
+const PRODUCT_ON_CHANNEL_QUERY = `
+  query OffhrsProductOnChannel($channelId: ID!, $cursor: String) {
+    channel(id: $channelId) {
+      products(first: 50, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        edges { node { id } }
+      }
+    }
+  }
+`
+
+/**
+ * Whether a product is published to offhrs for this shop (app publication and/or channel catalog).
+ */
+export async function isProductPublishedToOffhrsChannel(
+  admin: Admin,
+  shopRow: ShopifyShopRow,
+  productNumericId: string
+): Promise<boolean> {
+  const token = await getValidShopAccessToken(admin, shopRow)
+  const productGid = `gid://shopify/Product/${productNumericId}`
+
+  try {
+    const data = await shopifyAdminGraphql<{
+      currentAppInstallation: { publication: { id: string } | null } | null
+      product: { id: string; publishedOnCurrentPublication: boolean } | null
+    }>({
+      shop: shopRow.shop_domain,
+      accessToken: token,
+      query: PRODUCT_PUBLISHED_TO_APP_QUERY,
+      variables: { id: productGid },
+    })
+
+    if (data.product?.publishedOnCurrentPublication) return true
+
+    const publicationId = data.currentAppInstallation?.publication?.id
+    if (publicationId) {
+      const pubCheck = await shopifyAdminGraphql<{
+        product: { publishedOnPublication: boolean } | null
+      }>({
+        shop: shopRow.shop_domain,
+        accessToken: token,
+        query: `
+          query OffhrsPublishedOnPublication($id: ID!, $publicationId: ID!) {
+            product(id: $id) {
+              publishedOnPublication(publicationId: $publicationId)
+            }
+          }
+        `,
+        variables: { id: productGid, publicationId },
+      })
+      if (pubCheck.product?.publishedOnPublication) return true
+    }
+  } catch (e) {
+    console.warn(
+      '[shopify] publishedOnPublication check failed',
+      e instanceof Error ? e.message : e
+    )
+  }
+
+  if (!shopRow.shopify_channel_gid) return false
+
+  try {
+    let cursor: string | null = null
+    type ChannelProductsPage = {
+      channel: {
+        products: {
+          pageInfo: { hasNextPage: boolean; endCursor: string | null }
+          edges: Array<{ node: { id: string } }>
+        }
+      } | null
+    }
+    for (let page = 0; page < 20; page++) {
+      const data: ChannelProductsPage = await shopifyAdminGraphql<ChannelProductsPage>({
+        shop: shopRow.shop_domain,
+        accessToken: token,
+        query: PRODUCT_ON_CHANNEL_QUERY,
+        variables: { channelId: shopRow.shopify_channel_gid, cursor },
+      })
+      const conn = data.channel?.products
+      if (!conn) break
+      if (conn.edges.some((edge) => shopifyGidToNumericId(edge.node.id) === productNumericId)) {
+        return true
+      }
+      if (!conn.pageInfo.hasNextPage) break
+      cursor = conn.pageInfo.endCursor
+    }
+  } catch (e) {
+    console.warn('[shopify] channel product scan failed', e instanceof Error ? e.message : e)
+  }
+
+  return false
+}
+
+/**
+ * products/create|update webhook path: respect channel publish state when connected.
+ * - Channel connected: sync only if published to offhrs; otherwise archive.
+ * - No channel yet: legacy tag gate.
+ */
+export async function syncShopifyProductFromAdminWebhook(
+  admin: Admin,
+  shopRow: ShopifyShopRow,
+  productNumericId: string
+): Promise<SyncResult & { reason?: string }> {
+  if (shopRow.shopify_channel_gid) {
+    const published = await isProductPublishedToOffhrsChannel(admin, shopRow, productNumericId)
+    if (!published) {
+      const archived = await archiveShopifyProductEvents(
+        admin,
+        shopRow.vendor_id,
+        productNumericId
+      )
+      return {
+        products: 1,
+        upserted: 0,
+        skipped: 0,
+        archived,
+        reason: 'not_published_to_offhrs',
+      }
+    }
+    return syncShopifyProductByNumericId(admin, shopRow, productNumericId, {
+      requireWorkshopTag: false,
+      submitFeedback: true,
+    })
+  }
+
+  return syncShopifyProductByNumericId(admin, shopRow, productNumericId, {
+    requireWorkshopTag: true,
+    submitFeedback: false,
+  })
+}
+
 async function fetchVendorContext(admin: Admin, vendorId: string) {
   const { data: vendor } = await admin
     .from('vendor_profiles')
@@ -308,6 +445,8 @@ async function upsertVariantEvent(
     shopDomain: string
     product: ProductNode
     variant: VariantNode
+    storefrontAccessToken?: string | null
+    channelHandle?: string | null
   }
 ): Promise<'upserted' | 'skipped'> {
   const productMeta = metafieldMap(opts.product.metafields?.edges)
@@ -349,12 +488,14 @@ async function upsertVariantEvent(
   )
 
   const priceCad = Number.parseFloat(opts.variant.price || '0') || 0
-  const externalLink = resolveBookUrl({
-    shop: opts.shopDomain,
-    handle: opts.product.handle,
+  const externalLink = resolveShopifyBookUrl({
+    shopDomain: opts.shopDomain,
     variantId,
     productMeta,
     variantMeta,
+    storefrontAccessToken: opts.storefrontAccessToken,
+    channelHandle: opts.channelHandle,
+    bookUrlMetafieldKey: OFFHRS_METAFIELD_BOOK_URL,
   })
 
   const productActive = opts.product.status === 'ACTIVE'
@@ -469,6 +610,7 @@ export async function syncShopifyWorkshopsForShop(
   }
 
   const token = await getValidShopAccessToken(admin, shopRow)
+  const storefrontAccessToken = await ensureStorefrontAccessToken(admin, shopRow, token)
   const vendor = await fetchVendorContext(admin, shopRow.vendor_id)
   if (!vendor) throw new Error('Vendor not found for Shopify shop')
 
@@ -509,6 +651,8 @@ export async function syncShopifyWorkshopsForShop(
           shopDomain: shopRow.shop_domain,
           product,
           variant,
+          storefrontAccessToken,
+          channelHandle: shopRow.shopify_channel_handle,
         })
         if (result === 'upserted' && variantId) {
           keepVariantIds.add(variantId)
@@ -523,7 +667,9 @@ export async function syncShopifyWorkshopsForShop(
     cursor = data.products.pageInfo.endCursor
   }
 
-  const archived = await archiveMissingVariants(admin, shopRow.vendor_id, keepVariantIds)
+  const archived = keepVariantIds.size > 0
+    ? await archiveMissingVariants(admin, shopRow.vendor_id, keepVariantIds)
+    : 0
 
   await admin
     .from('vendor_shopify_shops')
@@ -533,13 +679,220 @@ export async function syncShopifyWorkshopsForShop(
   return { products, upserted, skipped, archived }
 }
 
-/** Re-sync a single Shopify product (webhook). Archives variants if untagged/deleted. */
+const CHANNEL_PRODUCTS_QUERY = `
+  query OffhrsChannelProducts($channelId: ID!, $cursor: String) {
+    channel(id: $channelId) {
+      id
+      productsCount { count }
+      products(first: 50, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        edges {
+          node { id title }
+        }
+      }
+    }
+  }
+`
+
+const PUBLISHED_ON_APP_PRODUCTS_QUERY = `
+  query OffhrsPublishedOnApp($cursor: String) {
+    products(first: 50, after: $cursor, query: "status:active") {
+      pageInfo { hasNextPage endCursor }
+      edges {
+        node {
+          id
+          title
+          publishedOnCurrentPublication
+        }
+      }
+    }
+  }
+`
+
+type ChannelProductConnection = {
+  pageInfo: { hasNextPage: boolean; endCursor: string | null }
+  edges: Array<{ node: { id: string; title?: string | null } }>
+}
+
+type ChannelProductsQueryData = {
+  channel: {
+    productsCount?: { count: number } | null
+    products: ChannelProductConnection
+  } | null
+}
+
+/**
+ * Pull products published to the offhrs Channel / app publication and upsert sessions.
+ * Does not require the legacy offhrs_workshop tag (Phase 2 publish model).
+ */
+export async function syncPublishedChannelProductsForShop(
+  admin: Admin,
+  shopRow: ShopifyShopRow
+): Promise<
+  SyncResult & {
+    channel_product_ids: number
+    channel_products_count: number | null
+    app_publication_product_ids: number
+    sample_titles: string[]
+    total_product_ids: number
+  }
+> {
+  const empty = {
+    products: 0,
+    upserted: 0,
+    skipped: 0,
+    archived: 0,
+    channel_product_ids: 0,
+    channel_products_count: null as number | null,
+    app_publication_product_ids: 0,
+    total_product_ids: 0,
+    sample_titles: [] as string[],
+  }
+  if (!shopRow.sync_enabled) {
+    return empty
+  }
+
+  const token = await getValidShopAccessToken(admin, shopRow)
+  await ensureStorefrontAccessToken(admin, shopRow, token)
+  const productIds = new Set<string>()
+  const sampleTitles: string[] = []
+  let channelProductsCount: number | null = null
+  let channelProductIds = 0
+  let appPublicationProductIds = 0
+
+  // 1) Products on the Channel connection (multi-channel model)
+  if (shopRow.shopify_channel_gid) {
+    let cursor: string | null = null
+    let hasNext = true
+    while (hasNext) {
+      const data: ChannelProductsQueryData = await shopifyAdminGraphql<ChannelProductsQueryData>({
+        shop: shopRow.shop_domain,
+        accessToken: token,
+        query: CHANNEL_PRODUCTS_QUERY,
+        variables: { channelId: shopRow.shopify_channel_gid, cursor },
+      })
+
+      if (data.channel?.productsCount?.count != null) {
+        channelProductsCount = data.channel.productsCount.count
+      }
+
+      const page = data.channel?.products
+      if (!page) break
+
+      for (const edge of page.edges) {
+        const numericId = shopifyGidToNumericId(edge.node.id)
+        if (numericId) {
+          productIds.add(numericId)
+          channelProductIds += 1
+          if (edge.node.title && sampleTitles.length < 5) sampleTitles.push(edge.node.title)
+        }
+      }
+
+      hasNext = page.pageInfo.hasNextPage
+      cursor = page.pageInfo.endCursor
+    }
+  }
+
+  // 2) Fallback: products published to this app's publication
+  type AppPublishedProductsData = {
+    products: {
+      pageInfo: { hasNextPage: boolean; endCursor: string | null }
+      edges: Array<{
+        node: { id: string; title: string; publishedOnCurrentPublication: boolean }
+      }>
+    }
+  }
+  {
+    let cursor: string | null = null
+    let hasNext = true
+    while (hasNext) {
+      const data: AppPublishedProductsData = await shopifyAdminGraphql<AppPublishedProductsData>({
+        shop: shopRow.shop_domain,
+        accessToken: token,
+        query: PUBLISHED_ON_APP_PRODUCTS_QUERY,
+        variables: { cursor },
+      })
+
+      for (const edge of data.products.edges) {
+        if (!edge.node.publishedOnCurrentPublication) continue
+        const numericId = shopifyGidToNumericId(edge.node.id)
+        if (numericId) {
+          const before = productIds.size
+          productIds.add(numericId)
+          if (productIds.size > before) appPublicationProductIds += 1
+          if (edge.node.title && sampleTitles.length < 5) sampleTitles.push(edge.node.title)
+        }
+      }
+
+      hasNext = data.products.pageInfo.hasNextPage
+      cursor = data.products.pageInfo.endCursor
+      // Cap pages for Sync button responsiveness
+      if (productIds.size > 200) break
+    }
+  }
+
+  console.info('[shopify] published pull', {
+    shop: shopRow.shop_domain,
+    channelGid: shopRow.shopify_channel_gid,
+    channelProductsCount,
+    channelProductIds,
+    appPublicationProductIds,
+    total: productIds.size,
+    sampleTitles,
+  })
+
+  let products = 0
+  let upserted = 0
+  let skipped = 0
+  let archived = 0
+
+  for (const productId of productIds) {
+    const result = await syncShopifyProductByNumericId(admin, shopRow, productId, {
+      requireWorkshopTag: false,
+      submitFeedback: true,
+    })
+    products += result.products
+    upserted += result.upserted
+    skipped += result.skipped
+    archived += result.archived
+  }
+
+  await admin
+    .from('vendor_shopify_shops')
+    .update({ last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', shopRow.id)
+
+  return {
+    products,
+    upserted,
+    skipped,
+    archived,
+    channel_product_ids: channelProductIds,
+    channel_products_count: channelProductsCount,
+    app_publication_product_ids: appPublicationProductIds,
+    total_product_ids: productIds.size,
+    sample_titles: sampleTitles,
+  }
+}
+
+export type SyncProductOptions = {
+  /** When false (product feeds), skip the legacy offhrs_workshop tag gate. */
+  requireWorkshopTag?: boolean
+  /** Push ResourceFeedback for missing session datetime / accepted state. */
+  submitFeedback?: boolean
+}
+
+/** Re-sync a single Shopify product (webhook / feed). Archives variants if rejected. */
 export async function syncShopifyProductByNumericId(
   admin: Admin,
   shopRow: ShopifyShopRow,
-  productNumericId: string
+  productNumericId: string,
+  options?: SyncProductOptions
 ): Promise<SyncResult> {
+  const requireWorkshopTag = options?.requireWorkshopTag !== false
+  const submitFeedback = options?.submitFeedback === true
   const token = await getValidShopAccessToken(admin, shopRow)
+  const storefrontAccessToken = await ensureStorefrontAccessToken(admin, shopRow, token)
   const vendor = await fetchVendorContext(admin, shopRow.vendor_id)
   if (!vendor) throw new Error('Vendor not found')
 
@@ -555,11 +908,14 @@ export async function syncShopifyProductByNumericId(
   const keepVariantIds = new Set<string>()
   let upserted = 0
   let skipped = 0
+  let skippedNoStart = 0
 
-  if (
-    product &&
-    product.tags?.map((t) => t.toLowerCase()).includes(OFFHRS_WORKSHOP_TAG.toLowerCase())
-  ) {
+  const tagged =
+    product?.tags?.map((t) => t.toLowerCase()).includes(OFFHRS_WORKSHOP_TAG.toLowerCase()) ??
+    false
+  const eligible = Boolean(product) && (!requireWorkshopTag || tagged)
+
+  if (product && eligible) {
     for (const vEdge of product.variants.edges) {
       const variant = vEdge.node
       const variantId = shopifyGidToNumericId(variant.id)
@@ -568,12 +924,15 @@ export async function syncShopifyProductByNumericId(
         shopDomain: shopRow.shop_domain,
         product,
         variant,
+        storefrontAccessToken,
+        channelHandle: shopRow.shopify_channel_handle,
       })
       if (result === 'upserted' && variantId) {
         keepVariantIds.add(variantId)
         upserted += 1
       } else {
         skipped += 1
+        skippedNoStart += 1
       }
     }
   }
@@ -596,6 +955,35 @@ export async function syncShopifyProductByNumericId(
       .update({ booking_status: 'archived', available_slots: 0 })
       .eq('id', row.id)
     if (!error) archived += 1
+  }
+
+  if (submitFeedback && product) {
+    try {
+      const { submitProductResourceFeedback } = await import('./resource-feedback')
+      const productUpdatedAt = product.updatedAt || new Date().toISOString()
+      if (eligible && upserted > 0) {
+        await submitProductResourceFeedback({
+          shop: shopRow.shop_domain,
+          accessToken: token,
+          productGid: product.id,
+          productUpdatedAt,
+          state: 'ACCEPTED',
+        })
+      } else if (eligible && skippedNoStart > 0 && upserted === 0) {
+        await submitProductResourceFeedback({
+          shop: shopRow.shop_domain,
+          accessToken: token,
+          productGid: product.id,
+          productUpdatedAt,
+          state: 'REQUIRES_ACTION',
+          messages: [
+            'Add a session date/time: set metafield offhrs.starts_at, or use a Date option / title Shopify can parse (America/Toronto).',
+          ],
+        })
+      }
+    } catch (e) {
+      console.error('[shopify] resource feedback', e)
+    }
   }
 
   return { products: product ? 1 : 0, upserted, skipped, archived }
@@ -745,6 +1133,11 @@ const WEBHOOK_GRAPHQL_TOPICS = [
   'INVENTORY_LEVELS_UPDATE',
   'APP_SUBSCRIPTIONS_UPDATE',
   'APP_UNINSTALLED',
+  // Phase 2 — Contextual Product Feeds
+  'PRODUCT_FEEDS_FULL_SYNC',
+  'PRODUCT_FEEDS_INCREMENTAL_SYNC',
+  'PRODUCT_FEEDS_FULL_SYNC_FINISH',
+  'PRODUCT_FEEDS_UPDATE',
 ] as const
 
 const WEBHOOK_SUBSCRIPTIONS_QUERY = `

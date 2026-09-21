@@ -16,7 +16,7 @@ export type PartnerPlanTier = keyof typeof PARTNER_PLAN_MONTHLY_CAD
 export { SHOP_PLATFORM_FEE_BPS } from '@/lib/shop/fees'
 
 /** Standalone Shopify Sync plan — Shopify App Pricing (handle: offhrs-sync), not Stripe. */
-export const SHOPIFY_SYNC_MONTHLY_CAD = 39
+export const SHOPIFY_SYNC_MONTHLY_CAD = 29
 export const SHOPIFY_SYNC_PLAN_NAME = 'Shopify Sync'
 /** Must match Partners → public plan “Internal plan handle”. */
 export const SHOPIFY_SYNC_PLAN_HANDLE = 'offhrs-sync'

@@ -2,11 +2,13 @@ import './globals.css'
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import Script from 'next/script'
+import { headers } from 'next/headers'
 import Footer from '@/components/footer'
 import { SocialLinksBar } from '@/components/social-links-bar'
 import { AuthProviderWrapper } from '@/components/auth-provider'
 import { SupabaseConfigBanner } from '@/components/supabase-config-banner'
 import { getSiteUrl } from '@/lib/site'
+import { shopifyApiKey } from '@/lib/shopify/admin-client'
 
 const META_PIXEL_ID = '1674304227024425'
 
@@ -46,12 +48,31 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const headerList = await headers()
+  const isShopifyAdmin = headerList.get('x-offhrs-shopify-admin') === '1'
+  const shopifyKey = shopifyApiKey() ?? ''
+
+  if (isShopifyAdmin) {
+    const key = shopifyKey || '93ac1547c426534f421ce570acb3bc9d'
+    return (
+      <html lang="en">
+        <head>
+          {/* Meta MUST precede app-bridge.js or idToken() hangs forever. */}
+          <meta name="shopify-api-key" content={key} />
+          {/* Native blocking script — Next.js beforeInteractive can race the meta tag. */}
+          {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+          <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" />
+        </head>
+        <body style={{ margin: 0, background: '#f6f6f7' }}>{children}</body>
+      </html>
+    )
+  }
 
   return (
     <html lang="en">

@@ -10,6 +10,10 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { shopifyAdminEmbeddedAppUrl } from '@/lib/shopify/channel-home'
+
+const OFFHRS_SHOPIFY_API_KEY =
+  process.env.NEXT_PUBLIC_SHOPIFY_API_KEY?.trim() || '93ac1547c426534f421ce570acb3bc9d'
 
 type ShopifyStatus =
   | {
@@ -121,9 +125,6 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
 
   // Shopify workshop feed
   const [shopifyStatus, setShopifyStatus] = useState<ShopifyStatus | null>(null)
-  const [shopifySyncLoading, setShopifySyncLoading] = useState(false)
-  const [shopifyDisconnectLoading, setShopifyDisconnectLoading] = useState(false)
-  const [shopifySubscribeLoading, setShopifySubscribeLoading] = useState(false)
   const [shopifyMsg, setShopifyMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   // Account deletion
@@ -157,12 +158,12 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
     } else if (billing === 'active') {
       setShopifyMsg({
         type: 'success',
-        text: 'Shopify Sync plan active. Tagged workshop products will sync into the offhrs app.',
+        text: 'Shopify Sync plan active. Publish workshop products to offhrs from Sales channels.',
       })
     } else if (billing === 'declined') {
       setShopifyMsg({
         type: 'error',
-        text: 'Shopify Sync charge was declined. You can try subscribing again.',
+        text: 'Shopify Sync charge was declined. Open Sales channels → offhrs to request approval again.',
       })
     } else if (billing) {
       setShopifyMsg({
@@ -172,89 +173,12 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
     } else {
       setShopifyMsg({
         type: 'success',
-        text: 'Shopify connected. Subscribe to Shopify Sync to unlock product sync.',
+        text: 'Shopify connected. Open Sales channels → offhrs to start the Sync trial and publish products.',
       })
     }
     void loadShopifyStatus()
     router.replace('/partners/dashboard/settings', { scroll: false })
   }, [searchParams, router, loadShopifyStatus])
-
-  async function subscribeShopifySync() {
-    setShopifySubscribeLoading(true)
-    setShopifyMsg(null)
-    try {
-      const res = await fetch('/api/partners/shopify/subscribe', { method: 'POST' })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setShopifyMsg({ type: 'error', text: data.error ?? 'Could not start Shopify Sync subscription.' })
-        return
-      }
-      if (data.already_active) {
-        setShopifyMsg({ type: 'success', text: 'Shopify Sync is already active.' })
-        await loadShopifyStatus()
-        return
-      }
-      if (data.confirmation_url) {
-        window.location.href = data.confirmation_url as string
-        return
-      }
-      setShopifyMsg({ type: 'error', text: 'No confirmation URL returned from Shopify.' })
-    } catch {
-      setShopifyMsg({ type: 'error', text: 'Could not start Shopify Sync subscription.' })
-    } finally {
-      setShopifySubscribeLoading(false)
-    }
-  }
-
-  async function syncShopify() {
-    setShopifySyncLoading(true)
-    setShopifyMsg(null)
-    try {
-      const res = await fetch('/api/partners/shopify/sync', { method: 'POST' })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setShopifyMsg({ type: 'error', text: data.error ?? 'Sync failed.' })
-        return
-      }
-      setShopifyMsg({
-        type: 'success',
-        text: `Synced ${data.upserted ?? 0} session(s) from ${data.products ?? 0} product(s)${
-          data.skipped ? ` (${data.skipped} skipped)` : ''
-        }.`,
-      })
-      await loadShopifyStatus()
-    } catch {
-      setShopifyMsg({ type: 'error', text: 'Sync failed.' })
-    } finally {
-      setShopifySyncLoading(false)
-    }
-  }
-
-  async function disconnectShopify() {
-    if (
-      !confirm(
-        'Disconnect Shopify? Synced workshop listings will be archived in the offhrs app. You can reconnect later.'
-      )
-    ) {
-      return
-    }
-    setShopifyDisconnectLoading(true)
-    setShopifyMsg(null)
-    try {
-      const res = await fetch('/api/partners/shopify/disconnect', { method: 'POST' })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setShopifyMsg({ type: 'error', text: data.error ?? 'Disconnect failed.' })
-        return
-      }
-      setShopifyMsg({ type: 'success', text: 'Shopify disconnected.' })
-      await loadShopifyStatus()
-    } catch {
-      setShopifyMsg({ type: 'error', text: 'Disconnect failed.' })
-    } finally {
-      setShopifyDisconnectLoading(false)
-    }
-  }
 
   function setP(key: keyof typeof profile, val: string) {
     setProfile((f) => ({ ...f, [key]: val }))
@@ -821,29 +745,28 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
         <CardContent className="space-y-4 p-5">
           <h2 className="text-sm font-semibold text-foreground mb-1">Shopify Sync</h2>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Standalone plan at{' '}
+            Manage connection, billing, and sync from{' '}
+            <span className="font-medium text-foreground">Shopify Admin → Sales channels → offhrs</span>
+            . Standalone plan at{' '}
             <span className="font-medium text-foreground">
-              {shopifyStatus?.plan_label ?? '$39 CAD/month'}
+              {shopifyStatus?.plan_label ?? '$29 CAD/month'}
             </span>
             {' '}
             with a <span className="font-medium text-foreground">30-day free trial</span>
-            . Sync tagged workshop products into the offhrs app; guests book on your Shopify
-            storefront (not in-app Stripe). Separate from Lite/Pro. Tag products with{' '}
-            <span className="font-medium text-foreground">offhrs_workshop</span>
-            . Listings use your primary signup category unless you set an{' '}
-            <span className="font-medium text-foreground">offhrs.category</span> metafield.
+            . Guests discover workshops in the offhrs app and book on your Shopify checkout.
           </p>
           <p className="text-xs text-muted-foreground leading-relaxed mt-2">
             Install from the{' '}
             <span className="font-medium text-foreground">Shopify App Store</span> or{' '}
             <span className="font-medium text-foreground">Shopify Admin → Apps</span>
-            . After install, choose the Shopify Sync plan in Shopify Admin to unlock sync.
+            . After install, open the offhrs sales channel in Admin to connect your partner account
+            and start the Sync plan.
           </p>
 
           {shopifyStatus?.connected ? (
             <div className="space-y-3">
               <div className="text-sm text-foreground">
-                Connected:{' '}
+                Linked shop:{' '}
                 <span className="font-medium text-primary">{shopifyStatus.shop_domain}</span>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -864,51 +787,26 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
                   ? ` · last sync ${formatLongDate(shopifyStatus.last_synced_at) ?? shopifyStatus.last_synced_at}`
                   : ''}
               </p>
-              <div className="flex flex-wrap gap-2">
-                {!shopifyStatus.billing_active ? (
-                  <Button
-                    type="button"
-                    onClick={() => void subscribeShopifySync()}
-                    disabled={shopifySubscribeLoading || shopifyDisconnectLoading}
-                    className="border-primary"
-                  >
-                    {shopifySubscribeLoading && <Loader2 className="size-4 animate-spin" />}
-                    {shopifySubscribeLoading
-                      ? 'Opening Shopify…'
-                      : shopifyStatus.billing_status === 'declined'
-                        ? `Request approval again — ${shopifyStatus.plan_label}`
-                        : `Start trial — ${shopifyStatus.plan_label}`}
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => void syncShopify()}
-                    disabled={shopifySyncLoading || shopifyDisconnectLoading}
-                    className="border-partner-border"
-                  >
-                    {shopifySyncLoading && <Loader2 className="size-4 animate-spin" />}
-                    {shopifySyncLoading ? 'Syncing…' : 'Sync now'}
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void disconnectShopify()}
-                  disabled={
-                    shopifySyncLoading || shopifyDisconnectLoading || shopifySubscribeLoading
-                  }
-                  className="border-red-200 text-red-700 hover:bg-red-50"
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Manage connect, billing, publish sync, and disconnect in Shopify Admin only — this
+                page is status-only so reviewers and merchants use the sales channel as the control
+                room.
+              </p>
+              <Button type="button" className="border-primary" asChild>
+                <a
+                  href={shopifyAdminEmbeddedAppUrl(shopifyStatus.shop_domain, OFFHRS_SHOPIFY_API_KEY)}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  {shopifyDisconnectLoading && <Loader2 className="size-4 animate-spin" />}
-                  Disconnect
-                </Button>
-              </div>
+                  Open Sales channels → offhrs
+                </a>
+              </Button>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Not connected yet. Install the offhrs app from Shopify, then return here to subscribe
-              to Sync ({shopifyStatus?.plan_label ?? '$39 CAD/month'}).
+              Not connected yet. Install offhrs from Shopify, then open{' '}
+              <span className="font-medium text-foreground">Sales channels → offhrs</span> to connect
+              your partner account ({shopifyStatus?.plan_label ?? '$29 CAD/month'}).
             </p>
           )}
 

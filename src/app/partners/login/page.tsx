@@ -1,16 +1,43 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { OffhrsLogoLink } from '@/components/offhrs-logo'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/browser'
 
-export default function PartnerLoginPage() {
+function PartnerLoginForm() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ email: '', password: '' })
+  const [checkingSession, setCheckingSession] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    async function resumeIfSignedIn() {
+      const supabase = createClient()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (cancelled) return
+      if (session) {
+        const params = new URLSearchParams(window.location.search)
+        const next = params.get('next')
+        if (next && next.startsWith('/') && !next.startsWith('//')) {
+          window.location.replace(next)
+          return
+        }
+        router.replace('/partners/dashboard')
+        return
+      }
+      setCheckingSession(false)
+    }
+    void resumeIfSignedIn()
+    return () => {
+      cancelled = true
+    }
+  }, [router])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
@@ -29,7 +56,6 @@ export default function PartnerLoginPage() {
       })
 
       if (signInError) {
-        // Best-effort abuse signal (credential stuffing); never block login UX.
         void fetch('/api/partners/auth/login-failed', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -41,7 +67,7 @@ export default function PartnerLoginPage() {
       const params = new URLSearchParams(window.location.search)
       const next = params.get('next')
       if (next && next.startsWith('/') && !next.startsWith('//')) {
-        router.replace(next)
+        window.location.replace(next)
       } else {
         router.replace('/partners/dashboard')
       }
@@ -50,6 +76,14 @@ export default function PartnerLoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 py-10">
+        <p className="text-sm text-[#555]">Checking sign-in…</p>
+      </div>
+    )
   }
 
   return (
@@ -134,5 +168,19 @@ export default function PartnerLoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function PartnerLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center px-4 py-10">
+          <p className="text-sm text-[#555]">Loading…</p>
+        </div>
+      }
+    >
+      <PartnerLoginForm />
+    </Suspense>
   )
 }

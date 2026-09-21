@@ -98,6 +98,9 @@ export default function ProfileScreen() {
   const [ordersModalVisible, setOrdersModalVisible] = useState(false);
   const [shopOrders, setShopOrders] = useState<ShopOrderListItem[]>([]);
   const [shopOrdersLoading, setShopOrdersLoading] = useState(false);
+  const [claimOrder, setClaimOrder] = useState<ShopOrderListItem | null>(null);
+  const [claimDescription, setClaimDescription] = useState('');
+  const [claimSubmitting, setClaimSubmitting] = useState(false);
   const [myReviews, setMyReviews] = useState<{ id: string; vendor_id: string; vendor_name: string; rating: number; comment: string | null; created_at: string }[]>([]);
   const [myReviewsLoading, setMyReviewsLoading] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -824,12 +827,8 @@ export default function ProfileScreen() {
             ) : (
               <ScrollView style={{ maxHeight: 400 }}>
                 {shopOrders.map((o) => (
-                  <Pressable
+                  <View
                     key={o.id}
-                    onPress={() => {
-                      setOrdersModalVisible(false);
-                      router.push(`/shop/${o.product_id}`);
-                    }}
                     style={{
                       padding: 16,
                       borderBottomWidth: 1,
@@ -847,8 +846,7 @@ export default function ProfileScreen() {
                     </Text>
                     {o.tracking_number ? (
                       <Pressable
-                        onPress={(e) => {
-                          e.stopPropagation();
+                        onPress={() => {
                           if (o.tracking_url) void Linking.openURL(o.tracking_url);
                         }}
                       >
@@ -859,40 +857,9 @@ export default function ProfileScreen() {
                     ) : null}
                     {shopOrderCanClaim(o) ? (
                       <Pressable
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          const submitClaim = async (text: string) => {
-                            if (!text || text.trim().length < 10) {
-                              Alert.alert('Please enter at least 10 characters.');
-                              return;
-                            }
-                            try {
-                              await createShopOrderClaim(o.id, {
-                                reason: 'snad',
-                                description: text.trim(),
-                              });
-                              Alert.alert('Claim submitted', 'We’ll review this with the maker.');
-                            } catch (err) {
-                              Alert.alert(
-                                'Could not submit',
-                                err instanceof Error ? err.message : 'Try again later'
-                              );
-                            }
-                          };
-                          if (Platform.OS === 'ios' && typeof Alert.prompt === 'function') {
-                            Alert.prompt(
-                              'Report a problem',
-                              'Describe the issue (damaged / not as described).',
-                              (text) => {
-                                void submitClaim(text ?? '');
-                              }
-                            );
-                            return;
-                          }
-                          Alert.alert(
-                            'Report a problem',
-                            'Email hello@offhrs.app with your order ID and photos (damaged / not as described). Claims must be within 14 days of delivery.'
-                          );
+                        onPress={() => {
+                          setClaimDescription('');
+                          setClaimOrder(o);
                         }}
                       >
                         <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 6, fontWeight: '600' }}>
@@ -900,15 +867,135 @@ export default function ProfileScreen() {
                         </Text>
                       </Pressable>
                     ) : null}
-                    <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 6, fontWeight: '600' }}>
-                      View item →
-                    </Text>
-                  </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        setOrdersModalVisible(false);
+                        router.push(`/shop/${o.product_id}`);
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 6, fontWeight: '600' }}>
+                        View item →
+                      </Text>
+                    </Pressable>
+                  </View>
                 ))}
               </ScrollView>
             )}
           </Pressable>
         </Pressable>
+      </Modal>
+
+      <Modal
+        visible={claimOrder != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!claimSubmitting) setClaimOrder(null);
+        }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+          }}
+        >
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 400,
+              backgroundColor: '#FFF',
+              borderRadius: 20,
+              padding: 20,
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal }}>
+              Report a problem
+            </Text>
+            <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginTop: 8, lineHeight: 18 }}>
+              Describe the issue (damaged / not as described). Claims must be within 14 days of delivery.
+            </Text>
+            {claimOrder ? (
+              <Text style={{ fontSize: 13, color: DesignColors.charcoal, marginTop: 10, fontWeight: '600' }}>
+                {claimOrder.product_title}
+              </Text>
+            ) : null}
+            <TextInput
+              value={claimDescription}
+              onChangeText={setClaimDescription}
+              placeholder="What went wrong? (min. 10 characters)"
+              placeholderTextColor={DesignColors.mediumGray}
+              multiline
+              textAlignVertical="top"
+              editable={!claimSubmitting}
+              style={{
+                marginTop: 14,
+                minHeight: 110,
+                borderWidth: 1,
+                borderColor: DesignColors.lightGreenBorder,
+                borderRadius: 12,
+                padding: 12,
+                fontSize: 15,
+                color: DesignColors.charcoal,
+              }}
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 16 }}>
+              <Pressable
+                disabled={claimSubmitting}
+                onPress={() => setClaimOrder(null)}
+                style={{ paddingVertical: 10, paddingHorizontal: 14 }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.mediumGray }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                disabled={claimSubmitting}
+                onPress={() => {
+                  const text = claimDescription.trim();
+                  if (text.length < 10) {
+                    Alert.alert('Please enter at least 10 characters.');
+                    return;
+                  }
+                  if (!claimOrder) return;
+                  setClaimSubmitting(true);
+                  void (async () => {
+                    try {
+                      await createShopOrderClaim(claimOrder.id, {
+                        reason: 'snad',
+                        description: text,
+                      });
+                      setClaimOrder(null);
+                      setClaimDescription('');
+                      Alert.alert('Claim submitted', 'We’ll review this with the maker.');
+                    } catch (err) {
+                      Alert.alert(
+                        'Could not submit',
+                        err instanceof Error ? err.message : 'Try again later'
+                      );
+                    } finally {
+                      setClaimSubmitting(false);
+                    }
+                  })();
+                }}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  borderRadius: 10,
+                  backgroundColor: DesignColors.primary,
+                  opacity: claimSubmitting ? 0.7 : 1,
+                }}
+              >
+                {claimSubmitting ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFF' }}>Submit</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Saved events modal – list of saved events, opened from Saved stat card */}

@@ -2,8 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { shopifyBillingAllowsSync } from '@/lib/shopify/billing'
+import { bootstrapOffhrsChannelFeeds } from '@/lib/shopify/bootstrap-channel'
 import {
   loadShopifyShopForVendor,
+  syncPublishedChannelProductsForShop,
   syncShopifyWorkshopsForShop,
 } from '@/lib/shopify/sync-workshops'
 
@@ -35,7 +37,7 @@ export async function POST() {
     return NextResponse.json(
       {
         error:
-          'Shopify Sync plan required. Subscribe to Shopify Sync ($39 CAD/month) in Settings, then try again.',
+          'Shopify Sync plan required. Open Shopify Admin → Sales channels → offhrs to start the trial, then try again.',
         billing_status: shop.billing_status ?? 'none',
       },
       { status: 402 }
@@ -43,8 +45,22 @@ export async function POST() {
   }
 
   try {
+    // Prefer publish-to-channel sync; tag pull only when channel is not connected yet.
+    if (shop.shopify_channel_gid) {
+      await bootstrapOffhrsChannelFeeds(admin, shop, {
+        accountName: null,
+        triggerFullSync: false,
+      }).catch(() => undefined)
+      const published = await syncPublishedChannelProductsForShop(admin, shop)
+      return NextResponse.json({
+        success: true,
+        ...published,
+        source: 'published_channel',
+      })
+    }
+
     const result = await syncShopifyWorkshopsForShop(admin, shop)
-    return NextResponse.json({ success: true, ...result })
+    return NextResponse.json({ success: true, ...result, source: 'legacy_tag' })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Sync failed'
     console.error('[shopify] sync', e)

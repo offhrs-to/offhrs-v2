@@ -44,7 +44,7 @@ function useIsDesktop() {
   return isDesktop
 }
 
-/** Shopify App URL may still point at `/` — forward install/open handoff to the OAuth entry. */
+/** Shopify App URL may still point at `/` — forward install/open handoff to OAuth bootstrap. */
 function useShopifyAppHandoff() {
   useEffect(() => {
     if (typeof window === 'undefined') return

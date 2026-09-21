@@ -6,7 +6,7 @@ export type ShopifySelectedOption = { name: string; value: string }
 
 /** Option names that usually hold the session datetime (Orris-style "Date" pills). */
 const DATETIME_OPTION_NAME_RE =
-  /^(date|dates|date\s*&\s*time|datetime|date\s*\/\s*time|time|timeslot|time\s*slot|session|session\s*date|when|schedule|start|starts?|aug\.?\s*\d{1,2}|sep\.?\s*\d{1,2}|oct\.?\s*\d{1,2}|nov\.?\s*\d{1,2}|dec\.?\s*\d{1,2}|jan\.?\s*\d{1,2}|feb\.?\s*\d{1,2}|mar\.?\s*\d{1,2}|apr\.?\s*\d{1,2}|may\.?\s*\d{1,2}|jun\.?\s*\d{1,2}|jul\.?\s*\d{1,2})$/i
+  /^(date|dates|date\s*&\s*time|datetime|date\s*\/\s*time|time|timeslot|time\s*slot|session|session\s*date|when|schedule|start|starts?|(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s*\d{1,2}(st|nd|rd|th)?)$/i
 
 /** Option names that are almost never a start time (skip when scanning all options). */
 const NON_DATETIME_OPTION_NAME_RE =
@@ -68,6 +68,8 @@ export function parseShopifyWallDateTime(raw: string | null | undefined): string
   if (!raw?.trim()) return null
   let s = normalizeSpaces(stripOrdinals(raw))
   s = s.replace(/\s+at\s+/i, ' ')
+  // "12:00PM" → "12:00 PM"
+  s = s.replace(/(\d)(am|pm)\b/gi, '$1 $2')
 
   // ISO / partner datetime-local
   const withT = s.includes('T') ? s : s.replace(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})/, '$1T$2')

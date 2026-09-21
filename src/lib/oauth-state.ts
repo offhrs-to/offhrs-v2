@@ -18,6 +18,10 @@ export interface OAuthStatePayload {
   provider: OAuthProvider
   /** Required when provider is shopify (myshopify.com domain). */
   shop?: string
+  /** Shopify Admin host (base64) for embedded return after OAuth. */
+  host?: string
+  /** True when OAuth started from the AccountConnection popup — close popup on success. */
+  popup?: boolean
   exp: number
 }
 

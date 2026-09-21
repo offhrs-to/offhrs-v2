@@ -12,11 +12,11 @@ const site = getSiteUrl()
 
 export const metadata: Metadata = {
   title: `Shopify Sync — offhrs Partners`,
-  description: `Set up ${SHOPIFY_SYNC_PLAN_NAME} ($${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month): install the offhrs Shopify app, tag workshop products, and list them in the offhrs app while guests book on your store.`,
+  description: `Set up ${SHOPIFY_SYNC_PLAN_NAME} ($${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month): install the offhrs sales channel, publish workshop products to offhrs, and let guests book on Shopify checkout.`,
   alternates: { canonical: `${site}/partners/shopify-sync` },
   openGraph: {
     title: `${SHOPIFY_SYNC_PLAN_NAME} — offhrs Partners`,
-    description: `Mirror tagged Shopify workshops into offhrs. Guests discover you in the app and book on your storefront. $${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month with a ${PARTNER_TRIAL_LABEL}.`,
+    description: `Publish workshop products from Shopify Admin to the offhrs sales channel. Guests discover you in the app and book on Shopify checkout. $${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month with a ${PARTNER_TRIAL_LABEL}.`,
     url: `${site}/partners/shopify-sync`,
     siteName: 'offhrs',
     type: 'website',
@@ -29,33 +29,32 @@ const steps = [
   {
     n: '01',
     title: 'Create an offhrs partner account',
-    body: 'Sign up with your studio details. You’ll need this account to claim the Shopify install and manage Sync in Settings.',
+    body: 'Sign up with your studio details. You’ll use this account to connect the Shopify install under Sales channels → offhrs.',
   },
   {
     n: '02',
     title: 'Install offhrs from Shopify',
-    body: 'In Shopify Admin → Apps (or the Shopify App Store), install the offhrs app. Do not type a shop domain into offhrs — install must start from Shopify so OAuth can complete.',
+    body: 'In Shopify Admin → Apps (or the Shopify App Store), install the offhrs app. It appears under Sales channels → offhrs. Do not type a shop domain into offhrs — install must start from Shopify so OAuth can complete.',
   },
   {
     n: '03',
-    title: 'Sign in and claim your shop',
-    body: 'After install, you’ll be guided to sign in (or create your account) so the shop links to your partner profile. One Shopify shop per offhrs account.',
+    title: 'Connect your partner account',
+    body: 'Open Sales channels → offhrs and use Connect to sign in (or create your account) so the shop links to your partner profile. One Shopify shop per offhrs account.',
   },
   {
     n: '04',
     title: 'Start the Shopify Sync trial',
-    body: `In Partners → Settings, choose Start trial for Shopify Sync ($${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month, ${PARTNER_TRIAL_LABEL}). Approve the plan in Shopify Admin — billing is on your Shopify invoice, not Stripe.`,
+    body: `In Sales channels → offhrs, choose Start trial for Shopify Sync ($${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month, ${PARTNER_TRIAL_LABEL}). Approve the plan in Shopify Admin — billing is on your Shopify invoice, not Stripe.`,
   },
   {
     n: '05',
-    title: 'Tag workshop products',
+    title: 'Publish workshop products to offhrs',
     body: (
       <>
-        On each workshop product in Shopify, add the tag{' '}
-        <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] font-medium text-[#1a1a1a]">
-          offhrs_workshop
-        </code>
-        . Only tagged products are synced.
+        On each workshop product in Shopify Admin, open{' '}
+        <span className="font-medium text-[#1a1a1a]">Publishing</span> and enable the{' '}
+        <span className="font-medium text-[#1a1a1a]">offhrs</span> sales channel (not only Online
+        Store). Unpublishing from offhrs removes the listing from the app.
       </>
     ),
   },
@@ -71,28 +70,28 @@ const steps = [
           offhrs.starts_at
         </code>{' '}
         metafield. Times without a timezone are read as America/Toronto. Variants we can’t parse are
-        skipped.
+        skipped (and show as product feedback in Admin).
       </>
     ),
   },
   {
     n: '07',
     title: 'Sync and go live',
-    body: 'Hit Sync now in Settings (webhooks keep products and inventory updated afterward). Guests see your workshops in the offhrs app and tap Book on Shopify to checkout on your store.',
+    body: 'In Sales channels → offhrs, tap Sync published products (feeds keep products and inventory updated afterward). Guests see your workshops in the offhrs app and tap Book on Shopify to open a cart permalink and checkout on your store.',
   },
 ]
 
 const canDo = [
-  'List tagged Shopify workshops in the offhrs app for discovery',
+  'Publish Shopify workshop products to the offhrs app for local discovery',
   'Keep remaining seats in sync from Shopify inventory',
-  'Send guests to your Shopify product page to book and pay',
+  'Send guests to Shopify checkout with the session pre-loaded in cart',
   'Run Sync alone — no Lite or Pro plan required',
   'Use your partner profile address for map pins and studio location',
 ]
 
 const cannotDo = [
   'Checkout or take payment inside offhrs for synced workshops (that stays on Shopify)',
-  'Create or edit workshop sessions in the offhrs dashboard as the source of truth — edit products in Shopify',
+  'Create or edit workshop sessions in the offhrs dashboard as the source of truth — edit and publish products in Shopify',
   'Process refunds in offhrs for Shopify bookings — refund in Shopify Admin',
   'Replace Lite/Pro: Sync does not unlock native offhrs booking, Stripe Connect ticket sales, or in-app workshop creation',
   'Connect directly to third-party Shopify apps (for example Numos) — we only read products and inventory from Shopify itself',
@@ -138,14 +137,15 @@ export default async function ShopifySyncGuidePage({
         <div className="border-b border-[#5D755D]/25 bg-[#EDF2ED]">
           <div className="max-w-3xl mx-auto px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <p className="text-sm text-[#1a1a1a] leading-relaxed">
-              Account ready — install offhrs from Shopify Admin, then open Settings to claim your shop and
-              start the Sync trial.
+              Account ready — install offhrs from Shopify Admin, then open{' '}
+              <span className="font-medium">Sales channels → offhrs</span> to connect and start the
+              Sync trial.
             </p>
             <Link
               href="/partners/dashboard/settings"
               className="shrink-0 rounded-full bg-[#5D755D] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors text-center"
             >
-              Open Settings
+              Partner dashboard
             </Link>
           </div>
         </div>
@@ -159,8 +159,8 @@ export default async function ShopifySyncGuidePage({
           How Shopify Sync works
         </h1>
         <p className="mt-5 text-base text-[#555] leading-relaxed max-w-xl mx-auto">
-          Keep Shopify as your booking system. We mirror tagged workshop products into the offhrs
-          app so Toronto guests can discover you — then they complete booking on your storefront.
+          Keep Shopify as your booking system. Publish workshop products to the offhrs sales channel
+          so Toronto guests can discover you — then they complete booking on Shopify checkout.
         </p>
       </header>
 
@@ -212,8 +212,8 @@ export default async function ShopifySyncGuidePage({
       <section className="max-w-3xl mx-auto px-6 py-16">
         <h2 className="font-playfair text-2xl font-bold mb-3 text-center">Setup checklist</h2>
         <p className="text-sm text-[#555] text-center mb-12 max-w-md mx-auto">
-          Follow these steps once. After you’re live, keep tagging new workshops and editing dates
-          in Shopify.
+          Follow these steps once. After you’re live, publish new workshops to offhrs and edit dates
+          in Shopify Admin.
         </p>
         <ol className="space-y-8">
           {steps.map((step) => (
@@ -265,10 +265,12 @@ export default async function ShopifySyncGuidePage({
                 <span className="font-medium text-[#1a1a1a]">Optional metafields</span> (namespace{' '}
                 <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">offhrs</code>):{' '}
                 <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">starts_at</code>,{' '}
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">book_url</code>,{' '}
+                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">book_url</code>{' '}
+                (Shopify cart/checkout URLs only — off-Shopify links are ignored),{' '}
                 <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">capacity</code>,{' '}
                 <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">duration_minutes</code>
                 , <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">category</code>.
+                Book CTAs use a Shopify cart permalink with channel attribution by default.
               </span>
             </li>
             <li className="flex items-start gap-2">
@@ -372,8 +374,8 @@ export default async function ShopifySyncGuidePage({
           </h2>
           <p className="text-sm text-[#555] max-w-md mx-auto mb-8 leading-relaxed">
             {afterSignup
-              ? 'Install the offhrs app from Shopify Admin, claim your shop, then start the Sync trial in Settings — billed on Shopify, not Stripe.'
-              : 'Create your partner account, choose Shopify Sync on the billing step (skip Stripe), then install offhrs from Shopify Admin and start the Sync trial in Settings.'}
+              ? 'Install the offhrs app from Shopify Admin, then open Sales channels → offhrs to connect and start the Sync trial — billed on Shopify, not Stripe.'
+              : 'Create your partner account, choose Shopify Sync on the billing step (skip Stripe), then install offhrs from Shopify Admin and manage Sync under Sales channels → offhrs.'}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             {afterSignup ? (
@@ -381,7 +383,7 @@ export default async function ShopifySyncGuidePage({
                 href="/partners/dashboard/settings"
                 className="rounded-full bg-[#5D755D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-sm"
               >
-                Open Settings
+                Partner dashboard
               </Link>
             ) : (
               <Link

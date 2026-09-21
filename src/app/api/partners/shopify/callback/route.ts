@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyOAuthState } from '@/lib/oauth-state'
 import { shopifyOAuthAppBase } from '@/lib/shopify/app-base'
+import { shopifyChannelRedirect, redirectToShopifyAdminApp } from '@/lib/shopify/channel-home'
 import {
   exchangeShopifyAccessToken,
   normalizeShopDomain,
@@ -19,19 +20,19 @@ import {
   upsertVendorShopifyShop,
   loadShopifyShopForVendor,
 } from '@/lib/shopify/sync-workshops'
-
-function settingsRedirect(base: string, query: string): NextResponse {
-  return NextResponse.redirect(`${base}/partners/dashboard/settings?${query}`)
-}
+import { bootstrapOffhrsChannelFeeds } from '@/lib/shopify/bootstrap-channel'
 
 async function finalizeShopLink(opts: {
+  request: NextRequest
   admin: NonNullable<ReturnType<typeof createAdminClient>>
   base: string
   vendorId: string
   shop: string
+  host?: string
   tokens: ShopifyAccessTokenResult
+  popup?: boolean
 }): Promise<NextResponse> {
-  const { admin, base, vendorId, shop, tokens } = opts
+  const { request, admin, base, vendorId, shop, host, tokens, popup } = opts
 
   const { data: existingShop } = await admin
     .from('vendor_shopify_shops')
@@ -39,7 +40,12 @@ async function finalizeShopLink(opts: {
     .eq('shop_domain', shop)
     .maybeSingle()
   if (existingShop && existingShop.vendor_id !== vendorId) {
-    return settingsRedirect(base, 'shopify_error=shop_already_linked')
+    return shopifyChannelRedirect(request, {
+      shop,
+      host,
+      popup,
+      query: 'shopify_error=shop_already_linked',
+    })
   }
 
   await upsertVendorShopifyShop(admin, {
@@ -52,6 +58,48 @@ async function finalizeShopLink(opts: {
     refreshTokenExpiresIn: tokens.refresh_token_expires_in,
   })
 
+  await admin.from('shopify_pending_installs').delete().eq('shop_domain', shop)
+
+  // Close the connect popup immediately — webhooks/bootstrap can finish in the background.
+  if (popup) {
+    void (async () => {
+      try {
+        await ensureShopifyWebhooks({
+          shop,
+          accessToken: tokens.access_token,
+          callbackBaseUrl: base,
+        })
+        const shopRow = await loadShopifyShopForVendor(admin, vendorId)
+        if (!shopRow) return
+        const { data: vendor } = await admin
+          .from('vendor_profiles')
+          .select('business_name')
+          .eq('id', vendorId)
+          .maybeSingle()
+        const billingOk = shopifyBillingAllowsSync({
+          billingStatus: shopRow.billing_status,
+          shopDomain: shopRow.shop_domain,
+        })
+        await bootstrapOffhrsChannelFeeds(admin, shopRow, {
+          accountName: vendor?.business_name,
+          triggerFullSync: billingOk,
+        })
+        if (billingOk) {
+          await syncShopifyWorkshopsForShop(admin, shopRow)
+        }
+      } catch (e) {
+        console.error('[shopify] post-link background setup', e)
+      }
+    })()
+
+    return shopifyChannelRedirect(request, {
+      shop,
+      host,
+      popup: true,
+      query: 'shopify_connected=1',
+    })
+  }
+
   await ensureShopifyWebhooks({
     shop,
     accessToken: tokens.access_token,
@@ -59,21 +107,37 @@ async function finalizeShopLink(opts: {
   }).catch((e) => console.error('[shopify] webhook register', e))
 
   const shopRow = await loadShopifyShopForVendor(admin, vendorId)
-  if (
-    shopRow &&
-    shopifyBillingAllowsSync({
+  if (shopRow) {
+    const { data: vendor } = await admin
+      .from('vendor_profiles')
+      .select('business_name')
+      .eq('id', vendorId)
+      .maybeSingle()
+
+    const billingOk = shopifyBillingAllowsSync({
       billingStatus: shopRow.billing_status,
       shopDomain: shopRow.shop_domain,
     })
-  ) {
-    await syncShopifyWorkshopsForShop(admin, shopRow).catch((e) =>
-      console.error('[shopify] initial sync', e)
-    )
+
+    await bootstrapOffhrsChannelFeeds(admin, shopRow, {
+      accountName: vendor?.business_name,
+      triggerFullSync: billingOk,
+    }).catch((e) => console.error('[shopify] channel bootstrap', e))
+
+    if (billingOk) {
+      await syncShopifyWorkshopsForShop(admin, shopRow).catch((e) =>
+        console.error('[shopify] initial sync', e)
+      )
+    }
   }
 
-  await admin.from('shopify_pending_installs').delete().eq('shop_domain', shop)
-
-  return settingsRedirect(base, 'shopify_connected=1')
+  // Always return into Shopify Admin (automated install check + 2.3.3).
+  return redirectToShopifyAdminApp(request, {
+    shop,
+    host,
+    query: 'shopify_connected=1',
+    apiKey: shopifyApiKey(),
+  })
 }
 
 export async function GET(request: NextRequest) {
@@ -81,30 +145,34 @@ export async function GET(request: NextRequest) {
   const clientId = shopifyApiKey()
   const clientSecret = shopifyApiSecret()
   if (!clientId || !clientSecret) {
-    return settingsRedirect(base, 'shopify_error=not_configured')
+    return NextResponse.redirect(`${base}/shopify?shopify_error=not_configured`)
   }
 
   const url = new URL(request.url)
   const err = url.searchParams.get('error')
   if (err) {
-    return settingsRedirect(base, `shopify_error=${encodeURIComponent(err)}`)
+    return NextResponse.redirect(
+      `${base}/shopify?shopify_error=${encodeURIComponent(err)}`
+    )
   }
 
   if (!verifyShopifyOAuthHmac(url.searchParams, clientSecret)) {
-    return settingsRedirect(base, 'shopify_error=invalid_hmac')
+    return NextResponse.redirect(`${base}/shopify?shopify_error=invalid_hmac`)
   }
 
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
   const shop = normalizeShopDomain(url.searchParams.get('shop'))
   if (!code || !state || !shop) {
-    return settingsRedirect(base, 'shopify_error=missing_params')
+    return NextResponse.redirect(`${base}/shopify?shopify_error=missing_params`)
   }
 
   const payload = verifyOAuthState(state)
   if (!payload || payload.provider !== 'shopify' || payload.shop !== shop) {
-    return settingsRedirect(base, 'shopify_error=invalid_state')
+    return NextResponse.redirect(`${base}/shopify?shopify_error=invalid_state`)
   }
+  const host = payload.host
+  const popup = Boolean(payload.popup)
 
   let tokens: ShopifyAccessTokenResult
   try {
@@ -117,11 +185,23 @@ export async function GET(request: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'oauth_failed'
     console.error('[shopify] token exchange', e)
-    return settingsRedirect(base, `shopify_error=${encodeURIComponent(msg.slice(0, 120))}`)
+    return shopifyChannelRedirect(request, {
+      shop,
+      host,
+      popup,
+      query: `shopify_error=${encodeURIComponent(msg.slice(0, 120))}`,
+    })
   }
 
   const admin = createAdminClient()
-  if (!admin) return settingsRedirect(base, 'shopify_error=server')
+  if (!admin) {
+    return shopifyChannelRedirect(request, {
+      shop,
+      host,
+      popup,
+      query: 'shopify_error=server',
+    })
+  }
 
   const supabase = await createClient()
   const {
@@ -138,33 +218,65 @@ export async function GET(request: NextRequest) {
     vendorId = vendor?.id ?? null
   }
 
-  // Prefer state vendorId when it matches the signed-in vendor.
   if (payload.vendorId && vendorId && payload.vendorId !== vendorId) {
-    return settingsRedirect(base, 'shopify_error=vendor_mismatch')
+    return shopifyChannelRedirect(request, {
+      shop,
+      host,
+      popup,
+      query: 'shopify_error=vendor_mismatch',
+    })
   }
   if (payload.vendorId && vendorId === payload.vendorId) {
     try {
-      return await finalizeShopLink({ admin, base, vendorId, shop, tokens })
+      return await finalizeShopLink({
+        request,
+        admin,
+        base,
+        vendorId,
+        shop,
+        host,
+        tokens,
+        popup,
+      })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'oauth_failed'
       console.error('[shopify] callback link', e)
-      return settingsRedirect(base, `shopify_error=${encodeURIComponent(msg.slice(0, 120))}`)
+      return shopifyChannelRedirect(request, {
+        shop,
+        host,
+        popup,
+        query: `shopify_error=${encodeURIComponent(msg.slice(0, 120))}`,
+      })
     }
   }
 
   if (vendorId) {
     try {
-      return await finalizeShopLink({ admin, base, vendorId, shop, tokens })
+      return await finalizeShopLink({
+        request,
+        admin,
+        base,
+        vendorId,
+        shop,
+        host,
+        tokens,
+        popup,
+      })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'oauth_failed'
       console.error('[shopify] callback link', e)
-      return settingsRedirect(base, `shopify_error=${encodeURIComponent(msg.slice(0, 120))}`)
+      return shopifyChannelRedirect(request, {
+        shop,
+        host,
+        popup,
+        query: `shopify_error=${encodeURIComponent(msg.slice(0, 120))}`,
+      })
     }
   }
 
-  // Not signed in: keep tokens pending, then send merchant to partner login to claim.
+  // Not signed in: persist tokens, then land in Admin. Partner login happens via
+  // AccountConnection popup (sales-channel flow) — never redirect to /partners/login here.
   try {
-    // If this shop is already linked, refresh tokens on the existing row and ask them to sign in.
     const { data: existingShop } = await admin
       .from('vendor_shopify_shops')
       .select('vendor_id')
@@ -187,21 +299,38 @@ export async function GET(request: NextRequest) {
         callbackBaseUrl: base,
       }).catch((e) => console.error('[shopify] webhook register', e))
 
-      const login = new URL(`${base}/partners/login`)
-      login.searchParams.set('next', '/partners/dashboard/settings')
-      return NextResponse.redirect(login.toString())
+      return redirectToShopifyAdminApp(request, {
+        shop,
+        host,
+        popup,
+        query: 'shopify_connected=1',
+        apiKey: shopifyApiKey(),
+      })
     }
 
-    const { claimToken } = await upsertShopifyPendingInstall(admin, { shopDomain: shop, tokens })
-    const login = new URL(`${base}/partners/login`)
-    login.searchParams.set(
-      'next',
-      `/api/partners/shopify/claim?token=${encodeURIComponent(claimToken)}`
-    )
-    return NextResponse.redirect(login.toString())
+    await upsertShopifyPendingInstall(admin, { shopDomain: shop, tokens })
+    await ensureShopifyWebhooks({
+      shop,
+      accessToken: tokens.access_token,
+      callbackBaseUrl: base,
+    }).catch((e) => console.error('[shopify] webhook register', e))
+
+    return redirectToShopifyAdminApp(request, {
+      shop,
+      host,
+      popup,
+      query: 'shopify_installed=1',
+      apiKey: shopifyApiKey(),
+    })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'oauth_failed'
     console.error('[shopify] pending install', e)
-    return settingsRedirect(base, `shopify_error=${encodeURIComponent(msg.slice(0, 120))}`)
+    return redirectToShopifyAdminApp(request, {
+      shop,
+      host,
+      popup,
+      query: `shopify_error=${encodeURIComponent(msg.slice(0, 120))}`,
+      apiKey: shopifyApiKey(),
+    })
   }
 }

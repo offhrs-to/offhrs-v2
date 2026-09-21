@@ -1,0 +1,26 @@
+# Canada-focused offhrs sales channel (cart-permalink → Shopify checkout).
+# handle is passed to channelCreate as specificationHandle (Phase 2).
+
+handle = "offhrs-ca"
+label = "offhrs"
+icon = "offhrs-ca-icon.svg"
+productFeedManagement = "automatic"
+
+[capabilities]
+bundles = false
+digitalProducts = true
+subscriptions = false
+unlistedProducts = false
+combinedListings = false
+scheduledPublishing = false
+
+[requirements]
+# Guests book on Shopify checkout at merchant prices — parity with Online Store.
+expectsOnlineStoreParity = true
+# Merchant remains merchant of record (cart permalinks / Shopify checkout).
+merchantOfRecord = "merchant"
+
+[[countries]]
+code = "CA"
+languages = ["en", "fr"]
+currency = "CAD"

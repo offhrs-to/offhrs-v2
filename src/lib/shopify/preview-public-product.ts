@@ -47,11 +47,24 @@ export type SyncPreviewDemoCard = {
   imageUrl: string | null
   organizer: string | null
   locationNote: string
+  /** Short venue line as shown on the offhrs EventCard */
+  locationLabel: string
   priceLabel: string | null
+  /** Numeric CAD for EventCard-style price row */
+  priceCad: number | null
   bookUrl: string
   sessionTimes: string[]
   /** How many sessions Sync would create today from public data */
   sessionCount: number
+  category: string
+  /** Earliest session label (EventCard date row) */
+  earliestDateLabel: string | null
+  /** True when multiple syncable starts → “Multiple dates” on the card */
+  isMultipleDates: boolean
+  /** Whether a listing would appear in the offhrs feed with current data */
+  wouldAppearOnApp: boolean
+  appearanceNote: string
+  bookingCta: string
 }
 
 export type SyncPreviewResult = {
@@ -306,12 +319,19 @@ export async function analyzePublicShopifyProduct(
       detail: `Found product #${product.id} on ${parsed.shopHost}`,
     },
     {
+      id: 'publish_channel',
+      ok: false,
+      label: 'Published to offhrs channel',
+      detail:
+        'Public scan cannot see channel publication. Use Connected deep scan (or publish the product to Sales channels → offhrs). Retail SKUs stay off the app unless published.',
+    },
+    {
       id: 'offhrs_tag',
       ok: hasOffhrsTag,
-      label: `Tag \`${OFFHRS_WORKSHOP_TAG}\``,
+      label: `Legacy tag \`${OFFHRS_WORKSHOP_TAG}\``,
       detail: hasOffhrsTag
-        ? 'Product is tagged for Sync eligibility.'
-        : `Missing. Sync only pulls products tagged ${OFFHRS_WORKSHOP_TAG}. Current tags: ${
+        ? 'Tag present (legacy path). Channel Sync prefers publish-to-offhrs over tags.'
+        : `Optional for the sales channel. Prefer publishing to offhrs. Current tags: ${
             tags.length ? tags.join(', ') : '(none)'
           }.`,
     },
@@ -370,37 +390,55 @@ export async function analyzePublicShopifyProduct(
   }
 
   const limitations = [
-    'Public preview cannot read Shopify Admin metafields (offhrs.starts_at, book_url, capacity, category).',
-    'Location on synced listings comes from the partner profile address, not the product page (unless you add metafield mapping later).',
+    'Public preview cannot read Shopify Admin metafields (offhrs.starts_at, book_url, capacity, category) or channel publication.',
+    'Sales channel Sync lists products published to offhrs that have a parseable session datetime — not the whole catalog.',
+    'Location on synced listings comes from the partner profile address, not the product page.',
     'This does not write to the database — demo only.',
   ]
 
   let verdict: SyncPreviewVerdict = 'needs_setup'
   let summary: string
-  if (hasOffhrsTag && syncable.length > 0) {
-    verdict = 'ready'
-    summary = `Would sync ${syncable.length} session(s) from public data. Review warnings before promising a sales outcome.`
-  } else if (syncable.length > 0 && !hasOffhrsTag) {
+  if (syncable.length > 0) {
     verdict = 'needs_setup'
-    summary = `Start times are parseable for ${syncable.length} variant(s), but the product still needs the ${OFFHRS_WORKSHOP_TAG} tag (and Sync install/billing).`
-  } else if (!hasOffhrsTag && syncable.length === 0) {
-    verdict = 'needs_setup'
-    summary =
-      'Shopify product is reachable, but Sync would skip it today: missing offhrs_workshop tag and no parseable session start in public data.'
+    summary = `Start times look syncable for ${syncable.length} variant(s). Confirm the product is published to Sales channels → offhrs (use Connected deep scan) before it can appear in the app.`
   } else {
     verdict = 'blocked'
     summary =
-      'Tagged for Sync but no parseable start on variants in public JSON — set offhrs.starts_at or Date/Time options before syncing.'
+      'No parseable session start in public JSON — set a Date option like “September 30, 2026 12:00 PM” or offhrs.starts_at (Admin). Without a datetime, Sync skips the product even if published.'
   }
 
   const imageUrl = product.image?.src ?? product.images?.[0]?.src ?? null
   const description = stripHtml(product.body_html)
+  const firstPrice = syncable[0]?.price ?? product.variants[0]?.price ?? null
+  const priceCad = firstPrice != null ? Number.parseFloat(firstPrice) : null
   const priceLabel =
-    syncable[0]?.price != null
-      ? `$${syncable[0].price}`
-      : product.variants[0]?.price != null
-        ? `From $${product.variants[0].price}`
-        : null
+    firstPrice != null
+      ? syncable.length > 1 && syncable[0]?.price !== product.variants[0]?.price
+        ? `From $${firstPrice}`
+        : `$${firstPrice}`
+      : null
+
+  const sessionTimes = syncable
+    .map((s) => (s.start.startsAt ? formatTorontoLabel(s.start.startsAt) : null))
+    .filter((x): x is string => Boolean(x))
+  const uniqueStartList = [...uniqueStarts]
+  const isMultipleDates = uniqueStartList.length > 1
+  const earliestIso = uniqueStartList.slice().sort()[0] as string | undefined
+  const earliestDateLabel = earliestIso
+    ? new Date(earliestIso).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: 'America/Toronto',
+      })
+    : null
+
+  const wouldAppearOnApp = false
+  const appearanceNote =
+    syncable.length === 0
+      ? 'Would not appear — no parseable session datetime.'
+      : 'Would not appear yet from public data alone — product must be published to the offhrs channel and Sync must run (use Connected deep scan for a full verdict).'
 
   const demo: SyncPreviewDemoCard = {
     title: product.title,
@@ -409,12 +447,18 @@ export async function analyzePublicShopifyProduct(
     organizer: product.vendor,
     locationNote:
       'Location would use the partner profile address after signup (not scraped from this product page).',
+    locationLabel: 'Location TBD',
     priceLabel,
+    priceCad: Number.isFinite(priceCad) ? priceCad : null,
     bookUrl: syncable[0]?.bookUrl ?? parsed.productUrl,
-    sessionTimes: syncable
-      .map((s) => (s.start.startsAt ? formatTorontoLabel(s.start.startsAt) : null))
-      .filter((x): x is string => Boolean(x)),
+    sessionTimes,
     sessionCount: syncable.length,
+    category: product.product_type?.trim() || 'Workshop',
+    earliestDateLabel,
+    isMultipleDates,
+    wouldAppearOnApp,
+    appearanceNote,
+    bookingCta: 'Book',
   }
 
   return {

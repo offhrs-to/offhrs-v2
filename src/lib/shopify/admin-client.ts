@@ -1,8 +1,17 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 import { SHOPIFY_API_VERSION, SHOPIFY_OAUTH_SCOPES_DEFAULT } from './conventions'
+import { normalizeShopDomain } from './shop-domain'
+
+export { normalizeShopDomain, shopDomainFromHostParam } from './shop-domain'
 
 export function shopifyApiKey(): string | null {
-  return process.env.SHOPIFY_API_KEY?.trim() || null
+  // Public client id — safe in the browser; keeps App Bridge from initializing with an empty key.
+  const FALLBACK_CLIENT_ID = '93ac1547c426534f421ce570acb3bc9d'
+  return (
+    process.env.SHOPIFY_API_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_SHOPIFY_API_KEY?.trim() ||
+    FALLBACK_CLIENT_ID
+  )
 }
 
 export function shopifyApiSecret(): string | null {
@@ -10,18 +19,28 @@ export function shopifyApiSecret(): string | null {
 }
 
 export function shopifyOauthScopes(): string {
-  return process.env.SHOPIFY_SCOPES?.trim() || SHOPIFY_OAUTH_SCOPES_DEFAULT
+  const raw = process.env.SHOPIFY_SCOPES?.trim() || SHOPIFY_OAUTH_SCOPES_DEFAULT
+  // Always union with current defaults so stale SHOPIFY_SCOPES env cannot drop
+  // required scopes (e.g. unauthenticated_read_product_listings for Phase 3).
+  const set = new Set(
+    `${raw},${SHOPIFY_OAUTH_SCOPES_DEFAULT}`
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  )
+  return [...set].join(',')
 }
 
-/** Normalize to `store.myshopify.com` (lowercase). Returns null if invalid. */
-export function normalizeShopDomain(raw: string | null | undefined): string | null {
-  if (!raw?.trim()) return null
-  let shop = raw.trim().toLowerCase()
-  shop = shop.replace(/^https?:\/\//, '').replace(/\/$/, '')
-  if (shop.includes('/')) shop = shop.split('/')[0] ?? shop
-  if (!shop.includes('.')) shop = `${shop}.myshopify.com`
-  if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop)) return null
-  return shop
+/** True when the shop's granted OAuth scopes include storefront-token creation. */
+export function shopHasStorefrontTokenScope(granted: string | null | undefined): boolean {
+  if (!granted?.trim()) return false
+  const set = new Set(
+    granted
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+  )
+  return set.has('unauthenticated_read_product_listings')
 }
 
 export function shopifyAuthorizeUrl(opts: {

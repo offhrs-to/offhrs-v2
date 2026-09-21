@@ -1,0 +1,8 @@
+# Learn more: https://shopify.dev/docs/apps/build/sales-channels/channel-config-extension
+# Declares this app as a Sales Channel. Deploy with: shopify app deploy
+
+[[extensions]]
+uid = "a8f3c2e1-4b5d-6e7f-8091-a2b3c4d5e6f7"
+type = "channel_config"
+handle = "channel-config"
+name = "offhrs channel config"

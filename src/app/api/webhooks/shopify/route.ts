@@ -13,8 +13,10 @@ import {
   archiveShopifyProductEvents,
   disconnectShopifyShopByDomain,
   loadShopifyShopByDomain,
-  syncShopifyProductByNumericId,
+  syncShopifyProductFromAdminWebhook,
 } from '@/lib/shopify/sync-workshops'
+import { processProductFeedWebhook } from '@/lib/shopify/product-feeds'
+import { deleteOffhrsChannelConnection } from '@/lib/shopify/channel-connection'
 
 export async function POST(request: NextRequest) {
   const rawBody = await request.text()
@@ -97,6 +99,12 @@ export async function POST(request: NextRequest) {
     // App Store 1.2.2: full disconnect on uninstall — archive synced sessions, drop shop
     // link + billing so reinstall can request a new charge and listings leave browse.
     if (topic === 'app/uninstalled') {
+      const shopRowForUninstall = await loadShopifyShopByDomain(admin, shop)
+      if (shopRowForUninstall) {
+        await deleteOffhrsChannelConnection(admin, shopRowForUninstall).catch((e) =>
+          console.error('[shopify] channelDelete on uninstall', e)
+        )
+      }
       await disconnectShopifyShopByDomain(admin, shop)
       await admin
         .from('webhook_events')
@@ -151,7 +159,8 @@ export async function POST(request: NextRequest) {
     if (topic === 'products/create' || topic === 'products/update') {
       const productId = String(payload.id ?? '')
       if (productId) {
-        await syncShopifyProductByNumericId(admin, shopRow, productId)
+        // Respect channel publish/unpublish — do not resurrect tagged products after unpublish.
+        await syncShopifyProductFromAdminWebhook(admin, shopRow, productId)
       }
     } else if (topic === 'products/delete') {
       const productId = String(payload.id ?? '')
@@ -164,6 +173,8 @@ export async function POST(request: NextRequest) {
       if (inventoryItemId != null && typeof available === 'number') {
         await applyShopifyInventoryLevel(admin, String(inventoryItemId), available)
       }
+    } else if (topic.startsWith('product_feeds/')) {
+      await processProductFeedWebhook(admin, shopRow, topic, payload)
     }
 
     await admin

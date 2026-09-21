@@ -58,6 +58,18 @@ export async function upsertShopifyPendingInstall(
   return { claimToken }
 }
 
+async function loadFreshPendingRow(
+  admin: Admin,
+  data: ShopifyPendingInstallRow | null
+): Promise<ShopifyPendingInstallRow | null> {
+  if (!data) return null
+  if (new Date(data.expires_at).getTime() < Date.now()) {
+    await admin.from('shopify_pending_installs').delete().eq('id', data.id)
+    return null
+  }
+  return data
+}
+
 export async function loadShopifyPendingByClaimToken(
   admin: Admin,
   claimToken: string
@@ -70,12 +82,23 @@ export async function loadShopifyPendingByClaimToken(
     .eq('claim_token', claimToken)
     .maybeSingle()
   if (error) throw new Error(error.message)
-  if (!data) return null
-  if (new Date(data.expires_at).getTime() < Date.now()) {
-    await admin.from('shopify_pending_installs').delete().eq('id', data.id)
-    return null
-  }
-  return data as ShopifyPendingInstallRow
+  return loadFreshPendingRow(admin, data as ShopifyPendingInstallRow | null)
+}
+
+/** Look up a pending install by shop (post-OAuth → Admin → Connect popup). */
+export async function loadShopifyPendingByShopDomain(
+  admin: Admin,
+  shopDomain: string
+): Promise<ShopifyPendingInstallRow | null> {
+  const { data, error } = await admin
+    .from('shopify_pending_installs')
+    .select(
+      'id, shop_domain, access_token_encrypted, refresh_token_encrypted, access_token_expires_at, refresh_token_expires_at, scope, claim_token, expires_at'
+    )
+    .eq('shop_domain', shopDomain)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return loadFreshPendingRow(admin, data as ShopifyPendingInstallRow | null)
 }
 
 export async function deleteShopifyPendingInstall(admin: Admin, id: string): Promise<void> {

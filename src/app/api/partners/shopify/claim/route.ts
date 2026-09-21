@@ -1,33 +1,39 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
-import { decrypt } from '@/lib/token-encryption'
 import { shopifyOAuthAppBase } from '@/lib/shopify/app-base'
+import { shopifyChannelHomeUrl } from '@/lib/shopify/channel-home'
 import {
   deleteShopifyPendingInstall,
   loadShopifyPendingByClaimToken,
 } from '@/lib/shopify/pending-install'
-import { shopifyBillingAllowsSync } from '@/lib/shopify/billing'
-import {
-  ensureShopifyWebhooks,
-  loadShopifyShopForVendor,
-  syncShopifyWorkshopsForShop,
-  upsertVendorShopifyShop,
-} from '@/lib/shopify/sync-workshops'
-
-function settingsRedirect(base: string, query: string): NextResponse {
-  return NextResponse.redirect(`${base}/partners/dashboard/settings?${query}`)
-}
+import { claimPendingInstallForVendor } from '@/lib/shopify/claim-pending-install'
 
 /**
  * Attach a pending Shopify install (tokens from OAuth-before-login) to the
- * signed-in partner vendor.
+ * signed-in partner vendor. Lands on embedded channel home when return_to is set.
  */
 export async function GET(request: NextRequest) {
   const base = shopifyOAuthAppBase(request)
   const claimToken = request.nextUrl.searchParams.get('token')?.trim()
+  const returnTo = request.nextUrl.searchParams.get('return_to')?.trim()
   if (!claimToken) {
-    return settingsRedirect(base, 'shopify_error=missing_claim')
+    return NextResponse.redirect(`${base}/shopify?shopify_error=missing_claim`)
+  }
+
+  const finish = (query: string, shopDomain?: string) => {
+    if (returnTo && returnTo.startsWith(base)) {
+      const u = new URL(returnTo)
+      const q = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query)
+      q.forEach((v, k) => u.searchParams.set(k, v))
+      return NextResponse.redirect(u.toString())
+    }
+    if (shopDomain) {
+      return NextResponse.redirect(
+        shopifyChannelHomeUrl(request, { shop: shopDomain, query })
+      )
+    }
+    return NextResponse.redirect(`${base}/shopify?${query}`)
   }
 
   const supabase = await createClient()
@@ -36,93 +42,52 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser()
   if (!user) {
     const login = new URL(`${base}/partners/login`)
-    login.searchParams.set(
-      'next',
-      `/api/partners/shopify/claim?token=${encodeURIComponent(claimToken)}`
-    )
+    const next = `/api/partners/shopify/claim?token=${encodeURIComponent(claimToken)}${
+      returnTo ? `&return_to=${encodeURIComponent(returnTo)}` : ''
+    }`
+    login.searchParams.set('next', next)
     return NextResponse.redirect(login.toString())
   }
 
   const admin = createAdminClient()
-  if (!admin) return settingsRedirect(base, 'shopify_error=server')
+  if (!admin) return finish('shopify_error=server')
 
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('id')
+    .select('id, business_name')
     .eq('user_id', user.id)
     .maybeSingle()
   if (!vendor) {
-    return settingsRedirect(base, 'shopify_error=vendor_required')
+    return finish('shopify_error=vendor_required')
   }
 
   try {
     const pending = await loadShopifyPendingByClaimToken(admin, claimToken)
     if (!pending) {
-      return settingsRedirect(base, 'shopify_error=claim_expired')
+      return finish('shopify_error=claim_expired')
     }
 
-    const { data: existingShop } = await admin
-      .from('vendor_shopify_shops')
-      .select('vendor_id')
-      .eq('shop_domain', pending.shop_domain)
-      .maybeSingle()
-    if (existingShop && existingShop.vendor_id !== vendor.id) {
-      await deleteShopifyPendingInstall(admin, pending.id)
-      return settingsRedirect(base, 'shopify_error=shop_already_linked')
-    }
-
-    const accessToken = decrypt(pending.access_token_encrypted)
-    const refreshToken = pending.refresh_token_encrypted
-      ? decrypt(pending.refresh_token_encrypted)
-      : undefined
-
-    const accessExpiresMs = pending.access_token_expires_at
-      ? new Date(pending.access_token_expires_at).getTime() - Date.now()
-      : undefined
-    const refreshExpiresMs = pending.refresh_token_expires_at
-      ? new Date(pending.refresh_token_expires_at).getTime() - Date.now()
-      : undefined
-
-    await upsertVendorShopifyShop(admin, {
+    const result = await claimPendingInstallForVendor({
+      admin,
       vendorId: vendor.id,
+      businessName: vendor.business_name,
       shopDomain: pending.shop_domain,
-      accessToken,
-      scope: pending.scope ?? '',
-      expiresIn:
-        typeof accessExpiresMs === 'number' && accessExpiresMs > 0
-          ? Math.floor(accessExpiresMs / 1000)
-          : undefined,
-      refreshToken,
-      refreshTokenExpiresIn:
-        typeof refreshExpiresMs === 'number' && refreshExpiresMs > 0
-          ? Math.floor(refreshExpiresMs / 1000)
-          : undefined,
+      callbackBaseUrl: base,
+      pending,
     })
 
-    await ensureShopifyWebhooks({
-      shop: pending.shop_domain,
-      accessToken,
-      callbackBaseUrl: base,
-    }).catch((e) => console.error('[shopify] webhook register', e))
-
-    const shopRow = await loadShopifyShopForVendor(admin, vendor.id)
-    if (
-      shopRow &&
-      shopifyBillingAllowsSync({
-        billingStatus: shopRow.billing_status,
-        shopDomain: shopRow.shop_domain,
-      })
-    ) {
-      await syncShopifyWorkshopsForShop(admin, shopRow).catch((e) =>
-        console.error('[shopify] initial sync', e)
-      )
+    if (!result.claimed) {
+      if (result.reason === 'shop_already_linked') {
+        return finish('shopify_error=shop_already_linked', pending.shop_domain)
+      }
+      await deleteShopifyPendingInstall(admin, pending.id).catch(() => {})
+      return finish('shopify_error=claim_expired', pending.shop_domain)
     }
 
-    await deleteShopifyPendingInstall(admin, pending.id)
-    return settingsRedirect(base, 'shopify_connected=1')
+    return finish('shopify_connected=1', pending.shop_domain)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'claim_failed'
     console.error('[shopify] claim', e)
-    return settingsRedirect(base, `shopify_error=${encodeURIComponent(msg.slice(0, 120))}`)
+    return finish(`shopify_error=${encodeURIComponent(msg.slice(0, 120))}`)
   }
 }

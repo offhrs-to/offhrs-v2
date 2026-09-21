@@ -7,6 +7,9 @@ import {
   vendorHasNativePartnerPlan,
 } from '@/lib/partner-access'
 import { vendorHasMarketplaceAccess } from '@/lib/shop/access'
+import { normalizeShopDomain, shopDomainFromHostParam } from '@/lib/shopify/shop-domain'
+import { verifyShopifySessionToken } from '@/lib/shopify/session-token'
+import { setChannelShopCookie } from '@/lib/shopify/channel-session-cookie'
 
 const PUBLIC_PARTNER_PATHS = [
   '/partners/login',
@@ -25,14 +28,36 @@ function adminClient() {
   return createClient(url, key, { auth: { persistSession: false } })
 }
 
+const SHOPIFY_FRAME_ANCESTORS =
+  "frame-ancestors https://admin.shopify.com https://*.myshopify.com https://admin.shopify.io;"
+
+function withFrameAncestors(response: NextResponse, pathname: string): NextResponse {
+  const isShopifyEmbed = pathname === '/shopify' || pathname.startsWith('/shopify/')
+  response.headers.set(
+    'Content-Security-Policy',
+    isShopifyEmbed ? SHOPIFY_FRAME_ANCESTORS : "frame-ancestors 'none';"
+  )
+  return response
+}
+
 export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+  const { pathname } = request.nextUrl
+
+  // Tag embedded Shopify Admin requests for root layout (no marketing chrome / framing).
+  const requestHeaders = new Headers(request.headers)
+  if (pathname === '/shopify' || pathname.startsWith('/shopify/')) {
+    requestHeaders.set('x-offhrs-shopify-admin', '1')
+  }
+
+  let supabaseResponse = NextResponse.next({
+    request: { headers: requestHeaders },
+  })
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   // Preview/misconfigured deploys: never crash the edge with missing env.
   if (!supabaseUrl || !supabaseAnonKey) {
-    return supabaseResponse
+    return withFrameAncestors(supabaseResponse, pathname)
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -42,7 +67,9 @@ export async function proxy(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        supabaseResponse = NextResponse.next({ request })
+        supabaseResponse = NextResponse.next({
+          request: { headers: requestHeaders },
+        })
         cookiesToSet.forEach(({ name, value, options }) =>
           supabaseResponse.cookies.set(name, value, options)
         )
@@ -57,10 +84,8 @@ export async function proxy(request: NextRequest) {
     user = data?.claims ?? null
   } catch (err) {
     console.error('proxy auth getClaims failed:', err)
-    return supabaseResponse
+    return withFrameAncestors(supabaseResponse, pathname)
   }
-
-  const { pathname } = request.nextUrl
 
   // ── Admin: the /admin page itself is a client component that shows a login
   // form (cookie-session based, via /api/admin/login) when unauthenticated,
@@ -78,7 +103,7 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith('/partners')) {
     // Public marketing landing — must not require auth or checkout (same as /partners/login, etc.)
     if (pathname === '/partners' || pathname === '/partners/') {
-      return supabaseResponse
+      return withFrameAncestors(supabaseResponse, pathname)
     }
 
     const isPublicPartnerPath = PUBLIC_PARTNER_PATHS.some(
@@ -86,13 +111,18 @@ export async function proxy(request: NextRequest) {
     )
 
     if (isPublicPartnerPath) {
-      return supabaseResponse
+      return withFrameAncestors(supabaseResponse, pathname)
     }
 
-    // Must be authenticated
+    // Must be authenticated — preserve full path so Shopify connect popup returns here.
     if (!user) {
       const url = request.nextUrl.clone()
+      const returnTo = `${pathname}${request.nextUrl.search}`
       url.pathname = '/partners/login'
+      url.search = ''
+      if (returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+        url.searchParams.set('next', returnTo)
+      }
       return NextResponse.redirect(url)
     }
 
@@ -117,7 +147,8 @@ export async function proxy(request: NextRequest) {
       pathname === '/partners/dashboard' ||
       pathname === '/partners/dashboard/' ||
       pathname.startsWith('/partners/dashboard/faq') ||
-      pathname.startsWith('/partners/dashboard/marketplace')
+      pathname.startsWith('/partners/dashboard/marketplace') ||
+      pathname.startsWith('/partners/shopify-connect')
 
     async function vendorHasShopifyShop(vendorId: string): Promise<boolean> {
       const admin = adminClient()
@@ -133,14 +164,14 @@ export async function proxy(request: NextRequest) {
     // Pending vendors must complete Stripe billing OR Shopify Sync / Marketplace onboarding.
     if (vendor.status === 'pending') {
       if (pathname === '/partners/checkout' || pathname.startsWith('/partners/checkout/')) {
-        return supabaseResponse
+        return withFrameAncestors(supabaseResponse, pathname)
       }
       if (pathname === '/partners/shopify-sync' || pathname.startsWith('/partners/shopify-sync/')) {
-        return supabaseResponse
+        return withFrameAncestors(supabaseResponse, pathname)
       }
       // Allow Sync / Marketplace path into dashboard/settings/faq/marketplace before Stripe.
       if (shopifyOnboardingPaths) {
-        return supabaseResponse
+        return withFrameAncestors(supabaseResponse, pathname)
       }
       const url = request.nextUrl.clone()
       url.pathname = '/partners/signup'
@@ -151,13 +182,13 @@ export async function proxy(request: NextRequest) {
     if (!activeStatuses.includes(vendor.status)) {
       // Suspended/canceled: allow Settings if they still have a Shopify shop (manage Sync billing).
       if (pathname === '/partners/suspended' || pathname.startsWith('/partners/suspended/')) {
-        return supabaseResponse
+        return withFrameAncestors(supabaseResponse, pathname)
       }
       if (
         pathname.startsWith('/partners/dashboard/settings') &&
         (await vendorHasShopifyShop(vendor.id))
       ) {
-        return supabaseResponse
+        return withFrameAncestors(supabaseResponse, pathname)
       }
       const url = request.nextUrl.clone()
       url.pathname = '/partners/suspended'
@@ -187,7 +218,22 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  return supabaseResponse
+  // Mint partitioned channel cookie on the HTML response when Shopify provides id_token.
+  // This is the most reliable path for Sync/Disconnect auth in the Admin iframe.
+  if (pathname === '/shopify' || pathname.startsWith('/shopify/')) {
+    const idToken = request.nextUrl.searchParams.get('id_token')
+    const shop =
+      normalizeShopDomain(request.nextUrl.searchParams.get('shop')) ??
+      shopDomainFromHostParam(request.nextUrl.searchParams.get('host'))
+    if (idToken && shop) {
+      const session = verifyShopifySessionToken(idToken, { expectedShop: shop })
+      if (session) {
+        setChannelShopCookie(supabaseResponse, session.shop)
+      }
+    }
+  }
+
+  return withFrameAncestors(supabaseResponse, pathname)
 }
 
 export const config = {
