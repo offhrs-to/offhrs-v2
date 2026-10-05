@@ -8,8 +8,8 @@ const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholde
   apiVersion: '2026-04-22.dahlia',
 })
 
-function parsePartnerSubscriptionTier(value: unknown): 'lite' | 'pro' | null {
-  return value === 'lite' || value === 'pro' ? value : null
+function parsePartnerSubscriptionTier(value: unknown): 'lite' | 'pro' | 'full' | null {
+  return value === 'lite' || value === 'pro' || value === 'full' ? value : null
 }
 
 function stripeStatusToVendorStatus(stripeStatus: string): string {

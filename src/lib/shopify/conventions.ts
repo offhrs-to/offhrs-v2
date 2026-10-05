@@ -9,15 +9,18 @@
  * attributes to the offhrs channel. Product-page URLs are no longer the default.
  *
  * Session start (resolved automatically when possible):
- * 1. Optional metafield offhrs.starts_at (override)
+ * 1. Optional metafield offhrs.starts_at (explicit override)
  * 2. Variant selectedOptions — e.g. option name "Date" with value
  *    "August 21, 2026 12:00 PM" (Orris-style time-slot variants)
- * 3. Variant title / product title if they contain a parseable datetime
+ * 3. Common Date metafields (e.g. key "Date" = "Sep 24, 2026 • 6:30 PM", Depanneur-style)
+ * 4. Variant title / product title if they contain a parseable datetime
  * Naive times are interpreted as America/Toronto.
  *
  * Optional metafields (namespace offhrs): book_url (Shopify cart/checkout only —
- * off-Shopify URLs are ignored), capacity, duration_minutes, category
- * Category fallback: product/variant offhrs.category metafield → vendor primary signup
+ * off-Shopify URLs are ignored), capacity, duration_minutes, category.
+ * Heuristic keys also accepted: Date / location / Event capacity / Duration (any namespace).
+ * Location: product metafield when present, else partner profile address.
+ * Category fallback: offhrs.category metafield → vendor primary signup
  * category (vendor_profiles.category[0]) → Other.
  * Inventory on the variant = remaining seats (available_slots).
  * One Shopify variant ≈ one offhrs session row.

@@ -13,7 +13,7 @@ import {
   type ShopifyAccessTokenResult,
 } from '@/lib/shopify/admin-client'
 import { upsertShopifyPendingInstall } from '@/lib/shopify/pending-install'
-import { shopifyBillingAllowsSync } from '@/lib/shopify/billing'
+import { shopifySyncAllowedForVendor } from '@/lib/shopify/billing'
 import {
   ensureShopifyWebhooks,
   syncShopifyWorkshopsForShop,
@@ -76,9 +76,11 @@ async function finalizeShopLink(opts: {
           .select('business_name')
           .eq('id', vendorId)
           .maybeSingle()
-        const billingOk = shopifyBillingAllowsSync({
-          billingStatus: shopRow.billing_status,
+        const billingOk = await shopifySyncAllowedForVendor({
+          admin,
+          vendorId,
           shopDomain: shopRow.shop_domain,
+          billingStatus: shopRow.billing_status,
         })
         await bootstrapOffhrsChannelFeeds(admin, shopRow, {
           accountName: vendor?.business_name,
@@ -114,9 +116,11 @@ async function finalizeShopLink(opts: {
       .eq('id', vendorId)
       .maybeSingle()
 
-    const billingOk = shopifyBillingAllowsSync({
-      billingStatus: shopRow.billing_status,
+    const billingOk = await shopifySyncAllowedForVendor({
+      admin,
+      vendorId,
       shopDomain: shopRow.shop_domain,
+      billingStatus: shopRow.billing_status,
     })
 
     await bootstrapOffhrsChannelFeeds(admin, shopRow, {

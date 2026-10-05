@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 import {
   createShopifySyncSubscription,
   persistShopifyBillingStatus,
-  shopifyBillingAllowsSync,
+  shopifySyncAllowedForVendor,
 } from '@/lib/shopify/billing'
 import { shopifyOAuthAppBase } from '@/lib/shopify/app-base'
 import {
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Connect Shopify before subscribing to Sync.' }, { status: 400 })
   }
 
-  if (shopifyBillingAllowsSync({ billingStatus: shop.billing_status, shopDomain: shop.shop_domain })) {
+  if (await shopifySyncAllowedForVendor({ admin, vendorId: vendor.id, shopDomain: shop.shop_domain, billingStatus: shop.billing_status })) {
     return NextResponse.json({
       already_active: true,
       billing_status: 'active',

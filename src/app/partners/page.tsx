@@ -20,11 +20,11 @@ const site = getSiteUrl()
 
 export const metadata: Metadata = {
   title: 'offhrs Partners — Run your workshop business the easy way',
-  description: `offhrs Partners gives Toronto workshop vendors instant booking, Stripe payouts, calendar sync, and Shopify Sync — Lite $${PARTNER_PLAN_MONTHLY_CAD.lite}, Pro $${PARTNER_PLAN_MONTHLY_CAD.pro}, or Sync $${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month. Start your free ${PARTNER_TRIAL_LABEL}.`,
+  description: `offhrs Partners: Marketplace free; Lite $${PARTNER_PLAN_MONTHLY_CAD.lite}; Shopify Sync $${SHOPIFY_SYNC_MONTHLY_CAD}; Pro $${PARTNER_PLAN_MONTHLY_CAD.pro}; Full License $${PARTNER_PLAN_MONTHLY_CAD.full} CAD/month. Start your free ${PARTNER_TRIAL_LABEL}.`,
   alternates: { canonical: `${site}/partners` },
   openGraph: {
-    title: 'offhrs Partners — Run your workshop business the easy way',
-    description: `Booking, payouts, and Shopify Sync for Toronto workshop vendors — Lite $${PARTNER_PLAN_MONTHLY_CAD.lite}, Pro $${PARTNER_PLAN_MONTHLY_CAD.pro}, or Sync $${SHOPIFY_SYNC_MONTHLY_CAD}/mo after a ${PARTNER_TRIAL_LABEL}.`,
+    title: 'offhrs Partners — workshops, Marketplace & Shopify Sync',
+    description: `Marketplace free · Lite $${PARTNER_PLAN_MONTHLY_CAD.lite} · Sync $${SHOPIFY_SYNC_MONTHLY_CAD} · Pro $${PARTNER_PLAN_MONTHLY_CAD.pro} · Full $${PARTNER_PLAN_MONTHLY_CAD.full}/mo after a ${PARTNER_TRIAL_LABEL}.`,
     url: `${site}/partners`,
     siteName: 'offhrs',
     type: 'website',
@@ -94,24 +94,38 @@ export default function PartnersLandingPage() {
         offers: [
           {
             '@type': 'Offer',
-            name: 'Lite',
-            price: String(PARTNER_PLAN_MONTHLY_CAD.lite),
+            name: 'Marketplace Only',
+            price: '0',
             priceCurrency: 'CAD',
-            description: `Lite plan — up to 4 active workshops at a time, after ${PARTNER_TRIAL_LABEL}`,
+            description: 'Sell physical goods on Artist Marketplace — no monthly fee; 5% + Stripe on sales',
           },
           {
             '@type': 'Offer',
-            name: 'Pro',
-            price: String(PARTNER_PLAN_MONTHLY_CAD.pro),
+            name: 'Lite',
+            price: String(PARTNER_PLAN_MONTHLY_CAD.lite),
             priceCurrency: 'CAD',
-            description: `Pro plan — unlimited workshop sessions, after ${PARTNER_TRIAL_LABEL}`,
+            description: `Lite — up to 4 active workshops; no Marketplace; no Sync. After ${PARTNER_TRIAL_LABEL}`,
           },
           {
             '@type': 'Offer',
             name: SHOPIFY_SYNC_PLAN_NAME,
             price: String(SHOPIFY_SYNC_MONTHLY_CAD),
             priceCurrency: 'CAD',
-            description: `Shopify Sync — mirror tagged Shopify workshops into offhrs; guests book on Shopify. After ${PARTNER_TRIAL_LABEL}`,
+            description: `Shopify Sync only — mirror tagged Shopify workshops into offhrs. After ${PARTNER_TRIAL_LABEL}`,
+          },
+          {
+            '@type': 'Offer',
+            name: 'Pro',
+            price: String(PARTNER_PLAN_MONTHLY_CAD.pro),
+            priceCurrency: 'CAD',
+            description: `Pro — unlimited workshops + Marketplace. After ${PARTNER_TRIAL_LABEL}`,
+          },
+          {
+            '@type': 'Offer',
+            name: 'Full License',
+            price: String(PARTNER_PLAN_MONTHLY_CAD.full),
+            priceCurrency: 'CAD',
+            description: `Full License — Pro + Marketplace + Shopify Sync. After ${PARTNER_TRIAL_LABEL}`,
           },
         ],
         publisher: {
@@ -238,10 +252,33 @@ export default function PartnersLandingPage() {
         <div className="max-w-5xl mx-auto px-6 text-center">
           <h2 className="font-playfair text-3xl font-bold mb-4">Simple, honest pricing</h2>
           <p className="text-[#555] text-sm mb-12 max-w-2xl mx-auto">
-            Lite and Pro run bookings on offhrs. Shopify Sync lists your Shopify workshops in the app — guests book on
-            your store. All options include a {PARTNER_TRIAL_LABEL}.
+            Marketplace Only is free. Lite and Pro run bookings on offhrs (Pro includes Marketplace). Shopify Sync
+            mirrors Shopify workshops. Full License bundles Pro + Marketplace + Sync. Paid plans include a{' '}
+            {PARTNER_TRIAL_LABEL}.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left items-stretch">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 text-left items-stretch">
+            <div className="rounded-3xl border-2 border-[#E8E6E0] bg-[#FAFAF8] p-8 shadow-sm flex flex-col h-full">
+              <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Marketplace Only</p>
+              <div className="flex items-end gap-1 mb-1">
+                <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">$0</span>
+                <span className="text-[#555] text-sm mb-2">to join</span>
+              </div>
+              <p className="text-xs text-[#5D755D] font-medium mb-6">No monthly fee · 5% + Stripe on sales</p>
+              <ul className="space-y-3 text-sm text-[#333] mb-8 flex-1">
+                {['Sell physical goods Canada-wide', 'No workshops dashboard', 'No Shopify Sync'].map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="text-[#5D755D] mt-0.5">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/partners/signup?intent=marketplace"
+                className="mt-auto block w-full rounded-full border-2 border-[#5D755D] bg-transparent px-6 py-3 text-center text-sm font-semibold text-[#5D755D] hover:bg-[#EDF0ED] transition-colors"
+              >
+                Join Marketplace
+              </Link>
+            </div>
             <div className="rounded-3xl border-2 border-[#E8E6E0] bg-[#FAFAF8] p-8 shadow-sm flex flex-col h-full">
               <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Lite</p>
               <div className="flex items-end gap-1 mb-1">
@@ -251,43 +288,10 @@ export default function PartnersLandingPage() {
               <p className="text-xs text-[#5D755D] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
               <ul className="space-y-3 text-sm text-[#333] mb-8 flex-1">
                 {[
-                  'Up to 4 active workshops at a time (archive to free a slot)',
-                  '0% commission on ticket sales',
-                  'Stripe Connect payouts',
-                  'Google & Outlook calendar sync',
-                  'Stripe-powered secure checkout',
-                  'Fully booked management',
-                  'Revenue dashboard',
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-2">
-                    <span className="text-[#5D755D] mt-0.5">✓</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/partners/signup"
-                className="mt-auto block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
-              >
-                Start free trial
-              </Link>
-            </div>
-            <div className="rounded-3xl border-2 border-[#5D755D] bg-[#FAFAF8] p-8 shadow-sm flex flex-col h-full">
-              <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Pro</p>
-              <div className="flex items-end gap-1 mb-1">
-                <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">{formatPartnerMonthlyAmount('pro')}</span>
-                <span className="text-[#555] text-sm mb-2">CAD / month</span>
-              </div>
-              <p className="text-xs text-[#5D755D] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
-              <ul className="space-y-3 text-sm text-[#333] mb-8 flex-1">
-                {[
-                  'Unlimited workshop sessions',
-                  '0% commission on ticket sales',
-                  'Stripe Connect payouts',
-                  'Google & Outlook calendar sync',
-                  'Stripe-powered secure checkout',
-                  'Fully booked management',
-                  'Revenue dashboard',
+                  'Up to 4 active workshops',
+                  '0% commission on tickets',
+                  'No Marketplace',
+                  'No Shopify Sync',
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2">
                     <span className="text-[#5D755D] mt-0.5">✓</span>
@@ -315,12 +319,10 @@ export default function PartnersLandingPage() {
               <p className="text-xs text-[#5D755D] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
               <ul className="space-y-3 text-sm text-[#333] mb-8 flex-1">
                 {[
-                  'Standalone — no Lite or Pro required',
-                  'Sync tagged Shopify products into offhrs',
-                  'Guests book on your Shopify storefront',
-                  'Shopify stays the source of truth',
-                  'Billed through Shopify App Pricing',
-                  'Tag products with offhrs_workshop',
+                  'Shopify Sync only',
+                  'Guests book on Shopify',
+                  'Billed via Shopify App Pricing',
+                  'No Marketplace / no Lite workshops',
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2">
                     <span className="text-[#5D755D] mt-0.5">✓</span>
@@ -333,6 +335,60 @@ export default function PartnersLandingPage() {
                 className="mt-auto block w-full rounded-full border-2 border-[#5D755D] bg-transparent px-6 py-3 text-center text-sm font-semibold text-[#5D755D] hover:bg-[#EDF0ED] transition-colors"
               >
                 Get started
+              </Link>
+            </div>
+            <div className="rounded-3xl border-2 border-[#5D755D] bg-[#FAFAF8] p-8 shadow-sm flex flex-col h-full">
+              <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Pro</p>
+              <div className="flex items-end gap-1 mb-1">
+                <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">{formatPartnerMonthlyAmount('pro')}</span>
+                <span className="text-[#555] text-sm mb-2">CAD / month</span>
+              </div>
+              <p className="text-xs text-[#5D755D] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
+              <ul className="space-y-3 text-sm text-[#333] mb-8 flex-1">
+                {[
+                  'Unlimited workshops',
+                  'Artist Marketplace included',
+                  '0% commission on tickets',
+                  'No Shopify Sync (add Sync or Full)',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="text-[#5D755D] mt-0.5">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/partners/signup"
+                className="mt-auto block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
+              >
+                Start free trial
+              </Link>
+            </div>
+            <div className="rounded-3xl border-2 border-[#5D755D] bg-[#EDF2ED] p-8 shadow-sm flex flex-col h-full sm:col-span-2 lg:col-span-1">
+              <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Full License</p>
+              <div className="flex items-end gap-1 mb-1">
+                <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">{formatPartnerMonthlyAmount('full')}</span>
+                <span className="text-[#555] text-sm mb-2">CAD / month</span>
+              </div>
+              <p className="text-xs text-[#5D755D] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
+              <ul className="space-y-3 text-sm text-[#333] mb-8 flex-1">
+                {[
+                  'Everything in Pro',
+                  'Marketplace included',
+                  'Shopify Sync included (no extra Sync fee)',
+                  'Best value if you use all three',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="text-[#5D755D] mt-0.5">✓</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/partners/checkout?plan=full"
+                className="mt-auto block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
+              >
+                Start free trial
               </Link>
             </div>
           </div>

@@ -33,20 +33,37 @@ export function getStripeLitePriceId(): string {
   return process.env.STRIPE_LITE_PRICE_ID?.trim() ?? ''
 }
 
+export function getStripeFullPriceId(): string {
+  return process.env.STRIPE_FULL_PRICE_ID?.trim() ?? ''
+}
+
 export function stripePriceIdForCheckoutPlan(plan: PartnerCheckoutPlan): string {
-  const lite = getStripeLitePriceId()
-  const pro = getStripeProPriceId()
   if (plan === 'lite') {
+    const lite = getStripeLitePriceId()
     if (!lite) throw new Error('STRIPE_LITE_PRICE_ID is not configured')
     return lite
   }
-  if (!pro) throw new Error('STRIPE_PRO_PRICE_ID (or legacy STRIPE_STANDARD_PRO_ID / STRIPE_STANDARD_PRICE_ID) is not configured')
+  if (plan === 'full') {
+    const full = getStripeFullPriceId()
+    if (!full) throw new Error('STRIPE_FULL_PRICE_ID is not configured')
+    return full
+  }
+  const pro = getStripeProPriceId()
+  if (!pro) {
+    throw new Error(
+      'STRIPE_PRO_PRICE_ID (or legacy STRIPE_STANDARD_PRO_ID / STRIPE_STANDARD_PRICE_ID) is not configured'
+    )
+  }
   return pro
 }
 
-export function subscriptionTierFromStripePriceId(priceId: string | null | undefined): PartnerSubscriptionTier {
+export function subscriptionTierFromStripePriceId(
+  priceId: string | null | undefined
+): PartnerSubscriptionTier {
   if (!priceId) return 'pro'
   if (priceId === getStripeLitePriceId()) return 'lite'
+  if (priceId === getStripeFullPriceId()) return 'full'
+  if (priceId === getStripeProPriceId()) return 'pro'
   return 'pro'
 }
 

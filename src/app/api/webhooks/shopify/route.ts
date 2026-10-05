@@ -6,7 +6,7 @@ import {
   ensureVendorActiveForShopifySync,
   mapShopifySubscriptionStatus,
   persistShopifyBillingStatus,
-  shopifyBillingAllowsSync,
+  shopifySyncAllowedForVendor,
 } from '@/lib/shopify/billing'
 import {
   applyShopifyInventoryLevel,
@@ -144,10 +144,12 @@ export async function POST(request: NextRequest) {
 
     if (
       !shopRow.sync_enabled ||
-      !shopifyBillingAllowsSync({
-        billingStatus: shopRow.billing_status,
+      !(await shopifySyncAllowedForVendor({
+        admin,
+        vendorId: shopRow.vendor_id,
         shopDomain: shopRow.shop_domain,
-      })
+        billingStatus: shopRow.billing_status,
+      }))
     ) {
       await admin
         .from('webhook_events')

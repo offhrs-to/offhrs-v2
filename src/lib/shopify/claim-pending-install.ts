@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { decrypt } from '@/lib/token-encryption'
-import { shopifyBillingAllowsSync } from '@/lib/shopify/billing'
+import { shopifySyncAllowedForVendor } from '@/lib/shopify/billing'
 import {
   deleteShopifyPendingInstall,
   loadShopifyPendingByShopDomain,
@@ -80,9 +80,11 @@ export async function claimPendingInstallForVendor(opts: {
 
   const shopRow = await loadShopifyShopForVendor(opts.admin, opts.vendorId)
   if (shopRow) {
-    const billingOk = shopifyBillingAllowsSync({
-      billingStatus: shopRow.billing_status,
+    const billingOk = await shopifySyncAllowedForVendor({
+      admin: opts.admin,
+      vendorId: opts.vendorId,
       shopDomain: shopRow.shop_domain,
+      billingStatus: shopRow.billing_status,
     })
     await bootstrapOffhrsChannelFeeds(opts.admin, shopRow, {
       accountName: opts.businessName,

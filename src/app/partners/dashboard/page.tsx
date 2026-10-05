@@ -16,7 +16,7 @@ import { archiveEndedPartnerSessions } from '@/lib/partner-session-auto-archive'
 import { reconcileStripeConnectStatus } from '@/lib/stripe-connect-reconcile'
 import { buildActivitySeriesFromBookings, type BookingActivityRow } from '@/lib/partner-dashboard-activity'
 import { vendorHasNativePartnerPlan } from '@/lib/partner-access'
-import { shopifyBillingAllowsSync } from '@/lib/shopify/billing'
+import { shopifySyncAllowedForVendor } from '@/lib/shopify/billing'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -135,7 +135,7 @@ export default async function DashboardPage({
             <h2 className="text-sm font-semibold text-foreground">Artist Marketplace</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               List physical goods for Canada-only shipping. Platform fee is 5% of item subtotal plus Stripe
-              processing. Workshops stay on Lite/Pro if you want bookings too.
+              processing. Workshops stay on Lite, Pro, or Full License if you want bookings too.
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
               <Button asChild size="sm">
@@ -167,9 +167,11 @@ export default async function DashboardPage({
 
     const shopConnected = Boolean(shop)
     const billingActive = shop
-      ? shopifyBillingAllowsSync({
-          billingStatus: shop.billing_status,
+      ? await shopifySyncAllowedForVendor({
+          admin,
+          vendorId: vendor.id,
           shopDomain: shop.shop_domain,
+          billingStatus: shop.billing_status,
         })
       : false
     const profileReady = Boolean(vendor.bio?.trim() && vendor.location_address?.trim())
@@ -275,11 +277,12 @@ export default async function DashboardPage({
           <CardContent className="space-y-2 p-5">
             <h2 className="text-sm font-semibold text-foreground">Want bookings on offhrs too?</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Lite and Pro unlock in-app checkout, Stripe payouts, workshops, calendar, bookings, and
-              clients. Sync stays separate and can run alongside either plan.
+              Lite, Pro, or Full License unlock in-app checkout, Stripe payouts, workshops, calendar,
+              bookings, and clients. Full License also includes Shopify Sync. Standalone Sync stays
+              available separately.
             </p>
             <Button asChild size="sm" variant="outline" className="border-partner-border mt-1">
-              <Link href="/partners/checkout">View Lite &amp; Pro</Link>
+              <Link href="/partners/checkout">View plans</Link>
             </Button>
           </CardContent>
         </Card>

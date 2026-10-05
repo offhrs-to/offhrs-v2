@@ -2,16 +2,16 @@ import { syncBookingRefundedFromStripe } from '@/lib/booking-refund'
 import { fetchRealChargeFee } from '@/lib/stripe-charge-fees'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
+  getStripeFullPriceId,
   getStripeLitePriceId,
   getStripeProPriceId,
   monthlyAmountLabelForTier,
   subscriptionTierFromStripePriceId,
+  type PartnerSubscriptionTier,
 } from '@/lib/stripe-partner-plans'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { Resend } from 'resend'
-
-type PartnerSubscriptionTier = 'lite' | 'pro'
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
@@ -34,13 +34,20 @@ function emailHtml(body: string): string {
   return `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#1a1a1a;">${body}</div>`
 }
 
+function planLabelForTier(tier: PartnerSubscriptionTier): string {
+  if (tier === 'lite') return 'Lite'
+  if (tier === 'full') return 'Full License'
+  return 'Pro'
+}
+
 function parsePartnerSubscriptionTier(value: unknown): PartnerSubscriptionTier | null {
-  return value === 'lite' || value === 'pro' ? value : null
+  return value === 'lite' || value === 'pro' || value === 'full' ? value : null
 }
 
 function tierFromConfiguredPriceId(priceId: string | null | undefined): PartnerSubscriptionTier | null {
   if (!priceId) return null
   if (priceId === getStripeLitePriceId()) return 'lite'
+  if (priceId === getStripeFullPriceId()) return 'full'
   if (priceId === getStripeProPriceId()) return 'pro'
   return null
 }
@@ -60,6 +67,7 @@ function tierFromStripePriceObject(price: Stripe.Price | null | undefined): Part
     .filter(Boolean)
     .map((part) => String(part).toLowerCase())
 
+  if (textParts.some((part) => /\bfull\b/.test(part) || /full\s*license/.test(part))) return 'full'
   if (textParts.some((part) => /\blite\b/.test(part))) return 'lite'
   if (textParts.some((part) => /\bpro\b/.test(part))) return 'pro'
 
@@ -224,7 +232,7 @@ async function handleStripeEvent(
 
       const stripePriceId = subscription.items.data[0]?.price.id ?? ''
       const subscription_tier = await resolveInitialPartnerSubscriptionTier({ subscription, session })
-      const planLabel = subscription_tier === 'lite' ? 'Lite' : 'Pro'
+      const planLabel = planLabelForTier(subscription_tier)
 
       // Update vendor to trialing
       await admin.from('vendor_profiles').update({

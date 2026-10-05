@@ -44,8 +44,8 @@ export default function TermsOfUsePage() {
           </li>
           <li>
             <strong>For vendors (makers and studios):</strong> a Partners dashboard at{' '}
-            <strong>partners.offhrs.app</strong> for workshop SaaS tools (Lite/Pro), optional Shopify Sync,
-            and/or Artist Marketplace selling (included with Lite/Pro, or via a free Marketplace-only
+            <strong>partners.offhrs.app</strong> for workshop SaaS tools (Lite / Pro / Full License), optional Shopify Sync,
+            and/or Artist Marketplace selling (included with Pro / Full License, or via a free Marketplace-only
             enrollment), including Stripe Connect payouts.
           </li>
         </ul>
@@ -59,10 +59,12 @@ export default function TermsOfUsePage() {
         </p>
         <ul>
           <li>
-            <strong>Platform SaaS fees.</strong> offhrs charges Vendors a monthly subscription fee for our
-            Partners platform, starting at <strong>$29 CAD/month (Lite)</strong> or{' '}
-            <strong>$49 CAD/month (Pro)</strong>. These fees represent a taxable supply of digital services in
-            Canada; we automatically add <strong>13% Ontario HST</strong> on top of the subscription price.
+            <strong>Platform SaaS fees.</strong> offhrs offers a free Marketplace Only plan and paid Partners
+            plans: <strong>$29 CAD/month (Lite)</strong>, <strong>$29 CAD/month (Shopify Sync)</strong>,{' '}
+            <strong>$39 CAD/month (Pro)</strong>, or <strong>$59 CAD/month (Full License)</strong>. Paid
+            subscription fees represent a taxable supply of digital services in Canada; we automatically add{' '}
+            <strong>13% Ontario HST</strong> on top of Stripe-billed subscription prices (Shopify Sync may be
+            billed through Shopify App Pricing instead).
           </li>
           <li>
             <strong>Workshop ticket sales.</strong> The Vendor is the &ldquo;Seller of Record&rdquo; for

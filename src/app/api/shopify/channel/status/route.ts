@@ -6,10 +6,11 @@ import {
   shopHasStorefrontTokenScope,
 } from '@/lib/shopify/admin-client'
 import {
-  shopifyBillingAllowsSync,
+  shopifySyncAllowedForVendor,
   isShopifySyncCompedShop,
   refreshShopifyBillingFromAdmin,
 } from '@/lib/shopify/billing'
+import { vendorHasFullLicensePlan } from '@/lib/partner-access'
 import {
   channelCanManageLinkedShop,
   resolveChannelAuth,
@@ -84,9 +85,12 @@ export async function GET(request: NextRequest) {
   )
 
   let billingStatus = shopRow.billing_status
-  let billingActive = shopifyBillingAllowsSync({
-    billingStatus,
+  const fullLicenseComped = await vendorHasFullLicensePlan(admin, shopRow.vendor_id)
+  let billingActive = await shopifySyncAllowedForVendor({
+    admin,
+    vendorId: shopRow.vendor_id,
     shopDomain: shopRow.shop_domain,
+    billingStatus,
   })
 
   // After Start trial return, Shopify may lag — refresh when asked or still pending.
@@ -104,7 +108,7 @@ export async function GET(request: NextRequest) {
           accessToken,
         })
         billingStatus = refreshed
-        billingActive = refreshed === 'active'
+        billingActive = refreshed === 'active' || fullLicenseComped
       }
     } catch (e) {
       console.error('[shopify] status billing refresh', e)
@@ -128,7 +132,7 @@ export async function GET(request: NextRequest) {
     billing_status: billingStatus ?? 'none',
     billing_active: billingActive,
     billing_confirmed_at: shopRow.billing_confirmed_at,
-    billing_comped: isShopifySyncCompedShop(shopRow.shop_domain),
+    billing_comped: isShopifySyncCompedShop(shopRow.shop_domain) || fullLicenseComped,
     plan_label: SHOPIFY_SYNC_PLAN_LABEL,
     plan_amount_cad: SHOPIFY_SYNC_MONTHLY_CAD,
     partner_business_name: sessionMatches

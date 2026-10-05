@@ -728,13 +728,14 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
       ) : (
       <Card className="gap-0 border-partner-border py-0 shadow-none">
         <CardContent className="space-y-3 p-5">
-          <h2 className="text-sm font-semibold text-foreground mb-1">Lite &amp; Pro (optional)</h2>
+          <h2 className="text-sm font-semibold text-foreground mb-1">Lite, Pro &amp; Full License (optional)</h2>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Shopify Sync is billed in Shopify. Add Lite or Pro if you also want in-app bookings,
-            Stripe payouts, workshops, calendar, and clients in this dashboard.
+            Shopify Sync is billed in Shopify (or included with Full License). Add Lite, Pro, or Full
+            License if you also want in-app bookings, Stripe payouts, workshops, calendar, and clients
+            in this dashboard.
           </p>
           <Button asChild variant="outline" size="sm" className="border-partner-border">
-            <a href="/partners/checkout">View Lite &amp; Pro</a>
+            <a href="/partners/checkout">View plans</a>
           </Button>
         </CardContent>
       </Card>

@@ -9,7 +9,7 @@ import {
   createShopifySyncSubscription,
   persistShopifyBillingStatus,
   refreshShopifyBillingFromAdmin,
-  shopifyBillingAllowsSync,
+  shopifySyncAllowedForVendor,
 } from '@/lib/shopify/billing'
 import { getValidShopAccessToken } from '@/lib/shopify/sync-workshops'
 
@@ -27,9 +27,11 @@ export async function POST(request: NextRequest) {
   const { admin, shopRow, vendor } = ctx
 
   if (
-    shopifyBillingAllowsSync({
-      billingStatus: shopRow.billing_status,
+    await shopifySyncAllowedForVendor({
+      admin,
+      vendorId: vendor.id,
       shopDomain: shopRow.shop_domain,
+      billingStatus: shopRow.billing_status,
     })
   ) {
     return withChannelShopCookie(

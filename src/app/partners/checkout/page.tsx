@@ -14,7 +14,7 @@ export default function PartnersCheckoutPage() {
     setCanceled(params.get('canceled') === '1')
   }, [])
 
-  async function startCheckout(plan: 'lite' | 'pro') {
+  async function startCheckout(plan: 'lite' | 'pro' | 'full') {
     setLoading(true)
     setError(null)
     try {
@@ -34,10 +34,15 @@ export default function PartnersCheckoutPage() {
     }
   }
 
-  useEffect(() => {
+  function resolvePlanParam(): 'lite' | 'pro' | 'full' {
     const params = new URLSearchParams(window.location.search)
-    const plan = params.get('plan') === 'lite' ? 'lite' : 'pro'
-    void startCheckout(plan)
+    const plan = params.get('plan')
+    if (plan === 'lite' || plan === 'full' || plan === 'pro') return plan
+    return 'pro'
+  }
+
+  useEffect(() => {
+    void startCheckout(resolvePlanParam())
   }, [])
 
   return (
@@ -62,9 +67,7 @@ export default function PartnersCheckoutPage() {
         <button
           type="button"
           onClick={() => {
-            const params = new URLSearchParams(window.location.search)
-            const plan = params.get('plan') === 'lite' ? 'lite' : 'pro'
-            void startCheckout(plan)
+            void startCheckout(resolvePlanParam())
           }}
           disabled={loading}
           className="w-full rounded-lg bg-[#5D755D] px-4 py-3 text-sm font-semibold text-white hover:bg-[#4d634d] disabled:opacity-60 transition-colors"

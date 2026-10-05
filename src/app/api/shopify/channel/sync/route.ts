@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { normalizeShopDomain } from '@/lib/shopify/admin-client'
 import {
   refreshShopifyBillingFromAdmin,
-  shopifyBillingAllowsSync,
+  shopifySyncAllowedForVendor,
 } from '@/lib/shopify/billing'
 import { bootstrapOffhrsChannelFeeds } from '@/lib/shopify/bootstrap-channel'
 import {
@@ -32,9 +32,11 @@ export async function POST(request: NextRequest) {
   const { admin, vendor } = ctx
   let shopRow = ctx.shopRow
 
-  let billingOk = shopifyBillingAllowsSync({
-    billingStatus: shopRow.billing_status,
+  let billingOk = await shopifySyncAllowedForVendor({
+    admin,
+    vendorId: vendor.id,
     shopDomain: shopRow.shop_domain,
+    billingStatus: shopRow.billing_status,
   })
 
   // Reconnect / reinstall can leave billing_status stale while Shopify still has an active trial.
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest) {
       return withChannelShopCookie(
         NextResponse.json({
           ok: true,
-          warning: `Found ${found} published product(s) (${published.sample_titles.slice(0, 2).join('; ') || 'untitled'}) but 0 sessions synced (${skipped} skipped — usually missing session date/time). Each variant needs a full date+time like "September 30, 2026 12:00 PM", or metafield offhrs.starts_at. Details also appear as product feedback in Shopify Admin.`,
+          warning: `Found ${found} published product(s) (${published.sample_titles.slice(0, 2).join('; ') || 'untitled'}) but 0 sessions synced (${skipped} skipped — usually missing session date/time). Each variant needs a full date+time like "September 30, 2026 12:00 PM", a Date metafield, or offhrs.starts_at. Details also appear as product feedback in Shopify Admin.`,
           channel_gid: fresh.shopify_channel_gid,
           feed_ok: true,
           published,

@@ -151,9 +151,31 @@ export function isShopifySyncCompedShop(shopDomain: string): boolean {
 export function shopifyBillingAllowsSync(opts: {
   billingStatus: string | null | undefined
   shopDomain: string
+  /** Full License Stripe comps Sync without a Shopify App charge. */
+  fullLicenseComped?: boolean
 }): boolean {
+  if (opts.fullLicenseComped) return true
   if (isShopifySyncCompedShop(opts.shopDomain)) return true
   return opts.billingStatus === 'active'
+}
+
+/**
+ * Resolve whether Sync is allowed for this shop + vendor.
+ * Full License (Stripe) comps Shopify Sync; otherwise require active Shopify App Billing.
+ */
+export async function shopifySyncAllowedForVendor(opts: {
+  admin: Admin
+  vendorId: string
+  shopDomain: string
+  billingStatus: string | null | undefined
+}): Promise<boolean> {
+  const { vendorHasFullLicensePlan } = await import('@/lib/partner-access')
+  const fullLicenseComped = await vendorHasFullLicensePlan(opts.admin, opts.vendorId)
+  return shopifyBillingAllowsSync({
+    billingStatus: opts.billingStatus,
+    shopDomain: opts.shopDomain,
+    fullLicenseComped,
+  })
 }
 
 export function mapShopifySubscriptionStatus(

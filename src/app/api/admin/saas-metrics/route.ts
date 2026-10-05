@@ -43,7 +43,8 @@ export async function GET(request: NextRequest) {
 
   const activeCount = (statusCounts['active'] ?? 0) + (statusCounts['trialing'] ?? 0)
   const mrr = (activeSubscriptions ?? []).reduce((sum, sub) => {
-    const tier = sub.subscription_tier === 'lite' ? 'lite' : 'pro'
+    const raw = sub.subscription_tier
+    const tier = raw === 'lite' || raw === 'full' || raw === 'pro' ? raw : 'pro'
     return sum + monthlyCadForTier(tier)
   }, 0)
 

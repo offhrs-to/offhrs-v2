@@ -218,7 +218,7 @@ function extractThemeHints(html: string): SyncPreviewThemeHints {
     timeText: time,
     locationText: location,
     note:
-      'Theme-rendered text found on the storefront HTML. Sync does not read this unless the same values exist as metafields/options (or offhrs.starts_at).',
+      'Theme-rendered text found on the storefront HTML. Sync does not read this unless the same values exist as metafields/options (Date key, Date option, or offhrs.starts_at).',
   }
 }
 
@@ -390,9 +390,9 @@ export async function analyzePublicShopifyProduct(
   }
 
   const limitations = [
-    'Public preview cannot read Shopify Admin metafields (offhrs.starts_at, book_url, capacity, category) or channel publication.',
+    'Public preview cannot read Shopify Admin metafields (Date, location, offhrs.starts_at, etc.) or channel publication.',
     'Sales channel Sync lists products published to offhrs that have a parseable session datetime — not the whole catalog.',
-    'Location on synced listings comes from the partner profile address, not the product page.',
+    'Location on synced listings comes from a location metafield when present, else the partner profile address.',
     'This does not write to the database — demo only.',
   ]
 
@@ -404,7 +404,7 @@ export async function analyzePublicShopifyProduct(
   } else {
     verdict = 'blocked'
     summary =
-      'No parseable session start in public JSON — set a Date option like “September 30, 2026 12:00 PM” or offhrs.starts_at (Admin). Without a datetime, Sync skips the product even if published.'
+      'No parseable session start in public JSON — set a Date option like “September 30, 2026 12:00 PM”, or use Connected deep scan for Date metafields / offhrs.starts_at. Without a datetime, Sync skips the product even if published.'
   }
 
   const imageUrl = product.image?.src ?? product.images?.[0]?.src ?? null

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { shopifyBillingAllowsSync } from '@/lib/shopify/billing'
+import { shopifySyncAllowedForVendor } from '@/lib/shopify/billing'
 import { bootstrapOffhrsChannelFeeds } from '@/lib/shopify/bootstrap-channel'
 import {
   loadShopifyShopForVendor,
@@ -29,15 +29,17 @@ export async function POST() {
   }
 
   if (
-    !shopifyBillingAllowsSync({
-      billingStatus: shop.billing_status,
+    !(await shopifySyncAllowedForVendor({
+      admin,
+      vendorId: vendor.id,
       shopDomain: shop.shop_domain,
-    })
+      billingStatus: shop.billing_status,
+    }))
   ) {
     return NextResponse.json(
       {
         error:
-          'Shopify Sync plan required. Open Shopify Admin → Sales channels → offhrs to start the trial, then try again.',
+          'Shopify Sync plan required. Open Shopify Admin → Sales channels → offhrs to start the trial, or upgrade to Full License, then try again.',
         billing_status: shop.billing_status ?? 'none',
       },
       { status: 402 }

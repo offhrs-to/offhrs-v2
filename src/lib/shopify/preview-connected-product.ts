@@ -8,9 +8,6 @@ import { normalizePartnerSessionCategory, primaryVendorCategory } from '@/consta
 import { shopifyAdminGraphql, shopifyGidToNumericId } from './admin-client'
 import {
   OFFHRS_METAFIELD_BOOK_URL,
-  OFFHRS_METAFIELD_CAPACITY,
-  OFFHRS_METAFIELD_CATEGORY,
-  OFFHRS_METAFIELD_DURATION,
   OFFHRS_METAFIELD_NAMESPACE,
   OFFHRS_METAFIELD_STARTS_AT,
   OFFHRS_WORKSHOP_TAG,
@@ -27,7 +24,7 @@ import {
   type ShopifyShopRow,
 } from './sync-workshops'
 import { ensureStorefrontAccessToken, resolveShopifyBookUrl } from './cart-permalink'
-import { shopifyBillingAllowsSync } from './billing'
+import { shopifySyncAllowedForVendor } from './billing'
 import {
   parseShopifyProductUrl,
   type SyncPreviewCheck,
@@ -36,6 +33,7 @@ import {
   type SyncPreviewSession,
   type SyncPreviewVerdict,
 } from './preview-public-product'
+import { resolveListingMetafields, type ListingMetafield } from './resolve-listing-metafields'
 
 type Admin = SupabaseClient
 
@@ -385,8 +383,22 @@ export async function analyzeConnectedShopifyProduct(
 
   const sessions: SyncPreviewSession[] = (product.variants?.edges ?? []).map(({ node: variant }) => {
     const vMeta = offhrsMap(flattenMetafields(variant.metafields?.edges, 'variant'))
+    const productListingFields: ListingMetafield[] = productMetas.map((m) => ({
+      namespace: m.namespace,
+      key: m.key,
+      value: m.value,
+    }))
+    const variantListingFields: ListingMetafield[] = flattenMetafields(
+      variant.metafields?.edges,
+      'variant'
+    ).map((m) => ({
+      namespace: m.namespace,
+      key: m.key,
+      value: m.value,
+    }))
+    const listingMeta = resolveListingMetafields(productListingFields, variantListingFields)
     const start = resolveShopifySessionStart({
-      metafieldStartsAt: vMeta[OFFHRS_METAFIELD_STARTS_AT] ?? productOffhrs[OFFHRS_METAFIELD_STARTS_AT] ?? null,
+      metafieldStartsAt: listingMeta.startsAtRaw,
       selectedOptions: variant.selectedOptions ?? [],
       variantTitle: variant.title,
       productTitle: product!.title,
@@ -421,13 +433,19 @@ export async function analyzeConnectedShopifyProduct(
   const duplicateSameStart = syncable.length > 1 && uniqueStarts.size === 1
   const usesOffhrsStartsAt = syncable.some((s) => s.start.source === 'metafield')
 
-  const billingOk = shopifyBillingAllowsSync({
-    billingStatus: shop.billing_status,
+  const billingOk = await shopifySyncAllowedForVendor({
+    admin,
+    vendorId: shop.vendor_id,
     shopDomain: shop.shop_domain,
+    billingStatus: shop.billing_status,
   })
 
+  const productListingResolved = resolveListingMetafields(
+    productMetas.map((m) => ({ namespace: m.namespace, key: m.key, value: m.value }))
+  )
+
   const category = normalizePartnerSessionCategory(
-    productOffhrs[OFFHRS_METAFIELD_CATEGORY] ??
+    productListingResolved.category ??
       primaryVendorCategory(vendor?.category as string[] | string | null | undefined)
   )
 
@@ -471,7 +489,7 @@ export async function analyzeConnectedShopifyProduct(
       detail:
         syncable.length > 0
           ? `${syncable.length} of ${sessions.length} variant(s) would sync. Sources include metafields.`
-          : 'No parseable start from offhrs.starts_at, Date/Time options, or titles — product would be skipped even if published.',
+          : 'No parseable start from Date metafields, offhrs.starts_at, Date/Time options, or titles — product would be skipped even if published.',
     },
     {
       id: 'offhrs_tag',
@@ -517,18 +535,10 @@ export async function analyzeConnectedShopifyProduct(
 
   if (!usesOffhrsStartsAt && suggestedStartMetafields.length > 0 && syncable.length === 0) {
     warnings.push(
-      `Found metafield(s) that look like dates but Sync only reads ${OFFHRS_METAFIELD_NAMESPACE}.${OFFHRS_METAFIELD_STARTS_AT} (or Date options). Map or copy into offhrs.starts_at: ${suggestedStartMetafields
+      `Found metafield(s) that look like dates but none parsed: ${suggestedStartMetafields
         .slice(0, 5)
         .map((m) => `${m.namespace}.${m.key}`)
-        .join(', ')}.`
-    )
-  }
-  if (suggestedLocationMetafields.length > 0) {
-    warnings.push(
-      `Location-like metafields exist (${suggestedLocationMetafields
-        .slice(0, 3)
-        .map((m) => `${m.namespace}.${m.key}`)
-        .join(', ')}) but Sync uses the partner profile address today.`
+        .join(', ')}. Sync accepts keys like Date / event_date / offhrs.starts_at with a full date+time.`
     )
   }
 
@@ -548,7 +558,7 @@ export async function analyzeConnectedShopifyProduct(
   } else if (syncable.length === 0) {
     verdict = publishedToChannel ? 'blocked' : 'needs_setup'
     summary = publishedToChannel
-      ? 'Published to offhrs, but no parseable start — set offhrs.starts_at or Date options before it can appear.'
+      ? 'Published to offhrs, but no parseable start — set a Date metafield, Date option, or offhrs.starts_at before it can appear.'
       : 'Connected shop can read the product, but it needs publish-to-offhrs and/or a parseable session datetime.'
   } else {
     verdict = 'needs_setup'
@@ -556,6 +566,8 @@ export async function analyzeConnectedShopifyProduct(
   }
 
   const partnerLocation = (vendor?.location_address as string | null) ?? null
+  const metafieldLocation = productListingResolved.location
+  const displayLocation = metafieldLocation?.trim() || partnerLocation?.trim() || null
   const uniqueStartList = [...uniqueStarts]
   const isMultipleDates = uniqueStartList.length > 1
   const earliestIso = uniqueStartList.slice().sort()[0]
@@ -589,10 +601,12 @@ export async function analyzeConnectedShopifyProduct(
     description: stripHtml(product.descriptionHtml),
     imageUrl: product.featuredImage?.url ?? null,
     organizer: (vendor?.business_name as string | null) ?? product.vendor,
-    locationNote: partnerLocation
-      ? `Partner profile location: ${partnerLocation}`
-      : 'No partner profile location set — map pin would be empty until they add an address.',
-    locationLabel: partnerLocation?.trim() || 'Location TBD',
+    locationNote: metafieldLocation
+      ? `Location from metafield: ${metafieldLocation}`
+      : partnerLocation
+        ? `Partner profile location: ${partnerLocation}`
+        : 'No location metafield or partner profile address — map pin would be empty.',
+    locationLabel: displayLocation || 'Location TBD',
     priceLabel: firstPrice != null ? `$${firstPrice}` : null,
     priceCad: Number.isFinite(priceCad) ? priceCad : null,
     bookUrl: syncable[0]?.bookUrl ?? productUrl,
@@ -650,10 +664,10 @@ export async function analyzeConnectedShopifyProduct(
     demo,
     themeHints: null,
     limitations: [
-      'Deep scan uses Admin API (publication, metafields, inventory, status) for a connected install.',
+      'Deep scan uses Admin API (publication, metafields including Date/location heuristics, inventory, status).',
       'Only products published to offhrs with a parseable session datetime appear in the app.',
       'Still does not write to the database.',
-      `Known offhrs keys: ${OFFHRS_METAFIELD_STARTS_AT}, ${OFFHRS_METAFIELD_BOOK_URL}, ${OFFHRS_METAFIELD_CAPACITY}, ${OFFHRS_METAFIELD_DURATION}, ${OFFHRS_METAFIELD_CATEGORY}.`,
+      `Start sources: Date options, Date metafields, or ${OFFHRS_METAFIELD_NAMESPACE}.${OFFHRS_METAFIELD_STARTS_AT}. Capacity/duration/location use offhrs.* or common keys.`,
     ],
     deep,
   }

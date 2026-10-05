@@ -735,7 +735,7 @@ export function ShopifyChannelHome(props: Props) {
                     ) : null}
                     <Text as="p" tone="subdued" variant="bodySm">
                       Publish products to the offhrs channel in Admin. Add a parseable session date
-                      (metafield offhrs.starts_at or a Date option) so listings appear. After guests
+                      (metafield Date / offhrs.starts_at or a Date option) so listings appear. After guests
                       Book on Shopify, confirm the order attributes to offhrs in Admin analytics.
                     </Text>
                   </BlockStack>

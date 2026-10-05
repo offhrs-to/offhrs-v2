@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { vendorHasNativePartnerPlan } from '@/lib/partner-access'
+import {
+  vendorHasMarketplaceStripeEntitlement,
+  vendorHasNativePartnerPlan,
+} from '@/lib/partner-access'
 
 export type VendorMarketplaceAccessRow = {
   id: string
@@ -7,31 +10,33 @@ export type VendorMarketplaceAccessRow = {
 }
 
 /**
- * Lite/Pro always have Marketplace included.
- * Marketplace-free (and Sync + free) use marketplace_enabled.
+ * Marketplace access:
+ * - Pro / Full License Stripe (auto-included), or
+ * - Free Marketplace enroll (`marketplace_enabled` + `marketplace_plan = free`).
+ * Lite does **not** include Marketplace (even if old included flags remain).
  */
 export async function vendorHasMarketplaceAccess(
   admin: SupabaseClient,
   vendorId: string
 ): Promise<boolean> {
-  if (await vendorHasNativePartnerPlan(admin, vendorId)) return true
+  if (await vendorHasMarketplaceStripeEntitlement(admin, vendorId)) return true
 
   const { data } = await admin
     .from('vendor_profiles')
-    .select('marketplace_enabled')
+    .select('marketplace_enabled, marketplace_plan')
     .eq('id', vendorId)
     .maybeSingle()
 
-  return Boolean(data?.marketplace_enabled)
+  return Boolean(data?.marketplace_enabled && data.marketplace_plan === 'free')
 }
 
-/** Ensure Lite/Pro vendors have marketplace flags set when they first use the tab. */
+/** Ensure Pro/Full vendors have marketplace flags when they first use the tab. */
 export async function ensureMarketplaceIncludedFlags(
   admin: SupabaseClient,
   vendorId: string
 ): Promise<void> {
-  const hasNative = await vendorHasNativePartnerPlan(admin, vendorId)
-  if (!hasNative) return
+  const included = await vendorHasMarketplaceStripeEntitlement(admin, vendorId)
+  if (!included) return
 
   const { data } = await admin
     .from('vendor_profiles')
@@ -57,4 +62,20 @@ export async function ensureMarketplaceIncludedFlags(
   }
 
   await admin.from('vendor_profiles').update(patch).eq('id', vendorId)
+}
+
+/** @deprecated Prefer vendorHasMarketplaceStripeEntitlement — kept for call-site clarity. */
+export async function vendorNativePlanIncludesMarketplace(
+  admin: SupabaseClient,
+  vendorId: string
+): Promise<boolean> {
+  return vendorHasMarketplaceStripeEntitlement(admin, vendorId)
+}
+
+/** True if vendor has any Stripe workshop plan (Lite/Pro/Full). */
+export async function vendorHasWorkshopOrFullPlan(
+  admin: SupabaseClient,
+  vendorId: string
+): Promise<boolean> {
+  return vendorHasNativePartnerPlan(admin, vendorId)
 }

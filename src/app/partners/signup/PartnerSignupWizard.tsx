@@ -22,12 +22,14 @@ import { TurnstileWidget } from './TurnstileWidget'
 import { createClient as createBrowserSupabaseClient } from '@/lib/supabase/browser'
 import {
   formatPartnerMonthlyAmount,
+  FULL_LICENSE_PLAN_NAME,
+  MARKETPLACE_FREE_PLAN_NAME,
   PARTNER_TRIAL_LABEL,
   SHOPIFY_SYNC_MONTHLY_CAD,
   SHOPIFY_SYNC_PLAN_NAME,
 } from '@/lib/partner-pricing'
 
-type BillingPlanChoice = 'lite' | 'pro' | 'shopify_sync' | 'marketplace'
+type BillingPlanChoice = 'lite' | 'pro' | 'full' | 'shopify_sync' | 'marketplace'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 const TURNSTILE_ENABLED = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
@@ -760,15 +762,36 @@ export function PartnerSignupWizard() {
                 </>
               ) : (
                 <>
-                  Choose Lite or Pro, then add a payment method to start your{' '}
+                  Choose Lite, Pro, or Full License, then add a payment method to start your{' '}
                   <strong className="font-semibold text-[#1a1a1a]">{PARTNER_TRIAL_LABEL}</strong>. After the trial,
-                  your subscription renews monthly unless you cancel before the trial ends (see our Terms for
-                  details). Marketplace is included on Lite and Pro.
+                  your subscription renews monthly unless you cancel. Marketplace is included on Pro and Full
+                  License only — not Lite.
                 </>
               )}
             </p>
             {emailVerifiedForBilling && (
               <div className="grid grid-cols-1 gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setBillingPlan('marketplace')}
+                  className={`rounded-xl border-2 p-4 text-left transition-colors ${
+                    billingPlan === 'marketplace'
+                      ? 'border-[#5D755D] bg-[#EDF2ED]'
+                      : 'border-[#E8E4DE] bg-[#FAFAF8] hover:border-[#D9D7CF]'
+                  }`}
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#5D755D]">
+                    {MARKETPLACE_FREE_PLAN_NAME}
+                  </p>
+                  <p className="mt-1 font-playfair text-2xl font-bold text-[#1a1a1a]">
+                    $0{' '}
+                    <span className="text-sm font-normal text-[#555]">to join</span>
+                  </p>
+                  <p className="mt-2 text-xs text-[#555] leading-relaxed">
+                    Sell physical goods Canada-wide. No monthly fee — 5% + Stripe on sales. No workshops or
+                    Shopify Sync.
+                  </p>
+                </button>
                 <button
                   type="button"
                   onClick={() => setBillingPlan('lite')}
@@ -784,25 +807,7 @@ export function PartnerSignupWizard() {
                     <span className="text-sm font-normal text-[#555]">CAD / month</span>
                   </p>
                   <p className="mt-2 text-xs text-[#555] leading-relaxed">
-                    Up to 4 active workshops at a time — archive any you no longer need to free a slot. Same booking, payouts, and calendar sync as Pro.
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBillingPlan('pro')}
-                  className={`rounded-xl border-2 p-4 text-left transition-colors ${
-                    billingPlan === 'pro'
-                      ? 'border-[#5D755D] bg-[#EDF2ED]'
-                      : 'border-[#E8E4DE] bg-[#FAFAF8] hover:border-[#D9D7CF]'
-                  }`}
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#5D755D]">Pro</p>
-                  <p className="mt-1 font-playfair text-2xl font-bold text-[#1a1a1a]">
-                    {formatPartnerMonthlyAmount('pro')}{' '}
-                    <span className="text-sm font-normal text-[#555]">CAD / month</span>
-                  </p>
-                  <p className="mt-2 text-xs text-[#555] leading-relaxed">
-                    Unlimited workshop sessions. Full platform access.
+                    Up to 4 active workshops. Bookings &amp; payouts on offhrs. No Marketplace, no Shopify Sync.
                   </p>
                 </button>
                 <button
@@ -822,29 +827,47 @@ export function PartnerSignupWizard() {
                     <span className="text-sm font-normal text-[#555]">CAD / month</span>
                   </p>
                   <p className="mt-2 text-xs text-[#555] leading-relaxed">
-                    Continue without Stripe. Keep Shopify as your booking system — install the app, tag
-                    workshops, and start your Sync trial in Settings.
+                    Shopify Sync only — billed in Shopify. No Lite/Pro workshops dashboard, no Marketplace.
                   </p>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setBillingPlan('marketplace')}
+                  onClick={() => setBillingPlan('pro')}
                   className={`rounded-xl border-2 p-4 text-left transition-colors ${
-                    billingPlan === 'marketplace'
+                    billingPlan === 'pro'
+                      ? 'border-[#5D755D] bg-[#EDF2ED]'
+                      : 'border-[#E8E4DE] bg-[#FAFAF8] hover:border-[#D9D7CF]'
+                  }`}
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#5D755D]">Pro</p>
+                  <p className="mt-1 font-playfair text-2xl font-bold text-[#1a1a1a]">
+                    {formatPartnerMonthlyAmount('pro')}{' '}
+                    <span className="text-sm font-normal text-[#555]">CAD / month</span>
+                  </p>
+                  <p className="mt-2 text-xs text-[#555] leading-relaxed">
+                    Unlimited workshops + Artist Marketplace included. No Shopify Sync (add Sync separately or
+                    choose Full License).
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingPlan('full')}
+                  className={`rounded-xl border-2 p-4 text-left transition-colors ${
+                    billingPlan === 'full'
                       ? 'border-[#5D755D] bg-[#EDF2ED]'
                       : 'border-[#E8E4DE] bg-[#FAFAF8] hover:border-[#D9D7CF]'
                   }`}
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#5D755D]">
-                    Artist Marketplace
+                    {FULL_LICENSE_PLAN_NAME}
                   </p>
                   <p className="mt-1 font-playfair text-2xl font-bold text-[#1a1a1a]">
-                    $0{' '}
-                    <span className="text-sm font-normal text-[#555]">to join</span>
+                    {formatPartnerMonthlyAmount('full')}{' '}
+                    <span className="text-sm font-normal text-[#555]">CAD / month</span>
                   </p>
                   <p className="mt-2 text-xs text-[#555] leading-relaxed">
-                    Sell physical goods Canada-wide. No monthly fee — 5% + Stripe on sales. Workshops stay
-                    on Lite/Pro if you want bookings too.
+                    Everything: unlimited workshops, Marketplace, and Shopify Sync (Sync charge covered by this
+                    plan — no separate Shopify Sync fee).
                   </p>
                 </button>
               </div>
@@ -878,7 +901,7 @@ export function PartnerSignupWizard() {
                 ? 'Shopify Sync is billed through Shopify App Pricing after install — not Stripe.'
                 : billingPlan === 'marketplace'
                   ? 'Marketplace has no monthly subscription. Stripe Connect in Settings is required for payouts.'
-                  : 'Lite and Pro payments are processed by Stripe. You won\u2019t be charged the subscription amount until after your trial period.'}
+                  : 'Lite, Pro, and Full License payments are processed by Stripe. You won\u2019t be charged the subscription amount until after your trial period.'}
             </p>
           </div>
         )}

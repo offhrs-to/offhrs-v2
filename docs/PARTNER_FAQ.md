@@ -38,26 +38,28 @@ Your dashboard walks you through a short checklist:
 ## Plans & billing
 
 ### What does it cost to list on offhrs?
-There are two monthly plans (CAD):
+Five options (CAD):
 
-| Plan | Price | Active workshops |
-| ---- | ----- | ---------------- |
-| **Lite** | $29 / month | Up to 4 at a time |
-| **Pro**  | $49 / month | Unlimited |
+| Plan | Price | What you get |
+| ---- | ----- | ------------ |
+| **Marketplace Only** | $0 / month | Sell goods; 5% + Stripe on sales |
+| **Lite** | $29 / month | Up to 4 workshops; no Marketplace; no Sync |
+| **Shopify Sync** | $29 / month | Sync only (billed via Shopify) |
+| **Pro** | $39 / month | Unlimited workshops + Marketplace |
+| **Full License** | $59 / month | Pro + Marketplace + Shopify Sync |
 
 ### Is there a free trial?
-Yes — a **30-day free trial**. You won't be charged until the trial ends.
+Yes — a **30-day free trial** on Lite, Pro, Full License, and Shopify Sync. Marketplace Only has no monthly fee.
 
 ### How is billing handled?
-Billing runs through Stripe subscription checkout (with automatic tax and
-tax-ID collection where applicable). Your subscription status (trialing, active,
-past due, etc.) syncs automatically, so if a payment fails or you cancel, your
-account reflects it.
+Lite, Pro, and Full License bill through Stripe subscription checkout (with automatic tax and
+tax-ID collection where applicable). Standalone Shopify Sync bills through Shopify App Pricing.
+Full License includes Sync (no separate Sync fee). Your subscription status syncs automatically.
 
-### What's the difference between Lite and Pro?
-Lite caps you at 4 concurrently active (non-archived) workshops. Pro removes
-that cap. If you're on Lite and hit the limit, archive an old workshop or
-upgrade to Pro to add more.
+### What's the difference between Lite, Pro, and Full License?
+Lite caps you at 4 concurrently active (non-archived) workshops and does not include Marketplace or Sync.
+Pro removes the workshop cap and includes Marketplace. Full License is Pro + Marketplace + Shopify Sync.
+If you're on Lite and hit the limit, archive an old workshop or upgrade to Pro/Full.
 
 ---
 
@@ -83,8 +85,8 @@ Marketplace goods: **5%** platform fee on the item subtotal (excluding tax and s
 **plus** Stripe processing (about 2.9% + $0.30 CAD). Buyer shipping (Canada Post quote + any
 handling fee you set) and applicable facilitator tax are **held by offhrs** — not paid out as
 your merchandise earnings — so prepaid Canada Post labels can be purchased on the platform
-Shippo account. Lite/Pro include Marketplace access; a free Marketplace-only plan is also
-available. See `/terms/marketplace-seller-addendum`.
+Shippo account. Pro and Full License include Marketplace access; a free Marketplace-only plan is also
+available. Lite does not include Marketplace. See `/terms/marketplace-seller-addendum`.
 
 ### How do Marketplace orders and shipping work?
 Buyers pay in the app **Shop** tab. You fulfill under **Marketplace → Orders**: print the

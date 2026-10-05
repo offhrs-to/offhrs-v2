@@ -20,8 +20,8 @@ function getAppUrl(request: NextRequest): string {
   )
 }
 
-function parsePartnerSubscriptionTier(value: unknown): 'lite' | 'pro' | null {
-  return value === 'lite' || value === 'pro' ? value : null
+function parsePartnerSubscriptionTier(value: unknown): 'lite' | 'pro' | 'full' | null {
+  return value === 'lite' || value === 'pro' || value === 'full' ? value : null
 }
 
 function stripeStatusToVendorStatus(stripeStatus: string): string {

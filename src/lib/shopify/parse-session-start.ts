@@ -67,6 +67,9 @@ function torontoFromParts(
 export function parseShopifyWallDateTime(raw: string | null | undefined): string | null {
   if (!raw?.trim()) return null
   let s = normalizeSpaces(stripOrdinals(raw))
+  // Depanneur-style "Sep 24, 2026 • 6:30 PM" / middots / en-dashes → spaces
+  s = s.replace(/[•·∙⋅–—]/g, ' ')
+  s = normalizeSpaces(s)
   s = s.replace(/\s+at\s+/i, ' ')
   // "12:00PM" → "12:00 PM"
   s = s.replace(/(\d)(am|pm)\b/gi, '$1 $2')
@@ -124,7 +127,7 @@ export type ResolveSessionStartResult = {
 /**
  * Resolve workshop start for a Shopify variant.
  * Priority:
- * 1. offhrs.starts_at metafield (explicit override)
+ * 1. Metafield start string (offhrs.starts_at or common Date keys — caller resolves)
  * 2. selectedOptions with Date/Time-like names (Orris "Date" pills)
  * 3. Any option value that parses as a datetime
  * 4. Variant title (when not Default Title)

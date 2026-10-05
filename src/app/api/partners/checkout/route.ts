@@ -14,7 +14,7 @@ const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholde
 })
 
 const checkoutBodySchema = z.object({
-  plan: z.enum(['lite', 'pro']).optional(),
+  plan: z.enum(['lite', 'pro', 'full']).optional(),
 })
 
 function getAppUrl(request: NextRequest): string {
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
         {
           error:
             err.message ||
-            'Stripe rejected this checkout request. Check that STRIPE_PRO_PRICE_ID / STRIPE_LITE_PRICE_ID are recurring subscription prices for the same mode (test/live) as STRIPE_SECRET_KEY.',
+            'Stripe rejected this checkout request. Check that STRIPE_PRO_PRICE_ID / STRIPE_LITE_PRICE_ID / STRIPE_FULL_PRICE_ID are recurring subscription prices for the same mode (test/live) as STRIPE_SECRET_KEY.',
         },
         { status: 400 }
       )

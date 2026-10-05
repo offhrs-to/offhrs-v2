@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'Creating workshops in the dashboard requires an offhrs Lite or Pro plan. Shopify Sync alone only mirrors tagged products from your Shopify store.',
+            'Creating workshops in the dashboard requires an offhrs Lite, Pro, or Full License plan. Shopify Sync alone only mirrors tagged products from your Shopify store.',
         },
         { status: 403 }
       )
@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
       .select('subscription_tier, current_period_start, current_period_end, status')
       .eq('vendor_id', vendor.id)
       .in('status', ['trialing', 'active', 'past_due'])
-      .in('subscription_tier', ['lite', 'pro'])
+      .in('subscription_tier', ['lite', 'pro', 'full'])
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'Creating workshops in the dashboard requires an offhrs Lite or Pro plan. Shopify Sync alone only mirrors tagged products from your Shopify store.',
+            'Creating workshops in the dashboard requires an offhrs Lite, Pro, or Full License plan. Shopify Sync alone only mirrors tagged products from your Shopify store.',
         },
         { status: 403 }
       )

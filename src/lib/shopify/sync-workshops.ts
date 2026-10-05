@@ -12,19 +12,19 @@ import {
 } from './admin-client'
 import {
   OFFHRS_METAFIELD_BOOK_URL,
-  OFFHRS_METAFIELD_CAPACITY,
-  OFFHRS_METAFIELD_CATEGORY,
-  OFFHRS_METAFIELD_DURATION,
   OFFHRS_METAFIELD_NAMESPACE,
-  OFFHRS_METAFIELD_STARTS_AT,
   OFFHRS_WORKSHOP_TAG,
 } from './conventions'
 import { resolveShopifyBookUrl, ensureStorefrontAccessToken } from './cart-permalink'
 import { resolveShopifySessionStart } from './parse-session-start'
+import {
+  flattenMetafieldEdges,
+  resolveListingMetafields,
+} from './resolve-listing-metafields'
 
 type Admin = SupabaseClient
 
-type MetafieldNode = { key: string; value: string }
+type MetafieldNode = { namespace?: string; key: string; value: string }
 
 type VariantNode = {
   id: string
@@ -52,10 +52,21 @@ type ProductNode = {
 function metafieldMap(edges: Array<{ node: MetafieldNode }> | undefined): Record<string, string> {
   const out: Record<string, string> = {}
   for (const e of edges ?? []) {
-    if (e.node?.key) out[e.node.key] = e.node.value
+    if (!e.node?.key) continue
+    // Prefer offhrs.* when the same key exists in multiple namespaces
+    const ns = e.node.namespace ?? ''
+    if (ns === OFFHRS_METAFIELD_NAMESPACE || out[e.node.key] === undefined) {
+      out[e.node.key] = e.node.value
+    }
   }
   return out
 }
+
+const METAFIELDS_SELECTION = `
+  metafields(first: 50) {
+    edges { node { namespace key value } }
+  }
+`
 
 function formatPriceCad(amount: number): string {
   if (amount <= 0) return 'Free'
@@ -225,9 +236,7 @@ const PRODUCTS_QUERY = `
           descriptionHtml
           tags
           featuredImage { url }
-          metafields(namespace: "${OFFHRS_METAFIELD_NAMESPACE}", first: 20) {
-            edges { node { key value } }
-          }
+          ${METAFIELDS_SELECTION}
           variants(first: 100) {
             edges {
               node {
@@ -237,9 +246,7 @@ const PRODUCTS_QUERY = `
                 inventoryQuantity
                 inventoryItem { id }
                 selectedOptions { name value }
-                metafields(namespace: "${OFFHRS_METAFIELD_NAMESPACE}", first: 20) {
-                  edges { node { key value } }
-                }
+                ${METAFIELDS_SELECTION}
               }
             }
           }
@@ -260,9 +267,7 @@ const PRODUCT_BY_ID_QUERY = `
       descriptionHtml
       tags
       featuredImage { url }
-      metafields(namespace: "${OFFHRS_METAFIELD_NAMESPACE}", first: 20) {
-        edges { node { key value } }
-      }
+      ${METAFIELDS_SELECTION}
       variants(first: 100) {
         edges {
           node {
@@ -272,9 +277,7 @@ const PRODUCT_BY_ID_QUERY = `
             inventoryQuantity
             inventoryItem { id }
             selectedOptions { name value }
-            metafields(namespace: "${OFFHRS_METAFIELD_NAMESPACE}", first: 20) {
-              edges { node { key value } }
-            }
+            ${METAFIELDS_SELECTION}
           }
         }
       }
@@ -451,9 +454,12 @@ async function upsertVariantEvent(
 ): Promise<'upserted' | 'skipped'> {
   const productMeta = metafieldMap(opts.product.metafields?.edges)
   const variantMeta = metafieldMap(opts.variant.metafields?.edges)
+  const listingMeta = resolveListingMetafields(
+    flattenMetafieldEdges(opts.product.metafields?.edges),
+    flattenMetafieldEdges(opts.variant.metafields?.edges)
+  )
   const startResolved = resolveShopifySessionStart({
-    metafieldStartsAt:
-      variantMeta[OFFHRS_METAFIELD_STARTS_AT] ?? productMeta[OFFHRS_METAFIELD_STARTS_AT] ?? null,
+    metafieldStartsAt: listingMeta.startsAtRaw,
     selectedOptions: opts.variant.selectedOptions ?? [],
     variantTitle: opts.variant.title,
     productTitle: opts.product.title,
@@ -467,23 +473,15 @@ async function upsertVariantEvent(
   if (!productId || !variantId) return 'skipped'
 
   const inventoryQty = Math.max(0, opts.variant.inventoryQuantity ?? 0)
-  const capacityRaw =
-    variantMeta[OFFHRS_METAFIELD_CAPACITY] ?? productMeta[OFFHRS_METAFIELD_CAPACITY]
-  const capacityParsed = capacityRaw ? Number.parseInt(capacityRaw, 10) : NaN
   const maxAttendees =
-    Number.isFinite(capacityParsed) && capacityParsed > 0
-      ? capacityParsed
+    listingMeta.capacity != null && listingMeta.capacity > 0
+      ? listingMeta.capacity
       : Math.max(inventoryQty, 1)
 
-  const durationRaw =
-    variantMeta[OFFHRS_METAFIELD_DURATION] ?? productMeta[OFFHRS_METAFIELD_DURATION]
-  const durationParsed = durationRaw ? Number.parseInt(durationRaw, 10) : NaN
-  const durationMinutes =
-    Number.isFinite(durationParsed) && durationParsed > 0 ? durationParsed : null
+  const durationMinutes = listingMeta.durationMinutes
 
   const category = normalizePartnerSessionCategory(
-    variantMeta[OFFHRS_METAFIELD_CATEGORY] ??
-      productMeta[OFFHRS_METAFIELD_CATEGORY] ??
+    listingMeta.category ??
       primaryVendorCategory(opts.vendor.category as string[] | string | null | undefined)
   )
 
@@ -506,6 +504,14 @@ async function upsertVariantEvent(
   // sessions into one card with multiple time pills (not one card per variant).
   const title = opts.product.title
 
+  const partnerLocation = (opts.vendor.location_address as string | null) ?? null
+  const metafieldLocation = listingMeta.location
+  const useMetafieldLocation = Boolean(metafieldLocation?.trim())
+  const location = useMetafieldLocation ? metafieldLocation : partnerLocation
+  // Only keep partner lat/lng when using the profile address (free-text venue has no coords).
+  const lat = useMetafieldLocation ? null : ((opts.vendor.location_lat as number | null) ?? null)
+  const lng = useMetafieldLocation ? null : ((opts.vendor.location_lng as number | null) ?? null)
+
   const row = {
     listing_source: 'shopify',
     vendor_profile_id: opts.vendor.id,
@@ -519,9 +525,9 @@ async function upsertVariantEvent(
       opts.product.featuredImage?.url ??
       (opts.vendor.default_workshop_image_url as string | null) ??
       null,
-    location: (opts.vendor.location_address as string | null) ?? null,
-    lat: (opts.vendor.location_lat as number | null) ?? null,
-    lng: (opts.vendor.location_lng as number | null) ?? null,
+    location,
+    lat,
+    lng,
     category,
     organizer: (opts.vendor.business_name as string | null)?.trim() || null,
     price: formatPriceCad(priceCad),
@@ -540,6 +546,8 @@ async function upsertVariantEvent(
       start_source: startResolved.source,
       start_raw: startResolved.matchedRaw ?? null,
       start_option_name: startResolved.matchedOptionName ?? null,
+      start_metafield: listingMeta.matchedStartKey,
+      location_source: useMetafieldLocation ? 'metafield' : 'partner_profile',
     },
   }
 
@@ -552,8 +560,8 @@ async function upsertVariantEvent(
   if (existing) {
     // Keep max_attendees from capacity metafield, else never shrink below prior max when inventory dips
     const nextMax =
-      Number.isFinite(capacityParsed) && capacityParsed > 0
-        ? capacityParsed
+      listingMeta.capacity != null && listingMeta.capacity > 0
+        ? listingMeta.capacity
         : Math.max(existing.max_attendees ?? 1, inventoryQty, 1)
     const { error } = await admin
       .from('events')
@@ -977,7 +985,7 @@ export async function syncShopifyProductByNumericId(
           productUpdatedAt,
           state: 'REQUIRES_ACTION',
           messages: [
-            'Add a session date/time: set metafield offhrs.starts_at, or use a Date option / title Shopify can parse (America/Toronto).',
+            'Add a session date/time: set a Date option (e.g. “September 30, 2026 12:00 PM”), a Date metafield, or offhrs.starts_at (America/Toronto).',
           ],
         })
       }

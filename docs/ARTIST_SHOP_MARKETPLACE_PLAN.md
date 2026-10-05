@@ -23,14 +23,14 @@
 
 | Decision | Choice |
 |----------|--------|
-| Who sells | **Lite/Pro Partners** (marketplace **included**) + **free Marketplace-only** artists |
+| Who sells | **Pro / Full License Partners** (marketplace **included**) + **free Marketplace-only** artists |
 | Money | **CAD only**, ship/sell **Canada only** |
 | Shipping | **Live rates** via **platform Shippo** (Canada Post); seller **weight + dimensions**; buyer **postal code** |
 | Labels | Seller **Print label** (prepaid PDF, platform Shippo) → drop at Canada Post |
 | Label funding | Buyer pays shipping → funds platform Shippo label. No seller Shippo/CP accounts in v1 |
 | Pickup | Optional local pickup ($0 shipping, no label) |
 | Removed | Quote-after-order; seller zone/rate tables |
-| Workshops | Unchanged: Lite/Pro + **0% booking commission** |
+| Workshops | Unchanged: Lite / Pro / Full + **0% booking commission** |
 | Goods commission | **5%** + **Stripe separate** (~2.9% + $0.30). `SHOP_PLATFORM_FEE_BPS=500` |
 | Commission base | **5% on item subtotal (ex-tax)**; not on postage or tax |
 | Chargebacks | **Vendor liable** (amount + dispute fee) workshops + Marketplace; Stripe hits offhrs first under Express |
@@ -76,13 +76,13 @@ flowchart LR
 
 | Plan | Price | Dashboard |
 |------|-------|-----------|
-| Lite / Pro | $29 / $49 CAD/mo | Existing tabs **+ Marketplace** |
+| Lite / Pro / Full | $29 / $39 / $59 CAD/mo | Lite: workshops only. Pro: workshops **+ Marketplace**. Full: Pro + Sync |
 | Marketplace free | $0 signup; 5% + Stripe on sales | **Marketplace + Settings + FAQ** only (Connect in Settings) |
-| Shopify Sync only | unchanged | No Marketplace unless also Lite/Pro or Marketplace-free |
+| Shopify Sync only | $29 CAD/mo | No Marketplace unless also Pro/Full or Marketplace-free |
 
-**Signup:** `/partners/signup?intent=marketplace`. Gates: Connect + tax + Canada attestation. `vendorHasMarketplaceAccess` = Lite/Pro **or** marketplace-free.
+**Signup:** `/partners/signup?intent=marketplace`. Gates: Connect + tax + Canada attestation. `vendorHasMarketplaceAccess` = Pro/Full **or** marketplace-free.
 
-**Lite/Pro:** Marketplace included; first publish needs ship-from + attestation.
+**Pro/Full:** Marketplace included; first publish needs ship-from + attestation.
 
 ---
 

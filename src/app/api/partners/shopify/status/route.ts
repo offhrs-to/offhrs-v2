@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { shopifyBillingAllowsSync, isShopifySyncCompedShop } from '@/lib/shopify/billing'
+import { shopifySyncAllowedForVendor, isShopifySyncCompedShop } from '@/lib/shopify/billing'
+import { vendorHasFullLicensePlan } from '@/lib/partner-access'
 import { SHOPIFY_SYNC_PLAN_LABEL, SHOPIFY_SYNC_MONTHLY_CAD } from '@/lib/partner-pricing'
 
 /** Connection + Sync billing status for partner Settings UI. */
@@ -41,9 +42,12 @@ export async function GET() {
     .eq('listing_source', 'shopify')
     .neq('booking_status', 'archived')
 
-  const billingActive = shopifyBillingAllowsSync({
-    billingStatus: shop.billing_status,
+  const fullLicenseComped = await vendorHasFullLicensePlan(admin, vendor.id)
+  const billingActive = await shopifySyncAllowedForVendor({
+    admin,
+    vendorId: vendor.id,
     shopDomain: shop.shop_domain,
+    billingStatus: shop.billing_status,
   })
 
   return NextResponse.json({
@@ -57,7 +61,7 @@ export async function GET() {
     billing_status: shop.billing_status ?? 'none',
     billing_active: billingActive,
     billing_confirmed_at: shop.billing_confirmed_at,
-    billing_comped: isShopifySyncCompedShop(shop.shop_domain),
+    billing_comped: isShopifySyncCompedShop(shop.shop_domain) || fullLicenseComped,
     plan_label: SHOPIFY_SYNC_PLAN_LABEL,
     plan_amount_cad: SHOPIFY_SYNC_MONTHLY_CAD,
   })

@@ -106,12 +106,15 @@ Your **customers** book through the **offhrs mobile app** (iOS and Android).
 
 ### What does it cost to list workshops on offhrs?
 
-offhrs charges a **monthly subscription** — there is **no commission** on individual bookings. Two plans are available (all prices in **CAD**):
+offhrs charges a **monthly subscription** for workshop plans — there is **no commission** on individual bookings. Marketplace Only is free (5% + Stripe on goods). All prices in **CAD**:
 
-| Plan | Monthly price | Active workshops |
-|------|---------------|------------------|
-| **Lite** | $29 / month | Up to **4** active workshops at a time |
-| **Pro** | $49 / month | **Unlimited** active workshops |
+| Plan | Monthly price | What you get |
+|------|---------------|--------------|
+| **Marketplace Only** | $0 | Sell goods; no workshops dashboard |
+| **Lite** | $29 / month | Up to **4** active workshops; no Marketplace; no Sync |
+| **Shopify Sync** | $29 / month | Sync only (billed via Shopify App Pricing) |
+| **Pro** | $39 / month | **Unlimited** workshops + Marketplace |
+| **Full License** | $59 / month | Pro + Marketplace + Shopify Sync included |
 
 “Active” means published, draft, or fully booked workshops that are **not archived**. Archiving a workshop frees a slot on the Lite plan immediately.
 
@@ -121,18 +124,19 @@ offhrs charges a **monthly subscription** — there is **no commission** on indi
 
 **Yes — 30 days free.** You enter your card when you start, but you are not charged until the trial ends. You can cancel anytime during the trial through the billing portal and you will not be charged for that billing period.
 
-When the trial ends, your subscription automatically converts to a paid plan (Lite or Pro — whichever you chose at signup) unless you cancel first.
+When the trial ends, your subscription automatically converts to a paid plan (Lite, Pro, Full License, or Shopify Sync — whichever you chose) unless you cancel first.
 
 You will receive an email reminder when your trial is about to end (approximately 3 days before).
 
 ---
 
-### How do I choose between Lite and Pro?
+### How do I choose between Lite, Pro, and Full License?
 
-- **Lite** is a good fit if you run a small number of workshops at once (up to 4 non-archived listings).  
-- **Pro** is better if you run many concurrent workshops, recurring series, or seasonal offerings and do not want to archive old listings to add new ones.
+- **Lite** is a good fit if you run a small number of workshops at once (up to 4 non-archived listings) and do not need Marketplace or Sync.  
+- **Pro** is better if you run many concurrent workshops and want Artist Marketplace included.  
+- **Full License** if you also need Shopify Sync (best value vs Pro + Sync separately).
 
-You can upgrade from Lite to Pro at any time through **Settings → Manage billing** in the Stripe customer portal.
+You can change plans through **Settings → Manage billing** in the Stripe customer portal (Lite / Pro / Full). Standalone Shopify Sync is managed in Shopify Admin.
 
 ---
 
@@ -657,8 +661,11 @@ Include your business name, workshop title (if relevant), and screenshots when p
 | Item | Value |
 |------|-------|
 | Free trial | 30 days |
-| Lite plan | $29 CAD/month, up to 4 active workshops |
-| Pro plan | $49 CAD/month, unlimited active workshops |
+| Lite plan | $29 CAD/month, up to 4 active workshops (no Marketplace) |
+| Shopify Sync | $29 CAD/month standalone (or included in Full License) |
+| Pro plan | $39 CAD/month, unlimited workshops + Marketplace |
+| Full License | $59 CAD/month, Pro + Marketplace + Shopify Sync |
+| Marketplace Only | $0 / month (5% + Stripe on goods) |
 | Booking commission (offhrs) | 0% |
 | Stripe processing fee (estimate) | ~2.9% + $0.30 CAD per transaction |
 | Default refund window | 48 hours before session |
