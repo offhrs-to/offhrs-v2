@@ -1,6 +1,9 @@
 /**
- * First-launch app intro: 3 full-screen slides (swipe left), logo top-left, Skip top-right.
+ * First-launch app intro (swipe left), logo top-left, Skip top-right.
  * Shown once per install when AsyncStorage key @offhrs/hasSeenAppIntro is not set.
+ *
+ * Mastery / experience slides are omitted while MASTERY_FEATURE_ENABLED is false —
+ * first install then shows only the Welcome slide.
  */
 import { Image } from 'expo-image';
 import React, { useRef } from 'react';
@@ -19,30 +22,16 @@ import {
   DesignSpacing,
   DesignSizes,
 } from '@/constants/design-template';
+import { MASTERY_FEATURE_ENABLED } from '@/constants/feature-flags';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 /** Usable content height = screen minus fixed header (~80px) and footer (~80px). */
 const IMAGE_AREA_HEIGHT = Math.round(SCREEN_HEIGHT * 0.38);
 
-const LEVEL_DATA: { label: string; source: number }[] = [
-  { label: 'Novice',       source: require('@/assets/images/other-novice.png') },
-  { label: 'Intermediate', source: require('@/assets/images/other-intermediate.png') },
-  { label: 'Advanced',     source: require('@/assets/images/other-advanced.png') },
-  { label: 'Expert',       source: require('@/assets/images/other-expert.png') },
-  { label: 'Master',       source: require('@/assets/images/other-master.png') },
-];
-
-/** Icon sizes grow from smallest (Novice) to largest (Master). */
-const LEVEL_ICON_SIZES = [28, 36, 44, 52, 60];
-
-/** Extra bottom margin lifts each icon up to form a rising staircase (left = low, right = high). */
-const LEVEL_STEP_HEIGHTS = [0, 14, 28, 44, 62];
-
-function Slide0() {
+function WelcomeSlide() {
   return (
     <View style={{ width: SCREEN_WIDTH, flex: 1, alignItems: 'center', paddingHorizontal: DesignSpacing.horizontalPadding }}>
-      {/* Clock image */}
       <View
         style={{
           height: IMAGE_AREA_HEIGHT,
@@ -58,7 +47,6 @@ function Slide0() {
         />
       </View>
 
-      {/* Text */}
       <Text style={styles.heading}>Welcome to offhrs</Text>
       <Text style={styles.body}>
         Sign up for an account and book your first workshop through the app.
@@ -67,10 +55,9 @@ function Slide0() {
   );
 }
 
-function Slide1() {
+function EarnExperienceSlide() {
   return (
     <View style={{ width: SCREEN_WIDTH, flex: 1, alignItems: 'center', paddingHorizontal: DesignSpacing.horizontalPadding }}>
-      {/* Phone / verify image */}
       <View
         style={{
           height: IMAGE_AREA_HEIGHT,
@@ -86,7 +73,6 @@ function Slide1() {
         />
       </View>
 
-      {/* Text */}
       <Text style={styles.heading}>Earn experience</Text>
       <Text style={styles.body}>
         After your workshop ends, attendance is credited automatically and you earn experience points toward your next level.
@@ -95,10 +81,20 @@ function Slide1() {
   );
 }
 
-function Slide2() {
+const LEVEL_DATA: { label: string; source: number }[] = [
+  { label: 'Novice', source: require('@/assets/images/other-novice.png') },
+  { label: 'Intermediate', source: require('@/assets/images/other-intermediate.png') },
+  { label: 'Advanced', source: require('@/assets/images/other-advanced.png') },
+  { label: 'Expert', source: require('@/assets/images/other-expert.png') },
+  { label: 'Master', source: require('@/assets/images/other-master.png') },
+];
+
+const LEVEL_ICON_SIZES = [28, 36, 44, 52, 60];
+const LEVEL_STEP_HEIGHTS = [0, 14, 28, 44, 62];
+
+function CultivateCraftSlide() {
   return (
     <View style={{ width: SCREEN_WIDTH, flex: 1, alignItems: 'center', paddingHorizontal: DesignSpacing.horizontalPadding }}>
-      {/* Staircase progression */}
       <View
         style={{
           height: IMAGE_AREA_HEIGHT,
@@ -108,7 +104,6 @@ function Slide2() {
           paddingBottom: 8,
         }}
       >
-        {/* Rising staircase row */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 6 }}>
           {LEVEL_DATA.map((lvl, i) => {
             const size = LEVEL_ICON_SIZES[i]!;
@@ -144,7 +139,6 @@ function Slide2() {
           })}
         </View>
 
-        {/* Thin connecting baseline */}
         <View
           style={{
             position: 'absolute',
@@ -158,11 +152,8 @@ function Slide2() {
         />
       </View>
 
-      {/* Text */}
       <Text style={styles.heading}>Cultivate your craft</Text>
-
       <Text style={[styles.body, { marginBottom: 4 }]}>Get 1 point per workshop</Text>
-
       <View style={{ width: '100%', gap: 6, marginTop: 2 }}>
         {[
           'Track your progress',
@@ -179,7 +170,10 @@ function Slide2() {
   );
 }
 
-const SLIDE_COMPONENTS = [Slide0, Slide1, Slide2];
+/** Welcome only while Mastery is hidden; full 3-slide intro when re-enabled. */
+const SLIDE_COMPONENTS = MASTERY_FEATURE_ENABLED
+  ? [WelcomeSlide, EarnExperienceSlide, CultivateCraftSlide]
+  : [WelcomeSlide];
 
 const styles = {
   heading: {
@@ -208,8 +202,9 @@ export default function AppIntroScreen({ onDone }: Props) {
   const listRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const isLastSlide = currentIndex === SLIDE_COMPONENTS.length - 1;
+  const showDots = SLIDE_COMPONENTS.length > 1;
 
-  const renderItem: ListRenderItem<typeof SLIDE_COMPONENTS[number]> = ({ item: SlideComponent }) => (
+  const renderItem: ListRenderItem<(typeof SLIDE_COMPONENTS)[number]> = ({ item: SlideComponent }) => (
     <SlideComponent />
   );
 
@@ -221,7 +216,6 @@ export default function AppIntroScreen({ onDone }: Props) {
         paddingTop: insets.top,
       }}
     >
-      {/* Fixed header: logo left, Skip right */}
       <View
         style={{
           flexDirection: 'row',
@@ -257,22 +251,24 @@ export default function AppIntroScreen({ onDone }: Props) {
         </Pressable>
       </View>
 
-      {/* Dot indicators */}
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 6 }}>
-        {SLIDE_COMPONENTS.map((_, i) => (
-          <View
-            key={i}
-            style={{
-              width: i === currentIndex ? 18 : 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: i === currentIndex ? DesignColors.primary : DesignColors.lightGreenBorder,
-            }}
-          />
-        ))}
-      </View>
+      {showDots ? (
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 6 }}>
+          {SLIDE_COMPONENTS.map((_, i) => (
+            <View
+              key={i}
+              style={{
+                width: i === currentIndex ? 18 : 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: i === currentIndex ? DesignColors.primary : DesignColors.lightGreenBorder,
+              }}
+            />
+          ))}
+        </View>
+      ) : (
+        <View style={{ height: 6, marginBottom: 6 }} />
+      )}
 
-      {/* Horizontal paged slides */}
       <FlatList
         ref={listRef}
         data={SLIDE_COMPONENTS}
@@ -280,6 +276,7 @@ export default function AppIntroScreen({ onDone }: Props) {
         keyExtractor={(_, i) => String(i)}
         horizontal
         pagingEnabled
+        scrollEnabled={showDots}
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
         decelerationRate="fast"
@@ -290,7 +287,6 @@ export default function AppIntroScreen({ onDone }: Props) {
         style={{ flex: 1 }}
       />
 
-      {/* Primary button: Next or Get started */}
       <View
         style={{
           paddingHorizontal: DesignSpacing.horizontalPadding,

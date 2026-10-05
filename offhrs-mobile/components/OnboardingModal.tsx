@@ -16,6 +16,7 @@ import * as Location from 'expo-location';
 import { supabase } from '@/lib/supabase';
 import { CATEGORIES } from '@/constants/categories';
 import { DesignColors } from '@/constants/design-template';
+import { MASTERY_FEATURE_ENABLED } from '@/constants/feature-flags';
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
 import { geocodeAddress, reverseGeocodeCanadianPostal } from '@/lib/geocode';
 import { setOnboardingModalOpen } from '@/lib/onboarding-modal-gate';
@@ -543,23 +544,35 @@ export default function OnboardingModal({
             </ScrollView>
             <Pressable
               onPress={() => {
+                if (!MASTERY_FEATURE_ENABLED) {
+                  void handleComplete();
+                  return;
+                }
                 setExperienceCategoryIndex(0);
                 setStep(2);
               }}
+              disabled={!MASTERY_FEATURE_ENABLED && loading}
               style={{
                 marginTop: 24,
                 paddingVertical: 14,
                 borderRadius: 9999,
                 backgroundColor: DesignColors.primary,
                 alignItems: 'center',
+                opacity: !MASTERY_FEATURE_ENABLED && loading ? 0.7 : 1,
               }}
             >
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFF' }}>Next</Text>
+              {!MASTERY_FEATURE_ENABLED && loading ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFF' }}>
+                  {MASTERY_FEATURE_ENABLED ? 'Next' : 'Complete'}
+                </Text>
+              )}
             </Pressable>
           </>
         ) : null}
 
-        {step === 2 ? (
+        {MASTERY_FEATURE_ENABLED && step === 2 ? (
           <>
             <ScrollView
               style={{ maxHeight: experienceScrollMax }}

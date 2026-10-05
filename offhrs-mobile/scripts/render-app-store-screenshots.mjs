@@ -126,25 +126,16 @@ function buildHome(logoHref) {
 <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 ${svgHeader(logoHref)}
   <text x="${PAD}" y="380" font-family="Georgia, Times, serif" font-size="64" fill="${CHARCOAL}">Discover your new passion</text>
-  <text x="${PAD}" y="460" font-family="system-ui" font-size="32" font-weight="700" fill="${CHARCOAL}">Your mastery progression</text>
-  <g transform="translate(${PAD}, 500)">
-    ${[0, 1, 2, 3, 4, 5]
-      .map((i) => {
-        const cx = 56 + i * 108;
-        return `<circle cx="${cx}" cy="40" r="40" fill="${HERO_BG}" stroke="${PRIMARY}" stroke-width="4"/>`;
-      })
-      .join('')}
-  </g>
-  <text x="${PAD}" y="660" font-family="system-ui" font-size="32" font-weight="700" fill="${CHARCOAL}">Upcoming workshops in Toronto</text>
-  ${workshopCard(PAD, 690, 380, 420, 'g1', 'Hand-building Pottery', 'Leslieville', '$85')}
-  ${workshopCard(PAD + 398, 690, 380, 420, 'g2', 'Intro to Latte Art', 'King West', '$45')}
-  ${workshopCard(PAD + 796, 690, 320, 420, 'g3', 'Floral Arranging', 'The Junction', '$120')}
-  <text x="${PAD}" y="1180" font-family="system-ui" font-size="32" font-weight="700" fill="${CHARCOAL}">Workshops near you</text>
-  <text x="${PAD}" y="1230" font-family="system-ui" font-size="28" fill="${MEDIUM}">Explore nearby classes</text>
-  ${workshopCard(PAD, 1250, 380, 420, 'g2', 'Weekend Woodworking', 'East York', '$95')}
-  ${workshopCard(PAD + 398, 1250, 380, 420, 'g1', 'Natural Soap Making', 'Roncesvalles', '$65')}
-  ${workshopCard(PAD + 796, 1250, 320, 420, 'g3', 'Scent Blending', 'Ossington', '$55')}
-  <g transform="translate(${PAD + 180}, 1720)">
+  <text x="${PAD}" y="500" font-family="system-ui" font-size="32" font-weight="700" fill="${CHARCOAL}">Upcoming workshops in Toronto</text>
+  ${workshopCard(PAD, 530, 380, 420, 'g1', 'Hand-building Pottery', 'Leslieville', '$85')}
+  ${workshopCard(PAD + 398, 530, 380, 420, 'g2', 'Intro to Latte Art', 'King West', '$45')}
+  ${workshopCard(PAD + 796, 530, 320, 420, 'g3', 'Floral Arranging', 'The Junction', '$120')}
+  <text x="${PAD}" y="1020" font-family="system-ui" font-size="32" font-weight="700" fill="${CHARCOAL}">Workshops near you</text>
+  <text x="${PAD}" y="1070" font-family="system-ui" font-size="28" fill="${MEDIUM}">Explore nearby classes</text>
+  ${workshopCard(PAD, 1090, 380, 420, 'g2', 'Weekend Woodworking', 'East York', '$95')}
+  ${workshopCard(PAD + 398, 1090, 380, 420, 'g1', 'Natural Soap Making', 'Roncesvalles', '$65')}
+  ${workshopCard(PAD + 796, 1090, 320, 420, 'g3', 'Scent Blending', 'Ossington', '$55')}
+  <g transform="translate(${PAD + 180}, 1560)">
     ${[0, 1, 2, 3, 4].map((i) => `<circle cx="${i * 22}" cy="0" r="8" fill="${i === 0 ? CHARCOAL : '#CFCFCF'}"/>`).join('')}
   </g>
   ${tabBarPill(tabY, 0)}

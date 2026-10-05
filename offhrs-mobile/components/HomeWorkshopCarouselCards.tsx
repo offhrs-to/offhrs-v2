@@ -81,11 +81,10 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
   } = getHomeCarouselCardMetrics(windowWidth);
 
   const handlePress = (id: number) => {
-    // Cache-buster `t` keeps the URL distinct between consecutive taps so the
-    // workshops tab re-reads search params. The workshops tab uses `openEvent`
-    // only - `t` is intentionally a separate name from `openTs` (which means
-    // an event occurrence ISO date) to avoid confusing the matcher.
-    router.push(`/(tabs)/workshops?openEvent=${id}&t=${Date.now()}`);
+    // Cache-buster `t` keeps the URL distinct between consecutive taps so Home
+    // re-reads search params. `t` is intentionally separate from `openTs`
+    // (occurrence ISO date) to avoid confusing the matcher.
+    router.push(`/(tabs)/index?openEvent=${id}&t=${Date.now()}`);
   };
 
   if (loading && items.length === 0) {
@@ -127,13 +126,13 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
                 }}
               >
                 <View
+                  collapsable={false}
                   style={{
                     height: CARD_IMAGE_HEIGHT,
                     width: CARD_WIDTH,
                     // Neutral image well — sage letterboxing clashes with white logos.
                     backgroundColor: DesignColors.inputBg,
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    overflow: 'hidden',
                   }}
                 >
                   <Pressable
@@ -152,10 +151,14 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
                   </Pressable>
 
                   {/*
-                    Full-bleed overlay + flex-end — avoids NativeWind dropping StyleSheet `right`.
-                    Heart sits flush on the top-right of the square image frame.
+                    Explicit top/right absolute (same pattern as browse cards).
+                    Avoids flex-centered layout when absoluteFill fails to apply.
                   */}
-                  <View pointerEvents="box-none" style={styles.heartOverlay}>
+                  <View
+                    pointerEvents="box-none"
+                    collapsable={false}
+                    style={styles.heartOverlay}
+                  >
                     <Pressable
                       onPress={() => void toggleSave(item.id)}
                       disabled={saving}
@@ -244,24 +247,24 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   heartOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
-    paddingTop: 3,
-    paddingRight: 4,
+    position: 'absolute',
+    top: 4,
+    right: 4,
     zIndex: 10,
+    elevation: Platform.OS === 'android' ? 8 : undefined,
   },
   heartButton: {
     width: HEART_SIZE,
     height: HEART_SIZE,
     borderRadius: HEART_SIZE / 2,
-    marginRight: 0,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderWidth: 1.5,
+    borderColor: DesignColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: Platform.OS === 'android' ? 6 : 0,
   },

@@ -7,7 +7,6 @@ import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import {
   CalendarIcon,
   HomeIcon,
-  MagnifyingGlassIcon,
   ShoppingBagIcon,
   UserIcon,
 } from 'react-native-heroicons/outline';
@@ -71,7 +70,6 @@ const ICON_WRAP_SIZE = 40;
 
 const ICON_MAP: Record<string, typeof HomeIcon> = {
   index: HomeIcon,
-  workshops: MagnifyingGlassIcon,
   bookings: CalendarIcon,
   shop: ShoppingBagIcon,
   profile: UserIcon,
@@ -116,7 +114,8 @@ function CustomTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
         : TAB_BAR_BOTTOM_INSET_IPHONE
       : Math.max(insets.bottom, 12) + 4;
 
-  const routes = state.routes.filter((r) => r.name !== 'explore');
+  // Search (workshops) is merged into Home; explore is unused scaffold.
+  const routes = state.routes.filter((r) => r.name !== 'explore' && r.name !== 'workshops');
 
   return (
     <View
@@ -140,8 +139,8 @@ function CustomTabBar({ state, navigation, descriptors }: BottomTabBarProps) {
         justifyContent: 'space-evenly',
       }}
     >
-      {routes.map((route, index) => {
-        const focused = state.index === index;
+      {routes.map((route) => {
+        const focused = state.routes[state.index]?.key === route.key;
         const IconComponent = ICON_MAP[route.name];
         const onPress = () => {
           if (Platform.OS === 'ios') {
@@ -523,10 +522,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="workshops"
         options={{
-          title: 'Workshops',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon IconComponent={MagnifyingGlassIcon} focused={focused} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen

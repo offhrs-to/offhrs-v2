@@ -1,8 +1,14 @@
 import { Modal, Platform, Pressable, Text, View } from 'react-native';
 
+import WorkshopListingKindBadge from '@/components/WorkshopListingKindBadge';
 import { DesignColors } from '@/constants/design-template';
+import {
+  WORKSHOP_LISTING_KIND_ORDER,
+  getWorkshopListingKindMeta,
+} from '@/lib/workshop-listing-kind';
 
-export const PILOT_LAUNCH_ACK_KEY = '@offhrs/hasAcknowledgedPilotLaunch';
+/** v2: expanded 3-category listing notice (re-shows once for users who saw the old 2-bullet version). */
+export const PILOT_LAUNCH_ACK_KEY = '@offhrs/hasAcknowledgedPilotLaunch.v2';
 
 type Props = {
   visible: boolean;
@@ -70,21 +76,23 @@ export default function PilotLaunchNoticeModal({ visible, onAcknowledge }: Props
             >
               offhrs is live in Toronto with a mix of workshop listings:
             </Text>
-            <View style={{ gap: 10, marginBottom: 20 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                <Text style={{ fontSize: 14, lineHeight: 21, color: DesignColors.primary }}>•</Text>
-                <Text style={{ flex: 1, fontSize: 14, lineHeight: 21, color: DesignColors.charcoal }}>
-                  <Text style={{ fontWeight: '700' }}>Host-posted workshops</Text> — book and pay directly
-                  in the app.
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                <Text style={{ fontSize: 14, lineHeight: 21, color: DesignColors.primary }}>•</Text>
-                <Text style={{ flex: 1, fontSize: 14, lineHeight: 21, color: DesignColors.charcoal }}>
-                  <Text style={{ fontWeight: '700' }}>App-listed workshops</Text> — we link you to the host&apos;s
-                  website to book with them directly.
-                </Text>
-              </View>
+            <View style={{ gap: 12, marginBottom: 20 }}>
+              {WORKSHOP_LISTING_KIND_ORDER.map((kind) => {
+                const meta = getWorkshopListingKindMeta(kind);
+                return (
+                  <View
+                    key={kind}
+                    style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}
+                  >
+                    <WorkshopListingKindBadge kind={kind} size={36} iconSize={18} />
+                    <Text style={{ flex: 1, fontSize: 14, lineHeight: 21, color: DesignColors.charcoal }}>
+                      <Text style={{ fontWeight: '700' }}>{meta.label}</Text>
+                      {' — '}
+                      {meta.description}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
             <Text
               style={{
@@ -94,7 +102,8 @@ export default function PilotLaunchNoticeModal({ visible, onAcknowledge }: Props
                 marginBottom: 20,
               }}
             >
-              Thanks for helping us shape the experience — listings and booking options may change as we grow.
+              Thanks for helping us shape the experience — listings and booking options may change as we
+              grow.
             </Text>
             <Pressable
               onPress={onAcknowledge}

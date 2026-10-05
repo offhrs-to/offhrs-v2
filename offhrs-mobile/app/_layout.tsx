@@ -20,6 +20,7 @@ import AppIntroScreen from '@/components/AppIntroScreen';
 import PilotLaunchNoticeModal, {
   PILOT_LAUNCH_ACK_KEY,
 } from '@/components/PilotLaunchNoticeModal';
+import { MASTERY_FEATURE_ENABLED } from '@/constants/feature-flags';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { processAuthCallbackUrl } from '@/lib/auth-callback-url';
 import { completeOAuthBrowserSession } from '@/lib/auth-session-cleanup';
@@ -161,6 +162,7 @@ export default function RootLayout() {
   }, []);
 
   // First-launch gates: load intro + pilot flags together so pilot never flashes before slides.
+  // While Mastery is hidden, skip the Welcome intro entirely — first install only sees the pilot notice.
   useEffect(() => {
     if (Platform.OS === 'web') {
       setIntroGate('done');
@@ -170,10 +172,16 @@ export default function RootLayout() {
       AsyncStorage.getItem(HAS_SEEN_APP_INTRO_KEY),
       AsyncStorage.getItem(PILOT_LAUNCH_ACK_KEY),
     ]).then(([introSeen, pilotAcknowledged]) => {
-      if (introSeen !== 'true') {
+      const shouldShowIntro = MASTERY_FEATURE_ENABLED && introSeen !== 'true';
+      if (shouldShowIntro) {
         setShowAppIntro(true);
         setIntroGate('needs_intro');
       } else {
+        if (introSeen !== 'true') {
+          AsyncStorage.setItem(HAS_SEEN_APP_INTRO_KEY, 'true').catch(() => {
+            /* ignore */
+          });
+        }
         setIntroGate('done');
       }
       if (pilotAcknowledged !== 'true') {

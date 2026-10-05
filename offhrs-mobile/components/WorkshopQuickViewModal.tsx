@@ -28,6 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import WorkshopDescriptionCollapsible from '@/components/WorkshopDescriptionCollapsible';
+import WorkshopListingKindBadge from '@/components/WorkshopListingKindBadge';
 import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
 import { DesignColors } from '@/constants/design-template';
 import { haversineKm } from '@/lib/distance';
@@ -482,48 +483,51 @@ function WorkshopQuickViewModal({
               >
                 <MaterialCommunityIcons name="close" size={24} color={DesignColors.charcoal} />
               </Pressable>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Pressable
-                onPress={() => void shareWorkshopEvent({ id: view.id, title: view.title })}
-                accessibilityRole="button"
-                accessibilityLabel="Share workshop"
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={({ pressed }) => ({
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  backgroundColor: 'rgba(255,255,255,0.95)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: pressed ? 0.85 : 1,
-                  elevation: Platform.OS === 'android' ? 4 : undefined,
-                })}
-              >
-                <MaterialCommunityIcons name="share-variant" size={22} color={DesignColors.primary} />
-              </Pressable>
-              <Pressable
-                onPress={onToggleSave}
-                disabled={saving}
-                accessibilityRole="button"
-                accessibilityLabel={saved ? 'Remove from saved workshops' : 'Save workshop'}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={({ pressed }) => ({
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  backgroundColor: 'rgba(255,255,255,0.95)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: pressed ? 0.85 : 1,
-                  elevation: Platform.OS === 'android' ? 4 : undefined,
-                })}
-              >
-                {saving ? (
-                  <ActivityIndicator size="small" color={DesignColors.primary} />
-                ) : (
-                  <EventSaveHeartIcon saved={saved} size={26} />
-                )}
-              </Pressable>
+              <View style={{ alignItems: 'flex-end', gap: 8 }}>
+                <WorkshopListingKindBadge event={view} />
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable
+                    onPress={() => void shareWorkshopEvent({ id: view.id, title: view.title })}
+                    accessibilityRole="button"
+                    accessibilityLabel="Share workshop"
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    style={({ pressed }) => ({
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: 'rgba(255,255,255,0.95)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: pressed ? 0.85 : 1,
+                      elevation: Platform.OS === 'android' ? 4 : undefined,
+                    })}
+                  >
+                    <MaterialCommunityIcons name="share-variant" size={22} color={DesignColors.primary} />
+                  </Pressable>
+                  <Pressable
+                    onPress={onToggleSave}
+                    disabled={saving}
+                    accessibilityRole="button"
+                    accessibilityLabel={saved ? 'Remove from saved workshops' : 'Save workshop'}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    style={({ pressed }) => ({
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: 'rgba(255,255,255,0.95)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: pressed ? 0.85 : 1,
+                      elevation: Platform.OS === 'android' ? 4 : undefined,
+                    })}
+                  >
+                    {saving ? (
+                      <ActivityIndicator size="small" color={DesignColors.primary} />
+                    ) : (
+                      <EventSaveHeartIcon saved={saved} size={26} />
+                    )}
+                  </Pressable>
+                </View>
               </View>
             </View>
             </View>

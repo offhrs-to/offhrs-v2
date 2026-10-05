@@ -1,10 +1,38 @@
+import HomeCarouselSectionHeader from '@/components/HomeCarouselSectionHeader';
+import MasteryProgressionSection from '@/components/MasteryProgressionSection';
+import UpcomingTorontoCarousel from '@/components/UpcomingTorontoCarousel';
+import WorkshopQuickViewModal from '@/components/WorkshopQuickViewModal';
+import WorkshopsChrome from '@/components/WorkshopsChrome';
+import WorkshopsMapPreview from '@/components/WorkshopsMapPreview';
+import WorkshopsNearYouCarousel from '@/components/WorkshopsNearYouCarousel';
+import type { HomeCarouselEventItem } from '@/components/HomeWorkshopCarouselCards';
+import { DesignColors, DesignSpacing, isIOSPad } from '@/constants/design-template';
+import { MASTERY_FEATURE_ENABLED } from '@/constants/feature-flags';
+import { WORKSHOP_FETCH_LIMIT_HUB_PREVIEW } from '@/constants/workshops-list';
+import { useAuth } from '@/contexts/AuthContext';
+import { isEventVisibleToConsumers } from '@/lib/consumer-event-visibility';
+import {
+  patchSavedEventIds,
+  subscribeEventSavesChanged,
+  toggleUserEventSave,
+} from '@/lib/event-saves';
+import { PROFILE_UPDATED_EVENT } from '@/lib/profile-events';
+import { supabase } from '@/lib/supabase';
+import { enrichWorkshopEventsWithVendorNames } from '@/lib/workshop-vendor-display';
+import {
+  expandWorkshopEventsForConsumers,
+  fetchWorkshopEvents,
+  mapDbRowToWorkshopEvent,
+  WORKSHOP_EVENT_LIST_SELECT,
+  type WorkshopEventRow,
+} from '@/lib/workshops-events-query';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from "expo-router/react-navigation";
+import { useFocusEffect } from 'expo-router/react-navigation';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   DeviceEventEmitter,
-  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -12,158 +40,56 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { UserCircleIcon } from 'react-native-heroicons/outline';
-
-import InstructorIcon from '@/components/InstructorIcon';
-import FeaturedVendorsCarousel from '@/components/FeaturedVendorsCarousel';
-import HomeCarouselSectionHeader from '@/components/HomeCarouselSectionHeader';
-import UpcomingTorontoCarousel from '@/components/UpcomingTorontoCarousel';
-import WorkshopsNearYouCarousel from '@/components/WorkshopsNearYouCarousel';
-import { CATEGORIES } from '@/constants/categories';
-import { DesignColors, DesignSizes, DesignSpacing, isIOSPad } from '@/constants/design-template';
-import { useAuth } from '@/contexts/AuthContext';
-import { PROFILE_UPDATED_EVENT } from '@/lib/profile-events';
-import { supabase } from '@/lib/supabase';
-import type { HomeCarouselEventItem } from '@/components/HomeWorkshopCarouselCards';
 
 const CREAM_BG = DesignColors.creamBg;
 const CHARCOAL = '#2C2C2C';
 const MEDIUM_GRAY = '#6B6B6B';
 
-const HORIZONTAL_PADDING = 24;
+const HORIZONTAL_PADDING = DesignSpacing.horizontalPadding;
 
 const isAndroid = Platform.OS === 'android';
-const AVATAR_SIZE = isAndroid ? 46 : 52;
-/** Space below header divider before content — keep small so mastery sits close to grey line. */
-const SCROLL_PADDING_TOP = isAndroid ? 4 : 6;
+const AVATAR_SIZE = isAndroid ? 40 : 44;
 /** Scroll padding below content — room above floating tab bar. */
 const SCROLL_PADDING_BOTTOM = isAndroid ? 76 : 28;
-const ICON_BAR_HEIGHT = isAndroid ? 48 : 56;
-const ICON_CIRCLE_SIZE = isAndroid ? 40 : 44;
 const SECTION_TITLE_FONT_SIZE = isAndroid ? 14 : 15;
 const SECTION_SUBTITLE_FONT_SIZE = isAndroid ? 12 : 13;
 const CAROUSEL_SECTION_GAP = isAndroid ? 10 : 12;
 
-// Each level is 8 points; progression shown as X/8 for all levels (Novice → Master)
-const LEVEL_THRESHOLDS: Record<string, { start: number; step: number }> = {
-  Novice: { start: 0, step: 8 },
-  Intermediate: { start: 8, step: 8 },
-  Advanced: { start: 16, step: 8 },
-  Expert: { start: 24, step: 8 },
-  Master: { start: 32, step: 0 },
-};
-
-function getLevelProgress(level: string, points: number): { progress: number; label: string } {
-  const config = LEVEL_THRESHOLDS[level] ?? LEVEL_THRESHOLDS.Novice;
-  if (config.step === 0) return { progress: 1, label: 'Max' };
-  const currentInSegment = Math.max(0, points - config.start);
-  const progress = Math.min(1, currentInSegment / config.step);
-  const label = `${Math.min(currentInSegment, config.step)}/${config.step}`;
-  return { progress, label };
-}
-
-// Floral category uses bespoke icons per level (Novice → Master)
-const FLORAL_ICONS: Record<string, any> = {
-  Novice: require('@/assets/images/floral-novice.png'),
-  Intermediate: require('@/assets/images/floral-intermediate.png'),
-  Advanced: require('@/assets/images/floral-advanced.png'),
-  Expert: require('@/assets/images/floral-expert.png'),
-  Master: require('@/assets/images/floral-master.png'),
-};
-
-const getFloralIconSource = (level: string) =>
-  FLORAL_ICONS[level] ?? FLORAL_ICONS.Novice;
-
-// Culinary category uses bespoke icons per level (Novice → Master)
-const CULINARY_ICONS: Record<string, any> = {
-  Novice: require('@/assets/images/culinary-novice.png'),
-  Intermediate: require('@/assets/images/culinary-intermediate.png'),
-  Advanced: require('@/assets/images/culinary-advanced.png'),
-  Expert: require('@/assets/images/culinary-expert.png'),
-  Master: require('@/assets/images/culinary-master.png'),
-};
-
-const getCulinaryIconSource = (level: string) =>
-  CULINARY_ICONS[level] ?? CULINARY_ICONS.Novice;
-
-// Pottery category uses bespoke icons per level (Novice → Master)
-const POTTERY_ICONS: Record<string, any> = {
-  Novice: require('@/assets/images/pottery-novice.png'),
-  Intermediate: require('@/assets/images/pottery-intermediate.png'),
-  Advanced: require('@/assets/images/pottery-advanced.png'),
-  Expert: require('@/assets/images/pottery-expert.png'),
-  Master: require('@/assets/images/pottery-master.png'),
-};
-
-const getPotteryIconSource = (level: string) =>
-  POTTERY_ICONS[level] ?? POTTERY_ICONS.Novice;
-
-// Coffee category uses bespoke icons per level (Novice → Master)
-const COFFEE_ICONS: Record<string, any> = {
-  Novice: require('@/assets/images/coffee-novice.png'),
-  Intermediate: require('@/assets/images/coffee-intermediate.png'),
-  Advanced: require('@/assets/images/coffee-advanced.png'),
-  Expert: require('@/assets/images/coffee-expert.png'),
-  Master: require('@/assets/images/coffee-master.png'),
-};
-
-const getCoffeeIconSource = (level: string) =>
-  COFFEE_ICONS[level] ?? COFFEE_ICONS.Novice;
-
-// Scent & Candle category uses bespoke icons per level (Novice → Master)
-const SCENT_CANDLE_ICONS: Record<string, any> = {
-  Novice: require('@/assets/images/beauty-fragrance-novice.png'),
-  Intermediate: require('@/assets/images/beauty-fragrance-intermediate.png'),
-  Advanced: require('@/assets/images/beauty-fragrance-advanced.png'),
-  Expert: require('@/assets/images/beauty-fragrance-expert.png'),
-  Master: require('@/assets/images/beauty-fragrance-master.png'),
-};
-
-const getScentCandleIconSource = (level: string) =>
-  SCENT_CANDLE_ICONS[level] ?? SCENT_CANDLE_ICONS.Novice;
-
-// Other category uses bespoke icons per level (Novice → Master)
-const OTHER_ICONS: Record<string, any> = {
-  Novice: require('@/assets/images/other-novice.png'),
-  Intermediate: require('@/assets/images/other-intermediate.png'),
-  Advanced: require('@/assets/images/other-advanced.png'),
-  Expert: require('@/assets/images/other-expert.png'),
-  Master: require('@/assets/images/other-master.png'),
-};
-
-const getOtherIconSource = (level: string) =>
-  OTHER_ICONS[level] ?? OTHER_ICONS.Novice;
-
 export default function HomeScreen() {
-  const insets = useSafeAreaInsets();
   const isIPad = isIOSPad();
-  const headerPaddingTop = isIPad
-    ? Math.max(insets.top, 20) + 12
-    : DesignSpacing.contentPaddingTop;
-  const logoMarginLeft = isIPad ? 0 : DesignSpacing.logoMarginLeft;
-  const homeScrollPaddingBottom = isIPad ? Math.max(SCROLL_PADDING_BOTTOM, insets.bottom + 72) : SCROLL_PADDING_BOTTOM;
+  const homeScrollPaddingBottom = isIPad
+    ? Math.max(SCROLL_PADDING_BOTTOM, 72)
+    : SCROLL_PADDING_BOTTOM;
 
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const params = useLocalSearchParams<{
+    q?: string;
+    openEvent?: string;
+    openTs?: string;
+    t?: string;
+  }>();
+  const qParam =
+    typeof params.q === 'string' ? params.q : Array.isArray(params.q) ? params.q[0] : '';
+
   const [profile, setProfile] = useState<{
     display_name: string | null;
     avatar_url: string | null;
-    expertise_level: string | null;
-    experience_points: number | null;
-    instructor_categories: string[] | null;
-    onboarding_completed: boolean | null;
     location_lat: number | null;
     location_lng: number | null;
+    postal_code: string | null;
   } | null>(null);
-  const [categoryExperience, setCategoryExperience] = useState<Record<string, { level: string; points: number }>>({});
-  const [profileLoaded, setProfileLoaded] = useState(false);
-  const [popupCategory, setPopupCategory] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [homeRefreshNonce, setHomeRefreshNonce] = useState(0);
   const [torontoCarouselItems, setTorontoCarouselItems] = useState<HomeCarouselEventItem[]>([]);
   const [nearYouCarouselItems, setNearYouCarouselItems] = useState<HomeCarouselEventItem[]>([]);
+
+  const [previewEvents, setPreviewEvents] = useState<WorkshopEventRow[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(true);
+  const [quickViewEvent, setQuickViewEvent] = useState<WorkshopEventRow | null>(null);
+  const [savedEventIds, setSavedEventIds] = useState<Set<number>>(new Set());
+  const [quickViewSaving, setQuickViewSaving] = useState(false);
 
   const onTorontoItemsChange = useCallback((items: HomeCarouselEventItem[]) => {
     setTorontoCarouselItems(items);
@@ -185,64 +111,36 @@ export default function HomeScreen() {
     [router]
   );
 
-  const levelCategories = CATEGORIES;
-  const instructorCategories = profile?.instructor_categories ?? [];
-
-  useEffect(() => {
-    if (!user?.id) {
-      setProfileLoaded(!!user);
-      return;
-    }
-    Promise.all([
-      supabase
-        .from('profiles')
-        .select(
-          'display_name, avatar_url, expertise_level, experience_points, instructor_categories, onboarding_completed, location_lat, location_lng'
-        )
-        .eq('id', user.id)
-        .single()
-        .then(({ data }) => data ?? null),
-      supabase
-        .from('profile_category_experience')
-        .select('category, expertise_level, experience_points')
-        .eq('user_id', user.id)
-        .then(({ data }) => {
-          const map: Record<string, { level: string; points: number }> = {};
-          (data ?? []).forEach((row) => {
-            map[row.category] = { level: row.expertise_level ?? 'Novice', points: row.experience_points ?? 0 };
-          });
-          return map;
-        }),
-    ]).then(([profileData, catMap]) => {
-      setProfile(profileData);
-      setCategoryExperience(catMap ?? {});
-      setProfileLoaded(true);
-    });
-  }, [user?.id]);
+  const refetchPreviewEvents = useCallback(() => {
+    fetchWorkshopEvents({
+      searchTerm: '',
+      categories: [],
+      dateRangeStart: null,
+      dateRangeEnd: null,
+      limit: WORKSHOP_FETCH_LIMIT_HUB_PREVIEW,
+      light: true,
+      skipMapCoords: false,
+    })
+      .then(setPreviewEvents)
+      .catch(() => setPreviewEvents([]));
+  }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (!user?.id) return;
-    await Promise.all([
+    if (!user?.id) {
+      setProfile(null);
+      setSavedEventIds(new Set());
+      return;
+    }
+    const [{ data: profileData }, { data: saves }] = await Promise.all([
       supabase
         .from('profiles')
-        .select(
-          'display_name, avatar_url, expertise_level, experience_points, instructor_categories, onboarding_completed, location_lat, location_lng'
-        )
+        .select('display_name, avatar_url, location_lat, location_lng, postal_code')
         .eq('id', user.id)
-        .single()
-        .then(({ data }) => setProfile(data ?? null)),
-      supabase
-        .from('profile_category_experience')
-        .select('category, expertise_level, experience_points')
-        .eq('user_id', user.id)
-        .then(({ data }) => {
-          const map: Record<string, { level: string; points: number }> = {};
-          (data ?? []).forEach((row) => {
-            map[row.category] = { level: row.expertise_level ?? 'Novice', points: row.experience_points ?? 0 };
-          });
-          setCategoryExperience(map);
-        }),
+        .single(),
+      supabase.from('user_event_saves').select('event_id').eq('user_id', user.id),
     ]);
+    setProfile(profileData ?? null);
+    setSavedEventIds(new Set((saves ?? []).map((r) => Number(r.event_id))));
   }, [user?.id]);
 
   const handleAndroidRefresh = useCallback(async () => {
@@ -250,24 +148,161 @@ export default function HomeScreen() {
     setRefreshing(true);
     try {
       await refreshProfile();
+      refetchPreviewEvents();
       setHomeRefreshNonce((n) => n + 1);
     } finally {
       setRefreshing(false);
     }
-  }, [refreshProfile]);
+  }, [refreshProfile, refetchPreviewEvents]);
 
   useFocusEffect(
     useCallback(() => {
-      refreshProfile();
+      void refreshProfile();
     }, [refreshProfile])
   );
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener(PROFILE_UPDATED_EVENT, () => {
-      refreshProfile();
+      void refreshProfile();
     });
     return () => sub.remove();
   }, [refreshProfile]);
+
+  useEffect(() => {
+    return subscribeEventSavesChanged(({ eventId, saved }) => {
+      setSavedEventIds((prev) => patchSavedEventIds(prev, eventId, saved));
+    });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPreviewLoading(true);
+    fetchWorkshopEvents({
+      searchTerm: '',
+      categories: [],
+      dateRangeStart: null,
+      dateRangeEnd: null,
+      limit: WORKSHOP_FETCH_LIMIT_HUB_PREVIEW,
+      light: true,
+      skipMapCoords: false,
+    })
+      .then((rows) => {
+        if (!cancelled) setPreviewEvents(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewEvents([]);
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [homeRefreshNonce]);
+
+  const openEventId = useMemo(() => {
+    const raw = params.openEvent;
+    const oe = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
+    if (!oe) return null;
+    const id = Number(oe);
+    return Number.isInteger(id) ? id : null;
+  }, [params.openEvent]);
+
+  const openTs = useMemo(() => {
+    const rawTs = params.openTs;
+    if (rawTs === undefined || rawTs === null) return '';
+    return String(Array.isArray(rawTs) ? rawTs[0] : rawTs);
+  }, [params.openTs]);
+
+  const openRequestKey = useMemo(() => {
+    const raw = params.t;
+    return raw === undefined || raw === null ? '' : String(Array.isArray(raw) ? raw[0] : raw);
+  }, [params.t]);
+
+  useEffect(() => {
+    if (openEventId == null) return;
+    const looksLikeIsoTs = !!openTs && /\d{4}-\d{2}-\d{2}T/.test(openTs);
+    const matchesTs = (rowDateIso: string | null | undefined): boolean => {
+      if (!looksLikeIsoTs) return true;
+      const ts = rowDateIso ?? '';
+      return ts === openTs || ts.startsWith(openTs) || openTs.startsWith(ts);
+    };
+
+    const candidates = previewEvents.filter((e) => Number(e.id) === openEventId);
+    if (candidates.length > 0) {
+      const fromList = candidates.find((e) => matchesTs(e.date_iso)) ?? candidates[0];
+      if (fromList) {
+        setQuickViewEvent(fromList);
+        return;
+      }
+    }
+
+    let cancelled = false;
+    supabase
+      .from('events')
+      .select(WORKSHOP_EVENT_LIST_SELECT)
+      .eq('id', openEventId)
+      .single()
+      .then(async ({ data, error }) => {
+        if (cancelled || error || !data) return;
+        if (!isEventVisibleToConsumers(data)) return;
+        const enriched = await enrichWorkshopEventsWithVendorNames(
+          expandWorkshopEventsForConsumers([mapDbRowToWorkshopEvent(data)])
+        );
+        if (cancelled) return;
+        if (!enriched || enriched.length === 0) {
+          setQuickViewEvent(mapDbRowToWorkshopEvent(data));
+          return;
+        }
+        const match = enriched.find((e) => matchesTs(e.date_iso)) ?? enriched[0];
+        setQuickViewEvent(match ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [openEventId, openTs, openRequestKey, previewEvents]);
+
+  const eventIdNum = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
+  const quickViewSaved = eventIdNum != null && savedEventIds.has(eventIdNum);
+
+  const handleQuickViewSave = useCallback(async () => {
+    const eid = quickViewEvent?.id != null ? Number(quickViewEvent.id) : null;
+    if (eid == null || !Number.isInteger(eid) || quickViewSaving) return;
+    if (!user?.id) {
+      router.push('/login');
+      return;
+    }
+    setQuickViewSaving(true);
+    try {
+      const isCurrentlySaved = savedEventIds.has(eid);
+      const result = await toggleUserEventSave({
+        userId: user.id,
+        eventId: eid,
+        currentlySaved: isCurrentlySaved,
+      });
+      if (!result.ok) {
+        Alert.alert(isCurrentlySaved ? "Couldn't update" : "Couldn't save", result.message);
+        return;
+      }
+      setSavedEventIds((prev) => patchSavedEventIds(prev, eid, result.saved));
+    } finally {
+      setQuickViewSaving(false);
+    }
+  }, [user?.id, quickViewEvent?.id, quickViewSaving, savedEventIds, router]);
+
+  const pushSearch = () => {
+    const p = new URLSearchParams();
+    if (qParam) p.set('q', qParam);
+    const qs = p.toString();
+    router.push(qs ? `/workshop-search?${qs}` : '/workshop-search');
+  };
+
+  const pushMap = () => {
+    const p = new URLSearchParams();
+    if (qParam) p.set('q', qParam);
+    const qs = p.toString();
+    router.push(qs ? `/workshop-map?${qs}` : '/workshop-map');
+  };
 
   const carouselLocationAnchor = useMemo(() => {
     if (profile?.location_lat == null || profile?.location_lng == null) return null;
@@ -280,103 +315,81 @@ export default function HomeScreen() {
     user?.user_metadata?.name ||
     String(user?.email ?? '').split('@')[0] ||
     'Guest';
-  // Avatar: profile (synced from OAuth), then auth user_metadata (Google: avatar_url or picture)
   const avatarUrl =
     profile?.avatar_url ||
     user?.user_metadata?.avatar_url ||
     user?.user_metadata?.picture ||
     null;
-  const isInstructorForCategory = (cat: string) => instructorCategories.includes(cat);
-  const getLevelForCategory = (cat: string) => {
-    if (isInstructorForCategory(cat)) return { level: 'Instructor', points: 0 };
-    const ce = categoryExperience[cat];
-    return ce ? { level: ce.level, points: ce.points } : { level: 'Novice', points: 0 };
-  };
+
+  const headerRight = authLoading ? null : !user ? (
+    <Pressable
+      onPress={() => router.push('/login')}
+      accessibilityRole="button"
+      accessibilityLabel="Sign up"
+      style={{
+        paddingHorizontal: 16,
+        paddingVertical: isAndroid ? 8 : 9,
+        borderRadius: 9999,
+        backgroundColor: DesignColors.primary,
+      }}
+    >
+      <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFF' }}>Sign-up</Text>
+    </Pressable>
+  ) : (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minWidth: 0 }}>
+      <View style={{ marginRight: 10, alignItems: 'flex-end', flexShrink: 1, minWidth: 0 }}>
+        <Text style={{ fontSize: 11, color: MEDIUM_GRAY }}>Welcome</Text>
+        <Text
+          style={{ fontSize: isAndroid ? 16 : 18, fontWeight: '700', color: CHARCOAL }}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {displayName}
+        </Text>
+      </View>
+      <View
+        style={{
+          width: AVATAR_SIZE,
+          height: AVATAR_SIZE,
+          borderRadius: AVATAR_SIZE / 2,
+          backgroundColor: avatarUrl ? 'transparent' : '#E0E0E0',
+          overflow: 'hidden',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {avatarUrl ? (
+          <Image
+            source={{ uri: avatarUrl }}
+            style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
+            contentFit="cover"
+          />
+        ) : (
+          <UserCircleIcon size={isAndroid ? 28 : 32} color={MEDIUM_GRAY} />
+        )}
+      </View>
+    </View>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: CREAM_BG }}>
-      {/* Fixed header: logo + welcome row (stays in place when scrolling) */}
-      <View
-        style={{
-          paddingTop: headerPaddingTop,
-          paddingBottom: DesignSpacing.logoHeaderPaddingBottom,
-          paddingHorizontal: DesignSpacing.horizontalPadding,
-          backgroundColor: CREAM_BG,
-          borderBottomWidth: 1,
-          borderBottomColor: '#E5E5E5',
-        }}
-      >
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            marginBottom: isAndroid ? 10 : 12,
-          }}
-        >
-          <View style={{ marginLeft: logoMarginLeft, paddingLeft: 0, flexShrink: 0 }}>
-            <Image
-              source={require('@/assets/images/logo.png')}
-              style={{ height: DesignSizes.logoHeight, width: DesignSizes.logoWidth }}
-              contentFit="contain"
-            />
-          </View>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              flex: 1,
-              justifyContent: 'flex-end',
-              minWidth: 0,
-              marginLeft: 8,
-            }}
-          >
-            <View style={{ marginRight: 10, alignItems: 'flex-end', flexShrink: 1, minWidth: 0 }}>
-              <Text className="text-xs" style={{ color: MEDIUM_GRAY }}>
-                Welcome
-              </Text>
-              <Text
-                className="text-xl font-bold"
-                style={{ color: CHARCOAL }}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {displayName}
-              </Text>
-            </View>
-            <View
-              style={{
-                width: AVATAR_SIZE,
-                height: AVATAR_SIZE,
-                borderRadius: AVATAR_SIZE / 2,
-                backgroundColor: avatarUrl ? 'transparent' : '#E0E0E0',
-                overflow: 'hidden',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              {avatarUrl ? (
-                <Image
-                  source={{ uri: avatarUrl }}
-                  style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
-                  contentFit="cover"
-                />
-              ) : (
-                <UserCircleIcon size={isAndroid ? 32 : 36} color={MEDIUM_GRAY} />
-              )}
-            </View>
-          </View>
-        </View>
-      </View>
+      <WorkshopsChrome
+        searchAsButton
+        hideDateAndClear
+        searchPlaceholder="Search workshops…"
+        searchValue={qParam}
+        onSearchPress={pushSearch}
+        headerRight={headerRight}
+      />
 
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         style={{ flex: 1 }}
         contentContainerStyle={{
           flexGrow: 1,
-          paddingTop: SCROLL_PADDING_TOP,
-          paddingBottom: homeScrollPaddingBottom,
           paddingHorizontal: HORIZONTAL_PADDING,
+          paddingBottom: homeScrollPaddingBottom,
         }}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -391,272 +404,99 @@ export default function HomeScreen() {
           ) : undefined
         }
       >
-      <Text
-        style={{
-          color: CHARCOAL,
-          fontSize: SECTION_TITLE_FONT_SIZE,
-          fontWeight: '700',
-          textAlign: 'left',
-          alignSelf: 'stretch',
-          marginTop: isAndroid ? 2 : 4,
-          marginBottom: isIPad ? 10 : isAndroid ? 6 : 8,
-        }}
-      >
-        Your mastery progression
-      </Text>
+        <Text
+          style={{
+            fontSize: SECTION_TITLE_FONT_SIZE,
+            fontWeight: '700',
+            color: CHARCOAL,
+            marginTop: 8,
+            marginBottom: 8,
+          }}
+        >
+          Tap the map to see all workshops
+        </Text>
+        <WorkshopsMapPreview
+          events={previewEvents}
+          loading={previewLoading}
+          onPress={pushMap}
+        />
 
-      {/* Level icons bar: categories use level-specific icons (Novice → Master).
-          - Instructor categories show graduation cap icon and "Instructor" (no progression) in popup. */}
-      <View
-        style={{
-          marginBottom: isIPad ? 14 : isAndroid ? 10 : 12,
-          height: isIPad ? ICON_BAR_HEIGHT + 8 : ICON_BAR_HEIGHT,
-          width: '100%',
-          flexDirection: 'row',
-          justifyContent: 'space-evenly',
-          alignItems: 'center',
-        }}
-      >
-        {levelCategories.map((cat) => {
-          const isInstructor = isInstructorForCategory(cat);
-          const catLevel = getLevelForCategory(cat).level;
-          const circleSize = ICON_CIRCLE_SIZE;
-          return (
-            <Pressable
-              key={cat}
-              onPress={() => setPopupCategory(cat)}
-              style={{
-                width: circleSize,
-                height: circleSize,
-                borderRadius: circleSize / 2,
-                borderWidth: 2,
-                borderColor: DesignColors.primary,
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-              }}
-            >
-              {isInstructor ? (
-                <InstructorIcon size={isAndroid ? 18 : 20} color={DesignColors.primary} />
-              ) : cat === 'Floral' ? (
-                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
-                  <Image
-                    source={getFloralIconSource(catLevel)}
-                    style={{ width: circleSize + 14, height: circleSize + 14, position: 'absolute', left: -7, top: -7 }}
-                    contentFit="cover"
-                  />
-                </View>
-              ) : cat === 'Culinary' ? (
-                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
-                  <Image
-                    source={getCulinaryIconSource(catLevel)}
-                    style={{ width: circleSize + 12, height: circleSize + 12, position: 'absolute', left: -6, top: -6 }}
-                    contentFit="cover"
-                  />
-                </View>
-              ) : cat === 'Pottery' ? (
-                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
-                  <Image
-                    source={getPotteryIconSource(catLevel)}
-                    style={{ width: circleSize + 22, height: circleSize + 22, position: 'absolute', left: -11, top: -11 }}
-                    contentFit="cover"
-                  />
-                </View>
-              ) : cat === 'Coffee' ? (
-                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
-                  <Image
-                    source={getCoffeeIconSource(catLevel)}
-                    style={{ width: circleSize + 12, height: circleSize + 12, position: 'absolute', left: -6, top: -6 }}
-                    contentFit="cover"
-                  />
-                </View>
-              ) : cat === 'Scent & Candle' ? (
-                <View style={{ width: circleSize, height: circleSize, borderRadius: circleSize / 2, overflow: 'hidden' }}>
-                  <Image
-                    source={getScentCandleIconSource(catLevel)}
-                    style={{ width: circleSize + 18, height: circleSize + 18, position: 'absolute', left: -9, top: -9 }}
-                    contentFit="cover"
-                  />
-                </View>
-              ) : cat === 'Other' ? (
-                <Image
-                  source={getOtherIconSource(catLevel)}
-                  style={{ width: isAndroid ? 28 : 32, height: isAndroid ? 28 : 32 }}
-                  contentFit="contain"
-                />
-              ) : (
-                <MaterialIcons name="star" size={isAndroid ? 18 : 20} color={DesignColors.primary} />
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
+        {MASTERY_FEATURE_ENABLED && user?.id ? (
+          <View style={{ marginTop: CAROUSEL_SECTION_GAP }}>
+            <MasteryProgressionSection userId={user.id} />
+          </View>
+        ) : null}
 
-      <FeaturedVendorsCarousel
-        userLocationAnchor={carouselLocationAnchor}
-        refreshNonce={homeRefreshNonce}
-        sectionTitle="Featured Workshop Hosts"
-        sectionTitleStyle={{
-          color: CHARCOAL,
-          fontSize: SECTION_TITLE_FONT_SIZE,
-          fontWeight: '700',
-          textAlign: 'left',
-          alignSelf: 'stretch',
-        }}
-      />
+        <HomeCarouselSectionHeader
+          title="Upcoming workshops in Toronto"
+          titleStyle={{
+            color: CHARCOAL,
+            fontSize: SECTION_TITLE_FONT_SIZE,
+            fontWeight: '700',
+            textAlign: 'left',
+          }}
+          titleMarginTop={CAROUSEL_SECTION_GAP + 4}
+          titleMarginBottom={6}
+          onPressSeeAll={() =>
+            openCarouselBrowse(torontoCarouselItems, 'Upcoming workshops in Toronto')
+          }
+          seeAllEnabled={torontoCarouselItems.length > 0}
+        />
+        <UpcomingTorontoCarousel
+          userLocationAnchor={carouselLocationAnchor}
+          refreshNonce={homeRefreshNonce}
+          onItemsChange={onTorontoItemsChange}
+        />
 
-      <HomeCarouselSectionHeader
-        title="Upcoming workshops in Toronto"
-        titleStyle={{
-          color: CHARCOAL,
-          fontSize: SECTION_TITLE_FONT_SIZE,
-          fontWeight: '700',
-          textAlign: 'left',
-        }}
-        titleMarginTop={CAROUSEL_SECTION_GAP}
-        titleMarginBottom={6}
-        onPressSeeAll={() =>
-          openCarouselBrowse(torontoCarouselItems, 'Upcoming workshops in Toronto')
-        }
-        seeAllEnabled={torontoCarouselItems.length > 0}
-      />
-      <UpcomingTorontoCarousel
-        userLocationAnchor={carouselLocationAnchor}
-        refreshNonce={homeRefreshNonce}
-        onItemsChange={onTorontoItemsChange}
-      />
-
-      <HomeCarouselSectionHeader
-        title="Workshops near you"
-        subtitle="Explore nearby classes"
-        titleStyle={{
-          color: CHARCOAL,
-          fontSize: SECTION_TITLE_FONT_SIZE,
-          fontWeight: '700',
-          textAlign: 'left',
-        }}
-        subtitleStyle={{
-          color: MEDIUM_GRAY,
-          fontSize: SECTION_SUBTITLE_FONT_SIZE,
-          fontWeight: '400',
-          textAlign: 'left',
-          alignSelf: 'stretch',
-        }}
-        titleMarginTop={CAROUSEL_SECTION_GAP}
-        titleMarginBottom={6}
-        onPressSeeAll={() =>
-          openCarouselBrowse(nearYouCarouselItems, 'Workshops near you', { sort: 'distance' })
-        }
-        seeAllEnabled={nearYouCarouselItems.length > 0}
-      />
-      <WorkshopsNearYouCarousel
-        userLocationAnchor={carouselLocationAnchor}
-        showHintWhenNoLocation
-        refreshNonce={homeRefreshNonce}
-        onItemsChange={onNearYouItemsChange}
-      />
+        <HomeCarouselSectionHeader
+          title="Workshops near you"
+          subtitle="Explore nearby classes"
+          titleStyle={{
+            color: CHARCOAL,
+            fontSize: SECTION_TITLE_FONT_SIZE,
+            fontWeight: '700',
+            textAlign: 'left',
+          }}
+          subtitleStyle={{
+            color: MEDIUM_GRAY,
+            fontSize: SECTION_SUBTITLE_FONT_SIZE,
+            fontWeight: '400',
+            textAlign: 'left',
+            alignSelf: 'stretch',
+          }}
+          titleMarginTop={CAROUSEL_SECTION_GAP}
+          titleMarginBottom={6}
+          onPressSeeAll={() =>
+            openCarouselBrowse(nearYouCarouselItems, 'Workshops near you', { sort: 'distance' })
+          }
+          seeAllEnabled={nearYouCarouselItems.length > 0}
+        />
+        <WorkshopsNearYouCarousel
+          userLocationAnchor={carouselLocationAnchor}
+          showHintWhenNoLocation
+          refreshNonce={homeRefreshNonce}
+          onItemsChange={onNearYouItemsChange}
+        />
       </ScrollView>
 
-      {popupCategory !== null ? (
-      <Modal
-        visible
-        transparent
-        animationType="fade"
-        presentationStyle="overFullScreen"
-        onRequestClose={() => setPopupCategory(null)}
-      >
-        <Pressable
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: 24,
-          }}
-          onPress={() => setPopupCategory(null)}
-        >
-          <Pressable
-            style={{
-              backgroundColor: DesignColors.creamBg,
-              borderRadius: 16,
-              padding: 24,
-              minWidth: 240,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.15,
-              shadowRadius: 12,
-              elevation: 8,
-            }}
-            onPress={(e) => e.stopPropagation()}
-          >
-            {popupCategory !== null && (() => {
-              const { level: popupLevel, points: popupPoints } = getLevelForCategory(popupCategory);
-              const { label: popupLabel } = popupLevel === 'Instructor' ? { label: '' } : getLevelProgress(popupLevel, popupPoints);
-              return (
-              <>
-                <Text
-                  style={{
-                    fontSize: 15,
-                    color: DesignColors.mediumGray,
-                    marginBottom: 4,
-                  }}
-                >
-                  {popupCategory}
-                </Text>
-                {popupLevel === 'Instructor' ? (
-                  <Text
-                    style={{
-                      fontSize: 20,
-                      fontWeight: '700',
-                      color: DesignColors.primary,
-                    }}
-                  >
-                    Instructor
-                  </Text>
-                ) : (
-                  <>
-                    <Text
-                      style={{
-                        fontSize: 20,
-                        fontWeight: '700',
-                        color: DesignColors.charcoal,
-                        marginBottom: popupLevel === 'Master' ? 0 : 4,
-                      }}
-                    >
-                      {popupLevel}
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 15,
-                        color: DesignColors.mediumGray,
-                      }}
-                    >
-                      {popupLabel}
-                    </Text>
-                  </>
-                )}
-                <Pressable
-                  onPress={() => setPopupCategory(null)}
-                  style={{
-                    marginTop: 16,
-                    paddingVertical: 10,
-                    paddingHorizontal: 20,
-                    borderRadius: 9999,
-                    backgroundColor: DesignColors.primary,
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFF' }}>
-                    OK
-                  </Text>
-                </Pressable>
-              </>
-            );
-            })()}
-          </Pressable>
-        </Pressable>
-      </Modal>
-      ) : null}
+      <WorkshopQuickViewModal
+        visible={!!quickViewEvent}
+        event={quickViewEvent}
+        onClose={() => setQuickViewEvent(null)}
+        userId={user?.id}
+        userEmail={user?.email ?? undefined}
+        attendeeName={profile?.display_name?.trim() ?? ''}
+        saved={quickViewSaved}
+        saving={quickViewSaving}
+        onToggleSave={handleQuickViewSave}
+        profileLocation={
+          profile?.location_lat != null && profile?.location_lng != null
+            ? { lat: Number(profile.location_lat), lng: Number(profile.location_lng) }
+            : null
+        }
+        profilePostalCode={profile?.postal_code ?? null}
+        onBookingComplete={refetchPreviewEvents}
+      />
     </View>
   );
 }

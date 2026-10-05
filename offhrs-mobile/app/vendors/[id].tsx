@@ -630,7 +630,7 @@ export default function VendorProfileScreen() {
         }
         ListFooterComponent={
           <Pressable
-            onPress={() => router.replace('/(tabs)/workshops')}
+            onPress={() => router.replace('/(tabs)/index')}
             style={{
               marginTop: 12,
               marginBottom: Platform.OS === 'android' ? Math.max(insets.bottom + 96, 112) : 32,

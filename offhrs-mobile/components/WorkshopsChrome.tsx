@@ -2,7 +2,7 @@ import { DesignColors, DesignSizes, DesignSpacing } from '@/constants/design-tem
 import type { WorkshopPriceSort } from '@/lib/workshop-price-sort';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import WorkshopPriceSortMenu from '@/components/WorkshopPriceSortMenu';
 
@@ -31,6 +31,8 @@ export type WorkshopsChromeProps = {
   onAllFiltersPress?: () => void;
   /** Stack screens (product detail, checkout): logo + optional back only. */
   hideSearchBar?: boolean;
+  /** Optional trailing content in the logo row (e.g. Welcome / Sign-up on Home). */
+  headerRight?: ReactNode;
 };
 
 export default function WorkshopsChrome({
@@ -52,6 +54,7 @@ export default function WorkshopsChrome({
   allFiltersActive = false,
   onAllFiltersPress,
   hideSearchBar = false,
+  headerRight,
 }: WorkshopsChromeProps) {
   const [priceMenuOpen, setPriceMenuOpen] = useState(false);
   const priceFilterActive = priceSort !== 'default';
@@ -66,14 +69,26 @@ export default function WorkshopsChrome({
           backgroundColor: DesignColors.creamBg,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
-          <View style={{ marginLeft: DesignSpacing.logoMarginLeft }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            width: '100%',
+          }}
+        >
+          <View style={{ marginLeft: DesignSpacing.logoMarginLeft, flexShrink: 0 }}>
             <Image
               source={require('@/assets/images/logo.png')}
               style={{ height: DesignSizes.logoHeight, width: DesignSizes.logoWidth }}
               contentFit="contain"
             />
           </View>
+          {headerRight ? (
+            <View style={{ flex: 1, marginLeft: 8, alignItems: 'flex-end', minWidth: 0 }}>
+              {headerRight}
+            </View>
+          ) : null}
         </View>
       </View>
 
