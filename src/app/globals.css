@@ -120,3 +120,88 @@
   color: #999;
   pointer-events: none;
 }
+
+/* Shared reading styles for /terms/* documents. Wording stays in the page files. */
+.legal-doc {
+  color: #334155;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.legal-doc > section + section {
+  margin-top: 2.25rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.legal-doc h2 {
+  margin: 0 0 0.85rem;
+  color: #0f172a;
+  font-size: 1.25rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+}
+
+.legal-doc h3 {
+  margin: 1.6rem 0 0.55rem;
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+}
+
+.legal-doc h2 + h3 {
+  margin-top: 0.15rem;
+}
+
+.legal-doc p {
+  margin: 0 0 0.9rem;
+}
+
+.legal-doc ul,
+.legal-doc ol {
+  margin: 0.2rem 0 1rem;
+  padding-left: 1.35rem;
+}
+
+.legal-doc ul {
+  list-style: disc;
+}
+
+.legal-doc ol {
+  list-style: decimal;
+}
+
+.legal-doc li {
+  margin-top: 0.55rem;
+  padding-left: 0.3rem;
+}
+
+.legal-doc li::marker {
+  color: #738a6e;
+}
+
+.legal-doc section > :last-child {
+  margin-bottom: 0;
+}
+
+.legal-doc strong {
+  color: #0f172a;
+  font-weight: 650;
+}
+
+.legal-doc em {
+  font-style: italic;
+}
+
+.legal-doc a {
+  color: #5a6b56;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.legal-doc a:hover {
+  color: #38511b;
+}

@@ -29,7 +29,7 @@ export function LegalPageLayout({ slug, children }: Props) {
           <p className="mt-2 text-sm text-gray-500">Last updated: {POLICY_LAST_UPDATED}</p>
         </header>
 
-        <article className="prose prose-gray max-w-none text-[15px] leading-relaxed">{children}</article>
+        <article className="legal-doc">{children}</article>
 
         <nav className="mt-12 pt-6 border-t border-gray-100">
           <p className="text-xs uppercase tracking-wide text-gray-500 mb-3">Related policies</p>
