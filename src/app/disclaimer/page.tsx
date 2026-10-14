@@ -23,20 +23,27 @@ export default function DisclaimerPage() {
             contact before you travel, pay, or rely on a listing.
           </p>
           <p>
-            We <strong>do not process payments or complete bookings</strong> on Offhrs. When you use &quot;Book&quot; or similar,
-            you typically leave our site or app for a <strong>third-party vendor</strong>. Final price, availability, refunds,
-            and all obligations are between you and that vendor. Their terms apply.
+            How you book depends on the listing. For vendor-hosted workshops and Marketplace goods, you pay securely in the
+            Offhrs app or site (processed by Stripe), and Offhrs collects payment as the vendor&apos;s limited commercial
+            agent as described in our Service Terms. For <strong>linked listings</strong> (workshops synced from a
+            vendor&apos;s online store, or added by Offhrs with a link to the vendor&apos;s site), Offhrs{' '}
+            <strong>does not process payment or complete the booking</strong>: you leave our site or app and book with the{' '}
+            <strong>third-party vendor</strong>, and final price, availability, refunds, and all obligations are between you
+            and that vendor. Their terms apply. In every case the vendor, not Offhrs, runs the workshop or sells and ships the
+            goods.
           </p>
           <p>
-            Inclusion of a workshop or vendor is <strong>not an endorsement</strong>, recommendation, or guarantee of
-            quality, safety, or legality. We are not the vendor&apos;s agent.
+            Inclusion of a workshop, product, or vendor is <strong>not an endorsement</strong>, recommendation, or guarantee
+            of quality, safety, or legality. Except where we collect payment as described above, we are not the
+            vendor&apos;s agent.
           </p>
           <p>
             Maps and pins are <strong>approximate</strong>. Images and descriptions may not reflect the current offering.
           </p>
           <p>
             Workshops can involve physical activities, tools, or materials. <strong>Participation is at your own risk.</strong>{' '}
-            Offhrs does not supervise or run the events listed.
+            Offhrs does not supervise or run the events listed. Marketplace goods are made, sold, and shipped by
+            independent vendors; Offhrs does not inspect them or take title to them.
           </p>
           <p>
             In-app features such as levels, points, or &quot;mastery&quot; labels are for <strong>engagement only</strong> unless we

@@ -15,14 +15,20 @@ export default function MarketplaceSellerAddendumPage() {
         <h2>1. Scope</h2>
         <p>
           This Addendum applies when you enable the Artist Marketplace on partners.offhrs.app (included with
-          Pro / Full License, or via free Marketplace-only enrollment). It supplements the Terms of Use, Privacy Policy,
-          Content Policy, and Data Protection Addendum. Capitalized terms have the meanings in those documents
-          unless defined here.
+          Pro / Full License, or via free Marketplace-only enrollment). It supplements the Terms of Use, Service
+          Terms, Privacy Policy, Content Policy, and Data Protection Addendum. Capitalized terms have the
+          meanings in those documents unless defined here. You accept this Addendum when you enable the
+          Artist Marketplace, publish a Marketplace product, or confirm the shipping attestation in your
+          dashboard.
         </p>
         <p>
           You manage products, shipping settings, and orders under <strong>Marketplace</strong> in the Partners
           dashboard. Buyers shop in the offhrs mobile app (<strong>Shop</strong> tab) and view purchases under{' '}
           <strong>Profile → Orders</strong>.
+        </p>
+        <p>
+          Shopify Sync applies to workshop listings only. It does not list physical goods from your Shopify
+          store on the Artist Marketplace.
         </p>
       </section>
 
@@ -42,14 +48,17 @@ export default function MarketplaceSellerAddendumPage() {
             <strong>not</strong> merchandise revenue and are <strong>not</strong> paid out as seller earnings.
           </li>
           <li>
-            Where CRA marketplace facilitator rules apply, applicable GST/HST on Marketplace sales may be
-            calculated, collected, and remitted by offhrs via Stripe Tax on the platform account (not paid out
-            to you as earnings). Workshop ticket tax may still follow your Connect / registration settings.
+            Where the CRA digital-economy rules for distribution platform operators apply to offhrs
+            (generally, for goods supplied by Vendors who are not registered for GST/HST), applicable GST/HST on
+            Marketplace sales may be calculated, collected, and remitted by offhrs via Stripe Tax on the
+            platform account (not paid out to you as earnings). If you are registered for GST/HST, you remain
+            responsible for your own GST/HST obligations on your Marketplace sales, and you must keep your tax
+            settings accurate (see the Terms of Use, Section 2). Workshop ticket tax may still follow your
+            Connect / registration settings.
           </li>
           <li>
-            Your approximate Marketplace payout is the item subtotal minus the 5% platform fee (and Stripe
-            processing, when those fees are borne on the platform side of the charge), subject to refunds,
-            adjustments, and clawbacks described below.
+            Your approximate Marketplace payout is the item subtotal minus the 5% platform fee and Stripe
+            processing fees, subject to refunds, adjustments, and clawbacks described below.
           </li>
         </ul>
       </section>
@@ -74,8 +83,8 @@ export default function MarketplaceSellerAddendumPage() {
             buyer&rsquo;s risk (subject to chargeback rules in the Terms of Use).
           </li>
           <li>
-            Items priced above <strong>$250 CAD</strong> may automatically include signature confirmation and
-            full coverage insurance, with the extra cost passed to the buyer at checkout.
+            Orders with an item subtotal of <strong>$250 CAD or more</strong> may automatically include
+            signature confirmation and carrier insurance, with the extra cost passed to the buyer at checkout.
           </li>
           <li>
             If you offer local pickup, coordinate pickup as disclosed; mark the order picked up in the
@@ -90,6 +99,12 @@ export default function MarketplaceSellerAddendumPage() {
           <li>
             Default: purchase label and drop off within <strong>5 business days</strong> of payment unless you
             set a longer made-to-order window disclosed at checkout. offhrs may send ship-by reminders.
+          </li>
+          <li>
+            If an order is not labelled and shipped (or, for pickup, made available) within the ship-by
+            window, offhrs may, but is not required to, cancel and refund the order before First Scan.
+            Repeated missed ship-by windows may result in delisting of your products or suspension of
+            Marketplace access.
           </li>
           <li>
             Buyer or seller cancel <strong>before</strong> First Scan: full refund when permitted; labels are
@@ -122,6 +137,10 @@ export default function MarketplaceSellerAddendumPage() {
             This is not a full returns portal. Refusing valid damaged/SNAD remedies may lead to chargebacks and
             Connect clawbacks under the Terms of Use.
           </li>
+          <li>
+            Where a refund or other remedy to the buyer arising from a claim is funded by offhrs or Stripe on
+            your behalf, you authorize offhrs to recover it by the same means described in Section 6.
+          </li>
         </ul>
       </section>
 
@@ -144,15 +163,31 @@ export default function MarketplaceSellerAddendumPage() {
           or address to your own marketing lists without explicit opt-in, and you must not use that data for any
           other purpose.
         </p>
+        <p>
+          You are accountable under PIPEDA for the buyer information you receive. You must keep it secure,
+          keep it only as long as needed to fulfill the order, handle any claim, and meet your legal
+          record-keeping duties, then delete or de-identify it, and notify us promptly at{' '}
+          <a href="mailto:hello@offhrs.app">hello@offhrs.app</a> if you suspect unauthorized access to it.
+        </p>
       </section>
 
       <section>
         <h2>8. Prohibited goods</h2>
         <p>
           You must follow the Content Policy. No weapons, controlled substances, hazardous materials,
-          recalled goods, counterfeit or dropshipped junk, or other unlawful items. Disclose whether art is an
-          original or a reproduction/print. First Marketplace-only sellers may be subject to manual listing
-          review before going live.
+          recalled goods, counterfeit goods, mass-produced or dropshipped goods misrepresented as handmade or
+          locally made, or other unlawful items. Disclose whether art is an original or a reproduction/print.
+          First Marketplace-only sellers may be subject to manual listing review before going live.
+        </p>
+      </section>
+
+      <section>
+        <h2>9. Product responsibility and indemnity</h2>
+        <p>
+          You are solely responsible for your products, including their safety, labelling, legality, and any
+          recall, and for packaging them properly for shipment. You must consider carrying product liability
+          insurance appropriate to what you sell. The Vendor indemnity in Section 7 of the Terms of Use applies
+          to Marketplace goods and orders.
         </p>
       </section>
     </LegalPageLayout>

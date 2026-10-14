@@ -19,7 +19,8 @@ export default function ContentPolicyPage() {
           offhrs aims to maintain a respectful, trustworthy community for discovering and booking creative
           workshops. This Content Policy describes what content and behaviour are allowed or prohibited on
           the offhrs Platform. It applies to all user-generated material, including workshop listings (text,
-          photos, and video), reviews and ratings, in-app messages, profile details, and any other materials
+          photos, and video), Marketplace product listings, listing content synced from a Vendor&rsquo;s
+          Shopify store, reviews and ratings, in-app messages, profile details, and any other materials
           shared by Consumers or Vendors.
         </p>
         <p>
@@ -170,13 +171,24 @@ export default function ContentPolicyPage() {
           </li>
           <li>
             <strong>Lawful.</strong> No weapons, controlled substances, hazardous materials, recalled goods,
-            counterfeits, or dropshipped mass-market junk misrepresented as handmade local work.
+            counterfeits, or mass-produced or dropshipped goods misrepresented as handmade or locally made.
           </li>
           <li>
             <strong>Quality imagery.</strong> Listings with unusable (e.g. heavily pixelated) photos may be
             removed during review.
           </li>
         </ul>
+      </section>
+
+      <section>
+        <h2>4B. Listings synced from Shopify</h2>
+        <p>
+          Content that Shopify Sync brings from your Shopify store (titles, descriptions, images, prices, and
+          availability) is your content and follows this Policy. Make sure your Shopify product details
+          accurately describe the workshop, schedule, and location shown on offhrs, and that you have the rights
+          to the images and text. offhrs may hide or remove synced listings that are inaccurate, out of date,
+          or in breach of this Policy.
+        </p>
       </section>
 
       <section>

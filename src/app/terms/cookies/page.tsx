@@ -39,6 +39,14 @@ const necessary: Row[] = [
     purpose: 'Session token used by Stripe to preserve payment state across checkout redirects.',
     duration: '30 minutes',
   },
+  {
+    name: 'offhrs_channel_shop',
+    provider: 'offhrs',
+    setOn: 'offhrs.app',
+    purpose:
+      'Signed, HttpOnly cookie that keeps a Shopify merchant connected to their offhrs Sync app session inside the Shopify admin. Set only for merchants who open the offhrs Sync app.',
+    duration: '7 days',
+  },
 ]
 
 const functionality: Row[] = [

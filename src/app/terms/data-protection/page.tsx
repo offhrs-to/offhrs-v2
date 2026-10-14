@@ -14,8 +14,9 @@ export default function DataProtectionPage() {
       <section>
         <p className="text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-md p-3">
           This Data Protection Addendum (&ldquo;DPA&rdquo;) is incorporated into and forms an essential part
-          of the offhrs Partner Terms of Business (the &ldquo;Agreement&rdquo;) entered into between the
-          Vendor/Studio (&ldquo;Partner&rdquo;) and offhrs (&ldquo;Platform&rdquo;). In the event of a
+          of the offhrs Terms of Use and, where applicable, the Marketplace Seller Addendum (together, the
+          &ldquo;Agreement&rdquo;) entered into between the Vendor/Studio (&ldquo;Partner&rdquo;) and offhrs
+          (&ldquo;Platform&rdquo;). In the event of a
           conflict between this DPA and the general terms of the Agreement, this DPA shall take precedence
           regarding data-handling procedures.
         </p>
@@ -67,6 +68,15 @@ export default function DataProtectionPage() {
             process personal information only to maintain the scheduling, booking, and payment functions at
             the Partner&rsquo;s direction.
           </li>
+          <li>
+            <strong>Platform accounts and Marketplace buyers.</strong> offhrs is independently responsible, as
+            set out in the Privacy Policy, for consumer accounts and for the payment, tax, fraud-prevention,
+            claims, and record-keeping data it collects for its own purposes, including Marketplace order
+            data. When a Marketplace order is placed, offhrs discloses the buyer&rsquo;s shipping name and
+            address (and email or phone as needed) to the Partner, who then holds that information as an
+            organization accountable under applicable privacy laws and must handle it as required by the
+            Marketplace Seller Addendum.
+          </li>
         </ul>
       </section>
 
@@ -90,7 +100,15 @@ export default function DataProtectionPage() {
           <li>
             <strong>Marketplace shipping data.</strong> Partners may use buyer name and address only to fulfill
             the order (label or pickup) or respond to a quality claim. Marketing use requires explicit opt-in
-            (see Privacy Policy and Marketplace Seller Addendum).
+            (see Privacy Policy and Marketplace Seller Addendum). Partners must keep this data secure, retain
+            it only as long as needed for those purposes and their legal record-keeping duties, and notify
+            offhrs promptly of any suspected unauthorized access.
+          </li>
+          <li>
+            <strong>Shopify Data.</strong> If a Partner uses Shopify Sync, offhrs processes the Partner&rsquo;s
+            Shopify product, inventory, and listing information to maintain workshop listings. offhrs does
+            not request access to the Partner&rsquo;s Shopify customer or order data. The Partner remains
+            responsible for personal information held in its own Shopify store.
           </li>
           <li>
             <strong>Permitted staff data:</strong> names, role titles, class specializations, and
@@ -164,8 +182,13 @@ export default function DataProtectionPage() {
         <ul>
           <li>
             <strong>Post-termination window.</strong> Upon the cancellation or termination of your SaaS
-            subscription (Lite or Pro), the Partner has <strong>thirty (30) days</strong> to export historic
-            booking ledgers, customer contact lists, and instructor data via the dashboard export utilities.
+            subscription, Marketplace-only enrollment, or Shopify Sync, the Partner has{' '}
+            <strong>thirty (30) days</strong> to export historic booking ledgers, Marketplace order records,
+            customer contact lists, and instructor data via the dashboard export utilities (or on request to{' '}
+            <a href="mailto:hello@offhrs.app">hello@offhrs.app</a> where a utility is not available).
+            Uninstalling the
+            Shopify Sync app stops syncing and removes or archives synced listings immediately; it does not by
+            itself close the Partner&rsquo;s offhrs account.
           </li>
           <li>
             <strong>Permanent deletion.</strong> Following this 30-day window, offhrs reserves the right to
@@ -183,9 +206,8 @@ export default function DataProtectionPage() {
         <h2>8. Limitation of liability</h2>
         <p>
           offhrs&rsquo; total liability for any data mishandling, server exposure, or regulatory fine issued
-          under this DPA is subject to the overall financial limitations in the offhrs Service Terms and
-          shall not exceed the subscription amounts paid by the Partner to the Platform over the preceding
-          three (3) months.
+          under this DPA is subject to, and counts toward, the limitations of liability in Section 6 of the
+          offhrs Terms of Use (including the cap stated there).
         </p>
       </section>
     </LegalPageLayout>

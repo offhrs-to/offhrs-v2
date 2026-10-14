@@ -53,8 +53,14 @@ export default function ServiceTermsPage() {
             Platform minimum is 24 hours.
           </li>
           <li>
-            <strong>&ldquo;Consumer&rdquo;</strong> &mdash; you, the end user searching or booking workshops
-            through the mobile or web app.
+            <strong>&ldquo;Consumer&rdquo;</strong> &mdash; you, the end user searching or booking workshops,
+            or buying Marketplace goods, through the mobile or web app.
+          </li>
+          <li>
+            <strong>&ldquo;Linked listing&rdquo;</strong> &mdash; a workshop listing that is synced from a
+            Vendor&rsquo;s online store (such as a Shopify store) or added by offhrs with a link to the
+            Vendor&rsquo;s own site, where booking and payment are completed on the Vendor&rsquo;s site rather
+            than through offhrs.
           </li>
           <li>
             <strong>&ldquo;Scheduling engine&rdquo;</strong> &mdash; offhrs&rsquo; proprietary date-parsing,
@@ -70,7 +76,8 @@ export default function ServiceTermsPage() {
             <strong>&ldquo;SaaS subscription&rdquo;</strong> &mdash; the recurring monthly fee paid by Vendors
             to maintain their dashboard on partners.offhrs.app. Paid plans: $29 CAD/month (Lite), $29
             CAD/month (Shopify Sync via Shopify App Pricing), $39 CAD/month (Pro), or $59 CAD/month (Full
-            License). Stripe-billed plans include 13% Ontario HST. Marketplace Only has no monthly SaaS fee.
+            License). Stripe-billed plans include 13% Ontario HST; Shopify Sync is billed by Shopify. Marketplace
+            Only has no monthly SaaS fee.
           </li>
           <li>
             <strong>&ldquo;Marketplace Order&rdquo;</strong> &mdash; a purchase of physical goods from a Vendor
@@ -92,9 +99,17 @@ export default function ServiceTermsPage() {
           ingredients, and so on).
         </p>
         <p>
-          When you complete a checkout, offhrs acts as a <strong>limited commercial agent</strong> on behalf
-          of the Vendor: your payment satisfies your debt to that Vendor. Legal fulfilment of the class
-          rests entirely with the business hosting the event.
+          When you complete a checkout through offhrs (a workshop booking or a Marketplace Order), offhrs acts
+          as a <strong>limited commercial agent</strong> on behalf of the Vendor: your payment satisfies your
+          debt to that Vendor. Legal fulfilment of the class, and the sale, condition, and delivery of
+          Marketplace goods, rest entirely with the Vendor.
+        </p>
+        <p>
+          <strong>Linked listings.</strong> For a Linked listing, you book and pay on the Vendor&rsquo;s own
+          site. offhrs does not process that payment, is not a party to that transaction, and is not the
+          Vendor&rsquo;s agent for it. The Vendor&rsquo;s price, availability, refund and cancellation terms,
+          and terms of sale apply. Listing details may be out of date, so confirm them with the Vendor before
+          booking.
         </p>
       </section>
 
@@ -106,8 +121,8 @@ export default function ServiceTermsPage() {
         <ul>
           <li>All transactions are processed in Canadian dollars ($CAD).</li>
           <li>
-            <strong>SaaS billing.</strong> offhrs adds 13% HST to the monthly vendor fee, filing under our CRA
-            Business Number <strong>717928832 RT 0001</strong>.
+            <strong>SaaS billing.</strong> For Stripe-billed plans, offhrs adds 13% HST to the monthly vendor
+            fee, filing under our CRA Business Number <strong>717928832 RT 0001</strong>.
           </li>
           <li>
             <strong>Workshop billing.</strong> Vendors configure workshop GST/HST status in their dashboard.
@@ -116,9 +131,9 @@ export default function ServiceTermsPage() {
             otherwise in writing.
           </li>
           <li>
-            <strong>Marketplace billing.</strong> For Artist Marketplace goods, where CRA marketplace
-            facilitator rules apply, offhrs may calculate, collect, and remit applicable GST/HST via Stripe Tax
-            on the platform account. Buyer-paid shipping is held to fund prepaid Canada Post labels and is not
+            <strong>Marketplace billing.</strong> For Artist Marketplace goods, where the CRA digital-economy
+            rules for distribution platform operators apply, offhrs may calculate, collect, and remit
+            applicable GST/HST via Stripe Tax on the platform account. Buyer-paid shipping is held to fund prepaid Canada Post labels and is not
             Vendor merchandise earnings. See the Marketplace Seller Addendum and Terms of Use.
           </li>
         </ul>
@@ -150,8 +165,10 @@ export default function ServiceTermsPage() {
         </p>
         <p>
           For Marketplace Orders, refunds before carrier First Scan (or before completed pickup) may be issued
-          when permitted by the Platform and carrier label-void rules. After First Scan, Platform cancellation
-          of the paid order is generally blocked; see Section 3.5 for quality claims.
+          when permitted by the Platform and carrier label-void rules. When a Marketplace Order is refunded,
+          the full amount you paid (including shipping and applicable tax) is returned to your original payment
+          method. After First Scan, Platform cancellation of the paid order is generally blocked; see Section
+          3.5 for quality claims.
         </p>
         <p>
           <strong>
@@ -214,6 +231,11 @@ export default function ServiceTermsPage() {
             offhrs does not warehouse goods and does not operate a platform shipping-protection guarantee.
             Lost-in-transit coverage follows the carrier insurance purchased for the label.
           </li>
+          <li>
+            Marketplace goods are sold by the Vendor and ship within Canada only. The Vendor&rsquo;s ship-by
+            window (5 business days from payment by default, unless a longer made-to-order window is disclosed
+            at checkout) applies. Carrier delivery estimates are not guaranteed.
+          </li>
         </ul>
       </section>
 
@@ -263,7 +285,8 @@ export default function ServiceTermsPage() {
           <li>You engage in abusive, inappropriate, or discriminatory behaviour toward our team or any Vendor staff member; or</li>
           <li>
             You attempt to scrape application assets, extract scheduling-engine architecture, or bypass the
-            platform payment flow to complete a booking off-platform.
+            platform payment flow to complete a booking or purchase off-platform (this does not apply to Linked
+            listings, which are completed on the Vendor&rsquo;s own site by design).
           </li>
         </ul>
       </section>
@@ -282,9 +305,22 @@ export default function ServiceTermsPage() {
             Area.
           </li>
           <li>
+            <strong>Marketplace goods.</strong> offhrs does not make, own, inspect, or ship Marketplace goods
+            and is not responsible for their quality, safety, condition, or description, or for delay, loss, or
+            damage in carrier transit, except as set out in Section 3.5 and the Marketplace Seller Addendum.
+            Those matters are between you, the Vendor, and (for transit) the carrier.
+          </li>
+          <li>
             <strong>Liability cap.</strong> To the absolute limit permitted under Ontario law, offhrs&rsquo;
-            total financial liability to any user for any system error is strictly capped at the total amount
-            paid by that user directly to offhrs over the immediate ninety (90) days preceding the claim.
+            total financial liability to any user for any system error is capped at the greater of (a) the
+            total amount you paid through the Platform (including to offhrs as the Vendor&rsquo;s limited
+            commercial agent) over the immediate ninety (90) days preceding the claim and (b) CAD $100. This cap
+            does not apply to liability for our own fraud, gross negligence, or wilful misconduct.
+          </li>
+          <li>
+            <strong>Consumer rights.</strong> Nothing in these Service Terms limits rights that cannot be waived
+            or limited under the <em>Consumer Protection Act, 2002</em> (Ontario) or other applicable law,
+            including any cancellation and refund rights that apply to internet agreements.
           </li>
           <li>
             <strong>Indemnity.</strong> You agree to protect, defend, and hold harmless offhrs from any
@@ -312,7 +348,8 @@ export default function ServiceTermsPage() {
           an alternative date. If you cannot reach a fair agreement, email our team at{' '}
           <a href="mailto:hello@offhrs.app">hello@offhrs.app</a>. While we are not legally obligated to issue
           refunds for a Vendor&rsquo;s class, we review escalations on a case-by-case basis to help maintain
-          a great experience for everyone.
+          a great experience for everyone. For Marketplace Orders, contact the Vendor first where you can and
+          follow the claim steps in Section 3.5.
         </p>
       </section>
     </LegalPageLayout>

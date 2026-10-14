@@ -37,12 +37,13 @@ export default function PrivacyPolicyPage() {
         <p>This Notice applies to the following individuals interacting with the Services:</p>
         <ul>
           <li>
-            <strong>Consumers (students/bookers):</strong> individuals who browse the app, create profiles, and
-            book creative workshops.
+            <strong>Consumers (students/bookers and Marketplace buyers):</strong> individuals who browse the
+            app, create profiles, book creative workshops, and buy Marketplace goods.
           </li>
           <li>
             <strong>Vendors (makers/studio owners):</strong> solo entrepreneurs, instructors, or businesses
-            who subscribe to our SaaS tier (Lite or Pro) to host classes and manage scheduling.
+            who use our Partners tools (a workshop plan such as Lite, Pro, or Full License, Shopify Sync,
+            and/or the Artist Marketplace) to host classes, sell goods, and manage scheduling and orders.
           </li>
         </ul>
       </section>
@@ -80,8 +81,9 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Vendors:</strong> during signup on partners.offhrs.app, we collect business name, business
-            email, contact details, address, and the verification information Stripe Connect requires for
-            payouts (tax ID, banking).
+            email, contact details, address (including a Canadian ship-from or pickup address if you sell
+            Marketplace goods), your GST/HST registration status, and the verification information Stripe
+            Connect requires for payouts (tax ID, banking).
           </li>
           <li>
             <strong>Lawful basis:</strong> performance of a contract (to operate your account and fulfil a
@@ -103,6 +105,40 @@ export default function PrivacyPolicyPage() {
           <li>
             <strong>Lawful basis:</strong> performance of a contract &amp; legitimate interests (preventing
             scheduling conflicts).
+          </li>
+        </ul>
+
+        <h3 className="mt-4">2.4 Marketplace order data</h3>
+        <ul>
+          <li>
+            <strong>What we process:</strong> when you buy Marketplace goods, your name, email, optional
+            phone, shipping address (or pickup details), order contents and amounts, tax calculated on the
+            order, payment references from Stripe, shipping labels and tracking, and any damaged /
+            not-as-described claim you submit (including descriptions and photo links).
+          </li>
+          <li>
+            <strong>Why:</strong> to process payment and tax, enable the Vendor to fulfill the order, ship
+            and track it, handle refunds, claims, and chargebacks, prevent fraud, and meet legal and tax
+            record-keeping duties.
+          </li>
+        </ul>
+
+        <h3 className="mt-4">2.5 Shopify Sync data (Vendors)</h3>
+        <ul>
+          <li>
+            <strong>What we process:</strong> if you install the offhrs Sync app from Shopify, we process your
+            shop domain, your product, inventory, and product-listing information (such as titles,
+            descriptions, images, prices, and availability), and your Shopify billing status.
+          </li>
+          <li>
+            <strong>What we do not request:</strong> access to your Shopify customer or order data. Shopify
+            may send us data-request or deletion notices under its program requirements, and we handle them as
+            required.
+          </li>
+          <li>
+            <strong>Why:</strong> to create and update your workshop listings on offhrs and to manage your
+            Shopify Sync subscription. If you uninstall the app, we stop syncing and remove or archive the
+            synced listings.
           </li>
         </ul>
       </section>
@@ -147,15 +183,21 @@ export default function PrivacyPolicyPage() {
             <strong>Supabase</strong> &mdash; authentication and database hosting.
           </li>
           <li>
-            <strong>Stripe &amp; Stripe Connect Express</strong> &mdash; processing payments for workshop
-            tickets, Marketplace goods, and the monthly Vendor SaaS subscription, and routing Vendor payouts.{' '}
+            <strong>Stripe, Stripe Connect Express &amp; Stripe Tax</strong> &mdash; processing payments for
+            workshop tickets, Marketplace goods, and the monthly Vendor SaaS subscription, calculating tax on
+            Marketplace orders (using the shipping or pickup address), and routing Vendor payouts.{' '}
             <strong>We never store raw credit card numbers or CVV codes.</strong> We retain only tokenized
             references provided by Stripe (card brand, last four digits, expiry).
           </li>
           <li>
             <strong>Shippo</strong> &mdash; when you buy Marketplace goods, we use Shippo to obtain Canada
             Post rates, purchase prepaid labels, and receive tracking updates. Address and parcel details are
-            shared as needed to generate labels.
+            shared with Shippo and the carrier (Canada Post) as needed to generate labels and deliver the
+            order.
+          </li>
+          <li>
+            <strong>Shopify</strong> &mdash; if you are a Vendor who uses Shopify Sync, we receive Shopify Data
+            from your store and Shopify bills the Shopify Sync subscription (see section 2.5).
           </li>
           <li>
             <strong>Resend</strong> &mdash; sending transactional emails (booking confirmations, order and
@@ -181,8 +223,17 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Account deletion.</strong> When you delete your account from the mobile Profile screen,
-            we immediately remove your profile, saves, reviews, and active bookings from production
-            databases. Affected workshop slots are reconciled so partners see accurate availability.
+            we immediately remove your profile, saves, and reviews from production databases. Active bookings
+            are refunded and the booking records are anonymized. Affected workshop slots are reconciled so
+            partners see accurate availability.
+          </li>
+          <li>
+            <strong>Marketplace orders.</strong> We must keep Marketplace order records (including shipping
+            details, payment, tax, and claim records) for fulfillment, claims, disputes, and tax and audit
+            purposes, for up to <strong>six (6) years</strong>. If you have Marketplace orders, we may need to
+            complete your account deletion with you through{' '}
+            <a href="mailto:hello@offhrs.app">hello@offhrs.app</a>, and we keep only the personal details
+            needed for those purposes.
           </li>
           <li>
             <strong>CRA retention.</strong> Transaction logs, HST billing records, and Stripe settlement
