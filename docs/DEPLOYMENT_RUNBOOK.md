@@ -132,18 +132,14 @@ Decisions are in Part 0.2. Code collects Marketplace GST/HST only when `gst_hst_
 
 # PART 2 — Ship code to production
 
-## 2.1 Merge / deploy branch — **BOTH**
+## 2.1 Merge / deploy branch — **BOTH** ✅ code merged to `main`
 
-**YOU**
+**Done:** Fast-forward merge of `cursor/artist-shop-marketplace-plan` → `main` (includes Marketplace, Shopify Sync / Sales Channel, Terms, launch-readiness: deletion, clickwrap, Ontario disclosures, Meta consent).
 
-1. Confirm you want `cursor/artist-shop-marketplace-plan` → `main` (or your Vercel Production branch).
-2. Ask AGENT to open PR / merge when ready (includes Marketplace, Sales Channel, Terms, Full License).
+**YOU / AGENT follow-up**
 
-**AGENT**
-
-1. PR summary + merge (when you ask).
-2. Confirm Vercel Production build green for **offhrs-v2**.
-3. Spot-check: `/terms/marketplace-seller-addendum`, partners Marketplace nav, `/shopify` channel home.
+1. Confirm Vercel Production build green for **offhrs-v2**.
+2. Spot-check: `/terms/marketplace-seller-addendum`, partners Marketplace nav, `/shopify` channel home.
 
 **Do not** leave Marketplace / metafield Sync only on Preview if you expect production sellers (e.g. Depanneur-style metafields need `resolve-listing-metafields` on prod).
 
@@ -360,7 +356,7 @@ Uncommitted local mobile UI tweaks (`offhrs-mobile/app/(tabs)/index.tsx`) are **
 - [x] Privacy / analytics alignment (+ cookie consent) (#4)  
 - [x] After your decision: refund-fee code/Terms align (vendor bears Stripe fee on pre-scan refunds)  
 - [x] After CPA decision: tax collection branch — registered vendors only, Connect remittance (`gst_hst_registered`)  
-- [ ] PR / merge branch to `main` when you say go  
+- [x] PR / merge branch to `main` when you say go  
 - [ ] Help with failed Vercel / EAS / `shopify app deploy`  
 - [ ] Fix Shopify review bounce items  
 - [ ] Any post-smoke Marketplace/Sync bugs  
