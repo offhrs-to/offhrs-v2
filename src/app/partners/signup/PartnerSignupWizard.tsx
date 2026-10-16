@@ -22,14 +22,13 @@ import { TurnstileWidget } from './TurnstileWidget'
 import { createClient as createBrowserSupabaseClient } from '@/lib/supabase/browser'
 import {
   formatPartnerMonthlyAmount,
-  FULL_LICENSE_PLAN_NAME,
   MARKETPLACE_FREE_PLAN_NAME,
   PARTNER_TRIAL_LABEL,
   SHOPIFY_SYNC_MONTHLY_CAD,
   SHOPIFY_SYNC_PLAN_NAME,
 } from '@/lib/partner-pricing'
 
-type BillingPlanChoice = 'lite' | 'pro' | 'full' | 'shopify_sync' | 'marketplace'
+type BillingPlanChoice = 'lite' | 'pro' | 'shopify_sync' | 'marketplace'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 const TURNSTILE_ENABLED = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
@@ -762,10 +761,10 @@ export function PartnerSignupWizard() {
                 </>
               ) : (
                 <>
-                  Choose Lite, Pro, or Full License, then add a payment method to start your{' '}
+                  Choose Lite or Pro, then add a payment method to start your{' '}
                   <strong className="font-semibold text-[#1a1a1a]">{PARTNER_TRIAL_LABEL}</strong>. After the trial,
-                  your subscription renews monthly unless you cancel. Marketplace is included on Pro and Full
-                  License only — not Lite.
+                  your subscription renews monthly unless you cancel. Marketplace is included on Pro only — not
+                  Lite.
                 </>
               )}
             </p>
@@ -845,29 +844,7 @@ export function PartnerSignupWizard() {
                     <span className="text-sm font-normal text-[#555]">CAD / month</span>
                   </p>
                   <p className="mt-2 text-xs text-[#555] leading-relaxed">
-                    Unlimited workshops + Artist Marketplace included. No Shopify Sync (add Sync separately or
-                    choose Full License).
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBillingPlan('full')}
-                  className={`rounded-xl border-2 p-4 text-left transition-colors ${
-                    billingPlan === 'full'
-                      ? 'border-[#5D755D] bg-[#EDF2ED]'
-                      : 'border-[#E8E4DE] bg-[#FAFAF8] hover:border-[#D9D7CF]'
-                  }`}
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#5D755D]">
-                    {FULL_LICENSE_PLAN_NAME}
-                  </p>
-                  <p className="mt-1 font-playfair text-2xl font-bold text-[#1a1a1a]">
-                    {formatPartnerMonthlyAmount('full')}{' '}
-                    <span className="text-sm font-normal text-[#555]">CAD / month</span>
-                  </p>
-                  <p className="mt-2 text-xs text-[#555] leading-relaxed">
-                    Everything: unlimited workshops, Marketplace, and Shopify Sync (Sync charge covered by this
-                    plan — no separate Shopify Sync fee).
+                    Unlimited workshops + Artist Marketplace included. Shopify Sync sold separately.
                   </p>
                 </button>
               </div>
@@ -901,7 +878,7 @@ export function PartnerSignupWizard() {
                 ? 'Shopify Sync is billed through Shopify App Pricing after install — not Stripe.'
                 : billingPlan === 'marketplace'
                   ? 'Marketplace has no monthly subscription. Stripe Connect in Settings is required for payouts.'
-                  : 'Lite, Pro, and Full License payments are processed by Stripe. You won\u2019t be charged the subscription amount until after your trial period.'}
+                  : 'Lite and Pro payments are processed by Stripe. You won\u2019t be charged the subscription amount until after your trial period.'}
             </p>
           </div>
         )}

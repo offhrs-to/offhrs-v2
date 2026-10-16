@@ -28,6 +28,28 @@ interface VendorRow {
   created_at: string
   bookings: number
   sessions: number
+  plan: 'lite' | 'pro' | 'full' | null
+  subscription_status: string | null
+  marketplace: 'free' | 'included' | 'on' | 'off'
+  marketplace_enabled: boolean
+  email: string | null
+}
+
+function formatPlan(v: VendorRow) {
+  if (!v.plan) return '—'
+  const label = v.plan === 'lite' ? 'Lite' : v.plan === 'full' ? 'Full' : 'Pro'
+  if (v.subscription_status === 'trialing') return `${label} trial`
+  if (v.subscription_status && v.subscription_status !== 'active') {
+    return `${label} (${v.subscription_status})`
+  }
+  return label
+}
+
+function formatMarketplace(v: VendorRow) {
+  if (v.marketplace === 'free') return 'Free'
+  if (v.marketplace === 'included') return 'Included'
+  if (v.marketplace === 'on') return 'On'
+  return '—'
 }
 
 const STATUS_COLOURS: Record<string, string> = {
@@ -94,7 +116,7 @@ export default function SaasAdminPage() {
 
   const m = metrics!
   const kpis = [
-    { label: 'MRR', value: formatCad(m.mrr), sub: `${m.statusCounts['active'] ?? 0} paying vendors (Lite $29 / Pro $39 / Full $59)`, icon: TrendingUp, color: 'text-[#5D755D]' },
+    { label: 'MRR', value: formatCad(m.mrr), sub: `${m.statusCounts['active'] ?? 0} paying vendors (Lite $29 / Pro $39)`, icon: TrendingUp, color: 'text-[#5D755D]' },
     { label: 'Active + Trialing', value: String(m.activeCount), sub: `${m.statusCounts['trialing'] ?? 0} trialing, ${m.statusCounts['active'] ?? 0} active`, icon: Users, color: 'text-blue-600' },
     { label: 'Bookings (MTD)', value: String(m.bookingsMtd), sub: `${m.bookingsAllTime} all time`, icon: ShoppingBag, color: 'text-amber-600' },
     { label: 'GMV (MTD)', value: formatCad(m.gmvMtd), sub: `${formatCad(m.gmv)} all time`, icon: DollarSign, color: 'text-purple-600' },
@@ -177,7 +199,7 @@ export default function SaasAdminPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#F0EDE8]">
-                  {['Business', 'Status', 'Signed up', 'Trial/Billing ends', 'Connect', 'Sessions', 'Bookings'].map((h) => (
+                  {['Business', 'Plan', 'Marketplace', 'Email', 'Status', 'Signed up', 'Trial/Billing ends', 'Connect', 'Sessions', 'Bookings'].map((h) => (
                     <th key={h} className="text-left text-xs font-medium text-[#888] px-4 py-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -188,6 +210,21 @@ export default function SaasAdminPage() {
                     <td className="px-4 py-3">
                       <p className="font-medium text-[#1a1a1a] whitespace-nowrap">{v.business_name}</p>
                       <p className="text-xs text-[#888]">{v.slug}</p>
+                    </td>
+                    <td className="px-4 py-3 text-xs font-medium text-[#1a1a1a] whitespace-nowrap">
+                      {formatPlan(v)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-[#555] whitespace-nowrap">
+                      {formatMarketplace(v)}
+                    </td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap">
+                      {v.email ? (
+                        <a href={`mailto:${v.email}`} className="text-[#5D755D] hover:underline">
+                          {v.email}
+                        </a>
+                      ) : (
+                        <span className="text-[#888]">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLOURS[v.status] ?? 'bg-[#F0EDE8] text-[#888]'}`}>

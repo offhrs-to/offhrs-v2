@@ -46,7 +46,10 @@ export async function POST(request: NextRequest) {
 
     const rawJson = await request.json().catch(() => ({}))
     const parsedBody = checkoutBodySchema.safeParse(rawJson)
-    const plan: PartnerCheckoutPlan = parsedBody.success && parsedBody.data.plan ? parsedBody.data.plan : 'pro'
+    const requested: PartnerCheckoutPlan =
+      parsedBody.success && parsedBody.data.plan ? parsedBody.data.plan : 'pro'
+    // Full License is retired from new signups; keep accepting the param and map to Pro.
+    const plan: PartnerCheckoutPlan = requested === 'full' ? 'pro' : requested
 
     let priceId: string
     try {

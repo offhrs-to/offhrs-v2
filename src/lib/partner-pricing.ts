@@ -6,12 +6,14 @@ export const PARTNER_TRIAL_LABEL = '30-day free trial'
 export const PARTNER_TRIAL_LABEL_LONG = '30-day free trial included'
 
 /**
- * Stripe-billed partner plans (workshops / Full License).
+ * Stripe-billed partner plans.
+ * `full` is retired from new signups but kept for existing subscribers / entitlements.
  * Marketplace-only Free and Shopify Sync–only bill separately (no Stripe / Shopify App Billing).
  */
 export const PARTNER_PLAN_MONTHLY_CAD = {
   lite: 29,
   pro: 39,
+  /** @deprecated Retired from new signups — existing Full subscribers only. */
   full: 59,
 } as const
 
@@ -45,14 +47,13 @@ export function formatPartnerMonthlyPriceLabel(tier: PartnerPlanTier): string {
 
 export function formatPartnerPlansFromLine(): string {
   return (
-    `${formatPartnerMonthlyPriceLabel('lite')} (Lite), ` +
-    `${formatPartnerMonthlyPriceLabel('pro')} (Pro), or ` +
-    `${formatPartnerMonthlyPriceLabel('full')} (Full License)`
+    `${formatPartnerMonthlyPriceLabel('lite')} (Lite) or ` +
+    `${formatPartnerMonthlyPriceLabel('pro')} (Pro)`
   )
 }
 
-/** Display order for marketing / signup. */
-export const PARTNER_PLAN_DISPLAY_ORDER: PartnerPlanTier[] = ['lite', 'pro', 'full']
+/** Display order for marketing / signup (Full License retired). */
+export const PARTNER_PLAN_DISPLAY_ORDER: PartnerPlanTier[] = ['lite', 'pro']
 
 export function partnerPlanIncludesMarketplace(tier: PartnerPlanTier | string | null | undefined): boolean {
   return tier === 'pro' || tier === 'full'

@@ -14,7 +14,7 @@ export default function PartnersCheckoutPage() {
     setCanceled(params.get('canceled') === '1')
   }, [])
 
-  async function startCheckout(plan: 'lite' | 'pro' | 'full') {
+  async function startCheckout(plan: 'lite' | 'pro') {
     setLoading(true)
     setError(null)
     try {
@@ -34,10 +34,11 @@ export default function PartnersCheckoutPage() {
     }
   }
 
-  function resolvePlanParam(): 'lite' | 'pro' | 'full' {
+  function resolvePlanParam(): 'lite' | 'pro' {
     const params = new URLSearchParams(window.location.search)
     const plan = params.get('plan')
-    if (plan === 'lite' || plan === 'full' || plan === 'pro') return plan
+    if (plan === 'lite') return 'lite'
+    // Retired Full License deep links land on Pro.
     return 'pro'
   }
 

@@ -81,7 +81,7 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
     items: [
       {
         q: 'What does it cost to list on offhrs?',
-        aText: `Marketplace Only is free. Lite is ${formatPartnerMonthlyAmount('lite')} CAD/month (up to 4 workshops; no Marketplace). ${SHOPIFY_SYNC_PLAN_NAME} is $${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month (Sync only). Pro is ${formatPartnerMonthlyAmount('pro')} CAD/month (unlimited workshops + Marketplace). Full License is ${formatPartnerMonthlyAmount('full')} CAD/month (Pro + Marketplace + Shopify Sync).`,
+        aText: `Marketplace Only is free. Lite is ${formatPartnerMonthlyAmount('lite')} CAD/month (up to 4 workshops; no Marketplace). ${SHOPIFY_SYNC_PLAN_NAME} is $${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month (Sync only). Pro is ${formatPartnerMonthlyAmount('pro')} CAD/month (unlimited workshops + Marketplace).`,
         a: (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
@@ -113,11 +113,6 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
                   <td className="py-2 pr-4">${PARTNER_PLAN_MONTHLY_CAD.pro} / month (CAD)</td>
                   <td className="py-2">Unlimited workshops + Marketplace</td>
                 </tr>
-                <tr className="border-t border-[#E8E4DE]">
-                  <td className="py-2 pr-4 font-medium text-[#1a1a1a]">Full License</td>
-                  <td className="py-2 pr-4">${PARTNER_PLAN_MONTHLY_CAD.full} / month (CAD)</td>
-                  <td className="py-2">Pro + Marketplace + Shopify Sync included</td>
-                </tr>
               </tbody>
             </table>
           </div>
@@ -125,10 +120,10 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       },
       {
         q: 'Is there a free trial?',
-        aText: `Yes — a ${PARTNER_TRIAL_LABEL} on Lite, Pro, Full License, and ${SHOPIFY_SYNC_PLAN_NAME}. Marketplace Only has no monthly fee.`,
+        aText: `Yes — a ${PARTNER_TRIAL_LABEL} on Lite, Pro, and ${SHOPIFY_SYNC_PLAN_NAME}. Marketplace Only has no monthly fee.`,
         a: (
           <p>
-            Yes — a <strong>{PARTNER_TRIAL_LABEL}</strong> on Lite, Pro, Full License, and {SHOPIFY_SYNC_PLAN_NAME}.
+            Yes — a <strong>{PARTNER_TRIAL_LABEL}</strong> on Lite, Pro, and {SHOPIFY_SYNC_PLAN_NAME}.
             Marketplace Only has no monthly subscription.
           </p>
         ),
@@ -136,25 +131,25 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: `What happens after my ${PARTNER_TRIAL_LABEL}?`,
         aText:
-          'Your subscription automatically starts at the end of the trial at the Lite, Pro, Full License, or Shopify Sync rate you chose. You can cancel anytime before the trial ends with no charge.',
+          'Your subscription automatically starts at the end of the trial at the Lite, Pro, or Shopify Sync rate you chose. You can cancel anytime before the trial ends with no charge.',
       },
       {
         q: 'How is billing handled?',
         aText:
-          'Lite, Pro, and Full License bill through Stripe. Standalone Shopify Sync bills through Shopify App Pricing. Full License includes Sync (no separate Sync fee).',
+          'Lite and Pro bill through Stripe. Standalone Shopify Sync bills through Shopify App Pricing.',
       },
       {
-        q: "What's the difference between Lite, Pro, and Full License?",
+        q: "What's the difference between Lite and Pro?",
         aText:
-          'Lite: up to 4 workshops; no Marketplace; no Sync. Pro: unlimited workshops + Marketplace. Full License: Pro + Marketplace + Shopify Sync included.',
+          'Lite: up to 4 workshops; no Marketplace; no Sync. Pro: unlimited workshops + Marketplace. Shopify Sync is a separate Shopify-billed plan.',
       },
       {
         q: `What is ${SHOPIFY_SYNC_PLAN_NAME}?`,
-        aText: `${SHOPIFY_SYNC_PLAN_NAME} is $${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month standalone, or included with Full License. Install the offhrs sales channel from Shopify, connect your partner account, publish workshop products to offhrs, and sync them into the offhrs app. Guests discover you on offhrs and complete booking on Shopify checkout. Full setup guide: /partners/shopify-sync`,
+        aText: `${SHOPIFY_SYNC_PLAN_NAME} is $${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month, billed in Shopify. Install the offhrs sales channel from Shopify, connect your partner account, publish workshop products to offhrs, and sync them into the offhrs app. Guests discover you on offhrs and complete booking on Shopify checkout. Full setup guide: /partners/shopify-sync`,
         a: (
           <p>
-            {SHOPIFY_SYNC_PLAN_NAME} is ${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month standalone, or included with Full
-            License. Install the offhrs sales channel from Shopify, connect your partner account under{' '}
+            {SHOPIFY_SYNC_PLAN_NAME} is ${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month, billed in Shopify. Install the
+            offhrs sales channel from Shopify, connect your partner account under{' '}
             <strong>Sales channels → offhrs</strong>, publish workshop products to the offhrs channel, and sync
             them into the offhrs app. Guests discover you on offhrs and complete booking on Shopify checkout.{' '}
             <a href="/partners/shopify-sync" className="font-medium text-[#5D755D] underline-offset-2 hover:underline">
@@ -226,7 +221,7 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'What fees apply to Artist Marketplace sales?',
         aText:
-          'Marketplace sales: 5% platform fee on the item subtotal (excluding tax and shipping), plus Stripe processing (about 2.9% + $0.30 CAD). Buyer shipping and facilitator tax are held by offhrs—not paid out as your merchandise earnings—so prepaid Canada Post labels can be bought on the platform Shippo account. Pro and Full License include Marketplace; free Marketplace-only signup is available. Lite does not include Marketplace.',
+          'Marketplace sales: 5% platform fee on the item subtotal (excluding tax and shipping), plus Stripe processing (about 2.9% + $0.30 CAD). Buyer shipping and facilitator tax are held by offhrs—not paid out as your merchandise earnings—so prepaid Canada Post labels can be bought on the platform Shippo account. Pro includes Marketplace; free Marketplace-only signup is available. Lite does not include Marketplace.',
         a: (
           <>
             <p>
@@ -238,8 +233,8 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
               earnings. Shipping funds the prepaid Canada Post label.
             </p>
             <p className="mt-2 text-[#555]">
-              Pro and Full License include Marketplace. Artists who only want to sell goods can enroll in a
-              free Marketplace-only plan (same 5% + Stripe on sales). Lite does not include Marketplace. See the{' '}
+              Pro includes Marketplace. Artists who only want to sell goods can enroll in a free
+              Marketplace-only plan (same 5% + Stripe on sales). Lite does not include Marketplace. See the{' '}
               <a className="underline" href="/terms/marketplace-seller-addendum">
                 Marketplace Seller Addendum
               </a>

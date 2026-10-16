@@ -135,7 +135,7 @@ export default async function DashboardPage({
             <h2 className="text-sm font-semibold text-foreground">Artist Marketplace</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               List physical goods for Canada-only shipping. Platform fee is 5% of item subtotal plus Stripe
-              processing. Workshops stay on Lite, Pro, or Full License if you want bookings too.
+              processing. Workshops stay on Lite or Pro if you want bookings too.
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
               <Button asChild size="sm">
@@ -277,9 +277,8 @@ export default async function DashboardPage({
           <CardContent className="space-y-2 p-5">
             <h2 className="text-sm font-semibold text-foreground">Want bookings on offhrs too?</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Lite, Pro, or Full License unlock in-app checkout, Stripe payouts, workshops, calendar,
-              bookings, and clients. Full License also includes Shopify Sync. Standalone Sync stays
-              available separately.
+              Lite or Pro unlock in-app checkout, Stripe payouts, workshops, calendar, bookings, and
+              clients. Shopify Sync stays available separately in Shopify.
             </p>
             <Button asChild size="sm" variant="outline" className="border-partner-border mt-1">
               <Link href="/partners/checkout">View plans</Link>

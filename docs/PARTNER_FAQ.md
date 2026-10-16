@@ -46,20 +46,19 @@ Five options (CAD):
 | **Lite** | $29 / month | Up to 4 workshops; no Marketplace; no Sync |
 | **Shopify Sync** | $29 / month | Sync only (billed via Shopify) |
 | **Pro** | $39 / month | Unlimited workshops + Marketplace |
-| **Full License** | $59 / month | Pro + Marketplace + Shopify Sync |
 
 ### Is there a free trial?
-Yes — a **30-day free trial** on Lite, Pro, Full License, and Shopify Sync. Marketplace Only has no monthly fee.
+Yes — a **30-day free trial** on Lite, Pro, and Shopify Sync. Marketplace Only has no monthly fee.
 
 ### How is billing handled?
-Lite, Pro, and Full License bill through Stripe subscription checkout (with automatic tax and
+Lite and Pro bill through Stripe subscription checkout (with automatic tax and
 tax-ID collection where applicable). Standalone Shopify Sync bills through Shopify App Pricing.
-Full License includes Sync (no separate Sync fee). Your subscription status syncs automatically.
+Your subscription status syncs automatically.
 
-### What's the difference between Lite, Pro, and Full License?
+### What's the difference between Lite and Pro?
 Lite caps you at 4 concurrently active (non-archived) workshops and does not include Marketplace or Sync.
-Pro removes the workshop cap and includes Marketplace. Full License is Pro + Marketplace + Shopify Sync.
-If you're on Lite and hit the limit, archive an old workshop or upgrade to Pro/Full.
+Pro removes the workshop cap and includes Marketplace. Shopify Sync is sold separately in Shopify.
+If you're on Lite and hit the limit, archive an old workshop or upgrade to Pro.
 
 ---
 
