@@ -36,6 +36,7 @@ export type ShopVendorSummary = {
   business_name: string | null;
   slug: string | null;
   bio: string | null;
+  website_url?: string | null;
   shop_pickup_enabled: boolean;
   shop_pickup_line1?: string | null;
   shop_pickup_line2?: string | null;
@@ -43,6 +44,20 @@ export type ShopVendorSummary = {
   shop_pickup_province?: string | null;
   shop_pickup_postal_code?: string | null;
   shop_pickup_hours?: string | null;
+};
+
+/** Ontario internet-sale disclosure copy from product API (precomputed server-side). */
+export type ShopPurchaseDisclosures = {
+  seller_name: string;
+  seller_address: string | null;
+  seller_website: string | null;
+  delivery_ship: string;
+  delivery_pickup: string;
+  cancel_return_ship: string;
+  cancel_return_pickup: string;
+  support_email: string;
+  terms_version: string;
+  terms_url: string;
 };
 
 
@@ -139,17 +154,26 @@ export async function fetchShopProducts(params?: {
 
 export async function fetchShopProduct(
   id: string
-): Promise<{ product: ShopProductDetail; vendor: ShopVendorSummary }> {
+): Promise<{
+  product: ShopProductDetail;
+  vendor: ShopVendorSummary;
+  purchase_disclosures: ShopPurchaseDisclosures | null;
+}> {
   const headers = await shopHeaders();
   const res = await fetch(`${BOOK_API_BASE}/api/shop/products/${id}`, { headers });
   const data = (await res.json().catch(() => ({}))) as {
     product?: ShopProductDetail;
     vendor?: ShopVendorSummary;
+    purchase_disclosures?: ShopPurchaseDisclosures;
     error?: string;
   };
   if (!res.ok) throw new Error(data.error ?? 'Product not found');
   if (!data.product || !data.vendor) throw new Error('Product not found');
-  return { product: data.product, vendor: data.vendor };
+  return {
+    product: data.product,
+    vendor: data.vendor,
+    purchase_disclosures: data.purchase_disclosures ?? null,
+  };
 }
 
 export async function fetchShopRates(body: {

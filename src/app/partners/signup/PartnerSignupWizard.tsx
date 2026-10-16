@@ -27,6 +27,7 @@ import {
   SHOPIFY_SYNC_MONTHLY_CAD,
   SHOPIFY_SYNC_PLAN_NAME,
 } from '@/lib/partner-pricing'
+import { PARTNER_CLICKWRAP_LINKS } from '@/lib/legal-acceptances-client'
 
 type BillingPlanChoice = 'lite' | 'pro' | 'shopify_sync' | 'marketplace'
 
@@ -117,6 +118,7 @@ export function PartnerSignupWizard() {
   const [error, setError] = useState<string | null>(null)
   const [mapsAuthError, setMapsAuthError] = useState<string | null>(null)
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const [acceptTerms, setAcceptTerms] = useState(false)
 
   useEffect(() => {
     if (step === 'location') setMapsAuthError(null)
@@ -245,6 +247,7 @@ export function PartnerSignupWizard() {
           /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
           password.length >= 8 &&
           confirmPassword === password &&
+          acceptTerms &&
           (!TURNSTILE_ENABLED || Boolean(turnstileToken))
         )
       case 'billing':
@@ -302,6 +305,7 @@ export function PartnerSignupWizard() {
           phone: phone.trim() || undefined,
           workshop_logo,
           turnstile_token: turnstileToken ?? undefined,
+          accept_terms: true as const,
         }),
       })
       const data = await res.json()
@@ -733,6 +737,32 @@ export function PartnerSignupWizard() {
             {TURNSTILE_ENABLED && (
               <TurnstileWidget onToken={setTurnstileToken} />
             )}
+            <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-[#E8E4DE] bg-[#FAFAF8] px-4 py-3">
+              <input
+                type="checkbox"
+                checked={acceptTerms}
+                onChange={(e) => setAcceptTerms(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-[#D9D7CF] text-[#5D755D] focus:ring-[#5D755D]"
+              />
+              <span className="text-sm text-[#1a1a1a] leading-relaxed">
+                I agree to the{' '}
+                {PARTNER_CLICKWRAP_LINKS.map((doc, i) => (
+                  <span key={doc.key}>
+                    {i > 0 ? (i === PARTNER_CLICKWRAP_LINKS.length - 1 ? ', and ' : ', ') : null}
+                    <a
+                      href={doc.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-[#5D755D] underline hover:text-[#4d634d]"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {doc.title}
+                    </a>
+                  </span>
+                ))}
+                . Required to create a partner account.
+              </span>
+            </label>
           </div>
         )}
 

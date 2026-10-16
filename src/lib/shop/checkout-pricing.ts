@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { customerTaxAddressFromPostal } from '@/lib/canadian-postal-province'
-import { calculateShopOrderTax } from '@/lib/stripe-shop-tax'
+import { buildShopPriceWithoutTax, calculateShopOrderTax } from '@/lib/stripe-shop-tax'
 import { shopCheckoutBodySchema } from '@/lib/shop/checkout-schema'
 import {
   loadPublishedShopProduct,
@@ -81,41 +81,60 @@ export async function resolveShopCheckoutPricing(
     shippoShipmentId = body.shippo_shipment_id
   }
 
-  const customerTaxAddr =
-    body.fulfillment_type === 'ship' && body.ship_address
-      ? customerTaxAddressFromPostal(body.ship_address.postal_code, {
-          state: body.ship_address.province,
-          city: body.ship_address.city,
-          line1: body.ship_address.line1,
-        })
-      : body.fulfillment_type === 'pickup'
-        ? (() => {
-            const pickup = vendorPickupAddress(vendor)
-            if (!pickup) return null
-            return customerTaxAddressFromPostal(pickup.postal_code, {
-              state: pickup.province,
-              city: pickup.city,
-              line1: pickup.line1,
-            })
-          })()
-        : null
-
-  if (!customerTaxAddr) {
-    throw new CheckoutPricingError('Valid Canadian address required for tax calculation', 422)
-  }
+  // Collect GST/HST only for CRA-registered vendors, into their Connect account
+  // (vendor remits — same as workshops). Unregistered vendors: no tax.
+  const collectsGstHst = vendor.gst_hst_registered === true
 
   let taxBreakdown
-  try {
-    taxBreakdown = await calculateShopOrderTax(stripe, {
-      itemSubtotalCad,
-      shippingCad,
-      customerAddress: customerTaxAddr,
-      reference: `shop_product_${product.id}`,
-    })
-  } catch (taxErr) {
-    console.error('Shop tax calculation error:', taxErr)
-    const detail = taxErr instanceof Stripe.errors.StripeError ? taxErr.message : undefined
-    throw new CheckoutPricingError(detail ?? 'Could not calculate tax for this order.', 422)
+  if (!collectsGstHst) {
+    taxBreakdown = buildShopPriceWithoutTax(itemSubtotalCad, shippingCad)
+  } else {
+    const customerTaxAddr =
+      body.fulfillment_type === 'ship' && body.ship_address
+        ? customerTaxAddressFromPostal(body.ship_address.postal_code, {
+            state: body.ship_address.province,
+            city: body.ship_address.city,
+            line1: body.ship_address.line1,
+          })
+        : body.fulfillment_type === 'pickup'
+          ? (() => {
+              const pickup = vendorPickupAddress(vendor)
+              if (!pickup) return null
+              return customerTaxAddressFromPostal(pickup.postal_code, {
+                state: pickup.province,
+                city: pickup.city,
+                line1: pickup.line1,
+              })
+            })()
+          : null
+
+    if (!customerTaxAddr) {
+      throw new CheckoutPricingError('Valid Canadian address required for tax calculation', 422)
+    }
+
+    if (!vendor.stripe_account_id) {
+      throw new CheckoutPricingError('Seller payout account is not configured', 422)
+    }
+
+    try {
+      taxBreakdown = await calculateShopOrderTax(stripe, {
+        connectedAccountId: vendor.stripe_account_id,
+        itemSubtotalCad,
+        shippingCad,
+        customerAddress: customerTaxAddr,
+        reference: `shop_product_${product.id}`,
+        vendorLocationAddress: vendor.location_address,
+        gstHstRegistered: true,
+      })
+    } catch (taxErr) {
+      console.error('Shop tax calculation error:', taxErr)
+      const detail = taxErr instanceof Stripe.errors.StripeError ? taxErr.message : undefined
+      throw new CheckoutPricingError(
+        detail ??
+          'Could not calculate tax for this order. The seller may need to complete tax setup in Stripe.',
+        422
+      )
+    }
   }
 
   const platformFeeCents = shopPlatformFeeCents(Math.round(itemSubtotalCad * 100))
@@ -125,18 +144,18 @@ export async function resolveShopCheckoutPricing(
   )
 
   const shippingCents = Math.round(shippingCad * 100)
-  const taxCents = Math.round(taxBreakdown.taxCad * 100)
 
-  // Hold postage (+ handling) and facilitator tax on the platform so they are not
-  // paid out as seller Connect earnings. Seller net ≈ item − 5% (− Stripe fee when
-  // the platform pays processing).
-  let applicationFeeAmount = platformFeeCents + estimatedStripeFeeCents + shippingCents + taxCents
+  // Hold postage (+ handling) on the platform for Shippo labels. GST/HST for
+  // registered vendors stays in the Connect transfer so the seller remits it
+  // (same as workshops). Seller net ≈ item + tax − 5% (− Stripe fee when the
+  // platform pays processing).
+  let applicationFeeAmount = platformFeeCents + estimatedStripeFeeCents + shippingCents
 
   try {
     const connectedAccount = await stripe.accounts.retrieve(vendor.stripe_account_id!)
     const feePayer = connectedAccount.controller?.fees?.payer
     if (feePayer === 'account') {
-      applicationFeeAmount = platformFeeCents + shippingCents + taxCents
+      applicationFeeAmount = platformFeeCents + shippingCents
     }
   } catch {
     /* keep combined fee */

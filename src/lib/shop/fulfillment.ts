@@ -2,7 +2,10 @@ import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
+import { sendVendorShopOrderRefunded } from '@/lib/emails'
 import { addCanadianBusinessDays } from '@/lib/shop/business-days'
+import { applicationFeeRefundCents } from '@/lib/shop/refund-fees'
+import { reverseShopTaxTransaction } from '@/lib/stripe-shop-tax'
 import {
   fetchShippoRates,
   getShippoTransaction,
@@ -38,7 +41,15 @@ export type ShopOrderRow = {
   item_subtotal_cad: number
   paid_at: string | null
   ship_by_business_days: number
+  product_title?: string | null
+  total_cad?: number | null
+  buyer_name?: string | null
+  estimated_stripe_fee_cents?: number | null
 }
+
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
 const ACTIVE_FOR_LABEL = ['paid_awaiting_fulfillment', 'label_purchased']
 
@@ -340,6 +351,85 @@ export async function recordShopOrderApvAdjustment(
     .eq('id', order.id)
 }
 
+/**
+ * Return every part of the Marketplace application fee except the Stripe
+ * card-processing estimate, when that estimate was included in the fee.
+ * Connected accounts that pay Stripe directly (`fees.payer = account`) already
+ * bear the non-refundable card fee, so the whole application fee is returned.
+ */
+async function refundShopApplicationFeeExceptStripeFee(
+  stripe: Stripe,
+  paymentIntentId: string,
+  estimatedStripeFeeCents: number
+): Promise<void> {
+  const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {
+    expand: ['latest_charge'],
+  })
+  const charge = pi.latest_charge
+  if (!charge || typeof charge === 'string') return
+  const feeRef = charge.application_fee
+  if (!feeRef) return
+  const feeId = typeof feeRef === 'string' ? feeRef : feeRef.id
+
+  const fromMetadata = Number(pi.metadata?.estimated_stripe_fee_cents ?? 0)
+  let retainCents =
+    estimatedStripeFeeCents > 0
+      ? estimatedStripeFeeCents
+      : Number.isFinite(fromMetadata)
+        ? fromMetadata
+        : 0
+
+  const accountId =
+    (typeof pi.on_behalf_of === 'string' ? pi.on_behalf_of : pi.on_behalf_of?.id) ||
+    (typeof pi.transfer_data?.destination === 'string'
+      ? pi.transfer_data.destination
+      : pi.transfer_data?.destination?.id) ||
+    null
+
+  if (accountId) {
+    try {
+      const account = await stripe.accounts.retrieve(accountId)
+      if (account.controller?.fees?.payer === 'account') retainCents = 0
+    } catch {
+      /* Checkout includes the Stripe estimate in the fee when the payer is unknown. */
+    }
+  }
+
+  const fee =
+    typeof feeRef === 'object' ? feeRef : await stripe.applicationFees.retrieve(feeId)
+  const amount = applicationFeeRefundCents({
+    applicationFeeCents: fee.amount,
+    alreadyRefundedCents: fee.amount_refunded ?? 0,
+    stripeFeeToRetainCents: retainCents,
+  })
+  if (amount <= 0) return
+  await stripe.applicationFees.createRefund(feeId, { amount })
+}
+
+async function notifyVendorOfShopRefund(
+  admin: SupabaseClient,
+  order: ShopOrderRow
+): Promise<void> {
+  const { data: vendor } = await admin
+    .from('vendor_profiles')
+    .select('user_id')
+    .eq('id', order.vendor_id)
+    .maybeSingle()
+  if (!vendor?.user_id) return
+
+  const { data: authData, error } = await admin.auth.admin.getUserById(vendor.user_id)
+  if (error || !authData.user?.email) return
+
+  const stripeFeeCad = Math.max(0, Number(order.estimated_stripe_fee_cents ?? 0)) / 100
+  await sendVendorShopOrderRefunded(authData.user.email, {
+    productTitle: order.product_title?.trim() || 'Marketplace order',
+    buyerName: order.buyer_name?.trim() || 'The buyer',
+    totalCad: Number(order.total_cad ?? 0),
+    stripeFeeCad,
+    dashboardUrl: `${APP_URL}/partners/dashboard/marketplace`,
+  })
+}
+
 export async function refundShopOrderPreScan(params: {
   admin: SupabaseClient
   stripe: Stripe
@@ -370,10 +460,14 @@ export async function refundShopOrderPreScan(params: {
 
   let refundId: string | null = null
   try {
+    // Same rule as workshop booking refunds: keep the Stripe processing portion
+    // of the application fee (refund_application_fee false), then return the
+    // rest (platform fee, shipping, tax) so the vendor's balance impact is the
+    // non-refundable card fee only.
     const refund = await stripe.refunds.create({
       payment_intent: order.stripe_payment_intent_id,
       reverse_transfer: true,
-      refund_application_fee: true,
+      refund_application_fee: false,
     })
     refundId = refund.id
   } catch (err) {
@@ -384,13 +478,29 @@ export async function refundShopOrderPreScan(params: {
     }
   }
 
+  await refundShopApplicationFeeExceptStripeFee(
+    stripe,
+    order.stripe_payment_intent_id,
+    Number(order.estimated_stripe_fee_cents ?? 0)
+  )
+
   if (order.stripe_tax_transaction_id) {
     try {
-      await stripe.tax.transactions.createReversal({
-        mode: 'full',
-        original_transaction: order.stripe_tax_transaction_id,
-        reference: `shop_order_${order.id}_refund`,
-      })
+      const { data: vendorRow } = await admin
+        .from('vendor_profiles')
+        .select('stripe_account_id')
+        .eq('id', order.vendor_id)
+        .maybeSingle()
+      const connectedAccountId = vendorRow?.stripe_account_id?.trim() || null
+      if (connectedAccountId) {
+        await reverseShopTaxTransaction(stripe, {
+          connectedAccountId,
+          taxTransactionId: order.stripe_tax_transaction_id,
+          paymentIntentId: order.stripe_payment_intent_id,
+        })
+      } else {
+        console.error('shop tax reversal skipped: missing vendor Stripe account', order.id)
+      }
     } catch (taxErr) {
       console.error('shop tax reversal failed', taxErr)
     }
@@ -423,6 +533,12 @@ export async function refundShopOrderPreScan(params: {
         ...(product.status === 'archived' && Number(product.quantity) === 0 ? { status: 'published' } : {}),
       })
       .eq('id', order.product_id)
+  }
+
+  try {
+    await notifyVendorOfShopRefund(admin, order)
+  } catch (emailErr) {
+    console.error('shop vendor refund email', emailErr)
   }
 
   return { refund_id: refundId }

@@ -43,10 +43,15 @@ Use the **same mode** as production (`sk_live_…` on Production Vercel). Do **n
 4. **Full License** — create Product “offhrs Full License”, monthly recurring **$59 CAD**. Copy Price ID → `STRIPE_FULL_PRICE_ID`.
 5. Ensure each Price is **recurring**, **month**, currency **CAD**, and tax behavior matches your other partner prices (usually `exclusive` with Stripe Tax).
 
-### B2. Existing Pro subscribers on $49
+### B2. Existing Pro subscribers on $49 — migrate, do not grandfather
 
-- New checkouts will use the new $39 Price once env is updated.
-- Existing $49 subscriptions keep their current Price until you migrate them in Stripe (Customer portal / Subscription update). Decide whether to move them to $39 manually or leave grandfathered.
+Decision (Oct 15, 2026): move every Pro subscription to the **$39** Price. Do not leave anyone on $49. There are believed to be no active Pro trials; still confirm in Stripe before and after.
+
+1. Stripe Dashboard → **Subscriptions** (Live). Filter or search for the old **$49** Pro Price.
+2. For each subscription, update the subscription item to the new **$39** Price (`STRIPE_PRO_PRICE_ID`).
+3. Set proration to **none** so the current period is not invoiced again; the next renewal bills $39.
+4. Confirm the subscription list has **zero** items left on the $49 Price.
+5. New checkouts already follow `STRIPE_PRO_PRICE_ID` once that env var is the $39 Price.
 
 ### B3. Checkout metadata
 
@@ -126,7 +131,7 @@ Ops: ensure Marketplace QA / Connect onboarding still required before going live
 2. Apply Supabase migration.
 3. Set Vercel Production env → redeploy.
 4. Smoke-test checkouts on a real vendor (or your own) account.
-5. Optionally migrate existing $49 Pro subscribers.
+5. Migrate every existing $49 Pro subscription to the $39 Price (no grandfathering). See B2.
 6. Confirm Shopify Sync plan still $29 / `offhrs-sync`.
 
 When code is ready to ship, ask for a commit/push of the pricing branch if it is not already on Production.

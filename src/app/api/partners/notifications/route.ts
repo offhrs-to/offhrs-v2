@@ -92,9 +92,9 @@ export async function GET() {
       notifications.push({
         id: 'onboarding:tax_settings',
         type: 'onboarding_tax_settings',
-        title: 'Set your workshop sales tax',
+        title: 'Confirm your GST/HST status',
         message:
-          'Open Settings → Workshop sales tax (GST/HST) and confirm whether you are registered with the CRA. If you are registered, enter your BN; if you are a small supplier, leave it off and save.',
+          'Open Settings → GST/HST registration and confirm whether you are registered with the CRA. If you are registered, enter your BN so workshop and Marketplace checkout can collect tax into your Connect account for you to remit. If you are not registered, leave it off and save — we will not add GST/HST.',
         createdAt: (vendor.created_at as string) || new Date().toISOString(),
         href: '/partners/dashboard/settings',
       })

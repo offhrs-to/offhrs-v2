@@ -48,13 +48,12 @@ export default function MarketplaceSellerAddendumPage() {
             <strong>not</strong> merchandise revenue and are <strong>not</strong> paid out as seller earnings.
           </li>
           <li>
-            Where the CRA digital-economy rules for distribution platform operators apply to offhrs
-            (generally, for goods supplied by Vendors who are not registered for GST/HST), applicable GST/HST on
-            Marketplace sales may be calculated, collected, and remitted by offhrs via Stripe Tax on the
-            platform account (not paid out to you as earnings). If you are registered for GST/HST, you remain
-            responsible for your own GST/HST obligations on your Marketplace sales, and you must keep your tax
-            settings accurate (see the Terms of Use, Section 2). Workshop ticket tax may still follow your
-            Connect / registration settings.
+            If you are registered for GST/HST, offhrs calculates and collects applicable GST/HST on
+            Marketplace sales at checkout into your Stripe Connect account (same model as workshop
+            tickets). That tax is paid out to you with the order and you remain responsible for remitting
+            it to the CRA. If you are not registered, offhrs does not collect GST/HST on Marketplace
+            checkout. You must keep your registration status and number accurate in dashboard tax
+            settings (see the Terms of Use, Section 2).
           </li>
           <li>
             Your approximate Marketplace payout is the item subtotal minus the 5% platform fee and Stripe
@@ -109,6 +108,8 @@ export default function MarketplaceSellerAddendumPage() {
           <li>
             Buyer or seller cancel <strong>before</strong> First Scan: full refund when permitted; labels are
             voided when the carrier allows (Canada Post may impose a short non-void window after purchase).
+            The buyer receives the full amount paid. Stripe does not return its processing fee, and that fee
+            remains your responsibility, the same as a refunded workshop booking.
             After First Scan: cancellation and platform refund of the paid order are blocked; quality issues
             follow Section 5.
           </li>

@@ -82,9 +82,10 @@ transaction)**, which is borne by you as the vendor.
 ### What fees apply to Artist Marketplace sales?
 Marketplace goods: **5%** platform fee on the item subtotal (excluding tax and shipping),
 **plus** Stripe processing (about 2.9% + $0.30 CAD). Buyer shipping (Canada Post quote + any
-handling fee you set) and applicable facilitator tax are **held by offhrs** — not paid out as
-your merchandise earnings — so prepaid Canada Post labels can be purchased on the platform
-Shippo account. Pro and Full License include Marketplace access; a free Marketplace-only plan is also
+handling fee you set) is **held by offhrs** for prepaid Canada Post labels — not paid out as
+merchandise earnings. If you are GST/HST-registered, tax is collected into your Stripe Connect
+account and you remit it (same as workshops). Unregistered vendors are not charged GST/HST at
+Marketplace checkout. Pro and Full License include Marketplace access; a free Marketplace-only plan is also
 available. Lite does not include Marketplace. See `/terms/marketplace-seller-addendum`.
 
 ### How do Marketplace orders and shipping work?
@@ -108,12 +109,12 @@ You can track each payout's status and expected arrival date in the dashboard.
 
 ## Refunds & cancellations
 
-### Who absorbs the processing fee when a booking is refunded?
+### Who absorbs the processing fee when a booking or Marketplace order is refunded?
 The vendor does. In Canada, Stripe does not return the original processing fee
-when a charge is refunded. When you (or a customer) refund a booking, the funds
-are pulled back from your connected account and the original processing fee is
-not recovered — so the vendor absorbs that fee. This is by design and is
-disclosed in our terms.
+when a charge is refunded. When a workshop booking is refunded, or a Marketplace
+order is refunded before carrier First Scan, the funds are pulled back from your
+connected account and the original processing fee is not recovered — so the vendor
+absorbs that fee. This is by design and is disclosed in our terms.
 
 ### How does the cancellation/refund window work?
 Each workshop has a **refund window** — the cutoff (in hours before the session
@@ -135,15 +136,12 @@ it are automatically refunded, and the workshop is hidden from customers.
 ## Taxes
 
 ### How is sales tax handled?
-**Workshops:** GST/HST is calculated with **Stripe Tax on your connected account** after
-you open Settings → Workshop sales tax and confirm you are CRA-registered. Small suppliers
-leave that off — ticket prices will not include GST/HST. When registered, workshop tax
-remittance is your liability.
-
-**Artist Marketplace goods:** where CRA marketplace facilitator rules apply, offhrs may
-calculate, collect, and remit GST/HST via Stripe Tax on the **platform** account. Buyer
-shipping and facilitator tax are held by offhrs (not paid out as seller merchandise
-earnings). See `/terms/marketplace-seller-addendum`.
+**Workshops and Artist Marketplace goods:** GST/HST is calculated with **Stripe Tax on your
+connected account** after you open Settings → GST/HST registration and confirm you are
+CRA-registered. If you are not registered, leave that off — checkout will not include
+GST/HST. When registered, remittance is your liability for both workshops and Marketplace
+goods. Buyer shipping on Marketplace orders is held by offhrs for prepaid labels (not paid
+out as merchandise earnings). See `/terms/marketplace-seller-addendum`.
 
 ### When is tax shown to the customer?
 Tax is calculated **at checkout**, not while browsing. The customer sees the

@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { vendorHasCurrentPartnerTermsAcceptance } from '@/lib/legal-acceptances'
 import { NextRequest, NextResponse } from 'next/server'
 import { signOAuthState } from '@/lib/oauth-state'
 import { shopifyOAuthAppBase } from '@/lib/shopify/app-base'
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
     shop?: string
     host?: string
     popup?: boolean
+    terms_accepted?: boolean
   }
   const shop = normalizeShopDomain(body.shop)
   if (!shop) {
@@ -50,6 +52,16 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
   if (!vendor) {
     return NextResponse.json({ error: 'Partner account required.' }, { status: 403 })
+  }
+
+  const termsOk =
+    body.terms_accepted === true ||
+    (await vendorHasCurrentPartnerTermsAcceptance(admin, user.id))
+  if (!termsOk) {
+    return NextResponse.json(
+      { error: 'Accept the partner Terms before connecting Shopify.' },
+      { status: 400 }
+    )
   }
 
   const existing = await loadShopifyShopByDomain(admin, shop)

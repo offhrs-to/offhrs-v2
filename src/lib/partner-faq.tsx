@@ -221,16 +221,17 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'What fees apply to Artist Marketplace sales?',
         aText:
-          'Marketplace sales: 5% platform fee on the item subtotal (excluding tax and shipping), plus Stripe processing (about 2.9% + $0.30 CAD). Buyer shipping and facilitator tax are held by offhrs—not paid out as your merchandise earnings—so prepaid Canada Post labels can be bought on the platform Shippo account. Pro includes Marketplace; free Marketplace-only signup is available. Lite does not include Marketplace.',
+          'Marketplace sales: 5% platform fee on the item subtotal (excluding tax and shipping), plus Stripe processing (about 2.9% + $0.30 CAD). Buyer shipping is held by offhrs for prepaid Canada Post labels. If you are GST/HST-registered, tax is collected into your Stripe Connect account and you remit it (same as workshops). Unregistered vendors are not charged GST/HST at Marketplace checkout. Pro includes Marketplace; free Marketplace-only signup is available. Lite does not include Marketplace.',
         a: (
           <>
             <p>
               For <strong>Artist Marketplace</strong> goods, offhrs charges a{' '}
               <strong>5% platform fee</strong> on the item subtotal (excluding tax and shipping postage),{' '}
               <strong>plus</strong> Stripe processing (about 2.9% + $0.30 CAD). Shipping paid by the buyer
-              (Canada Post quote + any handling fee you set) and applicable facilitator tax are{' '}
-              <strong>held by offhrs</strong> — they are not merchandise revenue and are not paid out as seller
-              earnings. Shipping funds the prepaid Canada Post label.
+              (Canada Post quote + any handling fee you set) is <strong>held by offhrs</strong> for the prepaid
+              Canada Post label — it is not merchandise revenue. If you are GST/HST-registered, tax is
+              collected into your Connect payout and you remit it. If you are not registered, Marketplace
+              checkout does not add GST/HST.
             </p>
             <p className="mt-2 text-[#555]">
               Pro includes Marketplace. Artists who only want to sell goods can enroll in a free
@@ -301,9 +302,9 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
     title: 'Refunds & cancellations',
     items: [
       {
-        q: 'Who absorbs the processing fee when a booking is refunded?',
+        q: 'Who absorbs the processing fee when a booking or Marketplace order is refunded?',
         aText:
-          'The vendor does. In Canada, Stripe does not return the original processing fee when a charge is refunded. When you (or a customer) refund a booking, the funds are pulled back from your connected account and the original processing fee is not recovered — so the vendor absorbs that fee. This is by design and is disclosed in our terms.',
+          'The vendor does. In Canada, Stripe does not return the original processing fee when a charge is refunded. When a workshop booking is refunded, or a Marketplace order is refunded before carrier First Scan, the funds are pulled back from your connected account and the original processing fee is not recovered — so the vendor absorbs that fee. This is by design and is disclosed in our terms.',
       },
       {
         q: 'How does the cancellation/refund window work?',
@@ -344,23 +345,23 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'Where do I set my GST/HST status?',
         aText:
-          'Open Settings in your partner dashboard and scroll to Workshop sales tax (GST/HST). Confirm whether you are registered with the CRA. If registered, turn the option on, enter your GST/HST registration number (BN), and save. If you are a small supplier (not registered), leave the option off and save so we know not to add GST/HST to ticket prices.',
+          'Open Settings in your partner dashboard and scroll to GST/HST registration. Confirm whether you are registered with the CRA. If registered, turn the option on, enter your GST/HST registration number (BN), and save. If you are not registered, leave the option off and save so we do not add GST/HST at workshop or Marketplace checkout.',
         a: (
           <>
             <p>
               Open <strong>Settings</strong> in your partner dashboard and scroll to{' '}
-              <strong>Workshop sales tax (GST/HST)</strong>. Confirm whether you are registered with
-              the CRA:
+              <strong>GST/HST registration</strong>. Confirm whether you are registered with the CRA:
             </p>
             <ul className="list-disc pl-5 mt-2 space-y-1">
               <li>
                 <strong>Registered</strong> — turn the option on, enter your GST/HST registration
-                number (BN), and click <strong>Save tax settings</strong>. Tax will be calculated at
-                checkout on your connected Stripe account.
+                number (BN), and click <strong>Save tax settings</strong>. Workshop and Marketplace
+                tax are calculated on your connected Stripe account; remittance is your liability.
               </li>
               <li>
-                <strong>Small supplier (not registered)</strong> — leave the option off and click{' '}
-                <strong>Save tax settings</strong> so we know not to add GST/HST to ticket prices.
+                <strong>Not registered</strong> — leave the option off and click{' '}
+                <strong>Save tax settings</strong>. Workshop tickets and Marketplace checkout will not
+                include GST/HST.
               </li>
             </ul>
             <p className="mt-2 text-[#555]">
@@ -373,21 +374,20 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'How is sales tax handled?',
         aText:
-          'Workshop tax: GST/HST via Stripe Tax on your Connect account after Settings → Workshop sales tax if you are CRA-registered; small suppliers leave it off. Marketplace goods tax may be collected and remitted by offhrs as marketplace facilitator via Stripe Tax on the platform (counsel/CRA confirmation for production). Shipping and facilitator tax are not paid out as your merchandise earnings.',
+          'Workshop and Marketplace tax: GST/HST via Stripe Tax on your Connect account after Settings → GST/HST registration if you are CRA-registered; if you are not registered, leave it off and checkout will not add GST/HST. Remittance is your liability. Buyer shipping on Marketplace orders is held by offhrs for prepaid labels and is not paid out as merchandise earnings.',
         a: (
           <>
             <p>
               <strong>Workshops:</strong> GST/HST is calculated with{' '}
               <strong>Stripe Tax on your connected account</strong> only after you open{' '}
-              <strong>Settings → Workshop sales tax</strong> and confirm you are registered with the CRA. If
-              you are a small supplier and not registered, leave that off and save — ticket prices will not
-              include GST/HST. When registered, workshop tax remittance is your liability.
+              <strong>Settings → GST/HST registration</strong> and confirm you are registered with the CRA. If
+              you are not registered, leave that off and save — ticket and Marketplace prices will not include
+              GST/HST. When registered, remittance is your liability for both workshops and Marketplace goods.
             </p>
             <p className="mt-2">
-              <strong>Artist Marketplace goods:</strong> where CRA marketplace facilitator rules apply, offhrs
-              may calculate, collect, and remit GST/HST via Stripe Tax on the <strong>platform</strong> account.
-              Buyer shipping and that facilitator tax are held by offhrs (not paid out as seller merchandise
-              earnings). See the{' '}
+              <strong>Artist Marketplace goods:</strong> if you are registered, GST/HST is collected at
+              checkout into your <strong>Connect</strong> account (same as workshops). Buyer shipping is held
+              by offhrs for prepaid labels and is not paid out as seller merchandise earnings. See the{' '}
               <a className="underline" href="/terms/marketplace-seller-addendum">
                 Marketplace Seller Addendum
               </a>

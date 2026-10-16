@@ -327,20 +327,20 @@ export default function HomeScreen() {
       accessibilityRole="button"
       accessibilityLabel="Sign up"
       style={{
-        paddingHorizontal: 16,
-        paddingVertical: isAndroid ? 8 : 9,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
         borderRadius: 9999,
         backgroundColor: DesignColors.primary,
       }}
     >
-      <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFF' }}>Sign-up</Text>
+      <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFF' }}>Sign-up</Text>
     </Pressable>
   ) : (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minWidth: 0 }}>
       <View style={{ marginRight: 10, alignItems: 'flex-end', flexShrink: 1, minWidth: 0 }}>
         <Text style={{ fontSize: 11, color: MEDIUM_GRAY }}>Welcome</Text>
         <Text
-          style={{ fontSize: isAndroid ? 16 : 18, fontWeight: '700', color: CHARCOAL }}
+          style={{ fontSize: isAndroid ? 13 : 14, fontWeight: '700', color: CHARCOAL }}
           numberOfLines={1}
           ellipsizeMode="tail"
         >

@@ -131,10 +131,12 @@ export default function ServiceTermsPage() {
             otherwise in writing.
           </li>
           <li>
-            <strong>Marketplace billing.</strong> For Artist Marketplace goods, where the CRA digital-economy
-            rules for distribution platform operators apply, offhrs may calculate, collect, and remit
-            applicable GST/HST via Stripe Tax on the platform account. Buyer-paid shipping is held to fund prepaid Canada Post labels and is not
-            Vendor merchandise earnings. See the Marketplace Seller Addendum and Terms of Use.
+            <strong>Marketplace billing.</strong> For Artist Marketplace goods, Vendors configure GST/HST
+            status in their dashboard. Where the Vendor is registered, Marketplace tax is collected into
+            their Stripe Connect account and remittance remains the Vendor&rsquo;s responsibility (same as
+            workshop tickets). offhrs does not collect Marketplace GST/HST for unregistered Vendors.
+            Buyer-paid shipping is held to fund prepaid Canada Post labels and is not Vendor merchandise
+            earnings. See the Marketplace Seller Addendum and Terms of Use.
           </li>
         </ul>
 
@@ -177,8 +179,9 @@ export default function ServiceTermsPage() {
           </strong>{' '}
           When a refund is issued, the original payout to the Vendor&rsquo;s Stripe Connect Express account
           is reversed in full, and the Stripe processing fee charged at the time of the original transaction
-          is netted against the Vendor&rsquo;s balance. As a result, a refunded booking will typically show a
-          small negative impact on the Vendor&rsquo;s balance equal to the original Stripe processing fee.
+          is netted against the Vendor&rsquo;s balance. As a result, a refunded booking or pre-scan Marketplace
+          order will typically show a small negative impact on the Vendor&rsquo;s balance equal to the original
+          Stripe processing fee.
           Vendors are encouraged to factor this risk into their configured refund window.
         </p>
 
@@ -208,8 +211,8 @@ export default function ServiceTermsPage() {
           </li>
           <li>
             <strong>How disputes are handled.</strong> Payments are routed to the Vendor&rsquo;s Stripe
-            Connect account (with Marketplace shipping and facilitator tax held on the platform as described
-            above). Dispute fees and reversed amounts are handled under Stripe Connect rules and may
+            Connect account (with Marketplace shipping held on the platform as described above). Dispute
+            fees and reversed amounts are handled under Stripe Connect rules and may
             affect the Vendor&rsquo;s payout balance; Vendors authorize offhrs to claw back amounts as set out
             in the Terms of Use.
           </li>

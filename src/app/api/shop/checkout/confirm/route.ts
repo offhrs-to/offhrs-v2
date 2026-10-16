@@ -8,6 +8,7 @@ import { logSecurityEvent } from '@/lib/security-monitor'
 import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { commitShopTaxTransaction } from '@/lib/stripe-shop-tax'
 import { shopConfirmBodySchema } from '@/lib/shop/checkout-schema'
+import { currentShopTermsVersion } from '@/lib/shop/ontario-disclosures'
 import { notifyShopOrderCreated } from '@/lib/shop/order-emails'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
@@ -145,6 +146,7 @@ export async function POST(request: NextRequest) {
         ship_by_business_days: Number(pi.metadata.ship_by_business_days ?? 5),
         stripe_payment_intent_id: paymentIntentId,
         stripe_tax_calculation_id: taxCalculationId || null,
+        terms_version: currentShopTermsVersion(),
         paid_at: new Date().toISOString(),
       })
       .select('id')
@@ -180,7 +182,20 @@ export async function POST(request: NextRequest) {
 
     if (taxCalculationId) {
       try {
+        let connectedAccountId = pi.metadata.stripe_account_id?.trim() || null
+        if (!connectedAccountId) {
+          const { data: vendorRow } = await admin
+            .from('vendor_profiles')
+            .select('stripe_account_id')
+            .eq('id', vendorId)
+            .maybeSingle()
+          connectedAccountId = vendorRow?.stripe_account_id?.trim() || null
+        }
+        if (!connectedAccountId) {
+          throw new Error('Missing vendor Stripe account for shop tax commit')
+        }
         const taxTxId = await commitShopTaxTransaction(stripe, {
+          connectedAccountId,
           calculationId: taxCalculationId,
           reference: `shop_order_${order.id}`,
         })

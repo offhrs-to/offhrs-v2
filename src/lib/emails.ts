@@ -323,27 +323,50 @@ export async function sendShopBuyerOrderConfirmation(params: {
   buyerName: string
   productTitle: string
   vendorName: string
+  orderId: string
+  orderDateLabel: string
+  itemSubtotalCad: number
+  shippingCad: number
+  taxCad: number
   totalCad: number
   fulfillmentType: 'ship' | 'pickup'
-  shipByDays: number
-  pickupHours?: string | null
+  deliveryDisclosure: string
+  cancelReturnDisclosure: string
+  sellerAddress?: string | null
+  sellerWebsite?: string | null
+  supportEmail: string
+  termsVersion: string
+  termsUrl: string
 }) {
-  const fulfillment =
-    params.fulfillmentType === 'pickup'
-      ? 'Local pickup — see pickup hours in the app (Profile → Orders).'
-      : `The maker will ship within ${params.shipByDays} business days.`
+  const money = (n: number) => `$${Math.max(0, n).toFixed(2)} CAD`
+  const sellerAddressHtml = params.sellerAddress
+    ? `<tr><td style="padding:6px 0;font-size:13px;color:#888;vertical-align:top;">Seller address</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;white-space:pre-line;">${escapeHtml(params.sellerAddress)}</td></tr>`
+    : ''
+  const sellerWebHtml = params.sellerWebsite
+    ? `<tr><td style="padding:6px 0;font-size:13px;color:#888;">Seller website</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(params.sellerWebsite)}</td></tr>`
+    : ''
   await send(
     params.to,
     `Order confirmed: ${params.productTitle}`,
     wrap(`
       ${h2('Order confirmed')}
-      ${p(`Hi ${escapeHtml(params.buyerName)}, thanks for your purchase from <strong>${escapeHtml(params.vendorName)}</strong>.`)}
+      ${p(`Hi ${escapeHtml(params.buyerName)}, thanks for your purchase from <strong>${escapeHtml(params.vendorName)}</strong> on the offhrs Artist Marketplace.`)}
       <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Order ID</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;"><code>${escapeHtml(params.orderId)}</code></td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Order date</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(params.orderDateLabel)}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Seller</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">${escapeHtml(params.vendorName)}</td></tr>
+        ${sellerAddressHtml}
+        ${sellerWebHtml}
         <tr><td style="padding:6px 0;font-size:13px;color:#888;">Item</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">${escapeHtml(params.productTitle)}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Total</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#5D755D;">$${params.totalCad.toFixed(2)} CAD</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Fulfillment</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(fulfillment)}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Item price</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${money(params.itemSubtotalCad)}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Shipping</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${params.fulfillmentType === 'pickup' ? 'Pickup (no shipping charge)' : money(params.shippingCad)}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Tax</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${money(params.taxCad)}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Total paid</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#5D755D;">${money(params.totalCad)}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;vertical-align:top;">Delivery</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(params.deliveryDisclosure)}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;vertical-align:top;">Cancel / returns</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(params.cancelReturnDisclosure)}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Support</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;"><a href="mailto:${escapeHtml(params.supportEmail)}">${escapeHtml(params.supportEmail)}</a> · Profile → Orders in the app</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Terms</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">Version ${escapeHtml(params.termsVersion)} · <a href="${escapeHtml(params.termsUrl)}">Terms of Use</a></td></tr>
       </table>
-      ${params.pickupHours ? p(`Pickup hours: ${escapeHtml(params.pickupHours)}`) : ''}
       ${p('View this order anytime in the offhrs app under Profile → Orders.')}
     `)
   )
@@ -414,6 +437,37 @@ export async function sendShopBuyerShipped(params: {
       ${p(`Hi ${escapeHtml(params.buyerName)}, <strong>${escapeHtml(params.productTitle)}</strong> has been scanned by Canada Post.`)}
       <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">${tracking}</table>
       ${params.trackingUrl ? btn(params.trackingUrl, 'Track package') : ''}
+    `)
+  )
+}
+
+export async function sendVendorShopOrderRefunded(
+  to: string,
+  params: {
+    productTitle: string
+    buyerName: string
+    totalCad: number
+    stripeFeeCad: number
+    dashboardUrl: string
+  }
+) {
+  const feeCopy =
+    params.stripeFeeCad > 0
+      ? `The Stripe processing fee of <strong>$${params.stripeFeeCad.toFixed(2)} CAD</strong> on the original transaction is non-refundable by Stripe and remains your responsibility under the offhrs Service Terms.`
+      : 'Any Stripe processing fee on the original transaction remains your responsibility under the offhrs Service Terms.'
+
+  await send(
+    to,
+    `Marketplace order refunded: ${params.productTitle}`,
+    wrap(`
+      ${h2('Marketplace order refunded')}
+      ${p(`<strong>${escapeHtml(params.buyerName)}</strong>'s order for <strong>${escapeHtml(params.productTitle)}</strong> was refunded before carrier First Scan.`)}
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Amount refunded to buyer</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${params.totalCad.toFixed(2)} CAD</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Stripe processing fee</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${Math.max(0, params.stripeFeeCad).toFixed(2)} CAD</td></tr>
+      </table>
+      ${p(feeCopy)}
+      ${btn(params.dashboardUrl, 'View Marketplace orders')}
     `)
   )
 }

@@ -8,15 +8,7 @@ export type WorkshopOutboundPayload = {
 }
 
 export function openWorkshopBooking(event: WorkshopOutboundPayload) {
-  if (typeof window !== 'undefined' && (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag) {
-    ;(window as unknown as { gtag: (...args: unknown[]) => void }).gtag('event', 'generate_lead', {
-      currency: 'CAD',
-      value: event.price ? Number(event.price) : 0,
-      event_label: event.title,
-      event_category: 'outbound_click',
-    })
-  }
-
+  // Meta Pixel Lead event — only fires when the visitor accepted ad cookies (pixel loaded).
   if (typeof window !== 'undefined' && (window as unknown as { fbq?: (...args: unknown[]) => void }).fbq) {
     ;(window as unknown as { fbq: (...args: unknown[]) => void }).fbq('track', 'Lead', {
       content_name: event.title,

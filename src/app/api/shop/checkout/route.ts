@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
           order_type: 'shop',
           product_id: product.id,
           vendor_id: vendor.id,
+          stripe_account_id: vendor.stripe_account_id!,
           user_id: user.id,
           buyer_name: body.buyer_name,
           buyer_email: body.buyer_email,

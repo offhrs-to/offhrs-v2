@@ -52,6 +52,7 @@ interface Vendor {
   subscription_current_period_end: string | null
   gst_hst_registered: boolean
   gst_hst_registration_number: string | null
+  marketplace_enabled?: boolean | null
 }
 
 interface SubscriptionState {
@@ -269,8 +270,8 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
         text:
           data.warning ??
           (taxRegistered
-            ? 'GST/HST registration saved. Tax will be calculated at checkout.'
-            : 'Saved. Workshop prices will not include GST/HST until you register with the CRA.'),
+            ? 'GST/HST registration saved. Tax will be collected at checkout.'
+            : 'Saved. Checkout will not include GST/HST until you register with the CRA.'),
       })
     } catch {
       setTaxMsg({ type: 'error', text: 'Network error.' })
@@ -579,17 +580,16 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
       </CardContent>
       </Card>
 
-      {hasNativePlan ? (
-      <>
-      {/* Workshop sales tax (GST/HST) */}
+      {(hasNativePlan || vendor.marketplace_enabled) ? (
       <Card className="gap-0 border-partner-border py-0 shadow-none">
         <CardContent className="space-y-4 p-5">
-        <h2 className="text-sm font-semibold text-foreground mb-1">Workshop sales tax (GST/HST)</h2>
+        <h2 className="text-sm font-semibold text-foreground mb-1">GST/HST registration</h2>
         <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-          You are the seller of record for workshop tickets. offhrs only adds GST/HST at checkout when
-          you confirm you are registered with the CRA. If you are a small supplier (generally under
-          $30,000 in taxable sales over four quarters), leave this off and do not charge tax on
-          tickets.
+          offhrs adds GST/HST at checkout only when you confirm you are registered with the CRA.
+          This covers workshop tickets and Artist Marketplace goods. Tax is collected into your
+          Stripe Connect account and you remit it to the CRA. If you are not registered, leave
+          this off — checkout will not add GST/HST. Buyer-paid shipping on Marketplace orders is
+          still held by offhrs for prepaid labels and is not seller earnings.
         </p>
         <form onSubmit={saveTaxSettings} className="space-y-4">
           <label className="flex items-start gap-3 cursor-pointer">
@@ -603,8 +603,7 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
               className="mt-1 h-4 w-4 rounded border-partner-border text-primary focus:ring-ring"
             />
             <span className="text-sm text-muted-foreground leading-relaxed">
-              I am registered for GST/HST with the CRA and authorized to charge tax on my workshop
-              sales.
+              I am registered for GST/HST with the CRA and authorized to charge tax on my sales.
             </span>
           </label>
           {taxRegistered && (
@@ -645,7 +644,10 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
         </form>
       </CardContent>
       </Card>
+      ) : null}
 
+      {hasNativePlan ? (
+      <>
       {/* Subscription */}
       <Card className="gap-0 border-partner-border py-0 shadow-none">
         <CardContent className="space-y-4 p-5">

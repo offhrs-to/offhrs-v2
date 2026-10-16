@@ -2,6 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import {
+  clientIpFromRequest,
+  recordMarketplaceSellerAddendumAcceptance,
+  userAgentFromRequest,
+} from '@/lib/legal-acceptances'
+import {
   ensureMarketplaceIncludedFlags,
   vendorHasMarketplaceAccess,
 } from '@/lib/shop/access'
@@ -114,10 +119,27 @@ export async function PUT(request: NextRequest) {
     }
 
     const attestedAt = vendor.canada_ship_attested_at ?? new Date().toISOString()
+    const isFirstAttestation = !vendor.canada_ship_attested_at
     const qaStatus =
       !vendor.marketplace_qa_status || vendor.marketplace_qa_status === 'not_started'
         ? 'pending_review'
         : vendor.marketplace_qa_status
+
+    if (isFirstAttestation) {
+      const assent = await recordMarketplaceSellerAddendumAcceptance({
+        admin,
+        userId: user.id,
+        vendorId: vendor.id,
+        ipAddress: clientIpFromRequest(request),
+        userAgent: userAgentFromRequest(request),
+      })
+      if (!assent.ok) {
+        return NextResponse.json(
+          { error: 'Could not record Marketplace Seller Addendum acceptance.' },
+          { status: 500 }
+        )
+      }
+    }
 
     const patch: Record<string, unknown> = {
       ship_from_name: data.ship_from_name.trim(),

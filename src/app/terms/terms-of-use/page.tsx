@@ -81,16 +81,12 @@ export default function TermsOfUsePage() {
           </li>
           <li>
             <strong>Artist Marketplace goods.</strong> The Vendor is the Seller of Record for physical goods.
-            Where the CRA digital-economy rules for distribution platform operators apply to offhrs
-            (generally, for goods supplied by Vendors who are not registered for GST/HST), offhrs may
-            calculate, collect, and remit applicable GST/HST on Marketplace sales via Stripe Tax on the
-            platform account (facilitator tax is not paid out as Vendor merchandise earnings). Vendors who are
-            registered for GST/HST remain responsible for their own GST/HST obligations on Marketplace sales
-            under the <em>Excise Tax Act</em> (Canada), and offhrs may adjust how tax is calculated, collected,
-            and allocated (including payouts) as CRA requirements apply. You must keep your GST/HST
-            registration status and number in your dashboard tax settings accurate and up to date. Workshop
-            ticket tax handling may differ; see your dashboard settings and the Marketplace Seller Addendum.
-            offhrs does not provide tax advice; obtain your own.
+            When the Vendor is registered for GST/HST, offhrs calculates and collects applicable GST/HST at
+            Marketplace checkout into the Vendor&rsquo;s Stripe Connect account (same model as workshop
+            tickets), and remittance remains the Vendor&rsquo;s responsibility. When the Vendor is not
+            registered, offhrs does not collect GST/HST at Marketplace checkout. You must keep your GST/HST
+            registration status and number in your dashboard tax settings accurate and up to date. See the
+            Marketplace Seller Addendum. offhrs does not provide tax advice; obtain your own.
           </li>
           <li>
             <strong>Tax remittance (workshops).</strong> Where workshop HST is collected into the
@@ -98,9 +94,10 @@ export default function TermsOfUsePage() {
             remains the Vendor&rsquo;s responsibility unless we notify you otherwise in writing.
           </li>
           <li>
-            <strong>Tax remittance (Marketplace).</strong> Facilitator GST/HST that offhrs collects on
-            Marketplace goods is remitted by offhrs under applicable CRA rules; Vendors remain responsible
-            for their own income tax and any tax obligations that offhrs does not collect or remit.
+            <strong>Tax remittance (Marketplace).</strong> Where Marketplace GST/HST is collected into the
+            Vendor&rsquo;s Stripe Connect account under the Vendor&rsquo;s registration settings, remittance
+            remains the Vendor&rsquo;s responsibility unless we notify you otherwise in writing. Vendors also
+            remain responsible for their own income tax and for registering when required.
           </li>
         </ul>
       </section>
@@ -134,9 +131,10 @@ export default function TermsOfUsePage() {
           <li>
             <strong>Direct payouts.</strong> Workshop and Marketplace payouts use Stripe Connect Express
             destination charges, with funds settling to the Vendor&rsquo;s connected bank account. For
-            Marketplace orders, buyer-paid shipping (and any seller handling fee collected as shipping) and
-            applicable facilitator tax are held on the platform so they are not paid out as Vendor merchandise
-            earnings; shipping funds prepaid Canada Post labels purchased via Shippo.
+            Marketplace orders, buyer-paid shipping (and any seller handling fee collected as shipping) is
+            held on the platform so it is not paid out as Vendor merchandise earnings; shipping funds prepaid
+            Canada Post labels purchased via Shippo. GST/HST collected for a registered Vendor is paid out to
+            the Vendor&rsquo;s Connect account for the Vendor to remit.
           </li>
           <li>
             <strong>Workshop fee structure.</strong> For workshop bookings, offhrs does{' '}
@@ -149,7 +147,7 @@ export default function TermsOfUsePage() {
             <strong>5% platform fee</strong> on the item subtotal (excluding tax and shipping postage),{' '}
             <strong>plus</strong> Stripe processing fees (about <strong>2.9% + $0.30 CAD</strong>), which are
             separate and also borne by the Vendor. Platform fee, estimated Stripe processing (when applicable),
-            shipping collected, and facilitator tax may be collected via Stripe application fees on the payment.
+            and shipping collected may be collected via Stripe application fees on the payment.
           </li>
           <li>
             <strong>Workshop refund window.</strong> Consumers may self-serve cancellations and refunds inside the

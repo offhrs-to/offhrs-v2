@@ -7,7 +7,7 @@ Aligns with `docs/ARTIST_SHOP_MARKETPLACE_PLAN.md`.
 1. **Never** treat buyer-paid shipping as seller merchandise GMV or Connect “earnings.”
 2. Track **postage collected** vs **label cost** vs **APV adjustments**.
 3. Support clawbacks to sellers for dims shortfalls and lost disputes.
-4. Hold **facilitator tax** on the platform (Stripe Tax remittance).
+4. Collect **GST/HST for CRA-registered vendors** into their Connect account (vendor remits, same as workshops). Do not collect tax for unregistered vendors. Still hold buyer-paid shipping on the platform for Shippo.
 
 ## Columns (on `shop_orders`)
 
@@ -35,12 +35,13 @@ application_fee =
   platform 5% (item)
   + Stripe fee estimate   (omit when connected account pays Stripe fees)
   + shipping_collected    (postage + handling)
-  + tax
 ```
 
-Seller net ≈ **item − 5%** (− Stripe fee when platform pays processing).
+Seller net ≈ **item + tax − 5%** (− Stripe fee when platform pays processing). Tax is only present when `gst_hst_registered` is true.
 
-Shipping collected funds platform Shippo label purchases. Tax stays with the platform for facilitator remittance.
+Shipping collected funds platform Shippo label purchases. GST/HST for a registered vendor is paid out on Connect for the vendor to remit. Unregistered vendors: `tax_cad = 0`.
+
+Pre-scan refunds reverse the transfer (including any tax paid out) and return the application fee **except** the Stripe processing estimate, so the vendor bears the card fee (same as workshops) and not the 5% or shipping.
 
 ## APV
 
@@ -50,7 +51,7 @@ When Shippo/CP reports underpaid postage, record `apv_adjustment_cad` and debit 
 
 - [ ] Create Shippo account; enable Canada Post; store `SHIPPO_API_KEY` in Vercel
 - [ ] Confirm Stripe Tax code for tangible goods (`STRIPE_SHOP_GOODS_TAX_CODE`)
-- [ ] CRA / counsel: marketplace facilitator registration & remittance process
+- [ ] CPA / counsel: confirm vendor-remits Marketplace GST/HST (Connect) matches CRA duties
 - [ ] Counsel review of live Terms + Marketplace Seller Addendum
 - [ ] Enable Stripe webhook events: `charge.dispute.created|updated|closed`
 - [ ] New checkout smoke test: seller Connect balance excludes shipping + tax

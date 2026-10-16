@@ -67,9 +67,9 @@ Until signed off: Preview / tiny smoke tests OK; delay scaling GMV and live labe
 
 | # | Issue | Options |
 |---|--------|---------|
-| A | Marketplace pre-scan refunds: who absorbs Stripe card fee? | **A)** offhrs absorbs (buyer-friendly; update Terms). **B)** vendor bears (align code with workshops). **C)** hybrid by fault. |
-| B | Marketplace tax for GST/HST-**registered** vendors | Wait for CPA; then branch `checkout-pricing` on `gst_hst_registered`. |
-| C | Existing $49 Pro subscribers | Grandfather vs migrate to $39. |
+| A | Marketplace pre-scan refunds: who absorbs Stripe card fee? | **Decided (Oct 15, 2026): B — vendor bears**, same as workshops. |
+| B | Marketplace tax for GST/HST-**registered** vendors | **Decided: collect at checkout only for registered vendors into their Connect account; vendor remits (same as workshops). Do not collect for unregistered vendors.** |
+| C | Existing $49 Pro subscribers | **Decided: migrate all to $39.** No grandfathering. Founder believes there are no active Pro trials. |
 
 **AGENT can start without A/B:** account deletion (#1) and vendor Terms assent (#2) below.
 
@@ -79,50 +79,54 @@ Until signed off: Preview / tiny smoke tests OK; delay scaling GMV and live labe
 
 Terms **wording** for Marketplace + Shopify Sync is live. These are the remaining **product** gaps from the Oct 2026 review.
 
-## 1.1 Account deletion blocked for Marketplace buyers — **AGENT (do first)**
+## 1.1 Account deletion blocked for Marketplace buyers — **AGENT (hybrid decided)**
 
-**Bug:** `shop_orders.user_id` is `ON DELETE RESTRICT`. Buyer delete can wipe profile/saves then fail at `deleteUser`. PIPEDA + App Store risk.
+**Bug (fixed in code):** `shop_orders.user_id` was `ON DELETE RESTRICT`. Buyer delete could wipe profile/saves then fail at `deleteUser`.
 
-**AGENT will:**
+**Decision (Oct 16, 2026) — hybrid / market-standard:**
 
-1. Migration: nullable `user_id` / claims buyer refs → `ON DELETE SET NULL`; keep financial IDs for CRA retention.
-2. Update `src/app/api/account/delete/route.ts` (and partner delete if `vendor_id` RESTRICT):
-   - Pre-scan unpaid/label-not-bought: refund like bookings.
-   - In-transit / dispute / 14-day SNAD window: clear block message **or** anonymize per counsel preference.
-   - Completed: anonymize PII; keep amounts / tax / Stripe IDs.
-3. Run anonymize **before** profile wipe so failures aren’t half-deleted.
-4. After code works: simplify Privacy Policy “support-assisted deletion” wording.
+| Stage | Action |
+|-------|--------|
+| Not shipped yet (ship, pre–First Scan) | Refund, then anonymize |
+| Awaiting pickup / in transit / 14-day claim window / open claim / dispute | **Block** with clear in-app message |
+| Delivered or picked up and quiet | Anonymize PII; keep amounts / tax / Stripe IDs |
 
-**YOU:** Approve approach (block vs anonymize for active orders). After deploy, smoke-test delete on a test buyer with a completed shop order.
+**AGENT status:**
 
-## 1.2 Vendor Terms acceptance (clickwrap) — **AGENT**
+1. [x] Migration `20261016000000_shop_orders_account_deletion_set_null.sql` — nullable `user_id` / `buyer_user_id`, `ON DELETE SET NULL`
+2. [x] `src/lib/shop/account-deletion.ts` + `src/app/api/account/delete/route.ts` hybrid flow (anonymize **before** profile wipe)
+3. [x] Privacy Policy Marketplace deletion wording updated
 
-**Gap:** Partner signup is mostly browsewrap; clawback / indemnity need recorded assent. Terms changed materially Oct 2026.
+**YOU:** Apply the migration on production Supabase. Smoke-test: (a) delete with a completed quiet shop order, (b) confirm in-transit / claim-window delete returns the block message, (c) unshipped order refunds then deletes.
 
-**AGENT will:**
+## 1.2 Vendor Terms acceptance (clickwrap) — **AGENT (implemented)**
 
-1. Checkbox on `PartnerSignupWizard` (block Next / OAuth until checked); links to ToU, Privacy, DPA, Seller Addendum.
-2. Server reject if missing; store `legal_acceptances` (user, doc, `POLICY_LAST_UPDATED`, IP, time).
-3. One-time “accept updated terms” gate for existing vendors at dashboard login.
-4. Persist Addendum version on Marketplace shipping attestation; log Shopify Connect click assent.
+**Gap (fixed in code):** Partner signup was browsewrap; clawback / indemnity need recorded assent.
 
-**YOU:** After deploy, create a throwaway partner and confirm checkbox + DB row; log in as an existing vendor and accept once.
+**AGENT status:**
 
-## 1.3 Ontario internet-sale disclosures — **AGENT**
+1. [x] Checkbox on `PartnerSignupWizard` (blocks Continue until checked); links to ToU, Privacy, DPA, Seller Addendum
+2. [x] Server rejects signup without `accept_terms: true`; writes `legal_acceptances` rows (user, doc, `POLICY_LAST_UPDATED`, IP, UA, time) — migration `20261016010000_legal_acceptances.sql`
+3. [x] Existing vendors without current version → redirect `/partners/accept-terms` from dashboard layout
+4. [x] Marketplace shipping first attestation records Seller Addendum version; Shopify Connect bridge requires checkbox + logs `shopify_connect` assent
 
-**AGENT will:** Expand `sendShopBuyerOrderConfirmation` (and checkout review step) with supplier identity, itemized price/shipping/tax, delivery, cancel/return/SNAD, order id/date, support contact; store Terms version on order.
+**YOU:** Apply the `legal_acceptances` migration on production. Smoke-test: throwaway signup (checkbox + DB rows); log in as an existing vendor and accept once; Connect from Shopify after checking the box.
 
-**YOU:** Ask counsel whether home-based sellers may show a business mailing address instead of home address.
+## 1.3 Ontario internet-sale disclosures — **AGENT** ✅ code done (apply migration on prod)
 
-## 1.4 Privacy / Meta / Google — **AGENT**
+**Done in code:** Buyer confirmation email + mobile checkout “Purchase details” include seller identity (name, ship-from/location address when set, website), itemized price/shipping/tax, delivery, cancel/return/SNAD, order id/date (email), support, Terms version + link. `shop_orders.terms_version` set at confirm (`20261016020000_shop_orders_terms_version.sql`). Product API returns `purchase_disclosures` for checkout UI.
 
-**AGENT will:** Align Privacy Policy with Cookie Policy (Meta Pixel in `layout.tsx`); remove Conversions API / GA claims if not in code; ideally gate pixel behind consent.
+**YOU:** Ask counsel whether home-based sellers may show a business mailing address instead of home address. Apply the Terms-version migration on prod with other Marketplace SQL.
 
-**YOU:** Confirm whether Google Analytics or Meta CAPI are used outside this repo.
+## 1.4 Privacy / Meta / Google — **AGENT** ✅
+
+**Done:** Cookie + Privacy policies aligned to **Meta Pixel only** (Meta Ads Manager / Instagram; no Google Analytics, no Google Ads tags, no Meta CAPI). Pixel loads only after Accept on the site cookie banner (`CookieConsentBanner` + `MetaPixel`). Dead `gtag` branch removed from workshop outbound.
+
+**YOU:** None for this item (confirmed: Meta Ads Manager + Instagram only).
 
 ## 1.5 Refund fee + tax scope — **BOTH**
 
-See Part 0.2. **AGENT** runs Stripe **test-mode** pre-scan refund ledger check once you ask; implements tax branching after CPA answer.
+Decisions are in Part 0.2. Code collects Marketplace GST/HST only when `gst_hst_registered` is true, into the vendor Connect account (vendor remits, same as workshops). Pre-scan refunds keep the Stripe processing fee with the vendor. Shipping remains platform-held for Shippo. Counsel/CPA should still confirm before scaling GMV. **YOU** moves any live Pro subscription still on the $49 Price onto the $39 Price (Part 4).
 
 ---
 
@@ -333,8 +337,8 @@ Uncommitted local mobile UI tweaks (`offhrs-mobile/app/(tabs)/index.tsx`) are **
 
 - [ ] Counsel on Terms / Addendum  
 - [ ] CPA on Marketplace tax model  
-- [ ] Decide refund-fee policy (A/B/C) and $49→$39 Pro treatment  
-- [ ] Approve account-deletion behavior for active orders  
+- [x] Decide refund-fee policy (vendor bears Stripe fee) and $49→$39 Pro treatment (migrate all; no grandfathering)  
+- [x] Approve account-deletion behavior for active orders (hybrid: refund unshipped / block live / anonymize quiet)  
 - [ ] Apply Supabase production migrations  
 - [ ] Set all Vercel Production env vars (Shippo, Stripe, tax, Price IDs, Maps, Resend, cron)  
 - [ ] Shippo live + CP approval + webhook  
@@ -350,12 +354,12 @@ Uncommitted local mobile UI tweaks (`offhrs-mobile/app/(tabs)/index.tsx`) are **
 
 ## AGENT (ask in Cursor)
 
-- [ ] Implement account deletion + migration (#1)  
-- [ ] Implement vendor + existing-vendor Terms assent (#2)  
-- [ ] Ontario disclosure email/checkout (#3)  
-- [ ] Privacy / analytics alignment (+ optional cookie consent) (#4)  
-- [ ] After your decision: refund-fee code/Terms align  
-- [ ] After CPA: tax collection branch for registered vendors  
+- [x] Implement account deletion + migration (#1) — apply SQL on prod still YOU  
+- [x] Implement vendor + existing-vendor Terms assent (#2) — apply `legal_acceptances` SQL on prod still YOU  
+- [x] Ontario disclosure email/checkout (#3) — apply `terms_version` SQL on prod still YOU  
+- [x] Privacy / analytics alignment (+ cookie consent) (#4)  
+- [x] After your decision: refund-fee code/Terms align (vendor bears Stripe fee on pre-scan refunds)  
+- [x] After CPA decision: tax collection branch — registered vendors only, Connect remittance (`gst_hst_registered`)  
 - [ ] PR / merge branch to `main` when you say go  
 - [ ] Help with failed Vercel / EAS / `shopify app deploy`  
 - [ ] Fix Shopify review bounce items  

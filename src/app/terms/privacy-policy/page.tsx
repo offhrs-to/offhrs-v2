@@ -64,8 +64,8 @@ export default function PrivacyPolicyPage() {
           <li>
             <strong>Approximate location.</strong> If you choose to share it, we may store a Canadian postal
             code and/or coarse latitude/longitude derived from your device or from geocoding that postal
-            code, so we can show and sort workshops by distance. This is optional and is not used for
-            advertising or sold to third parties.
+            code, so we can show and sort workshops by distance. This is optional and is not sold to third
+            parties. It is separate from Meta advertising cookies described below.
           </li>
           <li>
             <strong>Lawful basis:</strong> legitimate interests (platform stability, security, and
@@ -209,7 +209,17 @@ export default function PrivacyPolicyPage() {
             partners.offhrs.app.
           </li>
           <li>
-            <strong>Expo / Apple / Google</strong> &mdash; mobile app distribution and over-the-air updates.
+            <strong>Expo / Apple / Google</strong> &mdash; mobile app distribution and over-the-air updates
+            (Google here means the Play Store / Expo tooling, not Google Analytics).
+          </li>
+          <li>
+            <strong>Meta Platforms (Facebook / Instagram)</strong> &mdash; if you accept advertising cookies
+            on offhrs.app, we load the Meta Pixel so Meta can help us measure and optimize ads we run in Meta
+            Ads Manager (including Instagram). Meta may receive browser identifiers and page-view or
+            conversion events (for example, a Lead event when someone opens an external workshop booking
+            link). We do not use Google Analytics, Google Ads tags, or Meta&rsquo;s server-side Conversions
+            API. See our{' '}
+            <a href="/terms/cookies">Cookie Policy</a> for cookie names and how to decline.
           </li>
         </ul>
       </section>
@@ -223,17 +233,18 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Account deletion.</strong> When you delete your account from the mobile Profile screen,
-            we immediately remove your profile, saves, and reviews from production databases. Active bookings
-            are refunded and the booking records are anonymized. Affected workshop slots are reconciled so
+            we remove your profile, saves, and reviews from production databases. Active workshop bookings
+            are refunded and those booking records are anonymized. Affected workshop slots are reconciled so
             partners see accurate availability.
           </li>
           <li>
-            <strong>Marketplace orders.</strong> We must keep Marketplace order records (including shipping
-            details, payment, tax, and claim records) for fulfillment, claims, disputes, and tax and audit
-            purposes, for up to <strong>six (6) years</strong>. If you have Marketplace orders, we may need to
-            complete your account deletion with you through{' '}
-            <a href="mailto:hello@offhrs.app">hello@offhrs.app</a>, and we keep only the personal details
-            needed for those purposes.
+            <strong>Marketplace orders.</strong> Unshipped Marketplace orders are refunded, then anonymized.
+            Orders that are awaiting pickup, in transit, inside the 14-day delivery claim window, or under an
+            open claim or payment dispute temporarily block account deletion until that order is finished
+            (we show a clear message in the app). Finished, quiet orders are anonymized (name, email, and
+            shipping address removed) while payment, tax, and order amounts are kept for up to{' '}
+            <strong>six (6) years</strong> for tax, audit, and dispute purposes. Contact{' '}
+            <a href="mailto:hello@offhrs.app">hello@offhrs.app</a> if you need help completing deletion.
           </li>
           <li>
             <strong>CRA retention.</strong> Transaction logs, HST billing records, and Stripe settlement

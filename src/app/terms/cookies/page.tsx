@@ -4,7 +4,7 @@ import { LegalPageLayout } from '@/components/legal-page-layout'
 export const metadata: Metadata = {
   title: 'Cookie Policy | offhrs',
   description:
-    'How offhrs uses cookies, local storage, and pixel tracking across offhrs.app, partners.offhrs.app, and our mobile apps.',
+    'How offhrs uses cookies, local storage, and the Meta Pixel across offhrs.app, partners.offhrs.app, and our mobile apps.',
   alternates: { canonical: 'https://offhrs.app/terms/cookies' },
 }
 
@@ -64,22 +64,13 @@ const functionality: Row[] = [
     purpose: 'Caches user theme preferences (light / dark mode).',
     duration: 'Persisted',
   },
-]
-
-const analytics: Row[] = [
   {
-    name: '_ga',
-    provider: 'Google',
-    setOn: '*.offhrs.app',
-    purpose: 'Assigns an anonymous client identifier to group pageviews and active dashboard traffic.',
-    duration: '2 years',
-  },
-  {
-    name: '_gid',
-    provider: 'Google',
-    setOn: '*.offhrs.app',
-    purpose: 'Distinguishes unique users within a 24-hour cycle for reporting analytics.',
-    duration: '24 hours',
+    name: 'offhrs_ad_consent',
+    provider: 'offhrs',
+    setOn: 'offhrs.app (localStorage)',
+    purpose:
+      'Remembers whether you accepted or declined advertising cookies (Meta Pixel) so we do not ask on every visit.',
+    duration: 'Persisted',
   },
 ]
 
@@ -88,14 +79,16 @@ const advertising: Row[] = [
     name: '_fbp',
     provider: 'Meta',
     setOn: 'offhrs.app',
-    purpose: 'Used by Meta to identify browser traffic and deliver optimized retargeting on Facebook and Instagram.',
+    purpose:
+      'Set by the Meta Pixel when you accept advertising cookies. Helps Meta measure and optimize our Facebook and Instagram ads (via Meta Ads Manager) and may support retargeting.',
     duration: '3 months',
   },
   {
-    name: '_gcl_au',
-    provider: 'Google',
+    name: '_fbc',
+    provider: 'Meta',
     setOn: 'offhrs.app',
-    purpose: 'Collected by Google Ads to measure digital acquisition performance.',
+    purpose:
+      'May be set when you arrive from a Facebook or Instagram ad click, so Meta can attribute that visit to a campaign.',
     duration: '3 months',
   },
 ]
@@ -136,10 +129,14 @@ export default function CookiePolicyPage() {
         <h2>Introduction</h2>
         <p>
           Our platform, including <strong>offhrs.app</strong> and <strong>partners.offhrs.app</strong>{' '}
-          (collectively, the &ldquo;Site&rdquo;), uses cookies, device identifiers, local web storage, and
-          server-side pixel tracking (such as the Meta Conversions API) to distinguish you from other users.
-          This allows us to optimize booking workflows, verify active vendor dashboard sessions, and maintain
-          a secure payment lifecycle.
+          (collectively, the &ldquo;Site&rdquo;), uses cookies, device identifiers, and local web storage to
+          distinguish you from other users. This allows us to keep you signed in, run secure payments, and
+          (only if you accept) measure our Meta advertising with the browser Meta Pixel.
+        </p>
+        <p>
+          We do <strong>not</strong> use Google Analytics, Google Ads tags, or Meta&rsquo;s server-side
+          Conversions API on the Site. Advertising measurement is limited to the Meta Pixel for Facebook and
+          Instagram campaigns managed in Meta Ads Manager.
         </p>
       </section>
 
@@ -154,33 +151,31 @@ export default function CookiePolicyPage() {
 
       <section>
         <h2>2. Functionality cookies</h2>
-        <p>These allow our views to remember local layout options and scheduling preferences.</p>
+        <p>These allow our views to remember local layout options, scheduling preferences, and your ad-cookie choice.</p>
         <CookieTable rows={functionality} />
       </section>
 
       <section>
-        <h2>3. Analytical &amp; performance cookies</h2>
+        <h2>3. Targeting &amp; advertising cookies (Meta)</h2>
         <p>
-          These give us visibility into how users traverse the workshop discovery funnel so we can make
-          finding classes in Toronto faster and more intuitive.
-        </p>
-        <CookieTable rows={analytics} />
-      </section>
-
-      <section>
-        <h2>4. Targeting &amp; advertising cookies</h2>
-        <p>
-          These variables are connected to our Meta and Google advertising accounts. They track conversion
-          metrics (for example, whether a vendor clicked a Meta Reel ad and completed a trial registration).
+          If you choose <strong>Accept</strong> on our cookie banner, we load the Meta Pixel. Meta may then
+          set the cookies below to measure whether someone who saw or clicked a Facebook or Instagram ad
+          visited our Site (for example, a vendor completing trial signup). We do not load Google advertising
+          or analytics tags.
         </p>
         <CookieTable rows={advertising} />
+        <p>
+          If you choose <strong>Decline</strong>, we do not initialize the Meta Pixel and these advertising
+          cookies are not set by us for that purpose. You can change your mind later by clearing site data for
+          offhrs.app (which clears <code>offhrs_ad_consent</code>) and revisiting the Site.
+        </p>
       </section>
 
       <section>
-        <h2>5. Disabling and managing cookies</h2>
+        <h2>4. Disabling and managing cookies</h2>
         <p>
-          Most modern web browsers accept tracking cookies by default. To revoke consent, alter cookie
-          visibility, or wipe historical tracking, adjust your local device configurations:
+          Use the on-site banner to accept or decline advertising cookies. You can also alter cookie
+          visibility or wipe historical tracking in your browser:
         </p>
         <ul>
           <li>
@@ -197,8 +192,9 @@ export default function CookiePolicyPage() {
         </ul>
         <p>
           <strong>Note on platform interaction:</strong> if you configure your browser to drop or block all
-          strictly necessary tracking flags, you will be unable to initialize vendor dashboards on
-          partners.offhrs.app or securely register for workshops on offhrs.app.
+          strictly necessary cookies, you will be unable to initialize vendor dashboards on
+          partners.offhrs.app or securely register for workshops on offhrs.app. Declining advertising cookies
+          alone does not block sign-in or checkout.
         </p>
       </section>
     </LegalPageLayout>

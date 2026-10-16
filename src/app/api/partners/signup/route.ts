@@ -9,6 +9,11 @@ import { consumeRateLimit, getRateLimitKey } from '@/lib/rate-limit'
 import { verifyTurnstileToken } from '@/lib/turnstile'
 import { logSecurityEvent } from '@/lib/security-monitor'
 import { normalizeLocationUnit } from '@/lib/venue-address'
+import {
+  clientIpFromRequest,
+  recordPartnerClickwrapAcceptances,
+  userAgentFromRequest,
+} from '@/lib/legal-acceptances'
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024
 const SIGNUP_RATE_LIMIT_PER_MINUTE = 5
@@ -33,8 +38,17 @@ const signupSchema = z
       })
       .optional(),
     turnstile_token: z.string().optional(),
+    /** Clickwrap — must be true; server rejects missing assent. */
+    accept_terms: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.accept_terms !== true) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'You must accept the Terms to create a partner account.',
+        path: ['accept_terms'],
+      })
+    }
     if (data.categories.includes('Other') && !data.category_other_detail?.trim()) {
       ctx.addIssue({
         code: 'custom',
@@ -343,6 +357,22 @@ export async function POST(request: NextRequest) {
       console.error('Partner signup vendor profile insert failed:', profileError)
       await rollbackSignup(admin, userId, { deleteAuthUser: createdNewAuthUser })
       return NextResponse.json({ error: 'Failed to create vendor profile' }, { status: 500 })
+    }
+
+    const assent = await recordPartnerClickwrapAcceptances({
+      admin,
+      userId,
+      vendorId: insertedProfile.id,
+      context: 'partner_signup',
+      ipAddress: clientIpFromRequest(request),
+      userAgent: userAgentFromRequest(request),
+    })
+    if (!assent.ok) {
+      await rollbackSignup(admin, userId, { deleteAuthUser: createdNewAuthUser })
+      return NextResponse.json(
+        { error: 'Could not record Terms acceptance. Please try again.' },
+        { status: 500 }
+      )
     }
 
     if (logoBuffer && workshop_logo) {

@@ -2,7 +2,11 @@ import { DesignColors, DesignSpacing } from '@/constants/design-template';
 import { CA_PROVINCES, isCaProvinceCode, provinceLabel } from '@/constants/ca-provinces';
 import { useAuth } from '@/contexts/AuthContext';
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
-import { fetchShopProduct, type ShopVendorSummary } from '@/lib/shop-api';
+import {
+  fetchShopProduct,
+  type ShopPurchaseDisclosures,
+  type ShopVendorSummary,
+} from '@/lib/shop-api';
 import { runShopCheckout } from '@/lib/shop-checkout-mobile';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -10,6 +14,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -61,12 +66,19 @@ export default function ShopCheckoutScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [provincePickerOpen, setProvincePickerOpen] = useState(false);
   const [pickupVendor, setPickupVendor] = useState<ShopVendorSummary | null>(null);
+  const [disclosures, setDisclosures] = useState<ShopPurchaseDisclosures | null>(null);
 
   useEffect(() => {
-    if (fulfillment !== 'pickup' || !params.productId) return;
+    if (!params.productId) return;
     void fetchShopProduct(params.productId)
-      .then((data) => setPickupVendor(data.vendor))
-      .catch(() => setPickupVendor(null));
+      .then((data) => {
+        if (fulfillment === 'pickup') setPickupVendor(data.vendor);
+        setDisclosures(data.purchase_disclosures);
+      })
+      .catch(() => {
+        if (fulfillment === 'pickup') setPickupVendor(null);
+        setDisclosures(null);
+      });
   }, [fulfillment, params.productId]);
 
   const onPay = async () => {
@@ -291,6 +303,76 @@ export default function ShopCheckoutScreen() {
             </View>
             <Text style={{ marginTop: 8, fontSize: 12, color: DesignColors.mediumGray }}>
               GST/HST is calculated when you pay.
+            </Text>
+          </View>
+        ) : null}
+
+        {disclosures ? (
+          <View
+            style={{
+              marginTop: 16,
+              padding: 14,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: DesignColors.lightGreenBorder,
+              backgroundColor: '#fff',
+            }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: '700', color: DesignColors.charcoal, marginBottom: 10 }}>
+              Purchase details
+            </Text>
+            <Text style={{ fontSize: 13, color: DesignColors.mediumGray, marginBottom: 4 }}>Seller</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.charcoal }}>
+              {disclosures.seller_name}
+            </Text>
+            {disclosures.seller_address ? (
+              <Text style={{ marginTop: 6, fontSize: 13, color: DesignColors.charcoal, lineHeight: 18 }}>
+                {disclosures.seller_address}
+              </Text>
+            ) : null}
+            {disclosures.seller_website ? (
+              <Pressable
+                onPress={() => void Linking.openURL(disclosures.seller_website!)}
+                style={{ marginTop: 6 }}
+              >
+                <Text style={{ fontSize: 13, color: DesignColors.primary, fontWeight: '600' }}>
+                  {disclosures.seller_website}
+                </Text>
+              </Pressable>
+            ) : null}
+            <Text style={{ marginTop: 12, fontSize: 13, color: DesignColors.mediumGray, marginBottom: 4 }}>
+              Delivery
+            </Text>
+            <Text style={{ fontSize: 13, color: DesignColors.charcoal, lineHeight: 18 }}>
+              {fulfillment === 'pickup' ? disclosures.delivery_pickup : disclosures.delivery_ship}
+            </Text>
+            <Text style={{ marginTop: 12, fontSize: 13, color: DesignColors.mediumGray, marginBottom: 4 }}>
+              Cancel / returns
+            </Text>
+            <Text style={{ fontSize: 13, color: DesignColors.charcoal, lineHeight: 18 }}>
+              {fulfillment === 'pickup'
+                ? disclosures.cancel_return_pickup
+                : disclosures.cancel_return_ship}
+            </Text>
+            <Text style={{ marginTop: 12, fontSize: 13, color: DesignColors.mediumGray, marginBottom: 4 }}>
+              Support
+            </Text>
+            <Pressable onPress={() => void Linking.openURL(`mailto:${disclosures.support_email}`)}>
+              <Text style={{ fontSize: 13, color: DesignColors.primary, fontWeight: '600' }}>
+                {disclosures.support_email}
+              </Text>
+            </Pressable>
+            <Text style={{ marginTop: 4, fontSize: 12, color: DesignColors.mediumGray }}>
+              Or Profile → Orders in the app
+            </Text>
+            <Text style={{ marginTop: 12, fontSize: 12, color: DesignColors.mediumGray }}>
+              Terms version {disclosures.terms_version} ·{' '}
+              <Text
+                style={{ color: DesignColors.primary, fontWeight: '600' }}
+                onPress={() => void Linking.openURL(disclosures.terms_url)}
+              >
+                Terms of Use
+              </Text>
             </Text>
           </View>
         ) : null}
