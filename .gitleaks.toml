@@ -1,0 +1,14 @@
+title = "offhrs"
+
+[extend]
+useDefault = true
+
+# Only the publishable-key assignments. A secret key on another line in the
+# same file must still fail the scan.
+[[allowlists]]
+description = "Stripe pk_* and Supabase sb_publishable_ assignments in EAS config"
+regexTarget = "line"
+regexes = [
+  '''"EXPO_PUBLIC_SUPABASE_ANON_KEY"\s*:\s*"sb_publishable_[^"]+"''',
+  '''"EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY"\s*:\s*"pk_(live|test)_[^"]+"''',
+]
