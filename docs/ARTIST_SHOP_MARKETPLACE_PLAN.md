@@ -31,8 +31,8 @@
 | Pickup | Optional local pickup ($0 shipping, no label) |
 | Removed | Quote-after-order; seller zone/rate tables |
 | Workshops | Unchanged: Lite / Pro / Full + **0% booking commission** |
-| Goods commission | **5%** + **Stripe separate** (~2.9% + $0.30). `SHOP_PLATFORM_FEE_BPS=500` |
-| Commission base | **5% on item subtotal (ex-tax)**; not on postage or tax |
+| Goods commission | **3%** + **Stripe separate** (~2.9% + $0.30). `SHOP_PLATFORM_FEE_BPS=300` |
+| Commission base | **3% on item subtotal (ex-tax)**; not on postage or tax |
 | Chargebacks | **Vendor liable** (amount + dispute fee) workshops + Marketplace; Stripe hits offhrs first under Express |
 | Risk of loss | **First Scan** (in-transit); **Delivered** → porch-pirate risk on buyer |
 | Ship-by SLA | **5 business days** default; Day-3 reminder; made-to-order extendable (shown at checkout) |
@@ -43,7 +43,7 @@
 | Logistics | offhrs does not warehouse or drop off parcels |
 | Mobile | Tabs **Home · Workshops · Bookings · Shop · Profile**; **no** Home Shop carousel; Profile **Orders \| Saved \| Reviews** |
 
-**Fee math:** `application_fee_amount` = 5% of item subtotal + estimated Stripe fee on full charge. Never market goods as “0%.”
+**Fee math:** `application_fee_amount` = 3% of item subtotal + estimated Stripe fee on full charge. Never market goods as “0%.”
 
 **Shippo tooling:** Postage buyer-funded; ~US$0.07/label API fee absorbed by offhrs in v1; APV/dims shortfalls clawed from seller.
 
@@ -77,7 +77,7 @@ flowchart LR
 | Plan | Price | Dashboard |
 |------|-------|-----------|
 | Lite / Pro / Full | $29 / $39 / $59 CAD/mo | Lite: workshops only. Pro: workshops **+ Marketplace**. Full: Pro + Sync |
-| Marketplace free | $0 signup; 5% + Stripe on sales | **Marketplace + Settings + FAQ** only (Connect in Settings) |
+| Marketplace free | $0 signup; 3% + Stripe on sales | **Marketplace + Settings + FAQ** only (Connect in Settings) |
 | Shopify Sync only | $29 CAD/mo | No Marketplace unless also Pro/Full or Marketplace-free |
 
 **Signup:** `/partners/signup?intent=marketplace`. Gates: Connect + tax + Canada attestation. `vendorHasMarketplaceAccess` = Pro/Full **or** marketplace-free.
@@ -100,7 +100,7 @@ sequenceDiagram
   App->>Shippo: Rates from weight dims origin dest
   Shippo-->>App: Canada Post options CAD
   Buyer->>App: Pay item + shipping + tax
-  App->>Stripe: Destination charge + 5 percent + Stripe fee recoup
+  App->>Stripe: Destination charge + 3 percent + Stripe fee recoup
   Stripe-->>App: Paid
   App-->>Seller: New order
   Seller->>App: Print label
@@ -186,7 +186,7 @@ Partner CRUD + labels · consumer browse/checkout/orders · Stripe + Shippo + di
 
 | Cost | Who pays |
 |------|----------|
-| 5% | Seller |
+| 3% | Seller |
 | Stripe ~2.9%+$0.30 | Seller (recoup) |
 | CP postage | Buyer → Shippo label |
 | Shippo ~$0.07/label | offhrs (absorb v1) |
@@ -241,7 +241,7 @@ Marketplace free + nav; Products CRUD + dims; Lite/Pro Marketplace tab; seller Q
 
 ### Phase 2 — Checkout + mobile Shop
 
-Shippo rates; CA validation; PI + 5%; pickup; SLA/$250 at checkout; Stripe Tax; Shop tab + Profile Orders
+Shippo rates; CA validation; PI + 3%; pickup; SLA/$250 at checkout; Stripe Tax; Shop tab + Profile Orders
 
 ### Phase 3 — Labels + orders
 
@@ -272,4 +272,4 @@ Disputes UI; auto clawback; SNAD/damaged; App Store/Play; release
 - Label print + tracking; drop-off receipt encouraged  
 - Pre-scan cancel = refund + void; post-scan cancel blocked  
 - Lost-in-transit / Delivered / SNAD / APV / chargebacks per locked policies  
-- 5% + Stripe disclosed; postage not seller GMV; workshop 0% unchanged  
+- 3% + Stripe disclosed; postage not seller GMV; workshop 0% unchanged  

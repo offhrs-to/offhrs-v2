@@ -42,7 +42,7 @@ Five options (CAD):
 
 | Plan | Price | What you get |
 | ---- | ----- | ------------ |
-| **Marketplace Only** | $0 / month | Sell goods; 5% + Stripe on sales |
+| **Marketplace Only** | $0 / month | Sell goods; 3% + Stripe on sales |
 | **Lite** | $29 / month | Up to 4 workshops; no Marketplace; no Sync |
 | **Shopify Sync** | $29 / month | Sync only (billed via Shopify) |
 | **Pro** | $39 / month | Unlimited workshops + Marketplace |
@@ -80,7 +80,7 @@ standard **Stripe payment processing fee (about 2.9% + $0.30 CAD per
 transaction)**, which is borne by you as the vendor.
 
 ### What fees apply to Artist Marketplace sales?
-Marketplace goods: **5%** platform fee on the item subtotal (excluding tax and shipping),
+Marketplace goods: **3%** platform fee on the item subtotal (excluding tax and shipping),
 **plus** Stripe processing (about 2.9% + $0.30 CAD). Buyer shipping (Canada Post quote + any
 handling fee you set) is **held by offhrs** for prepaid Canada Post labels — not paid out as
 merchandise earnings. If you are GST/HST-registered, tax is collected into your Stripe Connect

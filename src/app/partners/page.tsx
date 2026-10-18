@@ -97,7 +97,7 @@ export default function PartnersLandingPage() {
             name: 'Marketplace Only',
             price: '0',
             priceCurrency: 'CAD',
-            description: 'Sell physical goods on Artist Marketplace — no monthly fee; 5% + Stripe on sales',
+            description: 'Sell physical goods on Artist Marketplace — no monthly fee; 3% + Stripe on sales',
           },
           {
             '@type': 'Offer',
@@ -259,7 +259,7 @@ export default function PartnersLandingPage() {
                 <span className="font-playfair text-5xl font-bold text-[#888]">$0</span>
                 <span className="text-[#999] text-sm mb-2">to join</span>
               </div>
-              <p className="text-xs text-[#999] font-medium mb-6">No monthly fee · 5% + Stripe on sales</p>
+              <p className="text-xs text-[#999] font-medium mb-6">No monthly fee · 3% + Stripe on sales</p>
               <ul className="space-y-3 text-sm text-[#888] mb-8 flex-1">
                 {['Sell physical goods Canada-wide', 'No workshops dashboard', 'No Shopify Sync'].map((item) => (
                   <li key={item} className="flex items-start gap-2">

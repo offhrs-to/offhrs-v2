@@ -134,7 +134,7 @@ export default async function DashboardPage({
           <CardContent className="space-y-3 p-5">
             <h2 className="text-sm font-semibold text-foreground">Artist Marketplace</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              List physical goods for Canada-only shipping. Platform fee is 5% of item subtotal plus Stripe
+              List physical goods for Canada-only shipping. Platform fee is 3% of item subtotal plus Stripe
               processing. Workshops stay on Lite or Pro if you want bookings too.
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
@@ -266,7 +266,7 @@ export default async function DashboardPage({
           <CardContent className="space-y-2 p-5">
             <h2 className="text-sm font-semibold text-foreground">Sell goods on Artist Marketplace</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Free to join — 5% + Stripe on sales. Canada-only shipping via platform Shippo. Does not
+              Free to join — 3% + Stripe on sales. Canada-only shipping via platform Shippo. Does not
               replace Shopify Sync.
             </p>
             <EnableMarketplaceButton />

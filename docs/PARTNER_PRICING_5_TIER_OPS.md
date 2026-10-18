@@ -99,7 +99,7 @@ No Stripe product. Flow:
 
 1. Signup with marketplace intent (`/partners/signup?intent=marketplace`) or **Enable Marketplace** in the dashboard.
 2. Sets `marketplace_enabled` + `marketplace_plan = free` (or `included` when they also have Pro/Full).
-3. Fee: **5%** platform + Stripe on goods (unchanged).
+3. Fee: **3%** platform + Stripe on goods.
 
 Ops: ensure Marketplace QA / Connect onboarding still required before going live on Shop.
 

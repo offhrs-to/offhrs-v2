@@ -54,7 +54,7 @@ You can run Shopify resubmission prep **in parallel** with Marketplace go-live; 
 1. Engage Ontario counsel on Terms + [Marketplace Seller Addendum](https://offhrs.app/terms/marketplace-seller-addendum) (checklist: `docs/MARKETPLACE_PHASE0_OPS.md` §2).
 2. Engage CPA / tax lawyer on GST/HST **platform operator** treatment for Marketplace (`docs/MARKETPLACE_PHASE0_OPS.md` §3). Ask:
    - Collect tax only for **unregistered** vendors, or for all?
-   - Is the **5% platform fee** taxable to registered vendors?
+   - Is the **3% platform fee** taxable to registered vendors?
    - Any BC/SK/MB/QC PST/QST platform duties?
 3. Confirm Stripe Tax Canada registrations match that opinion.
 4. Confirm goods tax code: usually `txcd_99999999` (General – Tangible Goods).
@@ -182,7 +182,7 @@ Project **offhrs-v2** → Settings → Environment Variables → **Production** 
 | `SHIPPO_WEBHOOK_SECRET` | long random; match Shippo webhook auth |
 | `SHIPPO_CANADA_POST_CARRIER_ACCOUNT_ID` | optional pin |
 | `STRIPE_SHOP_GOODS_TAX_CODE` | `txcd_99999999` (or CPA-approved) |
-| `SHOP_PLATFORM_FEE_BPS` | `500` |
+| `SHOP_PLATFORM_FEE_BPS` | `300` |
 | `SHOP_HIGH_VALUE_INSURANCE_CAD` | `250` |
 | `GOOGLE_MAPS_API_KEY` | server key, Places enabled |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | live |
@@ -213,7 +213,7 @@ Never set `NEXT_PUBLIC_SHIPPO_*`.
    - existing workshop events
    - `charge.dispute.created` / `updated` / `closed`
 3. Connect onboarding required for seller payouts.
-4. Confirm shipping + tax stay in platform fee; seller net ≈ item − 5% (`docs/MARKETPLACE_POSTAGE_LEDGER.md`).
+4. Confirm shipping + tax stay in platform fee; seller net ≈ item − 3% (`docs/MARKETPLACE_POSTAGE_LEDGER.md`).
 
 ## 3.4 Crons — already in `vercel.json`
 

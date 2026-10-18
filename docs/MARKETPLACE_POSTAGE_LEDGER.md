@@ -17,7 +17,7 @@ Aligns with `docs/ARTIST_SHOP_MARKETPLACE_PLAN.md`.
 | `shipping_collected_cad` | Buyer paid for ship incl. handling (0 if pickup) |
 | `shippo_rate_amount_cad` | Base Canada Post quote at checkout (ex-handling) |
 | `tax_cad` | Stripe Tax |
-| `platform_fee_cents` | 5% of item subtotal |
+| `platform_fee_cents` | 3% of item subtotal |
 | `estimated_stripe_fee_cents` | Recoup amount |
 | `shippo_label_cost_cad` | Actual postage when label bought |
 | `shippo_label_fee_cad` | Shippo per-label API fee (platform COGS) |
@@ -32,16 +32,16 @@ Destination charge total = item + shipping + tax.
 
 ```
 application_fee =
-  platform 5% (item)
+  platform 3% (item)
   + Stripe fee estimate   (omit when connected account pays Stripe fees)
   + shipping_collected    (postage + handling)
 ```
 
-Seller net ≈ **item + tax − 5%** (− Stripe fee when platform pays processing). Tax is only present when `gst_hst_registered` is true.
+Seller net ≈ **item + tax − 3%** (− Stripe fee when platform pays processing). Tax is only present when `gst_hst_registered` is true.
 
 Shipping collected funds platform Shippo label purchases. GST/HST for a registered vendor is paid out on Connect for the vendor to remit. Unregistered vendors: `tax_cad = 0`.
 
-Pre-scan refunds reverse the transfer (including any tax paid out) and return the application fee **except** the Stripe processing estimate, so the vendor bears the card fee (same as workshops) and not the 5% or shipping.
+Pre-scan refunds reverse the transfer (including any tax paid out) and return the application fee **except** the Stripe processing estimate, so the vendor bears the card fee (same as workshops) and not the 3% or shipping.
 
 ## APV
 

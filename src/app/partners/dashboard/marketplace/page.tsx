@@ -181,7 +181,7 @@ function MarketplacePageInner() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Marketplace</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            List physical goods for Canada-only shipping. Platform fee 5% + Stripe on sales.
+            List physical goods for Canada-only shipping. Platform fee 3% + Stripe on sales.
           </p>
         </div>
         {tab === 'products' ? (

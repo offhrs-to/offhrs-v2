@@ -106,7 +106,7 @@ Your **customers** book through the **offhrs mobile app** (iOS and Android).
 
 ### What does it cost to list workshops on offhrs?
 
-offhrs charges a **monthly subscription** for workshop plans — there is **no commission** on individual bookings. Marketplace Only is free (5% + Stripe on goods). All prices in **CAD**:
+offhrs charges a **monthly subscription** for workshop plans — there is **no commission** on individual bookings. Marketplace Only is free (3% + Stripe on goods). All prices in **CAD**:
 
 | Plan | Monthly price | What you get |
 |------|---------------|--------------|
@@ -665,7 +665,7 @@ Include your business name, workshop title (if relevant), and screenshots when p
 | Shopify Sync | $29 CAD/month standalone (or included in Full License) |
 | Pro plan | $39 CAD/month, unlimited workshops + Marketplace |
 | Full License | $59 CAD/month, Pro + Marketplace + Shopify Sync |
-| Marketplace Only | $0 / month (5% + Stripe on goods) |
+| Marketplace Only | $0 / month (3% + Stripe on goods) |
 | Booking commission (offhrs) | 0% |
 | Stripe processing fee (estimate) | ~2.9% + $0.30 CAD per transaction |
 | Default refund window | 48 hours before session |

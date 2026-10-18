@@ -153,7 +153,7 @@ export default function ServiceTermsPage() {
             payout.
           </strong>{' '}
           offhrs does not mark up, retain, or otherwise share in Stripe&rsquo;s processing fees. For Marketplace
-          sales, offhrs also charges a separate 5% platform fee on the item subtotal (excluding tax and
+          sales, offhrs also charges a separate 3% platform fee on the item subtotal (excluding tax and
           shipping postage).
         </p>
 

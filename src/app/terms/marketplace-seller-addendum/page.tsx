@@ -37,7 +37,7 @@ export default function MarketplaceSellerAddendumPage() {
         <ul>
           <li>You are the seller of record for Marketplace goods. offhrs does not take title to inventory.</li>
           <li>
-            Platform fee: <strong>5%</strong> of item subtotal (ex-tax), plus Stripe processing (~2.9% + $0.30
+            Platform fee: <strong>3%</strong> of item subtotal (ex-tax), plus Stripe processing (~2.9% + $0.30
             CAD), separate from workshop bookings (0% commission).
           </li>
           <li>Sales and shipping are <strong>Canada only</strong> (CAD). You must ship from a Canadian address.</li>
@@ -56,7 +56,7 @@ export default function MarketplaceSellerAddendumPage() {
             settings (see the Terms of Use, Section 2).
           </li>
           <li>
-            Your approximate Marketplace payout is the item subtotal minus the 5% platform fee and Stripe
+            Your approximate Marketplace payout is the item subtotal minus the 3% platform fee and Stripe
             processing fees, subject to refunds, adjustments, and clawbacks described below.
           </li>
         </ul>

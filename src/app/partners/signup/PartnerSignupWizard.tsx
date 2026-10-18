@@ -786,7 +786,7 @@ export function PartnerSignupWizard() {
               ) : billingPlan === 'marketplace' ? (
                 <>
                   Artist Marketplace is <strong className="font-semibold text-[#1a1a1a]">free to join</strong>.
-                  You pay 5% + Stripe fees on goods sales. Set up Stripe Connect in Settings before you can
+                  You pay 3% + Stripe fees on goods sales. Set up Stripe Connect in Settings before you can
                   receive payouts.
                 </>
               ) : (
@@ -817,7 +817,7 @@ export function PartnerSignupWizard() {
                     <span className="text-sm font-normal text-[#555]">to join</span>
                   </p>
                   <p className="mt-2 text-xs text-[#555] leading-relaxed">
-                    Sell physical goods Canada-wide. No monthly fee — 5% + Stripe on sales. No workshops or
+                    Sell physical goods Canada-wide. No monthly fee — 3% + Stripe on sales. No workshops or
                     Shopify Sync.
                   </p>
                 </button>

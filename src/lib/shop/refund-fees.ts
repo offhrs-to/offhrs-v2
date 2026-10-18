@@ -2,7 +2,7 @@
  * Cents of a Marketplace application fee to return to the connected account
  * on a pre-scan refund.
  *
- * The application fee bundles the 5% platform fee, shipping, tax (when
+ * The application fee bundles the 3% platform fee, shipping, tax (when
  * collected), and — when the platform pays Stripe — the card-processing
  * estimate. The vendor bears only that card fee, matching workshop refunds.
  * Everything else in the fee is returned so a cancelled order does not also

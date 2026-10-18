@@ -96,7 +96,7 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
                 <tr className="border-t border-[#E8E4DE]">
                   <td className="py-2 pr-4 font-medium text-[#1a1a1a]">Marketplace Only</td>
                   <td className="py-2 pr-4">$0 / month</td>
-                  <td className="py-2">Sell goods; 5% + Stripe on sales</td>
+                  <td className="py-2">Sell goods; 3% + Stripe on sales</td>
                 </tr>
                 <tr className="border-t border-[#E8E4DE]">
                   <td className="py-2 pr-4 font-medium text-[#1a1a1a]">Lite</td>
@@ -207,7 +207,7 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'Does offhrs take a commission on each booking?',
         aText:
-          'No — offhrs does not take a percentage commission on workshop bookings. Our revenue for workshops is the monthly Lite/Pro/Full subscription. Stripe processing (about 2.9% + $0.30 CAD) still applies and is borne by you. Artist Marketplace goods are different: 5% platform fee on the item subtotal plus Stripe processing.',
+          'No — offhrs does not take a percentage commission on workshop bookings. Our revenue for workshops is the monthly Lite/Pro/Full subscription. Stripe processing (about 2.9% + $0.30 CAD) still applies and is borne by you. Artist Marketplace goods are different: 3% platform fee on the item subtotal plus Stripe processing.',
         a: (
           <p>
             No — offhrs does <strong>not</strong> take a percentage commission on{' '}
@@ -221,12 +221,12 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'What fees apply to Artist Marketplace sales?',
         aText:
-          'Marketplace sales: 5% platform fee on the item subtotal (excluding tax and shipping), plus Stripe processing (about 2.9% + $0.30 CAD). Buyer shipping is held by offhrs for prepaid Canada Post labels. If you are GST/HST-registered, tax is collected into your Stripe Connect account and you remit it (same as workshops). Unregistered vendors are not charged GST/HST at Marketplace checkout. Pro includes Marketplace; free Marketplace-only signup is available. Lite does not include Marketplace.',
+          'Marketplace sales: 3% platform fee on the item subtotal (excluding tax and shipping), plus Stripe processing (about 2.9% + $0.30 CAD). Buyer shipping is held by offhrs for prepaid Canada Post labels. If you are GST/HST-registered, tax is collected into your Stripe Connect account and you remit it (same as workshops). Unregistered vendors are not charged GST/HST at Marketplace checkout. Pro includes Marketplace; free Marketplace-only signup is available. Lite does not include Marketplace.',
         a: (
           <>
             <p>
               For <strong>Artist Marketplace</strong> goods, offhrs charges a{' '}
-              <strong>5% platform fee</strong> on the item subtotal (excluding tax and shipping postage),{' '}
+              <strong>3% platform fee</strong> on the item subtotal (excluding tax and shipping postage),{' '}
               <strong>plus</strong> Stripe processing (about 2.9% + $0.30 CAD). Shipping paid by the buyer
               (Canada Post quote + any handling fee you set) is <strong>held by offhrs</strong> for the prepaid
               Canada Post label — it is not merchandise revenue. If you are GST/HST-registered, tax is
@@ -235,7 +235,7 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
             </p>
             <p className="mt-2 text-[#555]">
               Pro includes Marketplace. Artists who only want to sell goods can enroll in a free
-              Marketplace-only plan (same 5% + Stripe on sales). Lite does not include Marketplace. See the{' '}
+              Marketplace-only plan (same 3% + Stripe on sales). Lite does not include Marketplace. See the{' '}
               <a className="underline" href="/terms/marketplace-seller-addendum">
                 Marketplace Seller Addendum
               </a>

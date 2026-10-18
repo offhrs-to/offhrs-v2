@@ -1,9 +1,9 @@
 /**
  * Artist Marketplace platform fee (Phase 0 lock).
- * 5% of item subtotal (ex-tax, ex-shipping) + Stripe processing recouped separately.
+ * 3% of item subtotal (ex-tax, ex-shipping) + Stripe processing recouped separately.
  */
 export const SHOP_PLATFORM_FEE_BPS = Number(
-  process.env.SHOP_PLATFORM_FEE_BPS?.trim() || '500'
+  process.env.SHOP_PLATFORM_FEE_BPS?.trim() || '300'
 )
 
 /** High-value threshold (CAD): auto signature + full insurance on labels. */
@@ -22,6 +22,6 @@ export const SHOP_SNAD_RETURN_DAYS = 14
 
 export function shopPlatformFeeCents(itemSubtotalCents: number): number {
   if (!Number.isFinite(itemSubtotalCents) || itemSubtotalCents <= 0) return 0
-  const bps = Number.isFinite(SHOP_PLATFORM_FEE_BPS) ? SHOP_PLATFORM_FEE_BPS : 500
+  const bps = Number.isFinite(SHOP_PLATFORM_FEE_BPS) ? SHOP_PLATFORM_FEE_BPS : 300
   return Math.round((itemSubtotalCents * bps) / 10_000)
 }

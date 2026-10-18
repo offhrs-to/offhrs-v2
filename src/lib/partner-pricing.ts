@@ -22,7 +22,7 @@ export type PartnerPlanTier = keyof typeof PARTNER_PLAN_MONTHLY_CAD
 /** Artist Marketplace platform fee (bps). See src/lib/shop/fees.ts */
 export { SHOP_PLATFORM_FEE_BPS } from '@/lib/shop/fees'
 
-/** Free Artist Marketplace (no monthly SaaS fee; 5% + Stripe on goods). */
+/** Free Artist Marketplace (no monthly SaaS fee; 3% + Stripe on goods). */
 export const MARKETPLACE_FREE_MONTHLY_CAD = 0
 export const MARKETPLACE_FREE_PLAN_NAME = 'Marketplace Only'
 

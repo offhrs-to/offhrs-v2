@@ -144,7 +144,7 @@ export default function TermsOfUsePage() {
           </li>
           <li>
             <strong>Marketplace fee structure.</strong> For Artist Marketplace sales, offhrs charges a{' '}
-            <strong>5% platform fee</strong> on the item subtotal (excluding tax and shipping postage),{' '}
+            <strong>3% platform fee</strong> on the item subtotal (excluding tax and shipping postage),{' '}
             <strong>plus</strong> Stripe processing fees (about <strong>2.9% + $0.30 CAD</strong>), which are
             separate and also borne by the Vendor. Platform fee, estimated Stripe processing (when applicable),
             and shipping collected may be collected via Stripe application fees on the payment.
