@@ -8,6 +8,7 @@ import {
   stripePriceIdForCheckoutPlan,
   type PartnerCheckoutPlan,
 } from '@/lib/stripe-partner-plans'
+import { SHOPIFY_CHANNEL_SIGNUP_COOKIE } from '@/lib/shopify/channel-signup'
 
 const stripe = new Stripe((process.env.STRIPE_SECRET_KEY ?? 'sk_build_placeholder'), {
   apiVersion: '2026-04-22.dahlia',
@@ -50,6 +51,16 @@ export async function POST(request: NextRequest) {
       parsedBody.success && parsedBody.data.plan ? parsedBody.data.plan : 'pro'
     // Full License is retired from new signups; keep accepting the param and map to Pro.
     const plan: PartnerCheckoutPlan = requested === 'full' ? 'pro' : requested
+
+    if (request.cookies.get(SHOPIFY_CHANNEL_SIGNUP_COOKIE)?.value === '1') {
+      return NextResponse.json(
+        {
+          error:
+            'This signup started in the Shopify app. Shopify Sync is billed with Shopify, not Stripe.',
+        },
+        { status: 403 }
+      )
+    }
 
     let priceId: string
     try {

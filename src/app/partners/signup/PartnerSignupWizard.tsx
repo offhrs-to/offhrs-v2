@@ -28,6 +28,15 @@ import {
   SHOPIFY_SYNC_PLAN_NAME,
 } from '@/lib/partner-pricing'
 import { PARTNER_CLICKWRAP_LINKS } from '@/lib/legal-acceptances-client'
+import {
+  clearShopifyChannelSignup,
+  isShopifyChannelSignup,
+  readShopifyChannelSignup,
+  rememberShopifyChannelSignup,
+  safeShopifyConnectNext,
+  safeShopifyShop,
+  shopifyChannelLoginHref,
+} from '@/lib/shopify/channel-signup'
 
 type BillingPlanChoice = 'lite' | 'pro' | 'shopify_sync' | 'marketplace'
 
@@ -87,7 +96,9 @@ export function PartnerSignupWizard() {
   const [emailVerifiedForBilling, setEmailVerifiedForBilling] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [billingCanceled, setBillingCanceled] = useState(false)
+  const [channelLocked, setChannelLocked] = useState(() => isShopifyChannelSignup(searchParams))
   const [billingPlan, setBillingPlan] = useState<BillingPlanChoice>(() => {
+    if (isShopifyChannelSignup(searchParams)) return 'shopify_sync'
     const intent = searchParams.get('intent')
     if (intent === 'shopify_sync') return 'shopify_sync'
     if (intent === 'marketplace') return 'marketplace'
@@ -199,6 +210,29 @@ export function PartnerSignupWizard() {
 
   useEffect(() => {
     setBillingCanceled(searchParams.get('canceled') === '1')
+    const billingReturn = searchParams.get('billing') === '1'
+    if (isShopifyChannelSignup(searchParams)) {
+      rememberShopifyChannelSignup({
+        next: safeShopifyConnectNext(searchParams.get('next')),
+        shop: safeShopifyShop(searchParams.get('shopify_shop')),
+      })
+      setChannelLocked(true)
+      setBillingPlan('shopify_sync')
+      return
+    }
+    if (billingReturn) {
+      const stored = readShopifyChannelSignup()
+      if (stored) {
+        rememberShopifyChannelSignup({ next: stored.next, shop: stored.shop })
+        setChannelLocked(true)
+        setBillingPlan('shopify_sync')
+        return
+      }
+    }
+    if (!billingReturn) {
+      clearShopifyChannelSignup()
+      setChannelLocked(false)
+    }
     const intent = searchParams.get('intent')
     if (intent === 'shopify_sync') setBillingPlan('shopify_sync')
     if (intent === 'marketplace') setBillingPlan('marketplace')
@@ -358,7 +392,11 @@ export function PartnerSignupWizard() {
   function continueWithShopifySync() {
     if (!emailVerifiedForBilling) return
     setCheckoutLoading(true)
-    router.push('/partners/shopify-sync?onboarding=1')
+    const stored = readShopifyChannelSignup()
+    const next =
+      safeShopifyConnectNext(searchParams.get('next')) ?? (channelLocked ? stored?.next ?? null : null)
+    if (channelLocked) clearShopifyChannelSignup()
+    router.push(next ?? '/partners/shopify-sync?onboarding=1')
   }
 
   async function continueWithMarketplace() {
@@ -379,7 +417,7 @@ export function PartnerSignupWizard() {
   function primaryAction() {
     if (step === 'account') void submitAccountAndGoToBilling()
     else if (step === 'billing') {
-      if (billingPlan === 'shopify_sync') continueWithShopifySync()
+      if (channelLocked || billingPlan === 'shopify_sync') continueWithShopifySync()
       else if (billingPlan === 'marketplace') void continueWithMarketplace()
       else void startCheckout()
     } else goNext()
@@ -392,7 +430,7 @@ export function PartnerSignupWizard() {
   if (step === 'account') primaryLabel = loading ? 'Creating…' : 'Continue'
   if (step === 'billing') {
     if (checkoutLoading) primaryLabel = 'Redirecting…'
-    else if (billingPlan === 'shopify_sync') primaryLabel = 'Continue without Stripe'
+    else if (channelLocked || billingPlan === 'shopify_sync') primaryLabel = 'Continue without Stripe'
     else if (billingPlan === 'marketplace') primaryLabel = 'Continue with Marketplace'
     else primaryLabel = 'Add payment & start trial'
   }
@@ -400,8 +438,13 @@ export function PartnerSignupWizard() {
   const inputClass =
     'w-full rounded-lg border border-[#D9D7CF] bg-[#FAFAF8] px-4 py-2.5 text-sm text-[#1a1a1a] placeholder:text-[#AAA] focus:outline-none focus:ring-2 focus:ring-[#5D755D]'
 
+  const shopifyBillingOnly = channelLocked || billingPlan === 'shopify_sync'
+
   return (
-    <div className="min-h-screen bg-[#FAFAF8] text-[#1a1a1a] flex flex-col pt-20 pb-8">
+    <div
+      className="min-h-screen bg-[#FAFAF8] text-[#1a1a1a] flex flex-col pt-20 pb-8"
+      data-channel-signup={channelLocked ? 'shopify' : 'website'}
+    >
       {/* Progress */}
       <div className="px-4 pb-3 max-w-lg mx-auto w-full">
         <div className="flex gap-1.5">
@@ -774,10 +817,10 @@ export function PartnerSignupWizard() {
               </span>
             </div>
             <h1 className="font-playfair text-3xl font-bold text-[#1a1a1a] leading-tight text-center">
-              Choose how you&apos;ll get listed
+              {channelLocked ? 'Shopify Sync' : "Choose how you'll get listed"}
             </h1>
             <p className="text-sm text-[#555] leading-relaxed text-center">
-              {billingPlan === 'shopify_sync' ? (
+              {shopifyBillingOnly ? (
                 <>
                   Continue with <strong className="font-semibold text-[#1a1a1a]">{SHOPIFY_SYNC_PLAN_NAME}</strong> —
                   no Stripe. Billing runs through Shopify after you install the app (
@@ -800,6 +843,7 @@ export function PartnerSignupWizard() {
             </p>
             {emailVerifiedForBilling && (
               <div className="grid grid-cols-1 gap-3 pt-2">
+                {!channelLocked && (
                 <button
                   type="button"
                   onClick={() => setBillingPlan('marketplace')}
@@ -821,6 +865,8 @@ export function PartnerSignupWizard() {
                     Shopify Sync.
                   </p>
                 </button>
+                )}
+                {!channelLocked && (
                 <button
                   type="button"
                   onClick={() => setBillingPlan('lite')}
@@ -839,6 +885,7 @@ export function PartnerSignupWizard() {
                     Up to 4 active workshops. Bookings &amp; payouts on offhrs. No Marketplace, no Shopify Sync.
                   </p>
                 </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setBillingPlan('shopify_sync')}
@@ -859,6 +906,7 @@ export function PartnerSignupWizard() {
                     Shopify Sync only — billed in Shopify. No Lite/Pro workshops dashboard, no Marketplace.
                   </p>
                 </button>
+                {!channelLocked && (
                 <button
                   type="button"
                   onClick={() => setBillingPlan('pro')}
@@ -877,6 +925,7 @@ export function PartnerSignupWizard() {
                     Unlimited workshops + Artist Marketplace included. Shopify Sync sold separately.
                   </p>
                 </button>
+                )}
               </div>
             )}
             {billingCanceled && billingPlan !== 'shopify_sync' && billingPlan !== 'marketplace' && (
@@ -896,7 +945,7 @@ export function PartnerSignupWizard() {
             )}
             {emailVerifiedForBilling && (
               <p className="text-center text-xs text-[#5D755D] font-medium">
-                {billingPlan === 'shopify_sync'
+                {shopifyBillingOnly
                   ? 'Email confirmed — continue to the Sync setup guide, then install from Shopify.'
                   : billingPlan === 'marketplace'
                     ? 'Email confirmed — continue to set up your Marketplace catalog.'
@@ -904,7 +953,7 @@ export function PartnerSignupWizard() {
               </p>
             )}
             <p className="text-center text-xs text-[#999]">
-              {billingPlan === 'shopify_sync'
+              {shopifyBillingOnly
                 ? 'Shopify Sync is billed through Shopify App Pricing after install — not Stripe.'
                 : billingPlan === 'marketplace'
                   ? 'Marketplace has no monthly subscription. Stripe Connect in Settings is required for payouts.'
@@ -918,7 +967,10 @@ export function PartnerSignupWizard() {
       <footer className="py-6 px-4 space-y-4 max-w-lg mx-auto w-full">
         <p className="text-center text-sm text-[#555]">
           Already have an account?{' '}
-          <Link href="/partners/login" className="font-medium text-[#5D755D] underline hover:text-[#4d634d]">
+          <Link
+            href={channelLocked ? shopifyChannelLoginHref(searchParams) : '/partners/login'}
+            className="font-medium text-[#5D755D] underline hover:text-[#4d634d]"
+          >
             Sign in
           </Link>
         </p>

@@ -131,7 +131,18 @@ function ShopifyConnectInner() {
         {error ? (
           <>
             <p className="text-sm text-red-700 text-center">{error}</p>
-            <Link href="/partners/login" className="block text-center text-sm text-[#5D755D] underline">
+            <Link
+              href={
+                shop
+                  ? `/partners/login?from=shopify_channel&shopify_shop=${encodeURIComponent(shop)}&next=${encodeURIComponent(
+                      `/partners/shopify-connect?shop=${encodeURIComponent(shop)}${
+                        host ? `&host=${encodeURIComponent(host)}` : ''
+                      }`
+                    )}`
+                  : '/partners/login'
+              }
+              className="block text-center text-sm text-[#5D755D] underline"
+            >
               Back to sign in
             </Link>
           </>

@@ -3,11 +3,14 @@
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { OffhrsLogoLink } from '@/components/offhrs-logo'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/browser'
+import { buildShopifyChannelSignupHref } from '@/lib/shopify/channel-signup'
 
 function PartnerLoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const shopifySignupHref = buildShopifyChannelSignupHref(searchParams)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ email: '', password: '' })
@@ -162,8 +165,11 @@ function PartnerLoginForm() {
 
         <p className="text-center text-sm text-[#555]">
           Don&apos;t have an account?{' '}
-          <Link href="/partners/signup" className="font-medium text-[#5D755D] underline">
-            Start free trial
+          <Link
+            href={shopifySignupHref ?? '/partners/signup'}
+            className="font-medium text-[#5D755D] underline"
+          >
+            {shopifySignupHref ? 'Create a Shopify Sync account' : 'Start free trial'}
           </Link>
         </p>
       </div>
