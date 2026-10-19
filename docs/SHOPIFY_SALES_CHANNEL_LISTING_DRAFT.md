@@ -33,7 +33,7 @@ offhrs does **not** take a commission on synced workshop bookings (0% platform f
 
 - Does not process payment inside offhrs for synced workshops  
 - Does not replace Shopify Admin as the place you edit products  
-- Does not unlock native offhrs Lite/Pro booking or Stripe ticket sales (those are separate plans)
+- Does not charge a commission on workshop orders checked out on Shopify
 
 ---
 
@@ -53,7 +53,7 @@ offhrs does **not** take a commission on synced workshop bookings (0% platform f
 |---|---|---|
 | Shopify Sync | $29 CAD / 30 days | 30-day free trial |
 
-**Fees / commission:** $29 CAD/month subscription. **0%** commission on synced workshop checkout orders.
+**Fees / commission:** Shopify Sync is $29 CAD/month after a 30-day trial. offhrs takes 0% commission on workshop orders checked out on Shopify.
 
 ---
 
@@ -75,9 +75,11 @@ Provide **test credentials** in the review notes: offhrs partner login + any MFA
 
 ## Review notes (paste into submission)
 
+Checkout for this sales channel uses Shopify checkout. Products published to the offhrs channel are booked with **Book on Shopify**. That button opens a Shopify cart permalink for the session variant (`/cart/{variant}:1`) with the storefront access token and `source_name=channel:{handle}`. Payment and the order are completed on the merchant’s Shopify checkout. Please use the demo workshop below. Do not create a new offhrs account, and do not choose another plan.
+
 - App is a **Sales Channel** (cart-permalink model). Guests discover on offhrs and check out on Shopify.  
 - Merchants do **not** re-enter workshop catalog in our Partners dashboard; they **publish** products to the offhrs channel from Shopify Admin.  
-- Billing uses Shopify Billing API (`appSubscriptionCreate`) — $29 CAD/month, 30-day trial. **0%** commission on Sync bookings.  
+- Billing uses Shopify Billing API (`appSubscriptionCreate`). Shopify Sync is $29 CAD/month after a 30-day trial. offhrs takes 0% commission on workshop orders checked out on Shopify.  
 - Canada / CAD focused channel (`offhrs-ca`); store should have a Canada market with Online Store for channel connection.  
 - Test shop: `offhrs-sync-review.myshopify.com` (dev store — storefront password required for cart).  
 - Test partner login: `[fill]`. Password: `[fill]`. MFA: `[fill or “disabled for review account”]`.  
@@ -110,4 +112,4 @@ Provide **test credentials** in the review notes: offhrs partner login + any MFA
 
 **Do say:** publish, sales channel, discover on offhrs, book on Shopify checkout, inventory sync  
 
-**Don’t say:** “regular sync app,” “tag products,” “enter workshops in our dashboard,” “checkout inside offhrs,” “bypass Shopify billing”
+**Don’t say:** “regular sync app,” “tag products,” “enter workshops in our dashboard,” “checkout inside offhrs,” “bypass Shopify billing,” “Lite,” “Pro,” “Stripe,” or any other plan

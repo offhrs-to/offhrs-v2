@@ -44,7 +44,7 @@ const steps = [
   {
     n: '04',
     title: 'Start the Shopify Sync trial',
-    body: `In Sales channels → offhrs, choose Start trial for Shopify Sync ($${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month, ${PARTNER_TRIAL_LABEL}). Approve the plan in Shopify Admin — billing is on your Shopify invoice, not Stripe.`,
+    body: `In Sales channels → offhrs, choose Start trial for Shopify Sync ($${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month, ${PARTNER_TRIAL_LABEL}). Approve the plan in Shopify Admin. Billing is on your Shopify invoice.`,
   },
   {
     n: '05',
@@ -85,7 +85,7 @@ const canDo = [
   'Publish Shopify workshop products to the offhrs app for local discovery',
   'Keep remaining seats in sync from Shopify inventory',
   'Send guests to Shopify checkout with the session pre-loaded in cart',
-  'Run Sync alone — no Lite or Pro plan required',
+  'Run Sync alone — billing is the Shopify Sync plan on your Shopify invoice',
   'Use your partner profile address for map pins and studio location',
 ]
 
@@ -93,7 +93,7 @@ const cannotDo = [
   'Checkout or take payment inside offhrs for synced workshops (that stays on Shopify)',
   'Create or edit workshop sessions in the offhrs dashboard as the source of truth — edit and publish products in Shopify',
   'Process refunds in offhrs for Shopify bookings — refund in Shopify Admin',
-  'Replace Lite/Pro: Sync does not unlock native offhrs booking, Stripe Connect ticket sales, or in-app workshop creation',
+  'Charge a commission on workshop orders checked out on Shopify',
   'Connect directly to third-party Shopify apps (for example Numos) — we only read products and inventory from Shopify itself',
 ]
 
@@ -266,7 +266,8 @@ export default async function ShopifySyncGuidePage({
                 <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">offhrs</code>):{' '}
                 <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">starts_at</code>,{' '}
                 <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">book_url</code>{' '}
-                (Shopify cart/checkout URLs only — off-Shopify links are ignored),{' '}
+                (same-shop Shopify cart or checkout only — the storefront token and channel source
+                are added; otherwise the generated cart link is used),{' '}
                 <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">capacity</code>,{' '}
                 <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">duration_minutes</code>
                 , <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">category</code>.
@@ -374,8 +375,8 @@ export default async function ShopifySyncGuidePage({
           </h2>
           <p className="text-sm text-[#555] max-w-md mx-auto mb-8 leading-relaxed">
             {afterSignup
-              ? 'Install the offhrs app from Shopify Admin, then open Sales channels → offhrs to connect and start the Sync trial — billed on Shopify, not Stripe.'
-              : 'Create your partner account, choose Shopify Sync on the billing step (skip Stripe), then install offhrs from Shopify Admin and manage Sync under Sales channels → offhrs.'}
+              ? 'Install the offhrs app from Shopify Admin, then open Sales channels → offhrs to connect and start the Sync trial. Billing is on your Shopify invoice.'
+              : 'Create your partner account, continue with Shopify Sync, then install offhrs from Shopify Admin and manage Sync under Sales channels → offhrs.'}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             {afterSignup ? (

@@ -34,6 +34,8 @@ export const SHOPIFY_SYNC_PLAN_HANDLE = 'offhrs-sync'
 export const SHOPIFY_SYNC_TRIAL_DAYS = PARTNER_TRIAL_DAYS
 export const SHOPIFY_SYNC_PLAN_LABEL = `$${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month`
 export const SHOPIFY_SYNC_PLAN_LABEL_WITH_TRIAL = `${SHOPIFY_SYNC_PLAN_LABEL} · ${PARTNER_TRIAL_LABEL}`
+/** Exact fee sentence for the sales channel UI and the App Store listing. */
+export const SHOPIFY_SYNC_COMMISSION_SENTENCE = `Shopify Sync is $${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month after a 30-day trial. offhrs takes 0% commission on workshop orders checked out on Shopify.`
 
 export const FULL_LICENSE_PLAN_NAME = 'Full License'
 

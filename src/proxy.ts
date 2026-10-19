@@ -10,6 +10,7 @@ import { vendorHasMarketplaceAccess } from '@/lib/shop/access'
 import { normalizeShopDomain, shopDomainFromHostParam } from '@/lib/shopify/shop-domain'
 import { verifyShopifySessionToken } from '@/lib/shopify/session-token'
 import { setChannelShopCookie } from '@/lib/shopify/channel-session-cookie'
+import { isShopifyChannelSignup } from '@/lib/shopify/channel-signup'
 
 const PUBLIC_PARTNER_PATHS = [
   '/partners/login',
@@ -47,6 +48,14 @@ export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers)
   if (pathname === '/shopify' || pathname.startsWith('/shopify/')) {
     requestHeaders.set('x-offhrs-shopify-admin', '1')
+  }
+  // Polaris login/connect popup: no marketing header, footer, or App Bridge.
+  if (
+    pathname === '/partners/shopify-connect' ||
+    pathname.startsWith('/partners/shopify-connect/') ||
+    (pathname === '/partners/login' && isShopifyChannelSignup(request.nextUrl.searchParams))
+  ) {
+    requestHeaders.set('x-offhrs-shopify-channel-auth', '1')
   }
 
   let supabaseResponse = NextResponse.next({
@@ -122,6 +131,11 @@ export async function proxy(request: NextRequest) {
       url.search = ''
       if (returnTo.startsWith('/') && !returnTo.startsWith('//')) {
         url.searchParams.set('next', returnTo)
+      }
+      if (pathname.startsWith('/partners/shopify-connect')) {
+        url.searchParams.set('from', 'shopify_channel')
+        const shop = request.nextUrl.searchParams.get('shop')
+        if (shop) url.searchParams.set('shopify_shop', shop)
       }
       return NextResponse.redirect(url)
     }

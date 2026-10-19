@@ -1,12 +1,21 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { OffhrsLogoLink } from '@/components/offhrs-logo'
+import {
+  Banner,
+  Button,
+  Card,
+  Checkbox,
+  Link,
+  BlockStack,
+  Text,
+} from '@shopify/polaris'
 import { createClient } from '@/lib/supabase/browser'
 import { finishShopifyConnectPopup } from '@/lib/shopify/finish-popup'
 import { PARTNER_CLICKWRAP_LINKS } from '@/lib/legal-acceptances-client'
+import { shopifyChannelLoginHref } from '@/lib/shopify/channel-signup'
+import { ShopifyChannelPolarisFrame } from '@/components/shopify/ShopifyChannelPolarisFrame'
 
 function ShopifyConnectInner() {
   const searchParams = useSearchParams()
@@ -16,6 +25,21 @@ function ShopifyConnectInner() {
   const [sessionReady, setSessionReady] = useState(false)
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [connecting, setConnecting] = useState(false)
+
+  const loginHref = shopifyChannelLoginHref({
+    get(name: string) {
+      if (name === 'from') return 'shopify_channel'
+      if (name === 'shopify_shop') return shop
+      if (name === 'next') {
+        if (!shop) return null
+        const next = `/partners/shopify-connect?shop=${encodeURIComponent(shop)}${
+          host ? `&host=${encodeURIComponent(host)}` : ''
+        }`
+        return next
+      }
+      return null
+    },
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -32,12 +56,7 @@ function ShopifyConnectInner() {
       } = await supabase.auth.getSession()
 
       if (!session) {
-        const next = `/partners/shopify-connect?shop=${encodeURIComponent(shop)}${
-          host ? `&host=${encodeURIComponent(host)}` : ''
-        }`
-        window.location.replace(
-          `/partners/login?next=${encodeURIComponent(next)}&shopify_shop=${encodeURIComponent(shop)}`
-        )
+        window.location.replace(loginHref)
         return
       }
 
@@ -48,9 +67,9 @@ function ShopifyConnectInner() {
     return () => {
       cancelled = true
     }
-  }, [shop, host])
+  }, [shop, loginHref])
 
-  const startConnect = useCallback(async () => {
+  async function startConnect() {
     if (!shop || !acceptTerms || connecting) return
     setConnecting(true)
     setError(null)
@@ -116,85 +135,57 @@ function ShopifyConnectInner() {
       setError('Network error starting Shopify connection.')
       setConnecting(false)
     }
-  }, [shop, host, acceptTerms, connecting])
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-10 bg-[#FAFAF8]">
-      <div className="w-full max-w-md space-y-6 rounded-2xl border border-[#E8E6E0] bg-white p-8 shadow-sm">
-        <OffhrsLogoLink
-          href="/partners"
-          linkClassName="inline-flex justify-center w-full"
-          className="h-9 w-auto max-w-[170px] object-contain mx-auto"
-          width={200}
-          height={48}
-        />
-        {error ? (
-          <>
-            <p className="text-sm text-red-700 text-center">{error}</p>
-            <Link
-              href={
-                shop
-                  ? `/partners/login?from=shopify_channel&shopify_shop=${encodeURIComponent(shop)}&next=${encodeURIComponent(
-                      `/partners/shopify-connect?shop=${encodeURIComponent(shop)}${
-                        host ? `&host=${encodeURIComponent(host)}` : ''
-                      }`
-                    )}`
-                  : '/partners/login'
-              }
-              className="block text-center text-sm text-[#5D755D] underline"
-            >
-              Back to sign in
-            </Link>
-          </>
-        ) : !sessionReady ? (
-          <p className="text-sm text-[#555] text-center">Checking your partner session…</p>
-        ) : (
-          <>
-            <div className="space-y-2 text-center">
-              <h1 className="font-playfair text-xl font-bold text-[#1a1a1a]">Connect Shopify</h1>
-              <p className="text-sm text-[#555] leading-relaxed">
-                Linking <span className="font-medium text-[#1a1a1a]">{shop}</span> requires accepting
-                our partner Terms.
-              </p>
-            </div>
-            <ul className="list-disc space-y-1 pl-5 text-left text-sm text-[#555]">
+    <ShopifyChannelPolarisFrame>
+      <Text as="h1" variant="headingLg">
+        Connect offhrs
+      </Text>
+      {error ? (
+        <Banner tone="critical" title="Connection needs attention">
+          <p>{error}</p>
+        </Banner>
+      ) : null}
+      {!shop ? (
+        <Link url={loginHref}>Back to sign in</Link>
+      ) : !sessionReady ? (
+        <Card>
+          <Text as="p" variant="bodyMd">
+            {error ? 'Sign in to continue.' : 'Checking your partner session…'}
+          </Text>
+        </Card>
+      ) : (
+        <Card>
+          <BlockStack gap="400">
+            <Text as="p" variant="bodyMd">
+              Linking {shop} requires accepting the partner terms. Each document opens in a new window.
+            </Text>
+            <BlockStack gap="100">
               {PARTNER_CLICKWRAP_LINKS.map((doc) => (
-                <li key={doc.key}>
-                  <a
-                    href={doc.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-[#5D755D] underline"
-                  >
-                    {doc.title}
-                  </a>
-                </li>
+                <Link key={doc.key} url={doc.href} target="_blank">
+                  {doc.title}
+                </Link>
               ))}
-            </ul>
-            <label className="flex items-start gap-3 cursor-pointer text-left">
-              <input
-                type="checkbox"
-                checked={acceptTerms}
-                onChange={(e) => setAcceptTerms(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-[#D9D7CF] text-[#5D755D] focus:ring-[#5D755D]"
-              />
-              <span className="text-sm text-[#1a1a1a] leading-relaxed">
-                I agree to the Terms of Use, Privacy Policy, Data Protection Addendum, and Marketplace
-                Seller Addendum.
-              </span>
-            </label>
-            <button
-              type="button"
-              disabled={!acceptTerms || connecting}
+            </BlockStack>
+            <Checkbox
+              label="I agree to the Terms of Use, Privacy Policy, Data Protection Addendum, and Marketplace Seller Addendum."
+              checked={acceptTerms}
+              onChange={setAcceptTerms}
+            />
+            <Button
+              variant="primary"
+              fullWidth
+              disabled={!acceptTerms}
+              loading={connecting}
               onClick={() => void startConnect()}
-              className="w-full rounded-lg bg-[#5D755D] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#4d634d] disabled:opacity-40 disabled:pointer-events-none"
             >
-              {connecting ? 'Connecting…' : 'Accept and connect'}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+              Accept and connect
+            </Button>
+          </BlockStack>
+        </Card>
+      )}
+    </ShopifyChannelPolarisFrame>
   )
 }
 
@@ -202,8 +193,8 @@ export default function PartnerShopifyConnectPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center px-4 py-10">
-          <p className="text-sm text-[#555]">Connecting…</p>
+        <div style={{ minHeight: '100vh', background: '#f1f1f1', padding: 24 }}>
+          <p>Connecting…</p>
         </div>
       }
     >

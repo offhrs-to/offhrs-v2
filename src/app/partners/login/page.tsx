@@ -1,13 +1,34 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { OffhrsLogoLink } from '@/components/offhrs-logo'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/browser'
-import { buildShopifyChannelSignupHref } from '@/lib/shopify/channel-signup'
+import { buildShopifyChannelSignupHref, isShopifyChannelSignup } from '@/lib/shopify/channel-signup'
+
+const ShopifyChannelLogin = dynamic(
+  () => import('@/components/shopify/ShopifyChannelLogin').then((m) => m.ShopifyChannelLogin),
+  {
+    ssr: false,
+    loading: () => (
+      <div style={{ minHeight: '100vh', background: '#f1f1f1', padding: 24 }}>
+        <p>Loading…</p>
+      </div>
+    ),
+  }
+)
 
 function PartnerLoginForm() {
+  const searchParams = useSearchParams()
+  if (isShopifyChannelSignup(searchParams)) {
+    return <ShopifyChannelLogin />
+  }
+  return <WebsitePartnerLogin />
+}
+
+function WebsitePartnerLogin() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const shopifySignupHref = buildShopifyChannelSignupHref(searchParams)

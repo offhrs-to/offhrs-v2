@@ -470,7 +470,10 @@ export function PartnerSignupWizard() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-3">
-          <Link href="/partners/login" className="text-sm text-[#5D755D] font-medium hover:underline">
+          <Link
+            href={channelLocked ? shopifyChannelLoginHref(searchParams) : '/partners/login'}
+            className="text-sm text-[#5D755D] font-medium hover:underline"
+          >
             Close
           </Link>
           <button

@@ -16,8 +16,9 @@
  * 4. Variant title / product title if they contain a parseable datetime
  * Naive times are interpreted as America/Toronto.
  *
- * Optional metafields (namespace offhrs): book_url (Shopify cart/checkout only —
- * off-Shopify URLs are ignored), capacity, duration_minutes, category.
+ * Optional metafields (namespace offhrs): book_url (same-shop cart/checkout only;
+ * storefront token and source_name are added, otherwise the generated cart
+ * permalink is used), capacity, duration_minutes, category.
  * Heuristic keys also accepted: Date / location / Event capacity / Duration (any namespace).
  * Location: product metafield when present, else partner profile address.
  * Category fallback: offhrs.category metafield → vendor primary signup

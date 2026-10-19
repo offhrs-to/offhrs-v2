@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import { Playfair_Display } from 'next/font/google'
 
 // Only one `<html>` and `<body>` may exist per Next.js App Router page (in
@@ -14,7 +15,12 @@ export const metadata: Metadata = {
   description: 'Manage your workshop business with offhrs.',
 }
 
-export default function PartnersLayout({ children }: { children: React.ReactNode }) {
+export default async function PartnersLayout({ children }: { children: React.ReactNode }) {
+  const headerList = await headers()
+  if (headerList.get('x-offhrs-shopify-channel-auth') === '1') {
+    return <div className="min-h-screen">{children}</div>
+  }
+
   return (
     <div className={`${playfair.variable} bg-partner-canvas min-h-screen`}>
       {children}

@@ -55,6 +55,7 @@ export default async function RootLayout({
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const headerList = await headers()
   const isShopifyAdmin = headerList.get('x-offhrs-shopify-admin') === '1'
+  const isShopifyChannelAuth = headerList.get('x-offhrs-shopify-channel-auth') === '1'
   const shopifyKey = shopifyApiKey() ?? ''
 
   if (isShopifyAdmin) {
@@ -69,6 +70,16 @@ export default async function RootLayout({
           <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" />
         </head>
         <body style={{ margin: 0, background: '#f6f6f7' }}>{children}</body>
+      </html>
+    )
+  }
+
+  if (isShopifyChannelAuth) {
+    return (
+      <html lang="en">
+        <body style={{ margin: 0, background: '#f1f1f1' }}>
+          <AuthProviderWrapper>{children}</AuthProviderWrapper>
+        </body>
       </html>
     )
   }

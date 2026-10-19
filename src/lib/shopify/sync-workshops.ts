@@ -730,6 +730,82 @@ type ChannelProductsQueryData = {
 }
 
 /**
+ * Products published to the offhrs sales channel in Shopify Admin.
+ * Prefers the channel catalog count. Falls back to the app publication count.
+ * Returns null when Shopify cannot be queried — callers must not invent a number.
+ */
+export async function countProductsPublishedToOffhrsChannel(
+  admin: Admin,
+  shopRow: ShopifyShopRow
+): Promise<number | null> {
+  const token = await getValidShopAccessToken(admin, shopRow)
+
+  if (shopRow.shopify_channel_gid) {
+    try {
+      const data = await shopifyAdminGraphql<{
+        channel: { productsCount?: { count: number } | null } | null
+      }>({
+        shop: shopRow.shop_domain,
+        accessToken: token,
+        query: `
+          query OffhrsChannelProductCount($channelId: ID!) {
+            channel(id: $channelId) {
+              productsCount { count }
+            }
+          }
+        `,
+        variables: { channelId: shopRow.shopify_channel_gid },
+      })
+      if (typeof data.channel?.productsCount?.count === 'number') {
+        return data.channel.productsCount.count
+      }
+    } catch (e) {
+      console.warn(
+        '[shopify] channel productsCount',
+        e instanceof Error ? e.message : e
+      )
+    }
+  }
+
+  try {
+    const install = await shopifyAdminGraphql<{
+      currentAppInstallation: { publication: { id: string } | null } | null
+    }>({
+      shop: shopRow.shop_domain,
+      accessToken: token,
+      query: `
+        query OffhrsAppPublicationId {
+          currentAppInstallation { publication { id } }
+        }
+      `,
+    })
+    const publicationId = install.currentAppInstallation?.publication?.id ?? ''
+    const numericId = publicationId.split('/').pop() ?? ''
+    if (!/^\d+$/.test(numericId)) return null
+
+    const counted = await shopifyAdminGraphql<{
+      productsCount: { count: number } | null
+    }>({
+      shop: shopRow.shop_domain,
+      accessToken: token,
+      query: `
+        query OffhrsPublicationProductsCount($query: String) {
+          productsCount(query: $query) { count }
+        }
+      `,
+      variables: { query: `publication_ids:${numericId}` },
+    })
+    return typeof counted.productsCount?.count === 'number' ? counted.productsCount.count : null
+  } catch (e) {
+    console.warn(
+      '[shopify] publication productsCount',
+      e instanceof Error ? e.message : e
+    )
+    return null
+  }
+}
+
+/**
  * Pull products published to the offhrs Channel / app publication and upsert sessions.
  * Does not require the legacy offhrs_workshop tag (Phase 2 publish model).
  */

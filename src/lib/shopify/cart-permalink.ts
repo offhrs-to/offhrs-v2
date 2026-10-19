@@ -125,8 +125,28 @@ export function buildOffhrsCartPermalink(opts: {
 }
 
 /**
+ * Stamp storefront token + channel source onto a same-shop cart/checkout URL.
+ * Returns null when either value is missing or the URL cannot be parsed.
+ */
+export function applyShopifySalesAttribution(
+  raw: string,
+  opts: { storefrontAccessToken?: string | null; channelHandle?: string | null }
+): string | null {
+  if (!opts.storefrontAccessToken || !opts.channelHandle) return null
+  try {
+    const url = new URL(raw.trim())
+    url.searchParams.set('access_token', opts.storefrontAccessToken)
+    url.searchParams.set('source_name', `channel:${opts.channelHandle}`)
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+/**
  * Resolve the guest “Book on Shopify” URL for a synced workshop variant.
- * Prefer attributed cart permalink; allow book_url metafield only when it stays on Shopify checkout.
+ * A same-shop book_url is kept only after sales attribution is added.
+ * Otherwise the generated cart permalink is used.
  */
 export function resolveShopifyBookUrl(opts: {
   shopDomain: string
@@ -141,9 +161,9 @@ export function resolveShopifyBookUrl(opts: {
   const override =
     opts.variantMeta[key]?.trim() || opts.productMeta[key]?.trim() || ''
   if (override && isAllowedShopifyCheckoutUrl(override, opts.shopDomain)) {
-    return override
+    const attributed = applyShopifySalesAttribution(override, opts)
+    if (attributed) return attributed
   }
-  // Reject off-Shopify overrides (Phase 3 App Store requirement).
   return buildOffhrsCartPermalink({
     shopDomain: opts.shopDomain,
     variantId: opts.variantId,

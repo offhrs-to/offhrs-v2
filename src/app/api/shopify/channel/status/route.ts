@@ -22,6 +22,7 @@ import {
   shopifyAdminProductsUrl,
 } from '@/lib/shopify/conventions'
 import {
+  countProductsPublishedToOffhrsChannel,
   getValidShopAccessToken,
   loadShopifyShopByDomain,
 } from '@/lib/shopify/sync-workshops'
@@ -115,6 +116,16 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  let publishedProductCount: number | null = null
+  try {
+    const fullShop = await loadShopifyShopByDomain(admin, shop)
+    if (fullShop) {
+      publishedProductCount = await countProductsPublishedToOffhrsChannel(admin, fullShop)
+    }
+  } catch (e) {
+    console.error('[shopify] published product count', e)
+  }
+
   const res = NextResponse.json({
     connected: true,
     session_matches: sessionMatches,
@@ -125,6 +136,7 @@ export async function GET(request: NextRequest) {
     installed_at: shopRow.installed_at,
     synced_session_count: count ?? 0,
     published_session_count: count ?? 0,
+    published_product_count: publishedProductCount,
     channel_connected: Boolean(shopRow.shopify_channel_gid),
     channel_gid: shopRow.shopify_channel_gid ?? null,
     products_admin_url: shopifyAdminProductsUrl(shopRow.shop_domain),

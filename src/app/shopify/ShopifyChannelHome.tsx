@@ -16,7 +16,11 @@ import {
 } from '@shopify/polaris'
 import enTranslations from '@shopify/polaris/locales/en.json'
 import '@shopify/polaris/build/esm/styles.css'
-import { SHOPIFY_SYNC_PLAN_LABEL, PARTNER_TRIAL_LABEL } from '@/lib/partner-pricing'
+import {
+  SHOPIFY_SYNC_COMMISSION_SENTENCE,
+  SHOPIFY_SYNC_PLAN_LABEL,
+  PARTNER_TRIAL_LABEL,
+} from '@/lib/partner-pricing'
 import { createClient } from '@/lib/supabase/browser'
 import { shopDomainFromHostParam } from '@/lib/shopify/shop-domain'
 import { getShopifyIdToken } from '@/lib/shopify/app-bridge-id-token'
@@ -35,6 +39,7 @@ type ChannelStatus = {
   billing_comped?: boolean
   synced_session_count?: number
   published_session_count?: number
+  published_product_count?: number | null
   channel_connected?: boolean
   products_admin_url?: string
   bulk_publications_url?: string
@@ -369,6 +374,9 @@ export function ShopifyChannelHome(props: Props) {
   async function disconnectAccount() {
     setActionLoading(true)
     try {
+      if (!sessionReady) {
+        await ensureChannelSession()
+      }
       const res = await channelFetch('/api/shopify/channel/disconnect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -590,8 +598,8 @@ export function ShopifyChannelHome(props: Props) {
               }}
             >
               <p>
-                Your shop is linked and synced. Tap Retry once to finish Admin authorization — then
-                Sync and Disconnect will work.
+                Your shop is linked. Tap Retry once to finish Admin authorization so Sync can run.
+                Disconnect stays available in the account section.
               </p>
             </Banner>
           ) : (
@@ -614,6 +622,7 @@ export function ShopifyChannelHome(props: Props) {
               title="Account"
               description="Connect the offhrs partner account for this shop. Disconnect anytime without contacting support."
             >
+              <BlockStack gap="300">
               <AccountConnection
                 title="offhrs"
                 accountName={shopLinked ? accountName : undefined}
@@ -635,31 +644,31 @@ export function ShopifyChannelHome(props: Props) {
                     <Link url="https://offhrs.app/privacy" target="_blank">
                       Privacy Policy
                     </Link>
-                    . Sync is {status?.plan_label ?? SHOPIFY_SYNC_PLAN_LABEL} with a{' '}
-                    {PARTNER_TRIAL_LABEL}. offhrs takes 0% commission on synced workshop checkouts.
-                    Canada/CAD stores with an Online Store market are supported.
+                    . {SHOPIFY_SYNC_COMMISSION_SENTENCE} Canada/CAD stores with an Online Store
+                    market are supported.
                   </Text>
                 }
                 action={{
-                  content: sessionReady
-                    ? 'Disconnect'
-                    : needsSignIn
-                      ? loading || actionLoading
-                        ? 'Authorizing…'
-                        : 'Retry'
-                      : 'Connect offhrs account',
+                  content: shopLinked ? 'Disconnect' : 'Connect offhrs account',
                   onAction: () => {
                     if (actionLoading || loading) return
-                    if (sessionReady) void disconnectAccount()
-                    else if (needsSignIn) {
-                      setActionLoading(true)
-                      void loadStatus({ bootstrapSession: true, showAuthErrors: true }).finally(() =>
-                        setActionLoading(false)
-                      )
-                    } else void connectAccount()
+                    if (shopLinked) void disconnectAccount()
+                    else void connectAccount()
                   },
                 }}
               />
+              <Text as="p" variant="bodyMd">
+                <Link url="https://offhrs.app/terms" target="_blank">
+                  Terms
+                </Link>
+                {' and '}
+                <Link url="https://offhrs.app/privacy" target="_blank">
+                  Privacy Policy
+                </Link>
+                {' open in a new window. '}
+                {SHOPIFY_SYNC_COMMISSION_SENTENCE}
+              </Text>
+              </BlockStack>
             </Layout.AnnotatedSection>
 
             <Layout.AnnotatedSection
@@ -669,6 +678,9 @@ export function ShopifyChannelHome(props: Props) {
             >
               <Card>
                 <BlockStack gap="300">
+                  <Text as="p" variant="bodyMd">
+                    {SHOPIFY_SYNC_COMMISSION_SENTENCE}
+                  </Text>
                   <Text as="p" variant="bodyMd">
                     {billingActive
                       ? status?.billing_comped
@@ -689,7 +701,7 @@ export function ShopifyChannelHome(props: Props) {
               </Card>
             </Layout.AnnotatedSection>
 
-            {shopLinked && billingActive ? (
+            {shopLinked ? (
               <Layout.AnnotatedSection
                 id="publishing"
                 title="Publishing"
@@ -698,11 +710,15 @@ export function ShopifyChannelHome(props: Props) {
                 <Card>
                   <BlockStack gap="300">
                     <Text as="p" variant="bodyMd">
-                      {status?.published_session_count ?? status?.synced_session_count ?? 0} session
-                      {(status?.published_session_count ?? status?.synced_session_count ?? 0) === 1
-                        ? ''
-                        : 's'}{' '}
-                      live on offhrs
+                      {typeof status?.published_product_count === 'number'
+                        ? `${status.published_product_count} product${
+                            status.published_product_count === 1 ? '' : 's'
+                          } published to the offhrs channel in Shopify`
+                        : 'Shopify product count is unavailable. Open products to confirm what is published to offhrs.'}
+                    </Text>
+                    <Text as="p" variant="bodyMd">
+                      {status?.synced_session_count ?? 0} session
+                      {(status?.synced_session_count ?? 0) === 1 ? '' : 's'} live in the offhrs app
                       {status?.channel_connected ? '' : ' · channel connection pending'}
                       {status?.last_synced_at
                         ? ` · last sync ${new Date(status.last_synced_at).toLocaleString()}`
@@ -719,10 +735,17 @@ export function ShopifyChannelHome(props: Props) {
                           Bulk editor (publications)
                         </Button>
                       ) : null}
-                      <Button loading={actionLoading} onClick={() => void syncPublished()}>
-                        Sync published products
-                      </Button>
+                      {billingActive ? (
+                        <Button loading={actionLoading} onClick={() => void syncPublished()}>
+                          Sync published products
+                        </Button>
+                      ) : null}
                     </InlineStack>
+                    {billingActive ? null : (
+                      <Text as="p" variant="bodySm">
+                        Approve the Shopify Sync plan to sync published products into the offhrs app.
+                      </Text>
+                    )}
                     {lastSyncSummary ? (
                       <Text as="p" variant="bodySm">
                         Last Sync result: {lastSyncSummary.upserted} session(s) written
