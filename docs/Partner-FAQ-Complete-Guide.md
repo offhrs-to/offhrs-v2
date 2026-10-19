@@ -114,7 +114,6 @@ offhrs charges a **monthly subscription** for workshop plans — there is **no c
 | **Lite** | $29 / month | Up to **4** active workshops; no Marketplace; no Sync |
 | **Shopify Sync** | $29 / month | Sync only (billed via Shopify App Pricing) |
 | **Pro** | $39 / month | **Unlimited** workshops + Marketplace |
-| **Full License** | $59 / month | Pro + Marketplace + Shopify Sync included |
 
 “Active” means published, draft, or fully booked workshops that are **not archived**. Archiving a workshop frees a slot on the Lite plan immediately.
 
@@ -124,19 +123,18 @@ offhrs charges a **monthly subscription** for workshop plans — there is **no c
 
 **Yes — 30 days free.** You enter your card when you start, but you are not charged until the trial ends. You can cancel anytime during the trial through the billing portal and you will not be charged for that billing period.
 
-When the trial ends, your subscription automatically converts to a paid plan (Lite, Pro, Full License, or Shopify Sync — whichever you chose) unless you cancel first.
+When the trial ends, your subscription automatically converts to a paid plan (Lite, Pro, or Shopify Sync — whichever you chose) unless you cancel first.
 
 You will receive an email reminder when your trial is about to end (approximately 3 days before).
 
 ---
 
-### How do I choose between Lite, Pro, and Full License?
+### How do I choose between Lite and Pro?
 
 - **Lite** is a good fit if you run a small number of workshops at once (up to 4 non-archived listings) and do not need Marketplace or Sync.  
-- **Pro** is better if you run many concurrent workshops and want Artist Marketplace included.  
-- **Full License** if you also need Shopify Sync (best value vs Pro + Sync separately).
+- **Pro** is better if you run many concurrent workshops and want Artist Marketplace included. Shopify Sync is a separate $29 CAD/month charge in Shopify.
 
-You can change plans through **Settings → Manage billing** in the Stripe customer portal (Lite / Pro / Full). Standalone Shopify Sync is managed in Shopify Admin.
+You can change plans through **Settings → Manage billing** in the Stripe customer portal (Lite / Pro). Standalone Shopify Sync is managed in Shopify Admin.
 
 ---
 
@@ -662,9 +660,8 @@ Include your business name, workshop title (if relevant), and screenshots when p
 |------|-------|
 | Free trial | 30 days |
 | Lite plan | $29 CAD/month, up to 4 active workshops (no Marketplace) |
-| Shopify Sync | $29 CAD/month standalone (or included in Full License) |
+| Shopify Sync | $29 CAD/month standalone |
 | Pro plan | $39 CAD/month, unlimited workshops + Marketplace |
-| Full License | $59 CAD/month, Pro + Marketplace + Shopify Sync |
 | Marketplace Only | $0 / month (3% + Stripe on goods) |
 | Booking commission (offhrs) | 0% |
 | Stripe processing fee (estimate) | ~2.9% + $0.30 CAD per transaction |

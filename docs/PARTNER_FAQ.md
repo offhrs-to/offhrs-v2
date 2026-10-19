@@ -85,7 +85,7 @@ Marketplace goods: **3%** platform fee on the item subtotal (excluding tax and s
 handling fee you set) is **held by offhrs** for prepaid Canada Post labels — not paid out as
 merchandise earnings. If you are GST/HST-registered, tax is collected into your Stripe Connect
 account and you remit it (same as workshops). Unregistered vendors are not charged GST/HST at
-Marketplace checkout. Pro and Full License include Marketplace access; a free Marketplace-only plan is also
+Marketplace checkout. Pro includes Marketplace access; a free Marketplace-only plan is also
 available. Lite does not include Marketplace. See `/terms/marketplace-seller-addendum`.
 
 ### How do Marketplace orders and shipping work?

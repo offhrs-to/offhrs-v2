@@ -193,7 +193,7 @@ Project **offhrs-v2** → Settings → Environment Variables → **Production** 
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | if separate Connect endpoint |
 | `STRIPE_LITE_PRICE_ID` | live $29 |
 | `STRIPE_PRO_PRICE_ID` | live $39 |
-| `STRIPE_FULL_PRICE_ID` | live $59 |
+| `STRIPE_FULL_PRICE_ID` | not used for new signups (Full License retired) |
 | `DISABLE_EXPENSIVE_ENDPOINTS` | `0` |
 
 Never set `NEXT_PUBLIC_SHIPPO_*`.
@@ -222,7 +222,7 @@ Never set `NEXT_PUBLIC_SHIPPO_*`.
 
 ## 3.5 Seller + smoke — **YOU**
 
-1. Real Pro/Full or Marketplace-only seller: shipping settings, QA approve, product with weight/dims, publish.
+1. Real Pro or Marketplace-only seller: shipping settings, QA approve, product with weight/dims, publish.
 2. Small-$ buyer path: Shop → rates → PaymentSheet → Profile Orders + seller Orders → **Print label** (live postage) → tracking / email.
 3. Optional: one pre-scan cancel/refund + void.
 4. Kill switch if needed: `DISABLE_EXPENSIVE_ENDPOINTS=1` and/or unpublish products.
@@ -235,11 +235,10 @@ Full detail: `docs/PARTNER_PRICING_5_TIER_OPS.md`.
 
 **YOU**
 
-1. Stripe Live: Lite $29, Pro **$39** (new Price), Full License **$59** → copy Price IDs.
-2. Set three Vercel Production Price ID vars → Redeploy.
-3. Apply Full License Supabase migration (Part 2.2).
-4. Confirm Shopify App Pricing still **$29 CAD / 30-day trial**, handle `offhrs-sync`.
-5. Smoke: Marketplace-only, Lite (no Marketplace), Pro, Full (Marketplace + Sync without Shopify Sync charge), Sync-only.
+1. Stripe Live: Lite $29, Pro **$39** (new Price) → copy Price IDs. Full License is not offered.
+2. Set `STRIPE_LITE_PRICE_ID` and `STRIPE_PRO_PRICE_ID` on Vercel Production → Redeploy.
+3. Confirm Shopify App Pricing still **$29 CAD / 30-day trial**, handle `offhrs-sync`.
+4. Smoke: Marketplace-only, Lite (no Marketplace), Pro (Marketplace; Sync still billed in Shopify), Sync-only.
 
 **AGENT:** Fix any post-deploy entitlement bugs you report.
 

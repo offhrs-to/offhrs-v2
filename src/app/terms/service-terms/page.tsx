@@ -75,8 +75,7 @@ export default function ServiceTermsPage() {
           <li>
             <strong>&ldquo;SaaS subscription&rdquo;</strong> &mdash; the recurring monthly fee paid by Vendors
             to maintain their dashboard on partners.offhrs.app. Paid plans: $29 CAD/month (Lite), $29
-            CAD/month (Shopify Sync via Shopify App Pricing), $39 CAD/month (Pro), or $59 CAD/month (Full
-            License). Stripe-billed plans include 13% Ontario HST; Shopify Sync is billed by Shopify. Marketplace
+            CAD/month (Shopify Sync via Shopify App Pricing), or $39 CAD/month (Pro). Stripe-billed plans include 13% Ontario HST; Shopify Sync is billed by Shopify. Marketplace
             Only has no monthly SaaS fee.
           </li>
           <li>

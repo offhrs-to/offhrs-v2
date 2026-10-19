@@ -39,7 +39,7 @@ export async function POST() {
     return NextResponse.json(
       {
         error:
-          'Shopify Sync plan required. Open Shopify Admin → Sales channels → offhrs to start the trial, or upgrade to Full License, then try again.',
+          'Shopify Sync plan required. Open Shopify Admin → Sales channels → offhrs to start the trial, then try again.',
         billing_status: shop.billing_status ?? 'none',
       },
       { status: 402 }

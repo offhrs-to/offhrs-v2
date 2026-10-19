@@ -15,7 +15,7 @@ export default function MarketplaceSellerAddendumPage() {
         <h2>1. Scope</h2>
         <p>
           This Addendum applies when you enable the Artist Marketplace on partners.offhrs.app (included with
-          Pro / Full License, or via free Marketplace-only enrollment). It supplements the Terms of Use, Service
+          Pro, or via free Marketplace-only enrollment). It supplements the Terms of Use, Service
           Terms, Privacy Policy, Content Policy, and Data Protection Addendum. Capitalized terms have the
           meanings in those documents unless defined here. You accept this Addendum when you enable the
           Artist Marketplace, publish a Marketplace product, or confirm the shipping attestation in your

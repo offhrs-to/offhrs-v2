@@ -8,9 +8,9 @@ Code already supports these plans. Complete the steps below in Stripe, Shopify, 
 | 2 | **Lite** | $29 | Stripe | Workshops (max 4); **no** Marketplace; **no** Sync |
 | 3 | **Shopify Sync** | $29 | Shopify App Pricing | Sync only |
 | 4 | **Pro** | $39 | Stripe | Unlimited workshops + Marketplace; **no** Sync |
-| 5 | **Full License** | $59 | Stripe | Pro + Marketplace + Sync (comps Sync; no separate Sync charge) |
+| 5 | **Full License** | Retired | — | Not offered. New `?plan=full` checkouts use Pro. Shopify Sync stays a separate Shopify charge. |
 
-Trial: **30 days** on Lite, Pro, Full License, and Shopify Sync.
+Trial: **30 days** on Lite, Pro, and Shopify Sync.
 
 ---
 
@@ -40,8 +40,7 @@ Use the **same mode** as production (`sk_live_…` on Production Vercel). Do **n
 1. Stripe Dashboard → **Products** (Live mode toggle ON for production).
 2. **Lite** — keep or create monthly recurring **$29 CAD**. Copy Price ID → `STRIPE_LITE_PRICE_ID`.
 3. **Pro** — create a **new** monthly Price **$39 CAD** (do not edit the old $49 price in place if existing subscribers use it). Copy new Price ID → `STRIPE_PRO_PRICE_ID`.
-4. **Full License** — create Product “offhrs Full License”, monthly recurring **$59 CAD**. Copy Price ID → `STRIPE_FULL_PRICE_ID`.
-5. Ensure each Price is **recurring**, **month**, currency **CAD**, and tax behavior matches your other partner prices (usually `exclusive` with Stripe Tax).
+4. Ensure each Price is **recurring**, **month**, currency **CAD**, and tax behavior matches your other partner prices (usually `exclusive` with Stripe Tax). Do not create a Full License price.
 
 ### B2. Existing Pro subscribers on $49 — migrate, do not grandfather
 
@@ -68,7 +67,6 @@ Checkout already sends `plan: lite | pro | full` in session/subscription metadat
    |----------|--------|
    | `STRIPE_LITE_PRICE_ID` | `price_…` ($29 Lite) |
    | `STRIPE_PRO_PRICE_ID` | `price_…` ($39 Pro) |
-   | `STRIPE_FULL_PRICE_ID` | `price_…` ($59 Full) |
 
 3. Keep `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and publishable keys aligned with Live mode.
 4. **Redeploy** Production after saving env (Deployments → Redeploy latest, or push a commit).
@@ -86,8 +84,7 @@ Standalone Sync is unchanged at **$29 CAD/month**, handle `offhrs-sync`.
    - Handle: **`offhrs-sync`** (must match `SHOPIFY_SYNC_PLAN_HANDLE` in code)
    - Amount: **$29 CAD** / month
    - Trial: **30 days**
-3. Full License partners do **not** need an active Shopify Sync charge; entitlement is granted from Stripe `subscription_tier = full`.
-4. After any pricing change in Partners, reinstall or re-subscribe on a **dev store** and confirm channel home → Sync works.
+3. After any pricing change in Partners, reinstall or re-subscribe on a **dev store** and confirm channel home → Sync works.
 
 No Shopify price change is required unless you previously set Sync to something other than $29.
 
@@ -98,7 +95,7 @@ No Shopify price change is required unless you previously set Sync to something 
 No Stripe product. Flow:
 
 1. Signup with marketplace intent (`/partners/signup?intent=marketplace`) or **Enable Marketplace** in the dashboard.
-2. Sets `marketplace_enabled` + `marketplace_plan = free` (or `included` when they also have Pro/Full).
+2. Sets `marketplace_enabled` + `marketplace_plan = free` (or `included` when they also have Pro).
 3. Fee: **3%** platform + Stripe on goods.
 
 Ops: ensure Marketplace QA / Connect onboarding still required before going live on Shop.
@@ -109,10 +106,8 @@ Ops: ensure Marketplace QA / Connect onboarding still required before going live
 
 1. **Marketplace Only** — signup → dashboard shows Marketplace; cannot create workshops.
 2. **Lite** — checkout `?plan=lite` → trial → create ≤4 workshops; Marketplace gated off.
-3. **Pro** — checkout `?plan=pro` → Marketplace available; Sync still requires Shopify charge **or** Full.
-4. **Full** — checkout `?plan=full` → Marketplace + Sync allowed without Shopify Sync subscription.
-5. **Shopify Sync only** — install channel → subscribe in Shopify → sync works; no Lite workshops.
-6. Admin SaaS page — MRR includes Full at $59.
+3. **Pro** — checkout `?plan=pro` → Marketplace available; Sync still requires a Shopify charge.
+4. **Shopify Sync only** — install channel → subscribe in Shopify → sync works; no Lite workshops.
 
 ---
 

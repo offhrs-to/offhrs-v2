@@ -23,7 +23,7 @@
 
 | Decision | Choice |
 |----------|--------|
-| Who sells | **Pro / Full License Partners** (marketplace **included**) + **free Marketplace-only** artists |
+| Who sells | **Pro Partners** (marketplace **included**) + **free Marketplace-only** artists |
 | Money | **CAD only**, ship/sell **Canada only** |
 | Shipping | **Live rates** via **platform Shippo** (Canada Post); seller **weight + dimensions**; buyer **postal code** |
 | Labels | Seller **Print label** (prepaid PDF, platform Shippo) → drop at Canada Post |

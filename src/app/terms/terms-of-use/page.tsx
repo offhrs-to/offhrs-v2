@@ -51,8 +51,8 @@ export default function TermsOfUsePage() {
           </li>
           <li>
             <strong>For vendors (makers and studios):</strong> a Partners dashboard at{' '}
-            <strong>partners.offhrs.app</strong> for workshop SaaS tools (Lite / Pro / Full License), optional Shopify Sync
-            (see Section 3.4), and/or Artist Marketplace selling (included with Pro / Full License, or via a free Marketplace-only
+            <strong>partners.offhrs.app</strong> for workshop SaaS tools (Lite / Pro), optional Shopify Sync
+            (see Section 3.4), and/or Artist Marketplace selling (included with Pro, or via a free Marketplace-only
             enrollment), including Stripe Connect payouts.
           </li>
         </ul>
@@ -68,7 +68,7 @@ export default function TermsOfUsePage() {
           <li>
             <strong>Platform SaaS fees.</strong> offhrs offers a free Marketplace Only plan and paid Partners
             plans: <strong>$29 CAD/month (Lite)</strong>, <strong>$29 CAD/month (Shopify Sync)</strong>,{' '}
-            <strong>$39 CAD/month (Pro)</strong>, or <strong>$59 CAD/month (Full License)</strong>. Paid
+            <strong>$39 CAD/month (Pro)</strong>. Paid
             subscription fees represent a taxable supply of digital services in Canada; we automatically add{' '}
             <strong>13% Ontario HST</strong> on top of Stripe-billed subscription prices. Shopify Sync is billed
             by Shopify through Shopify App Pricing (not by Stripe), and any taxes on those charges are applied
@@ -110,13 +110,13 @@ export default function TermsOfUsePage() {
         <ul>
           <li>
             <strong>The trial.</strong> Vendors registering on partners.offhrs.app for a Stripe-billed plan
-            (Lite, Pro, or Full License) are granted a <strong>30-day free trial</strong>. Valid credit-card
+            (Lite or Pro) are granted a <strong>30-day free trial</strong>. Valid credit-card
             details are collected upon registration. Marketplace Only has no subscription fee or trial. Shopify
             Sync includes a 30-day free trial that is administered by Shopify (see Section 3.4).
           </li>
           <li>
             <strong>Auto-renewal.</strong> On day 31, the trial of a Stripe-billed plan automatically converts
-            to a paid monthly billing cycle at your chosen plan (Lite, Pro, or Full License) plus applicable
+            to a paid monthly billing cycle at your chosen plan (Lite or Pro) plus applicable
             HST.
           </li>
           <li>

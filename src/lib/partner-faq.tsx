@@ -176,7 +176,7 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'Can I cancel my subscription?',
         aText:
-          'Yes, anytime from your dashboard settings (Lite/Pro/Full) or Shopify billing (standalone Sync). You keep access until the end of your current billing period.',
+          'Yes, anytime from your dashboard settings (Lite/Pro) or Shopify billing (standalone Sync). You keep access until the end of your current billing period.',
       },
     ],
   },
@@ -207,7 +207,7 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'Does offhrs take a commission on each booking?',
         aText:
-          'No — offhrs does not take a percentage commission on workshop bookings. Our revenue for workshops is the monthly Lite/Pro/Full subscription. Stripe processing (about 2.9% + $0.30 CAD) still applies and is borne by you. Artist Marketplace goods are different: 3% platform fee on the item subtotal plus Stripe processing.',
+          'No — offhrs does not take a percentage commission on workshop bookings. Our revenue for workshops is the monthly Lite or Pro subscription. Stripe processing (about 2.9% + $0.30 CAD) still applies and is borne by you. Artist Marketplace goods are different: 3% platform fee on the item subtotal plus Stripe processing.',
         a: (
           <p>
             No — offhrs does <strong>not</strong> take a percentage commission on{' '}

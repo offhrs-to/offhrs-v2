@@ -42,7 +42,7 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Vendors (makers/studio owners):</strong> solo entrepreneurs, instructors, or businesses
-            who use our Partners tools (a workshop plan such as Lite, Pro, or Full License, Shopify Sync,
+            who use our Partners tools (a workshop plan such as Lite or Pro, Shopify Sync,
             and/or the Artist Marketplace) to host classes, sell goods, and manage scheduling and orders.
           </li>
         </ul>
