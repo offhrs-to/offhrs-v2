@@ -46,14 +46,23 @@ function WebsitePartnerLogin() {
       } = await supabase.auth.getSession()
       if (cancelled) return
       if (session) {
-        const params = new URLSearchParams(window.location.search)
-        const next = params.get('next')
-        if (next && next.startsWith('/') && !next.startsWith('//')) {
-          window.location.replace(next)
+        const { data: vendor, error: vendorError } = await supabase
+          .from('vendor_profiles')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .maybeSingle()
+        // A consumer session has no partner profile. Stay on this form instead of
+        // bouncing through the dashboard, which sends that user to signup.
+        if (!vendorError && vendor) {
+          const params = new URLSearchParams(window.location.search)
+          const next = params.get('next')
+          if (next && next.startsWith('/') && !next.startsWith('//')) {
+            window.location.replace(next)
+            return
+          }
+          router.replace('/partners/dashboard')
           return
         }
-        router.replace('/partners/dashboard')
-        return
       }
       setCheckingSession(false)
     }

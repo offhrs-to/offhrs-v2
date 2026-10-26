@@ -2,7 +2,7 @@
   "expo": {
     "name": "offhrs-mobile",
     "slug": "offhrs-mobile",
-    "version": "1.3.9",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "splash": {
@@ -28,7 +28,7 @@
     },
     "android": {
       "package": "com.offhrs.app",
-      "versionCode": 52,
+      "versionCode": 53,
       "launchMode": "singleTask",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -93,7 +93,7 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "runtimeVersion": "1.3.9",
+    "runtimeVersion": "1.4.0",
     "updates": {
       "url": "https://u.expo.dev/1014e351-ffd9-4953-b655-a54559e93f12"
     },
