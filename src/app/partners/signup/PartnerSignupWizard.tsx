@@ -37,6 +37,7 @@ import {
   safeShopifyShop,
   shopifyChannelLoginHref,
 } from '@/lib/shopify/channel-signup'
+import { isPartnerSignupShopifySyncOnly } from '@/lib/partner-signup-plans'
 
 type BillingPlanChoice = 'lite' | 'pro' | 'shopify_sync' | 'marketplace'
 
@@ -97,8 +98,9 @@ export function PartnerSignupWizard() {
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [billingCanceled, setBillingCanceled] = useState(false)
   const [channelLocked, setChannelLocked] = useState(() => isShopifyChannelSignup(searchParams))
+  const syncOnlySignup = isPartnerSignupShopifySyncOnly()
   const [billingPlan, setBillingPlan] = useState<BillingPlanChoice>(() => {
-    if (isShopifyChannelSignup(searchParams)) return 'shopify_sync'
+    if (isPartnerSignupShopifySyncOnly() || isShopifyChannelSignup(searchParams)) return 'shopify_sync'
     const intent = searchParams.get('intent')
     if (intent === 'shopify_sync') return 'shopify_sync'
     if (intent === 'marketplace') return 'marketplace'
@@ -232,6 +234,10 @@ export function PartnerSignupWizard() {
     if (!billingReturn) {
       clearShopifyChannelSignup()
       setChannelLocked(false)
+    }
+    if (isPartnerSignupShopifySyncOnly()) {
+      setBillingPlan('shopify_sync')
+      return
     }
     const intent = searchParams.get('intent')
     if (intent === 'shopify_sync') setBillingPlan('shopify_sync')
@@ -438,7 +444,8 @@ export function PartnerSignupWizard() {
   const inputClass =
     'w-full rounded-lg border border-[#D9D7CF] bg-[#FAFAF8] px-4 py-2.5 text-sm text-[#1a1a1a] placeholder:text-[#AAA] focus:outline-none focus:ring-2 focus:ring-[#5D755D]'
 
-  const shopifyBillingOnly = channelLocked || billingPlan === 'shopify_sync'
+  const hideOtherPlans = channelLocked || syncOnlySignup
+  const shopifyBillingOnly = channelLocked || syncOnlySignup || billingPlan === 'shopify_sync'
 
   return (
     <div
@@ -820,7 +827,7 @@ export function PartnerSignupWizard() {
               </span>
             </div>
             <h1 className="font-playfair text-3xl font-bold text-[#1a1a1a] leading-tight text-center">
-              {channelLocked ? 'Shopify Sync' : "Choose how you'll get listed"}
+              {hideOtherPlans ? 'Shopify Sync' : "Choose how you'll get listed"}
             </h1>
             <p className="text-sm text-[#555] leading-relaxed text-center">
               {shopifyBillingOnly ? (
@@ -846,7 +853,7 @@ export function PartnerSignupWizard() {
             </p>
             {emailVerifiedForBilling && (
               <div className="grid grid-cols-1 gap-3 pt-2">
-                {!channelLocked && (
+                {!hideOtherPlans && (
                 <button
                   type="button"
                   onClick={() => setBillingPlan('marketplace')}
@@ -869,7 +876,7 @@ export function PartnerSignupWizard() {
                   </p>
                 </button>
                 )}
-                {!channelLocked && (
+                {!hideOtherPlans && (
                 <button
                   type="button"
                   onClick={() => setBillingPlan('lite')}
@@ -909,7 +916,7 @@ export function PartnerSignupWizard() {
                     Shopify Sync only — billed in Shopify. No Lite/Pro workshops dashboard, no Marketplace.
                   </p>
                 </button>
-                {!channelLocked && (
+                {!hideOtherPlans && (
                 <button
                   type="button"
                   onClick={() => setBillingPlan('pro')}
@@ -957,7 +964,7 @@ export function PartnerSignupWizard() {
             )}
             <p className="text-center text-xs text-[#999]">
               {shopifyBillingOnly
-                ? 'Shopify Sync is billed through Shopify App Pricing after install — not Stripe.'
+                ? 'Shopify Sync is billed through Shopify Billing after install — not Stripe.'
                 : billingPlan === 'marketplace'
                   ? 'Marketplace has no monthly subscription. Stripe Connect in Settings is required for payouts.'
                   : 'Lite and Pro payments are processed by Stripe. You won\u2019t be charged the subscription amount until after your trial period.'}

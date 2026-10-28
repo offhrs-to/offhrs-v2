@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { vendorHasNativePartnerPlan } from '@/lib/partner-access'
+import { isPartnerSignupShopifySyncOnly } from '@/lib/partner-signup-plans'
 
 /**
  * POST /api/partners/marketplace/enroll
@@ -10,6 +11,16 @@ import { vendorHasNativePartnerPlan } from '@/lib/partner-access'
  */
 export async function POST() {
   try {
+    if (isPartnerSignupShopifySyncOnly()) {
+      return NextResponse.json(
+        {
+          error:
+            'Marketplace signup is temporarily unavailable while Shopify Sync is under App Store review.',
+        },
+        { status: 403 }
+      )
+    }
+
     const supabase = await createClient()
     const {
       data: { user },
