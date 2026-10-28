@@ -44,7 +44,7 @@ const steps = [
   {
     n: '04',
     title: 'Start the Shopify Sync trial',
-    body: `In Sales channels → offhrs, choose Start trial for Shopify Sync ($${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month, ${PARTNER_TRIAL_LABEL}). Approve the plan in Shopify Admin. Billing is on your Shopify invoice.`,
+    body: `In Sales channels → offhrs, choose Start trial for Shopify Sync ($${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month, ${PARTNER_TRIAL_LABEL}). Approve the plan in Shopify Admin. Billing runs through Shopify Billing on your Shopify invoice — not Stripe.`,
   },
   {
     n: '05',
@@ -85,7 +85,7 @@ const canDo = [
   'Publish Shopify workshop products to the offhrs app for local discovery',
   'Keep remaining seats in sync from Shopify inventory',
   'Send guests to Shopify checkout with the session pre-loaded in cart',
-  'Run Sync alone — billing is the Shopify Sync plan on your Shopify invoice',
+  'Run Sync alone — billed through Shopify Billing on your Shopify invoice',
   'Use your partner profile address for map pins and studio location',
 ]
 
@@ -160,7 +160,7 @@ export default async function ShopifySyncGuidePage({
         </h1>
         <p className="mt-5 text-base text-[#555] leading-relaxed max-w-xl mx-auto">
           Keep Shopify as your booking system. Publish workshop products to the offhrs sales channel
-          so Toronto guests can discover you — then they complete booking on Shopify checkout.
+          so Canada (CAD) guests can discover you — then they complete booking on Shopify checkout.
         </p>
       </header>
 
@@ -375,7 +375,7 @@ export default async function ShopifySyncGuidePage({
           </h2>
           <p className="text-sm text-[#555] max-w-md mx-auto mb-8 leading-relaxed">
             {afterSignup
-              ? 'Install the offhrs app from Shopify Admin, then open Sales channels → offhrs to connect and start the Sync trial. Billing is on your Shopify invoice.'
+              ? 'Install the offhrs app from Shopify Admin, then open Sales channels → offhrs to connect and start the Sync trial. Billing runs through Shopify Billing on your Shopify invoice.'
               : 'Create your partner account, continue with Shopify Sync, then install offhrs from Shopify Admin and manage Sync under Sales channels → offhrs.'}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -414,7 +414,7 @@ export default async function ShopifySyncGuidePage({
             <Link href="/privacy" className="hover:text-[#555] transition-colors">
               Privacy
             </Link>
-            <a href="mailto:support@offhrs.app" className="hover:text-[#555] transition-colors">
+            <a href="mailto:hello@offhrs.app" className="hover:text-[#555] transition-colors">
               Support
             </a>
           </div>
