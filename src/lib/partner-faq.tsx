@@ -136,7 +136,7 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'How is billing handled?',
         aText:
-          'Lite and Pro bill through Stripe. Standalone Shopify Sync bills through Shopify App Pricing.',
+          'Lite and Pro bill through Stripe. Standalone Shopify Sync bills through Shopify Billing.',
       },
       {
         q: "What's the difference between Lite and Pro?",
