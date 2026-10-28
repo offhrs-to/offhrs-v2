@@ -2,6 +2,7 @@ import { DesignColors, DesignSizes, DesignSpacing } from '@/constants/design-tem
 import { completeOAuthBrowserSession } from '@/lib/auth-session-cleanup';
 import { processAuthCallbackUrl } from '@/lib/auth-callback-url';
 import { supabase } from '@/lib/supabase';
+import { StudioJoinCard } from '@/components/StudioJoinCard';
 import { openWebAppPath } from '@/lib/web-app-links';
 import { Image as ExpoImage } from 'expo-image';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -14,6 +15,7 @@ import {
   Image,
   Platform,
   Pressable,
+  ScrollView,
   Text,
   View,
 } from 'react-native';
@@ -126,11 +128,13 @@ export function SignInForm({
           </View>
         </View>
       ) : null}
-      <View
-        style={{
-          flex: 1,
+      <ScrollView
+        style={{ flex: 1 }}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{
           padding: DesignSpacing.horizontalPadding,
           paddingTop: showHeaderLogo ? 16 : DesignSpacing.contentPaddingTop + 4,
+          paddingBottom: showHeaderLogo ? 140 : 24,
         }}
       >
         <Text
@@ -224,6 +228,8 @@ export function SignInForm({
           )}
         </Pressable>
 
+        {showHeaderLogo ? <StudioJoinCard /> : null}
+
         <Pressable
           onPress={() => router.push('/contact')}
           disabled={loading}
@@ -275,7 +281,7 @@ export function SignInForm({
             <Text style={{ color: DesignColors.mediumGray, fontSize: 14 }}>Back</Text>
           </Pressable>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 }

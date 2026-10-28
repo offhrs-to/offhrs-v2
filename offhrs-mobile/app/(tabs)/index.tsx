@@ -29,7 +29,7 @@ import {
 import { Image } from 'expo-image';
 import { useFocusEffect } from 'expo-router/react-navigation';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   DeviceEventEmitter,
@@ -219,8 +219,42 @@ export default function HomeScreen() {
     return raw === undefined || raw === null ? '' : String(Array.isArray(raw) ? raw[0] : raw);
   }, [params.t]);
 
+  const dismissedOpenKey = useRef<string | null>(null);
+
+  const openEventById = useCallback(
+    (id: number) => {
+      const fromList = previewEvents.find((e) => Number(e.id) === id);
+      if (fromList) {
+        setQuickViewEvent(fromList);
+        return;
+      }
+      void supabase
+        .from('events')
+        .select(WORKSHOP_EVENT_LIST_SELECT)
+        .eq('id', id)
+        .single()
+        .then(async ({ data, error }) => {
+          if (error || !data || !isEventVisibleToConsumers(data)) return;
+          const enriched = await enrichWorkshopEventsWithVendorNames(
+            expandWorkshopEventsForConsumers([mapDbRowToWorkshopEvent(data)])
+          );
+          setQuickViewEvent(enriched[0] ?? mapDbRowToWorkshopEvent(data));
+        });
+    },
+    [previewEvents]
+  );
+
+  const closeQuickView = useCallback(() => {
+    setQuickViewEvent(null);
+    if (openEventId != null) {
+      dismissedOpenKey.current = `${openEventId}:${openTs}:${openRequestKey}`;
+      router.setParams({ openEvent: '', openTs: '', t: '' });
+    }
+  }, [openEventId, openRequestKey, openTs, router]);
+
   useEffect(() => {
     if (openEventId == null) return;
+    if (dismissedOpenKey.current === `${openEventId}:${openTs}:${openRequestKey}`) return;
     const looksLikeIsoTs = !!openTs && /\d{4}-\d{2}-\d{2}T/.test(openTs);
     const matchesTs = (rowDateIso: string | null | undefined): boolean => {
       if (!looksLikeIsoTs) return true;
@@ -446,6 +480,7 @@ export default function HomeScreen() {
           userLocationAnchor={carouselLocationAnchor}
           refreshNonce={homeRefreshNonce}
           onItemsChange={onTorontoItemsChange}
+          onOpenEvent={openEventById}
         />
 
         <HomeCarouselSectionHeader
@@ -476,13 +511,14 @@ export default function HomeScreen() {
           showHintWhenNoLocation
           refreshNonce={homeRefreshNonce}
           onItemsChange={onNearYouItemsChange}
+          onOpenEvent={openEventById}
         />
       </ScrollView>
 
       <WorkshopQuickViewModal
         visible={!!quickViewEvent}
         event={quickViewEvent}
-        onClose={() => setQuickViewEvent(null)}
+        onClose={closeQuickView}
         userId={user?.id}
         userEmail={user?.email ?? undefined}
         attendeeName={profile?.display_name?.trim() ?? ''}

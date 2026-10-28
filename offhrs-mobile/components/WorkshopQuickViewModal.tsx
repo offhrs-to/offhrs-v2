@@ -5,6 +5,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Modal,
   Platform,
   Pressable,
@@ -117,6 +118,15 @@ function WorkshopQuickViewModal({
       scrollY.value = 0;
     }
   }, [visible, scrollY, translateY]);
+
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      dismissSheet();
+      return true;
+    });
+    return () => sub.remove();
+  }, [dismissSheet, visible]);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (e) => {

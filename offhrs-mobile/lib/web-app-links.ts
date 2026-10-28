@@ -8,8 +8,13 @@ export function getWebAppOrigin(): string {
   return trimmed || BOOK_API_BASE;
 }
 
-/** Legal / policy pages on the web app (same paths as Next.js routes). */
-export type WebAppPolicyPath = '/privacy' | '/terms' | '/disclaimer';
+/** Pages on the web app (same paths as Next.js routes). */
+export type WebAppPolicyPath =
+  | '/privacy'
+  | '/terms'
+  | '/disclaimer'
+  | '/partners/signup'
+  | '/partners/login';
 
 /**
  * Opens https://offhrs.app/... (or EXPO_PUBLIC_APP_URL) in the system browser.

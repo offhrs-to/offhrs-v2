@@ -50,6 +50,7 @@ type Props = {
   refreshNonce?: number;
   /** Notifies parent of the current carousel IDs (for “see all” browse). */
   onItemsChange?: (items: HomeCarouselEventItem[]) => void;
+  onOpenEvent: (id: number) => void;
 };
 
 export default function WorkshopsNearYouCarousel({
@@ -57,6 +58,7 @@ export default function WorkshopsNearYouCarousel({
   showHintWhenNoLocation = false,
   refreshNonce = 0,
   onItemsChange,
+  onOpenEvent,
 }: Props) {
   const [items, setItems] = useState<HomeCarouselEventItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,5 +129,5 @@ export default function WorkshopsNearYouCarousel({
     );
   }
 
-  return <HomeWorkshopCarouselCards items={items} loading={loading} />;
+  return <HomeWorkshopCarouselCards items={items} loading={loading} onOpenEvent={onOpenEvent} />;
 }

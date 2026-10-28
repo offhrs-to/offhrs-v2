@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { goBack } from '@/lib/go-back';
 import { SignInForm } from '@/components/SignInForm';
 
 export default function LoginScreen() {
@@ -15,7 +16,7 @@ export default function LoginScreen() {
         router.replace('/(tabs)/profile');
       }}
       showBackButton
-      onBack={() => router.back()}
+      onBack={() => goBack(router)}
     />
   );
 }

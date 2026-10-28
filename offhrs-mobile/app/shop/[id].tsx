@@ -12,6 +12,7 @@ import {
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { goBack } from '@/lib/go-back';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -92,7 +93,7 @@ export default function ShopProductScreen() {
       }
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'Product not found');
-      router.back();
+      goBack(router);
     } finally {
       setLoading(false);
     }
@@ -161,7 +162,7 @@ export default function ShopProductScreen() {
     <View style={{ flex: 1, backgroundColor: DesignColors.creamBg }}>
       <WorkshopsChrome
         showBack
-        onBackPress={() => router.back()}
+        onBackPress={() => goBack(router)}
         hideSearchBar
         searchValue=""
         searchPlaceholder=""

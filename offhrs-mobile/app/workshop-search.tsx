@@ -21,6 +21,7 @@ import { useFocusEffect } from "expo-router/react-navigation";
 import * as Location from 'expo-location';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { goBack } from '@/lib/go-back';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -454,7 +455,7 @@ export default function WorkshopSearchScreen() {
       <WorkshopsChrome
         showBack
         hideDateAndClear
-        onBackPress={() => router.back()}
+        onBackPress={() => goBack(router)}
         searchValue={searchTerm}
         onSearchChangeText={setSearchTerm}
         showPriceFilter={isSearching}

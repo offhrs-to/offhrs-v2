@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.offhrs.app.offhrs",
-      "buildNumber": "56",
+      "buildNumber": "57",
       "usesAppleSignIn": true,
       "backgroundColor": "#ECEFE5",
       "infoPlist": {

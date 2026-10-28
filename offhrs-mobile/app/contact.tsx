@@ -6,6 +6,7 @@ import {
 import { Image } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
+import { goBack } from '@/lib/go-back';
 import * as Linking from 'expo-linking';
 import { useState } from 'react';
 import {
@@ -121,7 +122,7 @@ export default function ContactScreen() {
             }}
           >
             <Pressable
-              onPress={() => router.back()}
+              onPress={() => goBack(router)}
               hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel="Go back"

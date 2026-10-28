@@ -25,6 +25,7 @@ import {
   View,
 } from 'react-native';
 import { SignInForm } from '@/components/SignInForm';
+import { StudioJoinCard } from '@/components/StudioJoinCard';
 import { openWebAppPath } from '@/lib/web-app-links';
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
 import { subscribeEventSavesChanged } from '@/lib/event-saves';
@@ -588,6 +589,8 @@ export default function ProfileScreen() {
           <Text style={{ fontSize: 16, color: DesignColors.charcoal }}>{email}</Text>
         </View>
       </View>
+
+      <StudioJoinCard />
 
       <Pressable
         onPress={() => router.push('/contact')}

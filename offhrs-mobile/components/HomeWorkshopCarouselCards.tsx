@@ -8,7 +8,6 @@ import {
   Platform,
   StyleSheet,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import CategoryFallbackImage from '@/components/CategoryFallbackImage';
 import { EventSaveHeartIcon } from '@/components/EventSaveHeartIcon';
 import WorkshopSalePrice from '@/components/WorkshopSalePrice';
@@ -50,6 +49,8 @@ function carouselHasPrice(item: HomeCarouselEventItem): boolean {
 type Props = {
   items: HomeCarouselEventItem[];
   loading: boolean;
+  /** Opens the workshop on the current screen. Avoids pushing a route that Back would pop to Search. */
+  onOpenEvent: (id: number) => void;
 };
 
 const HEART_SIZE = 28;
@@ -59,8 +60,7 @@ const HEART_SIZE = 28;
  * Square media; two cards fully visible with a slight peek of the next.
  * Heart save control syncs via `user_event_saves` + app-wide save events.
  */
-export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
-  const router = useRouter();
+export default function HomeWorkshopCarouselCards({ items, loading, onOpenEvent }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const { savedEventIds, toggleSave, isSaving } = useSavedEventIds();
   const {
@@ -81,10 +81,7 @@ export default function HomeWorkshopCarouselCards({ items, loading }: Props) {
   } = getHomeCarouselCardMetrics(windowWidth);
 
   const handlePress = (id: number) => {
-    // Cache-buster `t` keeps the URL distinct between consecutive taps so Home
-    // re-reads search params. `t` is intentionally separate from `openTs`
-    // (occurrence ISO date) to avoid confusing the matcher.
-    router.push(`/(tabs)/index?openEvent=${id}&t=${Date.now()}`);
+    onOpenEvent(id);
   };
 
   if (loading && items.length === 0) {

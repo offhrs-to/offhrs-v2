@@ -24,6 +24,7 @@ import {
 } from '@/lib/workshops-events-query';
 import { useFocusEffect } from "expo-router/react-navigation";
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { goBack } from '@/lib/go-back';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
@@ -352,7 +353,7 @@ export default function WorkshopMapScreen() {
       <WorkshopsChrome
         showBack
         hideDateAndClear
-        onBackPress={() => router.back()}
+        onBackPress={() => goBack(router)}
         searchAsButton
         searchPlaceholder="Search workshops…"
         searchValue={searchTerm}

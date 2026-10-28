@@ -1,5 +1,6 @@
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { goBack } from '@/lib/go-back';
 import { useFocusEffect } from "expo-router/react-navigation";
 import { memo, useCallback, useEffect, useState } from 'react';
 import {
@@ -419,6 +420,15 @@ export default function VendorProfileScreen() {
   const listHeader = (
     <>
         <View style={{ marginTop: DesignSpacing.contentPaddingTop, marginBottom: 24 }}>
+          <Pressable
+            onPress={() => goBack(router)}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            hitSlop={12}
+            style={{ marginBottom: 8, alignSelf: 'flex-start' }}
+          >
+            <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.primary }}>‹ Back</Text>
+          </Pressable>
           <Text style={{ fontSize: 28, fontWeight: '700', color: DesignColors.charcoal }}>
             {vendor?.name ?? 'Workshop host'}
           </Text>
@@ -605,7 +615,7 @@ export default function VendorProfileScreen() {
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: DesignColors.creamBg }}>
         <Text style={{ color: DesignColors.mediumGray, marginBottom: 16 }}>Vendor not found</Text>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack(router)}
           style={{ paddingVertical: 10, paddingHorizontal: 20, backgroundColor: DesignColors.primary, borderRadius: 9999 }}
         >
           <Text style={{ color: '#FFF', fontWeight: '600' }}>Back</Text>
@@ -630,7 +640,7 @@ export default function VendorProfileScreen() {
         }
         ListFooterComponent={
           <Pressable
-            onPress={() => router.replace('/(tabs)/index')}
+            onPress={() => goBack(router)}
             style={{
               marginTop: 12,
               marginBottom: Platform.OS === 'android' ? Math.max(insets.bottom + 96, 112) : 32,
@@ -641,7 +651,7 @@ export default function VendorProfileScreen() {
               alignItems: 'center',
             }}
           >
-            <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.primary }}>Back to Workshops</Text>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: DesignColors.primary }}>Back</Text>
           </Pressable>
         }
         initialNumToRender={6}

@@ -9,6 +9,7 @@ import {
 } from '@/lib/shop-api';
 import { runShopCheckout } from '@/lib/shop-checkout-mobile';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { goBack } from '@/lib/go-back';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -151,7 +152,7 @@ export default function ShopCheckoutScreen() {
           paddingBottom: insets.bottom + 100,
         }}
       >
-        <Pressable onPress={() => router.back()} style={{ marginBottom: 16 }}>
+        <Pressable onPress={() => goBack(router)} style={{ marginBottom: 16 }}>
           <Text style={{ color: DesignColors.primary, fontWeight: '600' }}>← Back</Text>
         </Pressable>
 

@@ -758,7 +758,10 @@ export default function WorkshopBrowseScreen() {
 
   const closeQuickView = useCallback(() => setQuickViewEvent(null), []);
 
-  const goBack = useCallback(() => router.back(), [router]);
+  const goBackToPrevious = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  }, [router]);
 
   const quickViewProfileLocation = useMemo(
     () => (profileLocation ? { lat: profileLocation.lat, lng: profileLocation.lng } : null),
@@ -771,7 +774,7 @@ export default function WorkshopBrowseScreen() {
         <WorkshopsChrome
           showBack
           hideDateAndClear
-          onBackPress={goBack}
+          onBackPress={goBackToPrevious}
           searchAsButton
           searchPlaceholder={browseHeading || 'Search workshops…'}
           searchValue={searchTerm}
