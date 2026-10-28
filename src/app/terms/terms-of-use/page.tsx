@@ -71,7 +71,7 @@ export default function TermsOfUsePage() {
             <strong>$39 CAD/month (Pro)</strong>. Paid
             subscription fees represent a taxable supply of digital services in Canada; we automatically add{' '}
             <strong>13% Ontario HST</strong> on top of Stripe-billed subscription prices. Shopify Sync is billed
-            by Shopify through Shopify App Pricing (not by Stripe), and any taxes on those charges are applied
+            by Shopify through Shopify Billing (not by Stripe), and any taxes on those charges are applied
             by Shopify as shown in your Shopify billing.
           </li>
           <li>
@@ -222,7 +222,7 @@ export default function TermsOfUsePage() {
           </li>
           <li>
             <strong>Fees and billing.</strong> After a 30-day free trial, Shopify Sync costs{' '}
-            <strong>$29 CAD per 30-day billing cycle</strong>, billed by Shopify through Shopify App Pricing.
+            <strong>$29 CAD per 30-day billing cycle</strong>, billed by Shopify through Shopify Billing.
             Shopify&rsquo;s terms and billing practices govern those charges, including refunds and
             credits. Cancel by cancelling the subscription or uninstalling the app in your Shopify admin.
           </li>
