@@ -13,6 +13,7 @@ import {
   SHOPIFY_SYNC_MONTHLY_CAD,
   SHOPIFY_SYNC_PLAN_NAME,
 } from '@/lib/partner-pricing'
+import { isPartnerSignupShopifySyncOnly } from '@/lib/partner-signup-plans'
 import { flattenPartnerFaqs } from '@/lib/partner-faq'
 import { getSiteUrl } from '@/lib/site'
 
@@ -79,6 +80,7 @@ const features = [
 ]
 
 export default function PartnersLandingPage() {
+  const syncOnlySignup = isPartnerSignupShopifySyncOnly()
   const faqs = flattenPartnerFaqs()
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -156,12 +158,21 @@ export default function PartnersLandingPage() {
             >
               Sign in
             </Link>
-            <Link
-              href="/partners/signup"
-              className="rounded-full bg-[#5D755D] px-5 py-2 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
-            >
-              Start free trial
-            </Link>
+            {syncOnlySignup ? (
+              <Link
+                href="/partners/shopify-sync"
+                className="rounded-full bg-[#5D755D] px-5 py-2 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
+              >
+                Shopify Sync
+              </Link>
+            ) : (
+              <Link
+                href="/partners/signup"
+                className="rounded-full bg-[#5D755D] px-5 py-2 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
+              >
+                Start free trial
+              </Link>
+            )}
           </div>
         </div>
       </nav>
@@ -175,17 +186,37 @@ export default function PartnersLandingPage() {
           Run your workshop business the easy way — all in one platform.
         </h1>
         <p className="mt-6 text-lg text-[#555] max-w-xl mx-auto leading-relaxed">
-          Bookings, payouts, and calendar sync — or mirror your Shopify workshops into the app. Start your free{' '}
-          {PARTNER_TRIAL_LABEL}; plans from{' '}
-          <span className="font-semibold text-[#1a1a1a]">{formatPartnerMonthlyPriceLabel('lite')}</span> after the trial.
+          {syncOnlySignup ? (
+            <>
+              Install Shopify Sync from Shopify Admin to publish workshop products to offhrs. Guests book on your
+              Shopify checkout. {SHOPIFY_SYNC_PLAN_NAME} is ${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month after a{' '}
+              {PARTNER_TRIAL_LABEL}, billed through Shopify Billing.
+            </>
+          ) : (
+            <>
+              Bookings, payouts, and calendar sync — or mirror your Shopify workshops into the app. Start your free{' '}
+              {PARTNER_TRIAL_LABEL}; plans from{' '}
+              <span className="font-semibold text-[#1a1a1a]">{formatPartnerMonthlyPriceLabel('lite')}</span> after
+              the trial.
+            </>
+          )}
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
-            href="/partners/signup"
-            className="rounded-full bg-[#5D755D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-sm"
-          >
-            Start free {PARTNER_TRIAL_LABEL}
-          </Link>
+          {syncOnlySignup ? (
+            <Link
+              href="/partners/shopify-sync"
+              className="rounded-full bg-[#5D755D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-sm"
+            >
+              Shopify Sync guide
+            </Link>
+          ) : (
+            <Link
+              href="/partners/signup"
+              className="rounded-full bg-[#5D755D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-sm"
+            >
+              Start free {PARTNER_TRIAL_LABEL}
+            </Link>
+          )}
           <Link
             href="/partners/login"
             className="rounded-full border border-[#D9D7CF] px-8 py-3.5 text-sm font-semibold text-[#1a1a1a] hover:bg-[#F0EDE8] transition-colors"
@@ -245,9 +276,18 @@ export default function PartnersLandingPage() {
         <div className="max-w-5xl mx-auto px-6 text-center">
           <h2 className="font-playfair text-3xl font-bold mb-4">Simple, honest pricing</h2>
           <p className="text-[#555] text-sm mb-12 max-w-2xl mx-auto">
-            Marketplace Only is free. Lite and Pro run bookings on offhrs (Pro includes Marketplace). Shopify Sync
-            mirrors Shopify workshops and is billed separately in Shopify. Paid plans include a{' '}
-            {PARTNER_TRIAL_LABEL}.
+            {syncOnlySignup ? (
+              <>
+                {SHOPIFY_SYNC_PLAN_NAME} is ${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month after a {PARTNER_TRIAL_LABEL},
+                billed through Shopify Billing (not Stripe). Install from Sales channels in Shopify Admin.
+              </>
+            ) : (
+              <>
+                Marketplace Only is free. Lite and Pro run bookings on offhrs (Pro includes Marketplace). Shopify
+                Sync mirrors Shopify workshops and is billed separately in Shopify. Paid plans include a{' '}
+                {PARTNER_TRIAL_LABEL}.
+              </>
+            )}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 text-left items-stretch">
             <div
@@ -272,14 +312,45 @@ export default function PartnersLandingPage() {
                 Coming soon
               </span>
             </div>
-            <div className="rounded-3xl border-2 border-[#E8E6E0] bg-[#FAFAF8] p-8 shadow-sm flex flex-col h-full">
-              <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Lite</p>
+            <div
+              className={`rounded-3xl border-2 p-8 shadow-sm flex flex-col h-full ${
+                syncOnlySignup
+                  ? 'border-[#E8E6E0] bg-[#F3F1EC] opacity-60'
+                  : 'border-[#E8E6E0] bg-[#FAFAF8]'
+              }`}
+              aria-disabled={syncOnlySignup || undefined}
+            >
+              <p
+                className={`text-sm font-semibold uppercase tracking-wide mb-3 ${
+                  syncOnlySignup ? 'text-[#888]' : 'text-[#5D755D]'
+                }`}
+              >
+                Lite
+              </p>
               <div className="flex items-end gap-1 mb-1">
-                <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">{formatPartnerMonthlyAmount('lite')}</span>
-                <span className="text-[#555] text-sm mb-2">CAD / month</span>
+                <span
+                  className={`font-playfair text-5xl font-bold ${
+                    syncOnlySignup ? 'text-[#888]' : 'text-[#1a1a1a]'
+                  }`}
+                >
+                  {formatPartnerMonthlyAmount('lite')}
+                </span>
+                <span className={`text-sm mb-2 ${syncOnlySignup ? 'text-[#999]' : 'text-[#555]'}`}>
+                  CAD / month
+                </span>
               </div>
-              <p className="text-xs text-[#5D755D] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
-              <ul className="space-y-3 text-sm text-[#333] mb-8 flex-1">
+              <p
+                className={`text-xs font-medium mb-6 ${
+                  syncOnlySignup ? 'text-[#999]' : 'text-[#5D755D]'
+                }`}
+              >
+                {PARTNER_TRIAL_LABEL_LONG}
+              </p>
+              <ul
+                className={`space-y-3 text-sm mb-8 flex-1 ${
+                  syncOnlySignup ? 'text-[#888]' : 'text-[#333]'
+                }`}
+              >
                 {[
                   'Up to 4 active workshops',
                   '0% commission on tickets',
@@ -287,57 +358,127 @@ export default function PartnersLandingPage() {
                   'No Shopify Sync',
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2">
-                    <span className="text-[#5D755D] mt-0.5">✓</span>
+                    <span className={`mt-0.5 ${syncOnlySignup ? 'text-[#AAA]' : 'text-[#5D755D]'}`}>✓</span>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
-              <Link
-                href="/partners/signup"
-                className="mt-auto block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
-              >
-                Start free trial
-              </Link>
+              {syncOnlySignup ? (
+                <span className="mt-auto block w-full rounded-full border-2 border-[#C8C4BC] bg-[#E8E6E0] px-6 py-3 text-center text-sm font-semibold text-[#888] cursor-not-allowed select-none">
+                  Coming soon
+                </span>
+              ) : (
+                <Link
+                  href="/partners/signup"
+                  className="mt-auto block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
+                >
+                  Start free trial
+                </Link>
+              )}
             </div>
             <div
-              className="rounded-3xl border-2 border-[#E8E6E0] bg-[#F3F1EC] p-8 shadow-sm flex flex-col h-full opacity-60"
-              aria-disabled="true"
+              className={`rounded-3xl border-2 p-8 shadow-sm flex flex-col h-full ${
+                syncOnlySignup
+                  ? 'border-[#5D755D] bg-[#EDF2ED]'
+                  : 'border-[#E8E6E0] bg-[#F3F1EC] opacity-60'
+              }`}
+              aria-disabled={syncOnlySignup ? undefined : true}
             >
-              <p className="text-sm font-semibold text-[#888] uppercase tracking-wide mb-3">
+              <p
+                className={`text-sm font-semibold uppercase tracking-wide mb-3 ${
+                  syncOnlySignup ? 'text-[#5D755D]' : 'text-[#888]'
+                }`}
+              >
                 {SHOPIFY_SYNC_PLAN_NAME}
               </p>
               <div className="flex items-end gap-1 mb-1">
-                <span className="font-playfair text-5xl font-bold text-[#888]">
+                <span
+                  className={`font-playfair text-5xl font-bold ${
+                    syncOnlySignup ? 'text-[#1a1a1a]' : 'text-[#888]'
+                  }`}
+                >
                   ${SHOPIFY_SYNC_MONTHLY_CAD}
                 </span>
-                <span className="text-[#999] text-sm mb-2">CAD / month</span>
+                <span className={`text-sm mb-2 ${syncOnlySignup ? 'text-[#555]' : 'text-[#999]'}`}>
+                  CAD / month
+                </span>
               </div>
-              <p className="text-xs text-[#999] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
-              <ul className="space-y-3 text-sm text-[#888] mb-8 flex-1">
+              <p
+                className={`text-xs font-medium mb-6 ${
+                  syncOnlySignup ? 'text-[#5D755D]' : 'text-[#999]'
+                }`}
+              >
+                {PARTNER_TRIAL_LABEL_LONG}
+              </p>
+              <ul
+                className={`space-y-3 text-sm mb-8 flex-1 ${
+                  syncOnlySignup ? 'text-[#333]' : 'text-[#888]'
+                }`}
+              >
                 {[
                   'Shopify Sync only',
                   'Guests book on Shopify',
-                  'Billed via Shopify App Pricing',
+                  'Billed via Shopify Billing',
                   'No Marketplace / no Lite workshops',
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2">
-                    <span className="text-[#AAA] mt-0.5">✓</span>
+                    <span className={`mt-0.5 ${syncOnlySignup ? 'text-[#5D755D]' : 'text-[#AAA]'}`}>✓</span>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
-              <span className="mt-auto block w-full rounded-full border-2 border-[#C8C4BC] bg-[#E8E6E0] px-6 py-3 text-center text-sm font-semibold text-[#888] cursor-not-allowed select-none">
-                Coming soon
-              </span>
+              {syncOnlySignup ? (
+                <Link
+                  href="/partners/shopify-sync"
+                  className="mt-auto block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
+                >
+                  Install from Shopify
+                </Link>
+              ) : (
+                <span className="mt-auto block w-full rounded-full border-2 border-[#C8C4BC] bg-[#E8E6E0] px-6 py-3 text-center text-sm font-semibold text-[#888] cursor-not-allowed select-none">
+                  Coming soon
+                </span>
+              )}
             </div>
-            <div className="rounded-3xl border-2 border-[#5D755D] bg-[#EDF2ED] p-8 shadow-sm flex flex-col h-full sm:col-span-2 lg:col-span-1">
-              <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-3">Pro</p>
+            <div
+              className={`rounded-3xl border-2 p-8 shadow-sm flex flex-col h-full sm:col-span-2 lg:col-span-1 ${
+                syncOnlySignup
+                  ? 'border-[#E8E6E0] bg-[#F3F1EC] opacity-60'
+                  : 'border-[#5D755D] bg-[#EDF2ED]'
+              }`}
+              aria-disabled={syncOnlySignup || undefined}
+            >
+              <p
+                className={`text-sm font-semibold uppercase tracking-wide mb-3 ${
+                  syncOnlySignup ? 'text-[#888]' : 'text-[#5D755D]'
+                }`}
+              >
+                Pro
+              </p>
               <div className="flex items-end gap-1 mb-1">
-                <span className="font-playfair text-5xl font-bold text-[#1a1a1a]">{formatPartnerMonthlyAmount('pro')}</span>
-                <span className="text-[#555] text-sm mb-2">CAD / month</span>
+                <span
+                  className={`font-playfair text-5xl font-bold ${
+                    syncOnlySignup ? 'text-[#888]' : 'text-[#1a1a1a]'
+                  }`}
+                >
+                  {formatPartnerMonthlyAmount('pro')}
+                </span>
+                <span className={`text-sm mb-2 ${syncOnlySignup ? 'text-[#999]' : 'text-[#555]'}`}>
+                  CAD / month
+                </span>
               </div>
-              <p className="text-xs text-[#5D755D] font-medium mb-6">{PARTNER_TRIAL_LABEL_LONG}</p>
-              <ul className="space-y-3 text-sm text-[#333] mb-8 flex-1">
+              <p
+                className={`text-xs font-medium mb-6 ${
+                  syncOnlySignup ? 'text-[#999]' : 'text-[#5D755D]'
+                }`}
+              >
+                {PARTNER_TRIAL_LABEL_LONG}
+              </p>
+              <ul
+                className={`space-y-3 text-sm mb-8 flex-1 ${
+                  syncOnlySignup ? 'text-[#888]' : 'text-[#333]'
+                }`}
+              >
                 {[
                   'Unlimited workshops',
                   'Artist Marketplace included',
@@ -345,17 +486,23 @@ export default function PartnersLandingPage() {
                   'Shopify Sync sold separately',
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2">
-                    <span className="text-[#5D755D] mt-0.5">✓</span>
+                    <span className={`mt-0.5 ${syncOnlySignup ? 'text-[#AAA]' : 'text-[#5D755D]'}`}>✓</span>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
-              <Link
-                href="/partners/signup"
-                className="mt-auto block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
-              >
-                Start free trial
-              </Link>
+              {syncOnlySignup ? (
+                <span className="mt-auto block w-full rounded-full border-2 border-[#C8C4BC] bg-[#E8E6E0] px-6 py-3 text-center text-sm font-semibold text-[#888] cursor-not-allowed select-none">
+                  Coming soon
+                </span>
+              ) : (
+                <Link
+                  href="/partners/signup"
+                  className="mt-auto block w-full rounded-full bg-[#5D755D] px-6 py-3 text-center text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
+                >
+                  Start free trial
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -382,13 +529,23 @@ export default function PartnersLandingPage() {
           Ready to fill your workshops?
         </h2>
         <p className="text-[#555] text-sm max-w-md mx-auto mb-10 leading-relaxed">
-          Join offhrs Partners today. {PARTNER_TRIAL_LABEL}, then {formatPartnerPlansFromLine()}. No commission. Cancel anytime.
+          {syncOnlySignup ? (
+            <>
+              Install {SHOPIFY_SYNC_PLAN_NAME} from Shopify Admin. ${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month after a{' '}
+              {PARTNER_TRIAL_LABEL}, billed through Shopify Billing. 0% commission on Shopify checkout bookings.
+            </>
+          ) : (
+            <>
+              Join offhrs Partners today. {PARTNER_TRIAL_LABEL}, then {formatPartnerPlansFromLine()}. No
+              commission. Cancel anytime.
+            </>
+          )}
         </p>
         <Link
-          href="/partners/signup"
+          href={syncOnlySignup ? '/partners/shopify-sync' : '/partners/signup'}
           className="inline-block rounded-full bg-[#5D755D] px-10 py-4 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-md"
         >
-          Start free {PARTNER_TRIAL_LABEL}
+          {syncOnlySignup ? 'Shopify Sync guide' : `Start free ${PARTNER_TRIAL_LABEL}`}
         </Link>
       </section>
 
