@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { shopifyAdminEmbeddedAppUrl } from '@/lib/shopify/channel-home'
+import { isPartnerSignupShopifySyncOnly } from '@/lib/partner-signup-plans'
 
 const OFFHRS_SHOPIFY_API_KEY =
   process.env.NEXT_PUBLIC_SHOPIFY_API_KEY?.trim() || '93ac1547c426534f421ce570acb3bc9d'
@@ -727,7 +728,7 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
       </CardContent>
       </Card>
       </>
-      ) : (
+      ) : isPartnerSignupShopifySyncOnly() ? null : (
       <Card className="gap-0 border-partner-border py-0 shadow-none">
         <CardContent className="space-y-3 p-5">
           <h2 className="text-sm font-semibold text-foreground mb-1">Lite &amp; Pro (optional)</h2>

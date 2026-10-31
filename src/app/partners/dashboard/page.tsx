@@ -16,6 +16,7 @@ import { archiveEndedPartnerSessions } from '@/lib/partner-session-auto-archive'
 import { reconcileStripeConnectStatus } from '@/lib/stripe-connect-reconcile'
 import { buildActivitySeriesFromBookings, type BookingActivityRow } from '@/lib/partner-dashboard-activity'
 import { vendorHasNativePartnerPlan } from '@/lib/partner-access'
+import { isPartnerSignupShopifySyncOnly } from '@/lib/partner-signup-plans'
 import { shopifySyncAllowedForVendor } from '@/lib/shopify/billing'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -262,29 +263,33 @@ export default async function DashboardPage({
           </CardContent>
         </Card>
 
-        <Card className="gap-0 border-partner-border py-0 shadow-none">
-          <CardContent className="space-y-2 p-5">
-            <h2 className="text-sm font-semibold text-foreground">Sell goods on Artist Marketplace</h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Free to join — 3% + Stripe on sales. Canada-only shipping via platform Shippo. Does not
-              replace Shopify Sync.
-            </p>
-            <EnableMarketplaceButton />
-          </CardContent>
-        </Card>
+        {!isPartnerSignupShopifySyncOnly() ? (
+          <>
+            <Card className="gap-0 border-partner-border py-0 shadow-none">
+              <CardContent className="space-y-2 p-5">
+                <h2 className="text-sm font-semibold text-foreground">Sell goods on Artist Marketplace</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Free to join — 3% + Stripe on sales. Canada-only shipping via platform Shippo. Does not
+                  replace Shopify Sync.
+                </p>
+                <EnableMarketplaceButton />
+              </CardContent>
+            </Card>
 
-        <Card className="gap-0 border-partner-border py-0 shadow-none">
-          <CardContent className="space-y-2 p-5">
-            <h2 className="text-sm font-semibold text-foreground">Want bookings on offhrs too?</h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Lite or Pro unlock in-app checkout, Stripe payouts, workshops, calendar, bookings, and
-              clients. Shopify Sync stays available separately in Shopify.
-            </p>
-            <Button asChild size="sm" variant="outline" className="border-partner-border mt-1">
-              <Link href="/partners/checkout">View plans</Link>
-            </Button>
-          </CardContent>
-        </Card>
+            <Card className="gap-0 border-partner-border py-0 shadow-none">
+              <CardContent className="space-y-2 p-5">
+                <h2 className="text-sm font-semibold text-foreground">Want bookings on offhrs too?</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Lite or Pro unlock in-app checkout, Stripe payouts, workshops, calendar, bookings, and
+                  clients. Shopify Sync stays available separately in Shopify.
+                </p>
+                <Button asChild size="sm" variant="outline" className="border-partner-border mt-1">
+                  <Link href="/partners/checkout">View plans</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </>
+        ) : null}
       </div>
     )
   }

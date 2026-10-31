@@ -1,10 +1,20 @@
 /**
- * Temporary App Store review lock: partner signup offers Shopify Sync only
- * (Shopify Billing). Lite / Pro / Marketplace stay hidden until Sync is approved.
+ * Temporary App Store review lock (until Shopify Sync is approved).
  *
- * Restore after approval (either works):
- * 1. Set NEXT_PUBLIC_PARTNER_SIGNUP_SHOPIFY_SYNC_ONLY=0 in Vercel (Production + Preview), redeploy
- * 2. Or change the default below to `false` and deploy
+ * When ON, hides Stripe Lite / Pro / Marketplace from:
+ * - Partner signup plan picker
+ * - /partners marketing CTAs
+ * - Sync-only dashboard upsells (Marketplace + View plans)
+ * - Settings → Lite & Pro (optional)
+ * And blocks Stripe checkout + Marketplace enroll APIs.
+ *
+ * RESTORE AFTER SHOPIFY APPROVAL:
+ * 1. Vercel → offhrs-v2 → Environment Variables
+ * 2. Set NEXT_PUBLIC_PARTNER_SIGNUP_SHOPIFY_SYNC_ONLY=0 (Production + Preview)
+ * 3. Redeploy production
+ * Or change the default below to `false` and deploy.
+ *
+ * Reminder checklist: docs/AFTER_SHOPIFY_SYNC_APPROVAL.md
  */
 export function isPartnerSignupShopifySyncOnly(): boolean {
   const raw = process.env.NEXT_PUBLIC_PARTNER_SIGNUP_SHOPIFY_SYNC_ONLY?.trim().toLowerCase()
