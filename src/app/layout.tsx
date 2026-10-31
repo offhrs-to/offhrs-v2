@@ -56,6 +56,7 @@ export default async function RootLayout({
   const headerList = await headers()
   const isShopifyAdmin = headerList.get('x-offhrs-shopify-admin') === '1'
   const isShopifyChannelAuth = headerList.get('x-offhrs-shopify-channel-auth') === '1'
+  const isPartnersApp = headerList.get('x-offhrs-partners-app') === '1'
   const shopifyKey = shopifyApiKey() ?? ''
 
   if (isShopifyAdmin) {
@@ -79,6 +80,21 @@ export default async function RootLayout({
       <html lang="en">
         <body style={{ margin: 0, background: '#f1f1f1' }}>
           <AuthProviderWrapper>{children}</AuthProviderWrapper>
+        </body>
+      </html>
+    )
+  }
+
+  if (isPartnersApp) {
+    return (
+      <html lang="en">
+        <head>{supabaseUrl && <link rel="preconnect" href={supabaseUrl} />}</head>
+        <body className={`${inter.variable} min-h-screen font-sans`}>
+          <AuthProviderWrapper>
+            <SupabaseConfigBanner />
+            {children}
+            <CookieConsentBanner />
+          </AuthProviderWrapper>
         </body>
       </html>
     )

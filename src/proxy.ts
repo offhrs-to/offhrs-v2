@@ -57,6 +57,18 @@ export async function proxy(request: NextRequest) {
   ) {
     requestHeaders.set('x-offhrs-shopify-channel-auth', '1')
   }
+  // Partner app chrome (dashboard / accept-terms): no public marketing footer or social bar.
+  if (
+    pathname.startsWith('/partners/dashboard') ||
+    pathname === '/partners/accept-terms' ||
+    pathname.startsWith('/partners/accept-terms/') ||
+    pathname === '/partners/checkout' ||
+    pathname.startsWith('/partners/checkout/') ||
+    pathname === '/partners/suspended' ||
+    pathname.startsWith('/partners/suspended/')
+  ) {
+    requestHeaders.set('x-offhrs-partners-app', '1')
+  }
 
   let supabaseResponse = NextResponse.next({
     request: { headers: requestHeaders },

@@ -117,8 +117,8 @@ export default function PartnerAcceptTermsPage() {
             className="mt-1 h-4 w-4 rounded border-[#D9D7CF] text-[#5D755D] focus:ring-[#5D755D]"
           />
           <span className="text-sm text-[#1a1a1a] leading-relaxed">
-            I have read and agree to the Terms of Use, Privacy Policy, Data Protection Addendum, and
-            Marketplace Seller Addendum.
+            I have read and agree to the Terms of Use, Privacy Policy, Service Terms, Data Protection
+            Addendum, Cookie Policy, Content Policy, and Marketplace Seller Addendum.
           </span>
         </label>
 

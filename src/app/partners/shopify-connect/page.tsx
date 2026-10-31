@@ -169,7 +169,7 @@ function ShopifyConnectInner() {
               ))}
             </BlockStack>
             <Checkbox
-              label="I agree to the Terms of Use, Privacy Policy, Data Protection Addendum, and Marketplace Seller Addendum."
+              label="I agree to the Terms of Use, Privacy Policy, Service Terms, Data Protection Addendum, Cookie Policy, Content Policy, and Marketplace Seller Addendum."
               checked={acceptTerms}
               onChange={setAcceptTerms}
             />

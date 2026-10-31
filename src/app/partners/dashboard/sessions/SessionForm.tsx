@@ -882,9 +882,9 @@ export function SessionForm({
         <div className="rounded-xl border border-partner-border bg-partner-canvas p-4 space-y-4">
           <p className="text-sm font-medium text-foreground">Schedule &amp; repeating dates</p>
           <p className="text-xs text-muted-foreground leading-relaxed -mt-2">
-            Weekly courses stay one listing (same group across weeks). Repeating days creates a separate workshop
-            listing for each session so you can edit price, duration, and details independently — each counts toward
-            your plan’s active workshop limit.
+            Weekly / multiple-date courses stay one listing (same group across sessions). Repeating days creates a
+            separate workshop listing for each session so you can edit price, duration, and details independently —
+            each of those counts toward your plan’s active workshop limit.
           </p>
           {isEdit && (
             <p className="text-xs text-primary font-medium leading-relaxed">
@@ -904,8 +904,8 @@ export function SessionForm({
                 ],
                 [
                   'weekly_custom',
-                  'Weekly — custom dates',
-                  'Same group attends each session. Pick a different date and time for each week — max spots is the cohort size.',
+                  'Multiple specific dates',
+                  'Same workshop details on each date you choose — set date & time per session (cohort shares one booking / max spots). Use this when the same class runs on irregular dates.',
                 ],
                 [
                   'daily_weekdays',
@@ -977,7 +977,8 @@ export function SessionForm({
               </div>
               <div className="space-y-3">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Workshop 1 is the date &amp; time at the top of this form. Fill in workshops 2–{recurringWeekCount}.
+                  Session 1 is the date &amp; time at the top of this form. Add each extra date below (same title,
+                  description, materials, photos, etc. — only the schedule changes).
                 </p>
                 {multiWeekExtraDates.map((val, idx) => (
                   <div key={idx}>

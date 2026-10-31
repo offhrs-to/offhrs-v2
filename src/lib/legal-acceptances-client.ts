@@ -1,10 +1,13 @@
 import { POLICY_LAST_UPDATED, policyHref } from '@/lib/policy-pages'
 
-/** Docs vendors must accept at signup / re-accept (runbook Part 1.2). */
+/** Docs vendors must accept at signup / re-accept — full partner policy set. */
 export const PARTNER_CLICKWRAP_DOCS = [
   'terms-of-use',
   'privacy-policy',
+  'service-terms',
   'data-protection',
+  'cookies',
+  'content-policy',
   'marketplace-seller-addendum',
 ] as const
 
@@ -19,7 +22,10 @@ export const PARTNER_CLICKWRAP_LINKS: {
 }[] = [
   { key: 'terms-of-use', title: 'Terms of Use', href: policyHref('terms-of-use') },
   { key: 'privacy-policy', title: 'Privacy Policy', href: policyHref('privacy-policy') },
+  { key: 'service-terms', title: 'Service Terms', href: policyHref('service-terms') },
   { key: 'data-protection', title: 'Data Protection Addendum', href: policyHref('data-protection') },
+  { key: 'cookies', title: 'Cookie Policy', href: policyHref('cookies') },
+  { key: 'content-policy', title: 'Content Policy', href: policyHref('content-policy') },
   {
     key: 'marketplace-seller-addendum',
     title: 'Marketplace Seller Addendum',
