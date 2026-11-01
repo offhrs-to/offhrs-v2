@@ -25,6 +25,7 @@ import {
 } from '@/lib/workshop-rich-text'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { MultiSpecificDatesCalendar } from './MultiSpecificDatesCalendar'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
@@ -275,19 +276,35 @@ export function SessionForm({
   const listingSessionCount = useMemo(() => {
     if (seriesPattern === 'single') return 1
     if (seriesPattern === 'daily_weekdays') return (dailyPreviewCount ?? 0) * timesPerOccurrence
+    if (seriesPattern === 'weekly_custom') return 1 + multiWeekExtraDates.length
     return recurringWeekCount
-  }, [seriesPattern, dailyPreviewCount, recurringWeekCount, timesPerOccurrence])
+  }, [
+    seriesPattern,
+    dailyPreviewCount,
+    recurringWeekCount,
+    timesPerOccurrence,
+    multiWeekExtraDates.length,
+  ])
 
+  const session1Ymd = useMemo(() => {
+    const raw = form.date?.trim() ?? ''
+    const ymd = raw.slice(0, 10)
+    return /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : null
+  }, [form.date])
+
+  const session1TimeHhMm = useMemo(() => {
+    const m = /T(\d{2}:\d{2})/.exec(form.date?.trim() ?? '')
+    return m?.[1] ?? '18:00'
+  }, [form.date])
+
+  // Drop an extra date if it collides with Session 1's calendar day.
   useEffect(() => {
-    if (seriesPattern !== 'weekly_custom') return
-    const need = Math.max(0, recurringWeekCount - 1)
+    if (seriesPattern !== 'weekly_custom' || !session1Ymd) return
     setMultiWeekExtraDates((prev) => {
-      if (prev.length === need) return prev
-      const next = prev.slice(0, need)
-      while (next.length < need) next.push('')
-      return next
+      const next = prev.filter((v) => v.trim().slice(0, 10) !== session1Ymd)
+      return next.length === prev.length ? prev : next
     })
-  }, [seriesPattern, recurringWeekCount])
+  }, [seriesPattern, session1Ymd])
 
   useEffect(() => {
     if (isEdit) return
@@ -373,11 +390,15 @@ export function SessionForm({
           return
         }
         if (seriesPattern === 'weekly_custom') {
-          const need = recurringWeekCount - 1
-          if (multiWeekExtraDates.length !== need || multiWeekExtraDates.some((d) => !d.trim())) {
+          if (multiWeekExtraDates.length < 1 || multiWeekExtraDates.some((d) => !d.trim())) {
             setError(
-              `Enter date & time for all ${recurringWeekCount} workshops (the first is above; add ${need} more below).`
+              'Pick at least one more date on the calendar and set a time for each extra workshop (Session 1 is above).'
             )
+            setLoading(false)
+            return
+          }
+          if (1 + multiWeekExtraDates.length > 12) {
+            setError('A multi-date listing can include at most 12 workshops.')
             setLoading(false)
             return
           }
@@ -504,7 +525,7 @@ export function SessionForm({
           payload.multi_week_occurrence_count = recurringWeekCount
         } else if (seriesPattern === 'weekly_custom') {
           payload.multi_week_schedule = 'custom_times'
-          payload.multi_week_occurrence_count = recurringWeekCount
+          payload.multi_week_occurrence_count = 1 + multiWeekExtraDates.length
           payload.multi_week_additional_datetimes = multiWeekExtraDates
         } else {
           payload.multi_week_schedule = 'daily_weekdays'
@@ -905,7 +926,7 @@ export function SessionForm({
                 [
                   'weekly_custom',
                   'Multiple specific dates',
-                  'Same workshop details on each date you choose — set date & time per session (cohort shares one booking / max spots). Use this when the same class runs on irregular dates.',
+                  'Same workshop details on each date you choose — pick dates on the calendar, then set a time per session (cohort shares one booking / max spots).',
                 ],
                 [
                   'daily_weekdays',
@@ -958,47 +979,45 @@ export function SessionForm({
 
           {seriesPattern === 'weekly_custom' && (
             <div className="space-y-4 pt-2 border-t border-partner-border">
-              <div>
-                <label htmlFor="recurring-week-count-custom" className="block text-sm font-medium text-foreground mb-1.5">
-                  Number of sessions
-                </label>
-                <select
-                  id="recurring-week-count-custom"
-                  value={recurringWeekCount}
-                  onChange={(e) => setRecurringWeekCount(Number(e.target.value))}
-                  className="w-full max-w-xs px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {RECURRING_WEEK_OPTIONS.map((n) => (
-                    <option key={n} value={n}>
-                      {n} workshops — enter each date below
-                    </option>
+              <MultiSpecificDatesCalendar
+                session1Ymd={session1Ymd}
+                extraDatetimes={multiWeekExtraDates}
+                defaultTimeHhMm={session1TimeHhMm}
+                onChangeExtraDatetimes={setMultiWeekExtraDates}
+              />
+              {multiWeekExtraDates.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-foreground">Times for extra workshops</p>
+                  {multiWeekExtraDates.map((val, idx) => (
+                    <div key={`${val.slice(0, 10)}-${idx}`}>
+                      <label
+                        htmlFor={`recurring-extra-${idx}`}
+                        className="mb-1 block text-xs font-medium text-muted-foreground"
+                      >
+                        Workshop {idx + 2}
+                        {val.trim().slice(0, 10) ? (
+                          <span className="font-normal text-muted-foreground/80">
+                            {' '}
+                            · {val.trim().slice(0, 10)}
+                          </span>
+                        ) : null}
+                      </label>
+                      <input
+                        id={`recurring-extra-${idx}`}
+                        type="datetime-local"
+                        value={val}
+                        onChange={(e) => {
+                          const next = [...multiWeekExtraDates]
+                          next[idx] = e.target.value
+                          next.sort((a, b) => a.localeCompare(b))
+                          setMultiWeekExtraDates(next)
+                        }}
+                        className="w-full rounded-xl border border-partner-border bg-white px-4 py-2.5 text-sm text-foreground focus:border-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                    </div>
                   ))}
-                </select>
-              </div>
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Session 1 is the date &amp; time at the top of this form. Add each extra date below (same title,
-                  description, materials, photos, etc. — only the schedule changes).
-                </p>
-                {multiWeekExtraDates.map((val, idx) => (
-                  <div key={idx}>
-                    <label htmlFor={`recurring-extra-${idx}`} className="block text-xs font-medium text-muted-foreground mb-1">
-                      Workshop {idx + 2}
-                    </label>
-                    <input
-                      id={`recurring-extra-${idx}`}
-                      type="datetime-local"
-                      value={val}
-                      onChange={(e) => {
-                        const next = [...multiWeekExtraDates]
-                        next[idx] = e.target.value
-                        setMultiWeekExtraDates(next)
-                      }}
-                      className="w-full px-4 py-2.5 border border-partner-border rounded-xl text-sm text-foreground bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus:border-transparent"
-                    />
-                  </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
