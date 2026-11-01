@@ -39,8 +39,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <DashboardShell hasNativePlan={hasNativePlan} hasMarketplaceAccess={hasMarketplaceAccess}>
-      {children}
-    </DashboardShell>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <DashboardShell hasNativePlan={hasNativePlan} hasMarketplaceAccess={hasMarketplaceAccess}>
+        {children}
+      </DashboardShell>
+    </div>
   )
 }

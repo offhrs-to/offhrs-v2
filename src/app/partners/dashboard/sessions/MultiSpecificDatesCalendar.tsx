@@ -163,7 +163,8 @@ export function MultiSpecificDatesCalendar({
       <p className="text-xs text-muted-foreground leading-relaxed">
         Session 1 is the date &amp; time at the top of this form
         {session1Ymd ? ` (${session1Ymd})` : ''}. Click more days to add Workshop 2+
-        (same details — only the schedule changes). Up to {MAX_TOTAL_SESSIONS} sessions total.
+        — each date becomes its own listing in Workshops and the app (same details, different
+        schedule). Up to {MAX_TOTAL_SESSIONS} listings total.
         {totalSelected > 0 ? ` Selected: ${totalSelected}.` : ''}
       </p>
     </div>

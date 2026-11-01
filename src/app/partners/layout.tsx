@@ -21,6 +21,17 @@ export default async function PartnersLayout({ children }: { children: React.Rea
     return <div className="min-h-screen">{children}</div>
   }
 
+  // App chrome (no public marketing footer): fill the locked partners-app
+  // viewport. Non-dashboard pages (accept-terms, checkout) scroll here;
+  // the dashboard layout sets overflow-hidden and scrolls inside the shell.
+  if (headerList.get('x-offhrs-partners-app') === '1') {
+    return (
+      <div className={`${playfair.variable} h-full overflow-y-auto bg-partner-canvas`}>
+        {children}
+      </div>
+    )
+  }
+
   return (
     <div className={`${playfair.variable} bg-partner-canvas min-h-screen`}>
       {children}

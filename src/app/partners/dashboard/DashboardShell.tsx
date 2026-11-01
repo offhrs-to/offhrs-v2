@@ -28,6 +28,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
+import { PartnerDashboardFooter } from './PartnerDashboardFooter'
 
 type NavVisibility = 'always' | 'native' | 'marketplace'
 
@@ -201,8 +202,8 @@ export function DashboardShell({
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <div className="flex h-screen overflow-hidden bg-partner-canvas">
-      <aside className="hidden w-56 shrink-0 flex-col border-r border-partner-border bg-white md:flex">
+    <div className="flex h-full max-h-full overflow-hidden bg-partner-canvas">
+      <aside className="hidden h-full min-h-0 w-56 shrink-0 flex-col border-r border-partner-border bg-white md:flex">
         <SidebarNav
           pathname={pathname}
           hasNativePlan={hasNativePlan}
@@ -210,8 +211,8 @@ export function DashboardShell({
         />
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex items-center justify-between border-b border-partner-border bg-white px-4 py-3 md:hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex shrink-0 items-center justify-between border-b border-partner-border bg-white px-4 py-3 md:hidden">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon-sm" aria-label="Open menu">
@@ -234,7 +235,15 @@ export function DashboardShell({
           <div className="w-8" />
         </header>
 
-        <main className="flex-1 overflow-auto">{children}</main>
+        {/*
+          min-h-0 is required so flex-1 + overflow-y-auto can scroll inside the
+          dvh shell instead of growing the page and leaving a blank region under
+          the form (where the public marketing footer used to sit).
+        */}
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          {children}
+          <PartnerDashboardFooter />
+        </main>
       </div>
     </div>
   )

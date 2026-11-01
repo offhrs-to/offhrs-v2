@@ -7,9 +7,10 @@ import {
 import { parseWorkshopDateTimeInput } from '@/lib/workshop-timezone'
 
 /** Partner multi-date schedules.
- * - Weekly cohort (`same_day_time` / `custom_times`): one `events` row + `series_occurrences`.
- * - Repeating days (`daily_weekdays`): on **create**, expands to one `one_day` event per start;
- *   existing series rows (grandfathered) still use `series_occurrences` on edit.
+ * - Weekly cohort (`same_day_time`): one `events` row + `series_occurrences` (same group).
+ * - Multiple specific dates (`custom_times`) + Repeating days (`daily_weekdays`): on **create**,
+ *   expand to one `one_day` event per start (independently editable / bookable).
+ *   Grandfathered `custom_times` / `daily_weekdays` series rows still use `series_occurrences` on edit.
  */
 export type PartnerMultiWeekSchedule = 'same_day_time' | 'custom_times' | 'daily_weekdays'
 

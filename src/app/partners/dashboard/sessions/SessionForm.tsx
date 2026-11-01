@@ -903,9 +903,9 @@ export function SessionForm({
         <div className="rounded-xl border border-partner-border bg-partner-canvas p-4 space-y-4">
           <p className="text-sm font-medium text-foreground">Schedule &amp; repeating dates</p>
           <p className="text-xs text-muted-foreground leading-relaxed -mt-2">
-            Weekly / multiple-date courses stay one listing (same group across sessions). Repeating days creates a
-            separate workshop listing for each session so you can edit price, duration, and details independently —
-            each of those counts toward your plan’s active workshop limit.
+            Weekly — same date &amp; time stays one listing (same group across sessions). Multiple specific dates and
+            Repeating days each create a separate workshop listing per session so you can edit and publish them
+            independently — each counts toward your plan’s active workshop limit.
           </p>
           {isEdit && (
             <p className="text-xs text-primary font-medium leading-relaxed">
@@ -926,7 +926,7 @@ export function SessionForm({
                 [
                   'weekly_custom',
                   'Multiple specific dates',
-                  'Same workshop details on each date you choose — pick dates on the calendar, then set a time per session (cohort shares one booking / max spots).',
+                  'Same details copied onto each date you pick — creates one workshop listing per date/time so guests book each separately and you can edit them one by one.',
                 ],
                 [
                   'daily_weekdays',
@@ -1259,13 +1259,19 @@ export function SessionForm({
         <div className="flex items-center gap-3 pt-2">
           <Button type="submit" disabled={loading}>
             {loading && <Loader2 className="size-4 animate-spin" />}
-            {isEdit
-              ? seriesPattern === 'single'
-                ? 'Save changes'
-                : `Save changes (${listingSessionCount} session${listingSessionCount === 1 ? '' : 's'})`
-              : seriesPattern === 'single'
-                ? 'Create workshop'
-                : `Create workshop (${listingSessionCount} session${listingSessionCount === 1 ? '' : 's'})`}
+            {(() => {
+              const independentListings =
+                seriesPattern === 'weekly_custom' || seriesPattern === 'daily_weekdays'
+              if (isEdit) {
+                if (seriesPattern === 'single') return 'Save changes'
+                return `Save changes (${listingSessionCount} session${listingSessionCount === 1 ? '' : 's'})`
+              }
+              if (seriesPattern === 'single') return 'Create workshop'
+              if (independentListings) {
+                return `Create ${listingSessionCount} workshop${listingSessionCount === 1 ? '' : 's'}`
+              }
+              return `Create workshop (${listingSessionCount} session${listingSessionCount === 1 ? '' : 's'})`
+            })()}
           </Button>
           <Button type="button" variant="ghost" onClick={onClose} className="text-muted-foreground">
             Cancel

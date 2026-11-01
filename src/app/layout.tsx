@@ -87,9 +87,9 @@ export default async function RootLayout({
 
   if (isPartnersApp) {
     return (
-      <html lang="en">
+      <html lang="en" className="h-full overflow-hidden">
         <head>{supabaseUrl && <link rel="preconnect" href={supabaseUrl} />}</head>
-        <body className={`${inter.variable} min-h-screen font-sans`}>
+        <body className={`${inter.variable} h-full overflow-hidden font-sans`}>
           <AuthProviderWrapper>
             <SupabaseConfigBanner />
             {children}

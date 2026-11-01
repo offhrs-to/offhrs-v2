@@ -38,9 +38,10 @@ export function isMultiWeekEvent(row: EventSeriesFields): boolean {
  *
  * - `cohort`: same group attends every session (e.g. weekly pottery course).
  *   Capacity is a single cohort number; one booking holds a seat across all
- *   weeks. `weekly_same` and `weekly_custom` patterns use this mode.
+ *   weeks. `weekly_same` (and grandfathered `weekly_custom` series rows) use this.
  * - `per_occurrence`: each session is independently bookable (e.g. drop-in
- *   classes). `daily_weekdays` uses this mode.
+ *   classes). New Multiple specific dates / Repeating days creates separate
+ *   `one_day` rows instead; legacy `daily_weekdays` series rows use this mode.
  *
  * Defaults to `per_occurrence` when meta is missing/unknown so legacy rows
  * without a pattern marker preserve the original behavior.

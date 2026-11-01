@@ -236,7 +236,8 @@ export async function POST(request: NextRequest) {
         count >= LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD &&
         !(
           body.workshop_series === 'multi_week' &&
-          body.multi_week_schedule === 'daily_weekdays'
+          (body.multi_week_schedule === 'daily_weekdays' ||
+            body.multi_week_schedule === 'custom_times')
         )
       ) {
         return NextResponse.json(
@@ -345,15 +346,17 @@ export async function POST(request: NextRequest) {
     }
 
     const dateIsos = resolvedDates.dates
-    const isDailyWeekdaysBatch =
+    // Repeating days + Multiple specific dates: one independent listing per start
+    // (editable / bookable separately; each counts toward Lite active-workshop limit).
+    // Weekly same-day cohorts stay one multi_week row. Grandfathered series rows
+    // created before this change are unchanged on edit.
+    const isIndependentListingsBatch =
       body.workshop_series === 'multi_week' &&
-      body.multi_week_schedule === 'daily_weekdays' &&
+      (body.multi_week_schedule === 'daily_weekdays' ||
+        body.multi_week_schedule === 'custom_times') &&
       dateIsos.length >= 2
 
-    // Repeating days: create one independent workshop listing per session start
-    // (not a shared series_occurrences row). Weekly cohorts stay one multi_week row.
-    // Existing daily_weekdays series created before this change are unchanged on edit.
-    if (isDailyWeekdaysBatch) {
+    if (isIndependentListingsBatch) {
       const slotsNeeded = dateIsos.length
       if (activeSub?.subscription_tier === 'lite') {
         const { count, error: countError } = await admin
@@ -363,7 +366,7 @@ export async function POST(request: NextRequest) {
           .neq('booking_status', 'archived')
 
         if (countError) {
-          console.error('[sessions] Lite quota recount for repeating days', countError)
+          console.error('[sessions] Lite quota recount for independent listings batch', countError)
         } else {
           const used = count ?? 0
           if (used + slotsNeeded > LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD) {
@@ -373,7 +376,7 @@ export async function POST(request: NextRequest) {
                 error:
                   remaining === 0
                     ? `Lite plan supports up to ${LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD} active workshops at a time. This schedule would create ${slotsNeeded} listings. Archive workshops you no longer need, reduce the schedule, or upgrade to Pro.`
-                    : `Lite plan supports up to ${LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD} active workshops (${remaining} slot${remaining === 1 ? '' : 's'} left). This schedule would create ${slotsNeeded} listings. Reduce days/weeks/times, archive existing workshops, or upgrade to Pro.`,
+                    : `Lite plan supports up to ${LITE_MAX_WORKSHOP_SESSIONS_PER_BILLING_PERIOD} active workshops (${remaining} slot${remaining === 1 ? '' : 's'} left). This schedule would create ${slotsNeeded} listings. Reduce the schedule, archive existing workshops, or upgrade to Pro.`,
               },
               { status: 403 }
             )
@@ -429,7 +432,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Lite single-workshop quota (already checked above when count >= limit).
-    // Repeating-days batch uses the stricter remaining-slots check above.
+    // Independent-listings batch uses the stricter remaining-slots check above.
 
     const isMultiWeek = dateIsos.length > 1
     const isCohort =
