@@ -209,7 +209,11 @@ export function BookingsClient({
                 <p className="truncate text-sm text-muted-foreground">{b.events?.title ?? '—'}</p>
 
                 <p className="text-sm text-muted-foreground">
-                  {new Date(b.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+                  {new Date(b.created_at).toLocaleDateString('en-CA', {
+                    month: 'short',
+                    day: 'numeric',
+                    timeZone: 'America/Toronto',
+                  })}
                 </p>
 
                 <div>

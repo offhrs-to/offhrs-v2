@@ -113,7 +113,8 @@ export default function EventCard({
         month: 'short',
         day: 'numeric',
         hour: 'numeric',
-        minute: '2-digit'
+        minute: '2-digit',
+        timeZone: 'America/Toronto',
       })
     : null
   const displayDate = event.is_multiple_dates

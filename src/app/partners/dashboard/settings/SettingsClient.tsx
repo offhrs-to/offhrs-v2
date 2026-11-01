@@ -79,7 +79,12 @@ function formatLongDate(iso: string | null): string | null {
   if (!iso) return null
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return null
-  return d.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })
+  return d.toLocaleDateString('en-CA', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'America/Toronto',
+  })
 }
 
 export function SettingsClient({ vendor, email, subscription, hasNativePlan }: SettingsClientProps) {

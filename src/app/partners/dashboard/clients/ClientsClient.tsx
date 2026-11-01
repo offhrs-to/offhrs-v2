@@ -50,7 +50,12 @@ function initials(name: string): string {
 function formatEnrolled(iso: string) {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return d.toLocaleDateString('en-CA', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'America/Toronto',
+  })
 }
 
 export function ClientsClient() {

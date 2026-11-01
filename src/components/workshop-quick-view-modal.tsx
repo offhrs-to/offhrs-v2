@@ -111,6 +111,7 @@ export default function WorkshopQuickViewModal({ event, onClose }: Props) {
         day: 'numeric',
         hour: 'numeric',
         minute: '2-digit',
+        timeZone: 'America/Toronto',
       })
     : null
   const displayDate = event.is_multiple_dates

@@ -492,7 +492,14 @@ export function formatSeriesDateRangeLabel(series: SeriesOccurrence[]): string {
   const first = new Date(series[0].start)
   const last = new Date(series[series.length - 1].start)
   if (Number.isNaN(first.getTime()) || Number.isNaN(last.getTime())) return ''
-  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' }
-  if (series.length === 1) return first.toLocaleDateString('en-CA', { ...opts, hour: 'numeric', minute: '2-digit' })
+  const opts: Intl.DateTimeFormatOptions = {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'America/Toronto',
+  }
+  if (series.length === 1) {
+    return first.toLocaleDateString('en-CA', { ...opts, hour: 'numeric', minute: '2-digit' })
+  }
   return `${first.toLocaleDateString('en-CA', opts)} – ${last.toLocaleDateString('en-CA', opts)}`
 }

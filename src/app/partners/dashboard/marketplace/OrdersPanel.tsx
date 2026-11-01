@@ -56,7 +56,12 @@ function formatCad(n: number) {
 
 function formatWhen(iso: string | null) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(iso).toLocaleDateString('en-CA', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'America/Toronto',
+  })
 }
 
 export function OrdersPanel() {

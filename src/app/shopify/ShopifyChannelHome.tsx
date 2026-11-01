@@ -721,7 +721,7 @@ export function ShopifyChannelHome(props: Props) {
                       {(status?.synced_session_count ?? 0) === 1 ? '' : 's'} live in the offhrs app
                       {status?.channel_connected ? '' : ' · channel connection pending'}
                       {status?.last_synced_at
-                        ? ` · last sync ${new Date(status.last_synced_at).toLocaleString()}`
+                        ? ` · last sync ${new Date(status.last_synced_at).toLocaleString('en-CA', { timeZone: 'America/Toronto' })}`
                         : ''}
                     </Text>
                     <InlineStack gap="200" wrap>

@@ -87,6 +87,59 @@ export function getTorontoYmd(now: Date = new Date()): string {
   }).format(now)
 }
 
+/** YYYY-MM-DD → start-of-day TZDate in America/Toronto. */
+function torontoStartOfYmd(ymd: string): TZDate {
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new TZDate(y!, m! - 1, d!, 0, 0, 0, 0, WORKSHOP_TIMEZONE)
+}
+
+/**
+ * Inclusive ISO window for one America/Toronto calendar day
+ * (00:00:00.000 → 23:59:59.999 Toronto).
+ */
+export function getTorontoDayWindowIso(ymd: string): { start: string; end: string } {
+  const start = torontoStartOfYmd(ymd)
+  const [y, m, d] = ymd.split('-').map(Number)
+  const next = new TZDate(y!, m! - 1, d! + 1, 0, 0, 0, 0, WORKSHOP_TIMEZONE)
+  return {
+    start: new Date(start.getTime()).toISOString(),
+    end: new Date(next.getTime() - 1).toISOString(),
+  }
+}
+
+/** Inclusive ISO window for “tomorrow” in America/Toronto. */
+export function getTorontoTomorrowWindowIso(now: Date = new Date()): { start: string; end: string } {
+  const today = getTorontoYmd(now)
+  const [y, m, d] = today.split('-').map(Number)
+  const tomorrowYmd = getTorontoYmd(
+    new Date(new TZDate(y!, m! - 1, d! + 1, 12, 0, 0, 0, WORKSHOP_TIMEZONE).getTime())
+  )
+  return getTorontoDayWindowIso(tomorrowYmd)
+}
+
+/** Start of the current calendar month in America/Toronto (ISO instant). */
+export function getTorontoMonthStartIso(now: Date = new Date()): string {
+  const today = getTorontoYmd(now)
+  const [y, m] = today.split('-').map(Number)
+  const start = new TZDate(y!, m! - 1, 1, 0, 0, 0, 0, WORKSHOP_TIMEZONE)
+  return new Date(start.getTime()).toISOString()
+}
+
+/**
+ * Oldest → newest America/Toronto calendar days (inclusive of today), as YYYY-MM-DD.
+ * Used for partner activity charts and other day-bucketed KPIs.
+ */
+export function buildTorontoDaySequence(numDays: number, now: Date = new Date()): string[] {
+  const today = getTorontoYmd(now)
+  const [y, m, d] = today.split('-').map(Number)
+  const keys: string[] = []
+  for (let i = numDays - 1; i >= 0; i--) {
+    const mid = new TZDate(y!, m! - 1, d! - i, 12, 0, 0, 0, WORKSHOP_TIMEZONE)
+    keys.push(getTorontoYmd(new Date(mid.getTime())))
+  }
+  return keys
+}
+
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
 
 /** Normalize / validate a partner date input (YYYY-MM-DD). Empty → null. */

@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.12.1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>DEPLOYMENT_RUNBOOK</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      color: light-dark(#1a1a1a, #fdfdfd);
+      background-color: #fdfdfd;
+      background-color: light-dark(#fdfdfd, #1a1a1a);
+      color-scheme: light dark;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        color-scheme: light only;
+      }
+      html, body, pre, code {
+        background-color: transparent;
+      }
+      body, a, a:visited, blockquote {
+        color: black;
+      }
+      pre, code {
+        padding: 0;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a, a:visited {
+      color: inherit;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid;
+      border-color: #e6e6e6;
+      border-color: light-dark(#e6e6e6, #4c4c4c);
+      color: #606060;
+      color: light-dark(#606060, #b6b6b6);
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid currentColor;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid currentColor;
+      border-bottom: 1px solid currentColor;
+    }
+    th {
+      border-top: 1px solid currentColor;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+<h1 id="offhrs-deployment-runbook-marketplace-shopify-sync-terms">offhrs
+deployment runbook — Marketplace + Shopify Sync + Terms</h1>
+<p>Single step-by-step for putting <strong>Artist Marketplace</strong>
+into production, finishing <strong>Shopify Sales Channel</strong>
+resubmission, shipping <strong>Terms / pricing</strong> updates, and
+closing compliance gaps.</p>
+<p><strong>Legend</strong></p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Tag</th>
+<th>Who</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>YOU</strong></td>
+<td>Founder / ops (dashboards, counsel, money, App Store / Partner
+accounts)</td>
+</tr>
+<tr>
+<td><strong>AGENT</strong></td>
+<td>Engineering in Cursor (code, migrations drafts, deploy helpers once
+you approve)</td>
+</tr>
+<tr>
+<td><strong>BOTH</strong></td>
+<td>Needs a decision from you, then Agent implements</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Source branch:</strong>
+<code>cursor/artist-shop-marketplace-plan</code> (ahead of
+<code>main</code>; Marketplace Phases 1–4, Sales Channel Phases 1–4
+engineering, Terms updates, Full License / 5-tier pricing are on this
+branch).</p>
+<p><strong>Not legal or tax advice.</strong> Counsel / CPA sign-offs
+stay on you.</p>
+<hr />
+<h2 id="current-state-as-of-oct-2026">Current state (as of Oct
+2026)</h2>
+<table>
+<colgroup>
+<col style="width: 24%" />
+<col style="width: 26%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Workstream</th>
+<th>Code status</th>
+<th>Production / ops status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Marketplace Phases 1–4</td>
+<td>In repo on branch</td>
+<td>Need prod migrations, live Shippo/Stripe env, web + mobile
+release</td>
+</tr>
+<tr>
+<td>Terms formatting + Marketplace/Shopify policy rewrite</td>
+<td>Committed + deployed to offhrs.app (<code>2f6201d</code>)</td>
+<td>Counsel review still recommended; several <strong>code</strong> gaps
+remain (below)</td>
+</tr>
+<tr>
+<td>5-tier partner pricing (Lite $29 / Pro $39 / Full $59 / Marketplace
+free / Sync $29)</td>
+<td>In repo</td>
+<td>Stripe Price IDs + Supabase migration + Vercel env may still be
+Preview-only</td>
+</tr>
+<tr>
+<td>Shopify Sales Channel conversion</td>
+<td>Engineering Phases 1–4 in repo</td>
+<td>Phase 0 ops leftovers + Phase 4 screencast / credentials / resubmit
+still <strong>YOU</strong>; suspension window open since 11 Sep
+2026</td>
+</tr>
+<tr>
+<td>Listing metafields (<code>resolve-listing-metafields.ts</code>)</td>
+<td>On branch, <strong>not</strong> on <code>origin/main</code></td>
+<td>Production Sync still limited until this branch is deployed</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="recommended-order-do-not-skip-blockers">Recommended order (do
+not skip blockers)</h2>
+<pre class="text"><code>1. Decisions + counsel/CPA start          YOU
+2. Compliance code (#1 deletion, #2 assent)  AGENT  ← do before scaling Marketplace buyers
+3. Merge branch → main + prod migrations     BOTH
+4. Vercel Production env (Stripe/Shippo/tier) YOU → Redeploy
+5. Marketplace smoke (small $)               YOU
+6. Mobile store build                        YOU (+ AGENT if build config)
+7. Shopify dry-run + screencast + resubmit   YOU
+8. Day-1 monitoring                          YOU</code></pre>
+<p>You can run Shopify resubmission prep <strong>in parallel</strong>
+with Marketplace go-live; do <strong>not</strong> flip live Shippo
+labels or push “Shop” App Store copy until counsel/CPA and the
+account-deletion fix are in a good place.</p>
+<hr />
+<h1 id="part-0-decisions-you-must-make-first">PART 0 — Decisions you
+must make first</h1>
+<h2 id="counsel-cra-blocking-for-real-money-marketplace">0.1 Counsel +
+CRA (blocking for “real money” Marketplace)</h2>
+<p><strong>YOU</strong></p>
+<ol type="1">
+<li>Engage Ontario counsel on Terms + <a
+href="https://offhrs.app/terms/marketplace-seller-addendum">Marketplace
+Seller Addendum</a> (checklist:
+<code>docs/MARKETPLACE_PHASE0_OPS.md</code> §2).</li>
+<li>Engage CPA / tax lawyer on GST/HST <strong>platform
+operator</strong> treatment for Marketplace
+(<code>docs/MARKETPLACE_PHASE0_OPS.md</code> §3). Ask:
+<ul>
+<li>Collect tax only for <strong>unregistered</strong> vendors, or for
+all?</li>
+<li>Is the <strong>5% platform fee</strong> taxable to registered
+vendors?</li>
+<li>Any BC/SK/MB/QC PST/QST platform duties?</li>
+</ul></li>
+<li>Confirm Stripe Tax Canada registrations match that opinion.</li>
+<li>Confirm goods tax code: usually <code>txcd_99999999</code> (General
+– Tangible Goods).</li>
+</ol>
+<p>Until signed off: Preview / tiny smoke tests OK; delay scaling GMV
+and live label spend.</p>
+<h2
+id="product-policy-decisions-blocking-agent-work-on-refunds-tax-code">0.2
+Product / policy decisions (blocking Agent work on refunds + tax
+code)</h2>
+<p><strong>YOU → tell AGENT</strong></p>
+<table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 40%" />
+<col style="width: 45%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Issue</th>
+<th>Options</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A</td>
+<td>Marketplace pre-scan refunds: who absorbs Stripe card fee?</td>
+<td><strong>A)</strong> offhrs absorbs (buyer-friendly; update Terms).
+<strong>B)</strong> vendor bears (align code with workshops).
+<strong>C)</strong> hybrid by fault.</td>
+</tr>
+<tr>
+<td>B</td>
+<td>Marketplace tax for GST/HST-<strong>registered</strong> vendors</td>
+<td>Wait for CPA; then branch <code>checkout-pricing</code> on
+<code>gst_hst_registered</code>.</td>
+</tr>
+<tr>
+<td>C</td>
+<td>Existing $49 Pro subscribers</td>
+<td>Grandfather vs migrate to $39.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>AGENT can start without A/B:</strong> account deletion (#1)
+and vendor Terms assent (#2) below.</p>
+<hr />
+<h1 id="part-1-terms-compliance-fixes-still-required">PART 1 — Terms /
+compliance fixes still required</h1>
+<p>Terms <strong>wording</strong> for Marketplace + Shopify Sync is
+live. These are the remaining <strong>product</strong> gaps from the Oct
+2026 review.</p>
+<h2
+id="account-deletion-blocked-for-marketplace-buyers-agent-do-first">1.1
+Account deletion blocked for Marketplace buyers — <strong>AGENT (do
+first)</strong></h2>
+<p><strong>Bug:</strong> <code>shop_orders.user_id</code> is
+<code>ON DELETE RESTRICT</code>. Buyer delete can wipe profile/saves
+then fail at <code>deleteUser</code>. PIPEDA + App Store risk.</p>
+<p><strong>AGENT will:</strong></p>
+<ol type="1">
+<li>Migration: nullable <code>user_id</code> / claims buyer refs →
+<code>ON DELETE SET NULL</code>; keep financial IDs for CRA
+retention.</li>
+<li>Update <code>src/app/api/account/delete/route.ts</code> (and partner
+delete if <code>vendor_id</code> RESTRICT):
+<ul>
+<li>Pre-scan unpaid/label-not-bought: refund like bookings.</li>
+<li>In-transit / dispute / 14-day SNAD window: clear block message
+<strong>or</strong> anonymize per counsel preference.</li>
+<li>Completed: anonymize PII; keep amounts / tax / Stripe IDs.</li>
+</ul></li>
+<li>Run anonymize <strong>before</strong> profile wipe so failures
+aren’t half-deleted.</li>
+<li>After code works: simplify Privacy Policy “support-assisted
+deletion” wording.</li>
+</ol>
+<p><strong>YOU:</strong> Approve approach (block vs anonymize for active
+orders). After deploy, smoke-test delete on a test buyer with a
+completed shop order.</p>
+<h2 id="vendor-terms-acceptance-clickwrap-agent">1.2 Vendor Terms
+acceptance (clickwrap) — <strong>AGENT</strong></h2>
+<p><strong>Gap:</strong> Partner signup is mostly browsewrap; clawback /
+indemnity need recorded assent. Terms changed materially Oct 2026.</p>
+<p><strong>AGENT will:</strong></p>
+<ol type="1">
+<li>Checkbox on <code>PartnerSignupWizard</code> (block Next / OAuth
+until checked); links to ToU, Privacy, DPA, Seller Addendum.</li>
+<li>Server reject if missing; store <code>legal_acceptances</code>
+(user, doc, <code>POLICY_LAST_UPDATED</code>, IP, time).</li>
+<li>One-time “accept updated terms” gate for existing vendors at
+dashboard login.</li>
+<li>Persist Addendum version on Marketplace shipping attestation; log
+Shopify Connect click assent.</li>
+</ol>
+<p><strong>YOU:</strong> After deploy, create a throwaway partner and
+confirm checkbox + DB row; log in as an existing vendor and accept
+once.</p>
+<h2 id="ontario-internet-sale-disclosures-agent">1.3 Ontario
+internet-sale disclosures — <strong>AGENT</strong></h2>
+<p><strong>AGENT will:</strong> Expand
+<code>sendShopBuyerOrderConfirmation</code> (and checkout review step)
+with supplier identity, itemized price/shipping/tax, delivery,
+cancel/return/SNAD, order id/date, support contact; store Terms version
+on order.</p>
+<p><strong>YOU:</strong> Ask counsel whether home-based sellers may show
+a business mailing address instead of home address.</p>
+<h2 id="privacy-meta-google-agent">1.4 Privacy / Meta / Google —
+<strong>AGENT</strong></h2>
+<p><strong>AGENT will:</strong> Align Privacy Policy with Cookie Policy
+(Meta Pixel in <code>layout.tsx</code>); remove Conversions API / GA
+claims if not in code; ideally gate pixel behind consent.</p>
+<p><strong>YOU:</strong> Confirm whether Google Analytics or Meta CAPI
+are used outside this repo.</p>
+<h2 id="refund-fee-tax-scope-both">1.5 Refund fee + tax scope —
+<strong>BOTH</strong></h2>
+<p>See Part 0.2. <strong>AGENT</strong> runs Stripe
+<strong>test-mode</strong> pre-scan refund ledger check once you ask;
+implements tax branching after CPA answer.</p>
+<hr />
+<h1 id="part-2-ship-code-to-production">PART 2 — Ship code to
+production</h1>
+<h2 id="merge-deploy-branch-both">2.1 Merge / deploy branch —
+<strong>BOTH</strong></h2>
+<p><strong>YOU</strong></p>
+<ol type="1">
+<li>Confirm you want <code>cursor/artist-shop-marketplace-plan</code> →
+<code>main</code> (or your Vercel Production branch).</li>
+<li>Ask AGENT to open PR / merge when ready (includes Marketplace, Sales
+Channel, Terms, Full License).</li>
+</ol>
+<p><strong>AGENT</strong></p>
+<ol type="1">
+<li>PR summary + merge (when you ask).</li>
+<li>Confirm Vercel Production build green for
+<strong>offhrs-v2</strong>.</li>
+<li>Spot-check: <code>/terms/marketplace-seller-addendum</code>,
+partners Marketplace nav, <code>/shopify</code> channel home.</li>
+</ol>
+<p><strong>Do not</strong> leave Marketplace / metafield Sync only on
+Preview if you expect production sellers (e.g. Depanneur-style
+metafields need <code>resolve-listing-metafields</code> on prod).</p>
+<h2 id="supabase-production-migrations-you-agent-can-prepare-sql">2.2
+Supabase production migrations — <strong>YOU</strong> (AGENT can prepare
+SQL)</h2>
+<p>Apply in order on <strong>production</strong> (SQL Editor or
+<code>supabase db push</code> linked to prod). Skip any already
+applied.</p>
+<h3 id="marketplace">Marketplace</h3>
+<ol type="1">
+<li><code>20260826000000_marketplace_phase1.sql</code></li>
+<li><code>20260828000000_marketplace_phase2.sql</code></li>
+<li><code>20260829000000_marketplace_pickup_settings.sql</code></li>
+<li><code>20260830000000_marketplace_phase3.sql</code></li>
+<li><code>20260831000000_marketplace_phase4.sql</code></li>
+<li>Plus any later Marketplace / deletion /
+<code>legal_acceptances</code> migrations AGENT adds in Part 1</li>
+</ol>
+<h3 id="pricing">Pricing</h3>
+<ol start="7" type="1">
+<li><code>20260921000000_partner_full_license_tier.sql</code>
+(<code>subscription_tier</code> includes <code>full</code>)</li>
+</ol>
+<h3 id="shopify-sales-channel">Shopify Sales Channel</h3>
+<ol start="8" type="1">
+<li>Phase 2 channel / feeds migration(s) from Sales Channel docs (if not
+already on prod) — confirm with AGENT before re-running.</li>
+</ol>
+<p><strong>Verify:</strong> Table Editor shows <code>shop_orders</code>,
+<code>shop_order_claims</code>;
+<code>vendor_subscriptions.subscription_tier</code> allows
+<code>full</code>.</p>
+<hr />
+<h1 id="part-3-marketplace-production-go-live">PART 3 — Marketplace
+production go-live</h1>
+<p>Detail mirrors <code>docs/MARKETPLACE_PHASE0_OPS.md</code> +
+<code>docs/MARKETPLACE_PREVIEW_ACCESS.md</code>. There is <strong>no
+feature flag</strong> — live = migrations + Production env + deploy +
+mobile → <code>https://offhrs.app</code>.</p>
+<h2 id="vercel-production-env-you">3.1 Vercel Production env —
+<strong>YOU</strong></h2>
+<p>Project <strong>offhrs-v2</strong> → Settings → Environment Variables
+→ <strong>Production</strong> → Redeploy.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Production value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SHIPPO_API_KEY</code></td>
+<td><code>shippo_live_…</code> (after CP approved)</td>
+</tr>
+<tr>
+<td><code>SHIPPO_WEBHOOK_SECRET</code></td>
+<td>long random; match Shippo webhook auth</td>
+</tr>
+<tr>
+<td><code>SHIPPO_CANADA_POST_CARRIER_ACCOUNT_ID</code></td>
+<td>optional pin</td>
+</tr>
+<tr>
+<td><code>STRIPE_SHOP_GOODS_TAX_CODE</code></td>
+<td><code>txcd_99999999</code> (or CPA-approved)</td>
+</tr>
+<tr>
+<td><code>SHOP_PLATFORM_FEE_BPS</code></td>
+<td><code>500</code></td>
+</tr>
+<tr>
+<td><code>SHOP_HIGH_VALUE_INSURANCE_CAD</code></td>
+<td><code>250</code></td>
+</tr>
+<tr>
+<td><code>GOOGLE_MAPS_API_KEY</code></td>
+<td>server key, Places enabled</td>
+</tr>
+<tr>
+<td><code>RESEND_API_KEY</code> / <code>RESEND_FROM_EMAIL</code></td>
+<td>live</td>
+</tr>
+<tr>
+<td><code>CRON_SECRET</code></td>
+<td>same as other crons</td>
+</tr>
+<tr>
+<td><code>STRIPE_SECRET_KEY</code></td>
+<td><code>sk_live_…</code></td>
+</tr>
+<tr>
+<td><code>NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code></td>
+<td><code>pk_live_…</code></td>
+</tr>
+<tr>
+<td><code>STRIPE_WEBHOOK_SECRET</code></td>
+<td>live endpoint</td>
+</tr>
+<tr>
+<td><code>STRIPE_CONNECT_WEBHOOK_SECRET</code></td>
+<td>if separate Connect endpoint</td>
+</tr>
+<tr>
+<td><code>STRIPE_LITE_PRICE_ID</code></td>
+<td>live $29</td>
+</tr>
+<tr>
+<td><code>STRIPE_PRO_PRICE_ID</code></td>
+<td>live $39</td>
+</tr>
+<tr>
+<td><code>STRIPE_FULL_PRICE_ID</code></td>
+<td>live $59</td>
+</tr>
+<tr>
+<td><code>DISABLE_EXPENSIVE_ENDPOINTS</code></td>
+<td><code>0</code></td>
+</tr>
+</tbody>
+</table>
+<p>Never set <code>NEXT_PUBLIC_SHIPPO_*</code>.</p>
+<h2 id="shippo-live-you">3.2 Shippo live — <strong>YOU</strong></h2>
+<ol type="1">
+<li>Account + payment method.</li>
+<li>Carriers → Canada Post → Activate (request Shippo approval for
+shared CP if API blocked).</li>
+<li>Live API key → Vercel.</li>
+<li>Webhook: <code>https://offhrs.app/api/webhooks/shippo</code> +
+Bearer secret.</li>
+<li>UI smoke: CA→CA rates; don’t buy junk labels.</li>
+</ol>
+<h2 id="stripe-live-marketplace-you">3.3 Stripe live Marketplace —
+<strong>YOU</strong></h2>
+<ol type="1">
+<li>Tax → Canada registrations per CPA.</li>
+<li>Webhooks on <code>https://offhrs.app/api/webhooks/stripe</code>
+include:
+<ul>
+<li>existing workshop events</li>
+<li><code>charge.dispute.created</code> / <code>updated</code> /
+<code>closed</code></li>
+</ul></li>
+<li>Connect onboarding required for seller payouts.</li>
+<li>Confirm shipping + tax stay in platform fee; seller net ≈ item − 5%
+(<code>docs/MARKETPLACE_POSTAGE_LEDGER.md</code>).</li>
+</ol>
+<h2 id="crons-already-in-vercel.json">3.4 Crons — already in
+<code>vercel.json</code></h2>
+<ul>
+<li><code>/api/cron/shop-sla-reminders</code> daily — needs
+<code>CRON_SECRET</code>.</li>
+<li>Optional: schedule <code>/api/cron/shop-clawbacks</code> later.</li>
+</ul>
+<h2 id="seller-smoke-you">3.5 Seller + smoke — <strong>YOU</strong></h2>
+<ol type="1">
+<li>Real Pro/Full or Marketplace-only seller: shipping settings, QA
+approve, product with weight/dims, publish.</li>
+<li>Small-$ buyer path: Shop → rates → PaymentSheet → Profile Orders +
+seller Orders → <strong>Print label</strong> (live postage) → tracking /
+email.</li>
+<li>Optional: one pre-scan cancel/refund + void.</li>
+<li>Kill switch if needed: <code>DISABLE_EXPENSIVE_ENDPOINTS=1</code>
+and/or unpublish products.</li>
+</ol>
+<hr />
+<h1 id="part-4-five-tier-pricing-ops">PART 4 — Five-tier pricing
+ops</h1>
+<p>Full detail: <code>docs/PARTNER_PRICING_5_TIER_OPS.md</code>.</p>
+<p><strong>YOU</strong></p>
+<ol type="1">
+<li>Stripe Live: Lite $29, Pro <strong>$39</strong> (new Price), Full
+License <strong>$59</strong> → copy Price IDs.</li>
+<li>Set three Vercel Production Price ID vars → Redeploy.</li>
+<li>Apply Full License Supabase migration (Part 2.2).</li>
+<li>Confirm Shopify App Pricing still <strong>$29 CAD / 30-day
+trial</strong>, handle <code>offhrs-sync</code>.</li>
+<li>Smoke: Marketplace-only, Lite (no Marketplace), Pro, Full
+(Marketplace + Sync without Shopify Sync charge), Sync-only.</li>
+</ol>
+<p><strong>AGENT:</strong> Fix any post-deploy entitlement bugs you
+report.</p>
+<hr />
+<h1 id="part-5-shopify-sales-channel-resubmission">PART 5 — Shopify
+Sales Channel resubmission</h1>
+<p>Engineering Phases 1–4 are in repo. Resubmit is blocked only by
+<strong>ops + proof</strong>, not more architecture. Guides:
+<code>docs/SHOPIFY_SALES_CHANNEL_PLAN.md</code>, <code>PHASE4.md</code>,
+<code>LISTING_DRAFT.md</code>, <code>PHASE0_OPS.md</code>.</p>
+<h2 id="production-partner-deploy-you-agent-if-cli-fails">5.1 Production
+/ Partner deploy — <strong>YOU</strong> (+ AGENT if CLI fails)</h2>
+<ol type="1">
+<li>From repo (Production app, <strong>not</strong> a new app):
+<code>shopify app deploy</code> so <code>channel_config</code>, scopes,
+embedded <code>/shopify</code> match git.</li>
+<li>Prefer <strong>not</strong> overwriting production URLs mid-link if
+CLI asks.</li>
+<li>Dev / review store: install → appears under <strong>Sales channels →
+offhrs</strong>.</li>
+<li>Existing installs: <strong>Approve new scopes</strong>
+(incl. storefront / product listings as required).</li>
+<li>Confirm channel home: Connect, billing, Publish, Sync, Terms/Privacy
+in new window.</li>
+</ol>
+<h2 id="phase-0-leftovers-you">5.2 Phase 0 leftovers —
+<strong>YOU</strong></h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />Emergency developer contact in
+Partner settings<br />
+</label></li>
+<li><label><input type="checkbox" />Upload 16×16 SVG
+(<code>public/shopify/offhrs-channel-nav-icon.svg</code>)<br />
+</label></li>
+<li><label><input type="checkbox" />Listing category = <strong>Sales
+Channel</strong> (only when channel behavior is live)<br />
+</label></li>
+<li><label><input type="checkbox" />Paste listing copy from
+<code>SHOPIFY_SALES_CHANNEL_LISTING_DRAFT.md</code><br />
+</label></li>
+<li><label><input type="checkbox" />Confirm <strong>0%
+commission</strong> + <strong>$29 / trial</strong> accurate<br />
+</label></li>
+<li><label><input type="checkbox" />Year-one merchant onboarding numbers
+in review notes</label></li>
+</ul>
+<h2 id="dry-run-6-panel-you">5.3 Dry-run (6-panel) —
+<strong>YOU</strong></h2>
+<p>Store: <code>offhrs-sync-review.myshopify.com</code> (or your review
+store).</p>
+<table>
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 78%" />
+</colgroup>
+<thead>
+<tr>
+<th>#</th>
+<th>Pass when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Install → Sales channels → offhrs</td>
+</tr>
+<tr>
+<td>2</td>
+<td>AccountConnection → connected</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Start trial → charge approved</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Publish workshop (parseable datetime) → Sync sessions</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Listing visible on offhrs</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Book on Shopify → cart → checkout; order attributes to
+<strong>offhrs</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Also: unpublish archives; disconnect/reconnect; uninstall wipe;
+Partners Settings is status-only (no Start trial / Sync /
+Disconnect).</p>
+<p><strong>Datetime tip for vendors/reviewers:</strong> variant Date
+option or <code>offhrs.starts_at</code> metafield — see listing draft.
+Branch metafield resolver must be on the environment under test.</p>
+<h2 id="screencast-credentials-submit-you">5.4 Screencast + credentials
++ submit — <strong>YOU</strong></h2>
+<ol type="1">
+<li>Record English 3–5 min screencast (outline in listing draft).</li>
+<li>Fill review credentials table (staff login, storefront password,
+offhrs partner, demo product, MFA notes).</li>
+<li>Upload screencast; paste review notes.</li>
+<li><strong>Resubmit</strong> (suspension ended 11 Sep 2026).</li>
+</ol>
+<p><strong>AGENT:</strong> Fix review bounce comments; keep Lite/Pro
+Stripe paths untouched.</p>
+<hr />
+<h1 id="part-6-mobile-app-store-play-release">PART 6 — Mobile App Store
+/ Play release</h1>
+<p><strong>YOU</strong></p>
+<ol type="1">
+<li>Production EAS profile: <code>EXPO_PUBLIC_BOOK_API_BASE</code> / API
+base = <code>https://offhrs.app</code> (not Preview).</li>
+<li>Live Stripe publishable key in production profile.</li>
+<li>EAS production build → submit.</li>
+<li>What’s New:</li>
+</ol>
+<pre class="text"><code>• Shop marketplace — browse maker goods, checkout with Canada Post rates, and track orders under Profile → Orders
+• Report damaged / not-as-described issues within 14 days of delivery</code></pre>
+<ol start="5" type="1">
+<li>After approval: one tiny real purchase on TestFlight / production
+build.</li>
+</ol>
+<p><strong>AGENT:</strong> Build/config fixes if EAS fails;
+account-deletion must work in-app before store review if Apple re-checks
+5.1.1(v).</p>
+<p>Uncommitted local mobile UI tweaks
+(<code>offhrs-mobile/app/(tabs)/index.tsx</code>) are
+<strong>not</strong> required for Marketplace go-live — ship in a
+separate mobile commit if you want them.</p>
+<hr />
+<h1 id="part-7-day-1-ops-checklist-you">PART 7 — Day-1 ops checklist —
+<strong>YOU</strong></h1>
+<ul class="task-list">
+<li><label><input type="checkbox" />Shippo balance / label volume<br />
+</label></li>
+<li><label><input type="checkbox" />Stripe live payments + Connect
+transfers<br />
+</label></li>
+<li><label><input type="checkbox" />Shippo + Stripe dispute webhook
+logs<br />
+</label></li>
+<li><label><input type="checkbox" />Know kill switch
+(<code>DISABLE_EXPENSIVE_ENDPOINTS</code> / unpublish)<br />
+</label></li>
+<li><label><input type="checkbox" />Remittance calendar: who remits
+Marketplace tax each period<br />
+</label></li>
+<li><label><input type="checkbox" />Watch Shopify App Store review
+inbox</label></li>
+</ul>
+<hr />
+<h1 id="master-checkbox-split-by-owner">Master checkbox — split by
+owner</h1>
+<h2 id="you-founder">YOU (founder)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />Counsel on Terms / Addendum<br />
+</label></li>
+<li><label><input type="checkbox" />CPA on Marketplace tax model<br />
+</label></li>
+<li><label><input type="checkbox" />Decide refund-fee policy (A/B/C) and
+$49→$39 Pro treatment<br />
+</label></li>
+<li><label><input type="checkbox" />Approve account-deletion behavior
+for active orders<br />
+</label></li>
+<li><label><input type="checkbox" />Apply Supabase production
+migrations<br />
+</label></li>
+<li><label><input type="checkbox" />Set all Vercel Production env vars
+(Shippo, Stripe, tax, Price IDs, Maps, Resend, cron)<br />
+</label></li>
+<li><label><input type="checkbox" />Shippo live + CP approval +
+webhook<br />
+</label></li>
+<li><label><input type="checkbox" />Stripe Tax + dispute webhook
+events<br />
+</label></li>
+<li><label><input type="checkbox" />Approve merge of
+<code>cursor/artist-shop-marketplace-plan</code> → production
+branch<br />
+</label></li>
+<li><label><input type="checkbox" />Marketplace seller path + small-$
+smoke (incl. live label)<br />
+</label></li>
+<li><label><input type="checkbox" />Stripe Price IDs for Lite/Pro/Full +
+Shopify Sync $29 confirm<br />
+</label></li>
+<li><label><input type="checkbox" /><code>shopify app deploy</code> +
+scope re-auth on review store<br />
+</label></li>
+<li><label><input type="checkbox" />Phase 0 listing / icon / emergency
+contact / year-one numbers<br />
+</label></li>
+<li><label><input type="checkbox" />6-panel dry-run + screencast +
+credentials + <strong>resubmit</strong><br />
+</label></li>
+<li><label><input type="checkbox" />Mobile production build + store
+“What’s New”<br />
+</label></li>
+<li><label><input type="checkbox" />Day-1 monitoring</label></li>
+</ul>
+<h2 id="agent-ask-in-cursor">AGENT (ask in Cursor)</h2>
+<ul class="task-list">
+<li><label><input type="checkbox" />Implement account deletion +
+migration (#1)<br />
+</label></li>
+<li><label><input type="checkbox" />Implement vendor + existing-vendor
+Terms assent (#2)<br />
+</label></li>
+<li><label><input type="checkbox" />Ontario disclosure email/checkout
+(#3)<br />
+</label></li>
+<li><label><input type="checkbox" />Privacy / analytics alignment (+
+optional cookie consent) (#4)<br />
+</label></li>
+<li><label><input type="checkbox" />After your decision: refund-fee
+code/Terms align<br />
+</label></li>
+<li><label><input type="checkbox" />After CPA: tax collection branch for
+registered vendors<br />
+</label></li>
+<li><label><input type="checkbox" />PR / merge branch to
+<code>main</code> when you say go<br />
+</label></li>
+<li><label><input type="checkbox" />Help with failed Vercel / EAS /
+<code>shopify app deploy</code><br />
+</label></li>
+<li><label><input type="checkbox" />Fix Shopify review bounce
+items<br />
+</label></li>
+<li><label><input type="checkbox" />Any post-smoke Marketplace/Sync
+bugs</label></li>
+</ul>
+<hr />
+<h2 id="related-docs-detail">Related docs (detail)</h2>
+<table>
+<colgroup>
+<col style="width: 58%" />
+<col style="width: 41%" />
+</colgroup>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Doc</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Marketplace ops (Shippo, counsel, CRA, tax code)</td>
+<td><code>docs/MARKETPLACE_PHASE0_OPS.md</code></td>
+</tr>
+<tr>
+<td>Preview / phase env matrix</td>
+<td><code>docs/MARKETPLACE_PREVIEW_ACCESS.md</code></td>
+</tr>
+<tr>
+<td>Postage / fee ledger</td>
+<td><code>docs/MARKETPLACE_POSTAGE_LEDGER.md</code></td>
+</tr>
+<tr>
+<td>Marketplace product plan</td>
+<td><code>docs/ARTIST_SHOP_MARKETPLACE_PLAN.md</code></td>
+</tr>
+<tr>
+<td>5-tier pricing</td>
+<td><code>docs/PARTNER_PRICING_5_TIER_OPS.md</code></td>
+</tr>
+<tr>
+<td>Shopify conversion plan</td>
+<td><code>docs/SHOPIFY_SALES_CHANNEL_PLAN.md</code></td>
+</tr>
+<tr>
+<td>Shopify Phase 0 / 4 / listing</td>
+<td><code>docs/SHOPIFY_SALES_CHANNEL_PHASE0_OPS.md</code>,
+<code>PHASE4.md</code>, <code>LISTING_DRAFT.md</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="suggested-next-message-to-agent">Suggested next message to
+Agent</h2>
+<p>Pick one to start immediately:</p>
+<ol type="1">
+<li><strong>“Implement account deletion + vendor Terms assent”</strong>
+(Part 1.1–1.2)<br />
+</li>
+<li><strong>“Open a PR to merge marketplace branch to main”</strong>
+(after you confirm migrations/env readiness)<br />
+</li>
+<li><strong>“Walk me through Supabase + Vercel Marketplace env
+click-by-click”</strong> (Part 2–3)<br />
+</li>
+<li><strong>“Prep Shopify resubmit checklist for my review
+store”</strong> (Part 5)</li>
+</ol>
+</body>
+</html>

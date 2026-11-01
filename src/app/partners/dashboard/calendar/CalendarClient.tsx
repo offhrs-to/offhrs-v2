@@ -53,6 +53,8 @@ function workshopDateKey(date: Date): string | null {
 }
 
 function sessionsOnDay(sessions: Session[], day: Date): Session[] {
+  // Cell civil date (yyyy-MM-dd). Sessions are keyed in America/Toronto so a
+  // partner in Toronto sees workshops on the same calendar day they scheduled.
   const dayKey = format(day, 'yyyy-MM-dd')
   return sessions.filter((s) => {
     if (!s.date) return false

@@ -84,7 +84,8 @@ export default function WorkshopMap({ events, center, zoom = 13, onOpenDetails }
                 month: 'short',
                 day: 'numeric',
                 hour: 'numeric',
-                minute: '2-digit'
+                minute: '2-digit',
+                timeZone: 'America/Toronto',
               })
             : null
           const displayDate = event.is_multiple_dates

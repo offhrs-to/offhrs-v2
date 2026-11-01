@@ -19,7 +19,12 @@ const APP_URL =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
 function orderDateLabel(iso: string | null | undefined): string {
-  if (!iso) return new Date().toLocaleDateString('en-CA', { dateStyle: 'long' })
+  if (!iso) {
+    return new Date().toLocaleDateString('en-CA', {
+      dateStyle: 'long',
+      timeZone: 'America/Toronto',
+    })
+  }
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   return d.toLocaleDateString('en-CA', { dateStyle: 'long', timeZone: 'America/Toronto' })

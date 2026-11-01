@@ -116,6 +116,7 @@ export default async function PayoutsPage() {
               year: 'numeric',
               month: 'short',
               day: 'numeric',
+              timeZone: 'America/Toronto',
             })
             return (
               <div

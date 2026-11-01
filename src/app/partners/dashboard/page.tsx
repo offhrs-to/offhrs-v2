@@ -18,6 +18,7 @@ import { buildActivitySeriesFromBookings, type BookingActivityRow } from '@/lib/
 import { vendorHasNativePartnerPlan } from '@/lib/partner-access'
 import { isPartnerSignupShopifySyncOnly } from '@/lib/partner-signup-plans'
 import { shopifySyncAllowedForVendor } from '@/lib/shopify/billing'
+import { getTorontoMonthStartIso } from '@/lib/workshop-timezone'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -242,7 +243,7 @@ export default async function DashboardPage({
                     ? ` · ${syncedCount ?? 0} synced session${(syncedCount ?? 0) === 1 ? '' : 's'}`
                     : ' · subscribe to Sync in Settings to unlock product sync'}
                   {shop.last_synced_at
-                    ? ` · last sync ${new Date(shop.last_synced_at).toLocaleDateString('en-CA')}`
+                    ? ` · last sync ${new Date(shop.last_synced_at).toLocaleDateString('en-CA', { timeZone: 'America/Toronto' })}`
                     : ''}
                 </>
               ) : (
@@ -309,9 +310,9 @@ export default async function DashboardPage({
     vendor.stripe_connect_completed = true
   }
 
-  // KPI data
+  // KPI data (month + charts use America/Toronto calendar boundaries)
   const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const monthStart = getTorontoMonthStartIso(now)
   const activityWindow = new Date(now.getTime() - 30 * 86400000).toISOString()
 
   const [

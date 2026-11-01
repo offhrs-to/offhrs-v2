@@ -15,7 +15,7 @@ const LINE_PAD_X = 8
 const LINE_PAD_TOP = 12
 const LINE_PAD_BOTTOM = 8
 
-/** Short weekday + day (e.g. "Tue 12"), UTC date key yyyy-MM-dd */
+/** Short weekday + day (e.g. "Tue 12") for America/Toronto calendar day keys. */
 function axisLabel(yyyyMmDd: string): string {
   try {
     return format(parseISO(`${yyyyMmDd}T12:00:00.000Z`), 'EEE d')

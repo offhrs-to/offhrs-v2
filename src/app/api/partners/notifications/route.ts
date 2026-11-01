@@ -1,6 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import {
+  formatWorkshopDateTimeForDisplay,
+  getTorontoDayWindowIso,
+  getTorontoTomorrowWindowIso,
+  getTorontoYmd,
+} from '@/lib/workshop-timezone'
 
 const ACTIVITY_DAYS = 14
 
@@ -17,16 +23,6 @@ export type PartnerNotificationDto = {
   message: string
   createdAt: string
   href: string | null
-}
-
-function utcTomorrowWindow(): { start: string; end: string } {
-  const now = new Date()
-  const y = now.getUTCFullYear()
-  const m = now.getUTCMonth()
-  const d = now.getUTCDate()
-  const start = new Date(Date.UTC(y, m, d + 1, 0, 0, 0, 0))
-  const end = new Date(Date.UTC(y, m, d + 2, 0, 0, 0, 0))
-  return { start: start.toISOString(), end: new Date(end.getTime() - 1).toISOString() }
 }
 
 export async function GET() {
@@ -50,7 +46,8 @@ export async function GET() {
     const sinceMs = Date.now() - ACTIVITY_DAYS * 24 * 60 * 60 * 1000
     const sinceDate = new Date(sinceMs)
     const sinceIso = sinceDate.toISOString()
-    const { start: tomorrowStart, end: tomorrowEnd } = utcTomorrowWindow()
+    const { start: tomorrowStart, end: tomorrowEnd } = getTorontoTomorrowWindowIso()
+    const reminderSeenAt = getTorontoDayWindowIso(getTorontoYmd()).start
 
     const [bookingsRes, publishedRes, reminderRes, shopOrdersRes] = await Promise.all([
       admin
@@ -156,13 +153,17 @@ export async function GET() {
     }
 
     for (const ev of reminderRes.data ?? []) {
-      const when = ev.date ? new Date(ev.date as string).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' }) : ''
+      const when = ev.date
+        ? formatWorkshopDateTimeForDisplay(new Date(ev.date as string))
+        : ''
       notifications.push({
         id: `workshop:reminder:${ev.id}`,
         type: 'workshop_reminder',
         title: 'Workshop tomorrow',
-        message: `"${ev.title ?? 'Untitled'}" starts ${when || 'soon'} (UTC calendar day).`,
-        createdAt: (ev.date as string) || new Date().toISOString(),
+        message: `"${ev.title ?? 'Untitled'}" starts ${when || 'soon'}.`,
+        // Stable "today" stamp (Toronto midnight) so relative times don't jump
+        // on every poll; the start time is already in the message.
+        createdAt: reminderSeenAt,
         href: `/partners/dashboard/calendar`,
       })
     }

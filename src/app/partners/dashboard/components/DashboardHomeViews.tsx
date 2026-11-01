@@ -447,11 +447,12 @@ export function DashboardHomeViews({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {isRefunded && booking.refunded_at
-                              ? `Refunded ${new Date(booking.refunded_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}`
+                              ? `Refunded ${new Date(booking.refunded_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', timeZone: 'America/Toronto' })}`
                               : new Date(booking.created_at).toLocaleDateString('en-CA', {
                                   month: 'short',
                                   day: 'numeric',
                                   year: 'numeric',
+                                  timeZone: 'America/Toronto',
                                 })}
                           </p>
                           {isRefunded ? (

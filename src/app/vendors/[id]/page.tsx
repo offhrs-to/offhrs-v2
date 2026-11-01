@@ -274,6 +274,7 @@ export default function VendorProfilePage() {
                         day: 'numeric',
                         hour: 'numeric',
                         minute: '2-digit',
+                        timeZone: 'America/Toronto',
                       })}
                     </div>
                   )}

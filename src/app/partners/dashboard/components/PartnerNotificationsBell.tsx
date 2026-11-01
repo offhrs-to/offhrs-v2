@@ -53,7 +53,11 @@ function formatWhen(iso: string): string {
   if (hrs < 24) return `${hrs}h ago`
   const days = Math.floor(hrs / 24)
   if (days < 7) return `${days}d ago`
-  return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString('en-CA', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'America/Toronto',
+  })
 }
 
 export function PartnerNotificationsBell({

@@ -232,13 +232,26 @@ export default function SaasAdminPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-[#555] whitespace-nowrap">
-                      {new Date(v.created_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {new Date(v.created_at).toLocaleDateString('en-CA', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        timeZone: 'America/Toronto',
+                      })}
                     </td>
                     <td className="px-4 py-3 text-xs text-[#555] whitespace-nowrap">
                       {v.trial_ends_at
-                        ? new Date(v.trial_ends_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+                        ? new Date(v.trial_ends_at).toLocaleDateString('en-CA', {
+                            month: 'short',
+                            day: 'numeric',
+                            timeZone: 'America/Toronto',
+                          })
                         : v.subscription_current_period_end
-                        ? new Date(v.subscription_current_period_end).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+                        ? new Date(v.subscription_current_period_end).toLocaleDateString('en-CA', {
+                            month: 'short',
+                            day: 'numeric',
+                            timeZone: 'America/Toronto',
+                          })
                         : '—'}
                     </td>
                     <td className="px-4 py-3 text-center">{v.stripe_connect_completed ? '✓' : '✗'}</td>
