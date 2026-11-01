@@ -408,7 +408,8 @@ async function refundShopApplicationFeeExceptStripeFee(
 
 async function notifyVendorOfShopRefund(
   admin: SupabaseClient,
-  order: ShopOrderRow
+  order: ShopOrderRow,
+  initiatedBy: 'buyer' | 'seller' | 'platform' = 'seller'
 ): Promise<void> {
   const { data: vendor } = await admin
     .from('vendor_profiles')
@@ -427,6 +428,7 @@ async function notifyVendorOfShopRefund(
     totalCad: Number(order.total_cad ?? 0),
     stripeFeeCad,
     dashboardUrl: `${APP_URL}/partners/dashboard/marketplace`,
+    initiatedBy,
   })
 }
 
@@ -434,8 +436,10 @@ export async function refundShopOrderPreScan(params: {
   admin: SupabaseClient
   stripe: Stripe
   order: ShopOrderRow
+  /** Who triggered the refund — drives vendor email copy. Default seller. */
+  initiatedBy?: 'buyer' | 'seller' | 'platform'
 }): Promise<{ refund_id: string | null }> {
-  const { admin, stripe, order } = params
+  const { admin, stripe, order, initiatedBy = 'seller' } = params
   if (!canCancelShopOrder(order)) {
     throw new Error('Cancel/refund is blocked after First Scan')
   }
@@ -536,7 +540,7 @@ export async function refundShopOrderPreScan(params: {
   }
 
   try {
-    await notifyVendorOfShopRefund(admin, order)
+    await notifyVendorOfShopRefund(admin, order, initiatedBy)
   } catch (emailErr) {
     console.error('shop vendor refund email', emailErr)
   }

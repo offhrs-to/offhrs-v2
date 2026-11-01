@@ -37,8 +37,10 @@ export default function MarketplaceSellerAddendumPage() {
         <ul>
           <li>You are the seller of record for Marketplace goods. offhrs does not take title to inventory.</li>
           <li>
-            Platform fee: <strong>3%</strong> of item subtotal (ex-tax), plus Stripe processing (~2.9% + $0.30
-            CAD), separate from workshop bookings (0% commission).
+            Platform fee: <strong>3%</strong> of item subtotal (ex-tax), plus Stripe&rsquo;s standard
+            card-processing fee (currently <strong>2.9% + CA$0.30</strong> per successful transaction for
+            domestic cards, as published by Stripe; international cards and other methods may cost more),
+            separate from workshop bookings (0% commission).
           </li>
           <li>Sales and shipping are <strong>Canada only</strong> (CAD). You must ship from a Canadian address.</li>
           <li>
@@ -106,12 +108,14 @@ export default function MarketplaceSellerAddendumPage() {
             Marketplace access.
           </li>
           <li>
-            Buyer or seller cancel <strong>before</strong> First Scan: full refund when permitted; labels are
-            voided when the carrier allows (Canada Post may impose a short non-void window after purchase).
-            The buyer receives the full amount paid. Stripe does not return its processing fee, and that fee
-            remains your responsibility, the same as a refunded workshop booking.
-            After First Scan: cancellation and platform refund of the paid order are blocked; quality issues
-            follow Section 5.
+            Cancel / refund <strong>before</strong> First Scan: the buyer may cancel from{' '}
+            <strong>Profile → Orders</strong> for an automatic full refund; you may also refund from the
+            Marketplace Orders panel; and offhrs may refund (for example, for a missed ship-by window). When a
+            refund is issued, labels are voided when the carrier allows (Canada Post may impose a short
+            non-void window after purchase), and the buyer receives the full amount paid. Stripe does not return
+            its processing fee, and that fee remains your responsibility, the same as a refunded workshop
+            booking. After First Scan: cancellation and platform refund of the paid order are blocked; quality
+            issues follow Section 5.
           </li>
           <li>
             You warrant accurate weight and dimensions. Carrier postage adjustments (APV / underpaid postage)

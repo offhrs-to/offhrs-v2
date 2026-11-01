@@ -138,16 +138,20 @@ export default function TermsOfUsePage() {
           </li>
           <li>
             <strong>Workshop fee structure.</strong> For workshop bookings, offhrs does{' '}
-            <strong>not</strong> take a percentage commission. Stripe processing fees (currently about{' '}
-            <strong>2.9% + $0.30 CAD</strong> per transaction in Canada) apply to the gross total and are
-            borne by the Vendor.
+            <strong>not</strong> take a percentage commission. Stripe&rsquo;s standard card-processing fee
+            (currently <strong>2.9% + CA$0.30</strong> per successful transaction for domestic cards, as
+            published by Stripe at stripe.com/en-ca/pricing) applies to the gross total and is borne by the
+            Vendor. International cards and other payment methods may incur additional fees under Stripe&rsquo;s
+            published pricing.
           </li>
           <li>
             <strong>Marketplace fee structure.</strong> For Artist Marketplace sales, offhrs charges a{' '}
             <strong>3% platform fee</strong> on the item subtotal (excluding tax and shipping postage),{' '}
-            <strong>plus</strong> Stripe processing fees (about <strong>2.9% + $0.30 CAD</strong>), which are
-            separate and also borne by the Vendor. Platform fee, estimated Stripe processing (when applicable),
-            and shipping collected may be collected via Stripe application fees on the payment.
+            <strong>plus</strong> Stripe&rsquo;s standard card-processing fee (currently{' '}
+            <strong>2.9% + CA$0.30</strong> per successful transaction for domestic cards, as published by
+            Stripe), which is separate and also borne by the Vendor. International cards and other methods may
+            incur additional Stripe fees. Platform fee, estimated Stripe processing (when applicable), and
+            shipping collected may be collected via Stripe application fees on the payment.
           </li>
           <li>
             <strong>Workshop refund window.</strong> Consumers may self-serve cancellations and refunds inside the
@@ -156,10 +160,12 @@ export default function TermsOfUsePage() {
             longer window (e.g. 48 hours).
           </li>
           <li>
-            <strong>Marketplace cancellations.</strong> Marketplace orders may be refunded before carrier First
-            Scan (or before pickup completion) when permitted by the Platform and carrier void rules. After First
-            Scan, order cancellation via the Platform is blocked; damaged / not-as-described issues follow the
-            Marketplace Seller Addendum claim rules.
+            <strong>Marketplace cancellations.</strong> Before carrier First Scan (or before pickup completion),
+            buyers may cancel and receive a full refund from <strong>Profile → Orders</strong> in the mobile app
+            when permitted by the Platform and carrier void rules. The Vendor may also refund from the Partners
+            dashboard, and offhrs may refund (for example, for a missed ship-by window). After First Scan, order
+            cancellation via the Platform is blocked; damaged / not-as-described issues follow the Marketplace
+            Seller Addendum claim rules.
           </li>
           <li>
             <strong>Refund fees.</strong> Stripe does not return its processing fee when a charge is

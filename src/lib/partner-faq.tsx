@@ -207,27 +207,31 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'Does offhrs take a commission on each booking?',
         aText:
-          'No — offhrs does not take a percentage commission on workshop bookings. Our revenue for workshops is the monthly Lite or Pro subscription. Stripe processing (about 2.9% + $0.30 CAD) still applies and is borne by you. Artist Marketplace goods are different: 3% platform fee on the item subtotal plus Stripe processing.',
+          'No — offhrs does not take a percentage commission on workshop bookings. Our revenue for workshops is the monthly Lite or Pro subscription. Stripe’s standard card fee (currently 2.9% + CA$0.30 per successful domestic-card transaction, as published by Stripe) still applies and is borne by you; international cards may cost more. Artist Marketplace goods are different: 3% platform fee on the item subtotal plus Stripe processing.',
         a: (
           <p>
             No — offhrs does <strong>not</strong> take a percentage commission on{' '}
             <strong>workshop bookings</strong>. Our revenue for workshops is the monthly subscription. What
             does apply to every paid booking is the standard{' '}
-            <strong>Stripe payment processing fee (about 2.9% + $0.30 CAD per transaction)</strong>, which is
-            borne by you as the vendor.
+            <strong>
+              Stripe payment processing fee (currently 2.9% + CA$0.30 per successful domestic-card
+              transaction, as published by Stripe)
+            </strong>
+            , which is borne by you as the vendor. International cards may cost more.
           </p>
         ),
       },
       {
         q: 'What fees apply to Artist Marketplace sales?',
         aText:
-          'Marketplace sales: 3% platform fee on the item subtotal (excluding tax and shipping), plus Stripe processing (about 2.9% + $0.30 CAD). Buyer shipping is held by offhrs for prepaid Canada Post labels. If you are GST/HST-registered, tax is collected into your Stripe Connect account and you remit it (same as workshops). Unregistered vendors are not charged GST/HST at Marketplace checkout. Pro includes Marketplace; free Marketplace-only signup is available. Lite does not include Marketplace.',
+          'Marketplace sales: 3% platform fee on the item subtotal (excluding tax and shipping), plus Stripe’s standard card fee (currently 2.9% + CA$0.30 per successful domestic-card transaction). Buyer shipping is held by offhrs for prepaid Canada Post labels. If you are GST/HST-registered, tax is collected into your Stripe Connect account and you remit it (same as workshops). Unregistered vendors are not charged GST/HST at Marketplace checkout. Pro includes Marketplace; free Marketplace-only signup is available. Lite does not include Marketplace.',
         a: (
           <>
             <p>
               For <strong>Artist Marketplace</strong> goods, offhrs charges a{' '}
               <strong>3% platform fee</strong> on the item subtotal (excluding tax and shipping postage),{' '}
-              <strong>plus</strong> Stripe processing (about 2.9% + $0.30 CAD). Shipping paid by the buyer
+              <strong>plus</strong> Stripe’s standard card fee (currently 2.9% + CA$0.30 per successful
+              domestic-card transaction). Shipping paid by the buyer
               (Canada Post quote + any handling fee you set) is <strong>held by offhrs</strong> for the prepaid
               Canada Post label — it is not merchandise revenue. If you are GST/HST-registered, tax is
               collected into your Connect payout and you remit it. If you are not registered, Marketplace
@@ -247,7 +251,7 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
       {
         q: 'How do Marketplace orders and shipping work?',
         aText:
-          'Buyers pay in the app Shop tab. You fulfill under Marketplace → Orders: print the prepaid label, drop at Canada Post, confirm drop-off. Tracking shows after First Scan. Refunds are allowed before First Scan when the carrier can void the label. Default ship-by is 5 business days unless you set a longer made-to-order window.',
+          'Buyers pay in the app Shop tab. You fulfill under Marketplace → Orders: print the prepaid label, drop at Canada Post, confirm drop-off. Tracking shows after First Scan. Buyers can cancel for a full refund before First Scan (Profile → Orders); you can also refund when the carrier can void the label. Default ship-by is 5 business days unless you set a longer made-to-order window.',
         a: (
           <>
             <p>
@@ -257,10 +261,12 @@ export const PARTNER_FAQ_SECTIONS: PartnerFaqSection[] = [
               pickup orders are marked picked up when the buyer collects.
             </p>
             <p className="mt-2 text-[#555]">
-              Full refunds are allowed <strong>before First Scan</strong> when the carrier can void the label
-              (Canada Post may block voids briefly after purchase). After First Scan, cancel/refund is blocked.
-              Default ship-by is <strong>5 business days</strong> unless you disclose a longer made-to-order
-              window.
+              Buyers can cancel for a full refund from <strong>Profile → Orders</strong>{' '}
+              <strong>before First Scan</strong> (or before pickup is completed). You can also refund from
+              Marketplace → Orders when the carrier can void the label (Canada Post may block voids briefly
+              after purchase). After First Scan, cancel/refund is blocked. Default ship-by is{' '}
+              <strong>5 business days</strong> unless you disclose a longer made-to-order window. On a buyer
+              cancel you absorb the Stripe processing fee (same as a workshop refund).
             </p>
           </>
         ),

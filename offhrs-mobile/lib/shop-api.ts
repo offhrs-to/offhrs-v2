@@ -102,6 +102,8 @@ export type ShopOrderListItem = {
   first_scan_at?: string | null;
   delivered_at?: string | null;
   picked_up_at?: string | null;
+  /** Server: true until carrier First Scan (ship) or until pickup completed. */
+  can_cancel?: boolean;
 };
 
 export function formatShopOrderStatus(order: ShopOrderListItem): string {
@@ -215,6 +217,24 @@ export async function createShopOrderClaim(
   });
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (!res.ok) throw new Error(data.error ?? 'Could not submit claim');
+}
+
+/** Full refund + cancel before First Scan (or before pickup completion). */
+export async function cancelShopOrder(orderId: string): Promise<void> {
+  const headers = await shopHeaders();
+  const res = await fetch(`${BOOK_API_BASE}/api/shop/orders/${orderId}/cancel`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new Error(data.error ?? 'Could not cancel order');
+}
+
+export function shopOrderCanCancel(order: ShopOrderListItem): boolean {
+  if (typeof order.can_cancel === 'boolean') return order.can_cancel;
+  if (['cancelled', 'refunded', 'disputed', 'completed'].includes(order.status)) return false;
+  return order.first_scan_at == null;
 }
 
 export function shopOrderCanClaim(order: ShopOrderListItem): boolean {

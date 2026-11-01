@@ -32,7 +32,15 @@ import { subscribeEventSavesChanged } from '@/lib/event-saves';
 import { normalizeProfilePhone } from '@/lib/profile-phone';
 import { geocodeAddress, reverseGeocodeCanadianPostal } from '@/lib/geocode';
 import { deleteAuthenticatedUserAccount } from '@/lib/delete-account';
-import { createShopOrderClaim, fetchShopOrders, formatShopOrderStatus, shopOrderCanClaim, type ShopOrderListItem } from '@/lib/shop-api';
+import {
+  cancelShopOrder,
+  createShopOrderClaim,
+  fetchShopOrders,
+  formatShopOrderStatus,
+  shopOrderCanCancel,
+  shopOrderCanClaim,
+  type ShopOrderListItem,
+} from '@/lib/shop-api';
 import { emitProfileUpdated, PROFILE_UPDATED_EVENT } from '@/lib/profile-events';
 import { BOOK_API_BASE } from '@/constants/api';
 import { buildBookingApiHeaders } from '@/lib/booking-api-headers';
@@ -102,6 +110,7 @@ export default function ProfileScreen() {
   const [claimOrder, setClaimOrder] = useState<ShopOrderListItem | null>(null);
   const [claimDescription, setClaimDescription] = useState('');
   const [claimSubmitting, setClaimSubmitting] = useState(false);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [myReviews, setMyReviews] = useState<{ id: string; vendor_id: string; vendor_name: string; rating: number; comment: string | null; created_at: string }[]>([]);
   const [myReviewsLoading, setMyReviewsLoading] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -855,6 +864,60 @@ export default function ProfileScreen() {
                       >
                         <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 4, fontWeight: '600' }}>
                           {o.tracking_url ? `Track ${o.tracking_number}` : `Tracking ${o.tracking_number}`}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                    {shopOrderCanCancel(o) ? (
+                      <Pressable
+                        disabled={cancellingOrderId === o.id}
+                        onPress={() => {
+                          Alert.alert(
+                            'Cancel this order?',
+                            `We'll refund $${o.total_cad.toFixed(2)} CAD to your original payment method and notify the maker. You can cancel until the parcel is scanned by the carrier${
+                              o.fulfillment_type === 'pickup' ? ' (or until pickup is completed)' : ''
+                            }.`,
+                            [
+                              { text: 'Keep order', style: 'cancel' },
+                              {
+                                text: 'Cancel & refund',
+                                style: 'destructive',
+                                onPress: () => {
+                                  setCancellingOrderId(o.id);
+                                  void (async () => {
+                                    try {
+                                      await cancelShopOrder(o.id);
+                                      const orders = await fetchShopOrders();
+                                      setShopOrders(orders);
+                                      setOrdersCount(orders.length);
+                                      Alert.alert(
+                                        'Order cancelled',
+                                        'Your refund is on the way. Check your email for confirmation.'
+                                      );
+                                    } catch (err) {
+                                      Alert.alert(
+                                        'Could not cancel',
+                                        err instanceof Error ? err.message : 'Try again later'
+                                      );
+                                    } finally {
+                                      setCancellingOrderId(null);
+                                    }
+                                  })();
+                                },
+                              },
+                            ]
+                          );
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: DesignColors.primary,
+                            marginTop: 6,
+                            fontWeight: '600',
+                            opacity: cancellingOrderId === o.id ? 0.6 : 1,
+                          }}
+                        >
+                          {cancellingOrderId === o.id ? 'Cancelling…' : 'Cancel order'}
                         </Text>
                       </Pressable>
                     ) : null}

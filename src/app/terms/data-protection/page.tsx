@@ -93,9 +93,11 @@ export default function DataProtectionPage() {
         <h3 className="mt-4">3.2 Data categories &amp; restrictions</h3>
         <ul>
           <li>
-            <strong>Permitted customer data:</strong> first and last names, email addresses, mobile numbers
-            (for automated system messages), booking and Marketplace order history, shipping addresses for
-            paid Marketplace orders, refund history, and transaction status codes.
+            <strong>Permitted customer data:</strong> first and last names, email addresses, optional mobile
+            numbers (when provided by the customer or Partner for contact / fulfillment coordination — offhrs
+            does not send automated SMS; transactional notices are sent by email), booking and Marketplace
+            order history, shipping addresses for paid Marketplace orders, refund history, and transaction
+            status codes.
           </li>
           <li>
             <strong>Marketplace shipping data.</strong> Partners may use buyer name and address only to fulfill
@@ -182,17 +184,18 @@ export default function DataProtectionPage() {
         <ul>
           <li>
             <strong>Post-termination window.</strong> Upon the cancellation or termination of your SaaS
-            subscription, Marketplace-only enrollment, or Shopify Sync, the Partner has{' '}
-            <strong>thirty (30) days</strong> to export historic booking ledgers, Marketplace order records,
-            customer contact lists, and instructor data via the dashboard export utilities (or on request to{' '}
-            <a href="mailto:hello@offhrs.app">hello@offhrs.app</a> where a utility is not available).
-            Uninstalling the
-            Shopify Sync app stops syncing and removes or archives synced listings immediately; it does not by
-            itself close the Partner&rsquo;s offhrs account.
+            subscription, Marketplace-only enrollment, or Partner account, your studio data is retained for{' '}
+            <strong>thirty (30) days</strong>. During that window you may export historic booking ledgers via
+            the Partners dashboard (Bookings → Export CSV), and you may request Marketplace order records,
+            customer contact lists, and instructor data by emailing{' '}
+            <a href="mailto:hello@offhrs.app">hello@offhrs.app</a>. Uninstalling the Shopify Sync app stops
+            syncing and removes or archives synced listings immediately; it does not by itself close the
+            Partner&rsquo;s offhrs account or start this 30-day window for the full Partner account.
           </li>
           <li>
             <strong>Permanent deletion.</strong> Following this 30-day window, offhrs reserves the right to
-            permanently purge the associated database records from active production instances.
+            permanently purge associated non-tax database records from active production instances. Partners
+            who need records after canceling should export or request them during the window.
           </li>
           <li>
             <strong>Regulatory exemption.</strong> offhrs will retain specific transactional tax data, HST

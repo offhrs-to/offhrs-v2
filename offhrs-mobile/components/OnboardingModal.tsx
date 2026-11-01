@@ -145,42 +145,8 @@ export default function OnboardingModal({
     }
   };
 
-  const goFromLocationStep = async () => {
-    setError(null);
-    const trimmed = postalInput.trim();
-    if (trimmed) {
-      setPostalBusy(true);
-      try {
-        const norm = parseCanadianPostalCode(trimmed);
-        if (!norm) {
-          Alert.alert('Invalid postal code', 'Use Canadian format, e.g. A1A 1A1.');
-          return;
-        }
-        const coords = await geocodeAddress(`${norm}, Canada`);
-        if (!coords) {
-          Alert.alert('Not found', 'We could not find that postal code. Check and try again.');
-          return;
-        }
-        setPendingLocation({ postal_code: norm, lat: coords.lat, lng: coords.lng });
-      } finally {
-        setPostalBusy(false);
-      }
-    }
-    setExperienceCategoryIndex(0);
-    setStep(1);
-  };
-
-  const locationStepBusy = gpsBusy || postalBusy;
-
-  const skipLocation = () => {
-    setPendingLocation(null);
-    setPostalInput('');
-    setExperienceCategoryIndex(0);
-    setStep(1);
-  };
-
-  const handleComplete = async () => {
-    if (!canComplete) return;
+  const handleComplete = async (opts?: { locationOverride?: PendingLocation | null }) => {
+    if (MASTERY_FEATURE_ENABLED && !canComplete) return;
 
     // Notify _layout immediately — before any await — so the module-level pending lock is set.
     // This closes the race window where a TabLayout remount + stale SELECT during the async
@@ -188,6 +154,9 @@ export default function OnboardingModal({
     if (Platform.OS === 'android') {
       onBeginComplete?.(userId);
     }
+
+    const locationToSave =
+      opts && 'locationOverride' in opts ? opts.locationOverride : pendingLocation;
 
     setError(null);
     setLoading(true);
@@ -198,9 +167,9 @@ export default function OnboardingModal({
         instructor_categories: instructorCategories.length > 0 ? instructorCategories : null,
         is_instructor: instructorCategories.length > 0,
         onboarding_completed: true,
-        postal_code: pendingLocation?.postal_code ?? null,
-        location_lat: pendingLocation != null ? pendingLocation.lat : null,
-        location_lng: pendingLocation != null ? pendingLocation.lng : null,
+        postal_code: locationToSave?.postal_code ?? null,
+        location_lat: locationToSave != null ? locationToSave.lat : null,
+        location_lng: locationToSave != null ? locationToSave.lng : null,
       };
 
       let defaultLevel = 'Novice';
@@ -249,30 +218,32 @@ export default function OnboardingModal({
         }
       }
 
-      const categoryExperienceRows = CATEGORIES
-        .filter((category) => !instructorCategories.includes(category))
-        .map((category) => {
-          const value = learnerCategories.includes(category)
-            ? experienceByCategory[category]
-            : undefined;
-          const option = EXPERIENCE_OPTIONS.find((o) => o.value === value);
-          return {
-            user_id: userId,
-            category,
-            expertise_level: option?.level ?? 'Novice',
-            experience_points: option?.points ?? 0,
-          };
-        });
+      if (MASTERY_FEATURE_ENABLED) {
+        const categoryExperienceRows = CATEGORIES
+          .filter((category) => !instructorCategories.includes(category))
+          .map((category) => {
+            const value = learnerCategories.includes(category)
+              ? experienceByCategory[category]
+              : undefined;
+            const option = EXPERIENCE_OPTIONS.find((o) => o.value === value);
+            return {
+              user_id: userId,
+              category,
+              expertise_level: option?.level ?? 'Novice',
+              experience_points: option?.points ?? 0,
+            };
+          });
 
-      if (categoryExperienceRows.length > 0) {
-        const { error: rowError } = await supabase.from('profile_category_experience').upsert(
-          categoryExperienceRows,
-          { onConflict: 'user_id,category' }
-        );
-        // Non-fatal: onboarding_completed is already committed in profiles.
-        // Category preferences can be updated anytime in profile settings.
-        if (rowError) {
-          console.error('Onboarding: category experience row error (non-fatal):', rowError);
+        if (categoryExperienceRows.length > 0) {
+          const { error: rowError } = await supabase.from('profile_category_experience').upsert(
+            categoryExperienceRows,
+            { onConflict: 'user_id,category' }
+          );
+          // Non-fatal: onboarding_completed is already committed in profiles.
+          // Category preferences can be updated anytime in profile settings.
+          if (rowError) {
+            console.error('Onboarding: category experience row error (non-fatal):', rowError);
+          }
         }
       }
 
@@ -292,6 +263,50 @@ export default function OnboardingModal({
     } finally {
       setLoading(false);
     }
+  };
+
+  const goFromLocationStep = async () => {
+    setError(null);
+    let nextLocation = pendingLocation;
+    const trimmed = postalInput.trim();
+    if (trimmed) {
+      setPostalBusy(true);
+      try {
+        const norm = parseCanadianPostalCode(trimmed);
+        if (!norm) {
+          Alert.alert('Invalid postal code', 'Use Canadian format, e.g. A1A 1A1.');
+          return;
+        }
+        const coords = await geocodeAddress(`${norm}, Canada`);
+        if (!coords) {
+          Alert.alert('Not found', 'We could not find that postal code. Check and try again.');
+          return;
+        }
+        nextLocation = { postal_code: norm, lat: coords.lat, lng: coords.lng };
+        setPendingLocation(nextLocation);
+      } finally {
+        setPostalBusy(false);
+      }
+    }
+    if (!MASTERY_FEATURE_ENABLED) {
+      await handleComplete({ locationOverride: nextLocation });
+      return;
+    }
+    setExperienceCategoryIndex(0);
+    setStep(1);
+  };
+
+  const locationStepBusy = gpsBusy || postalBusy || loading;
+
+  const skipLocation = () => {
+    setPendingLocation(null);
+    setPostalInput('');
+    if (!MASTERY_FEATURE_ENABLED) {
+      void handleComplete({ locationOverride: null });
+      return;
+    }
+    setExperienceCategoryIndex(0);
+    setStep(1);
   };
 
   const headerTitle =
@@ -446,10 +461,12 @@ export default function OnboardingModal({
                 marginBottom: 12,
               }}
             >
-              {postalBusy ? (
+              {postalBusy || (!MASTERY_FEATURE_ENABLED && loading) ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFF' }}>Next</Text>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFF' }}>
+                  {MASTERY_FEATURE_ENABLED ? 'Next' : 'Complete'}
+                </Text>
               )}
             </Pressable>
             <Pressable onPress={skipLocation} disabled={locationStepBusy} style={{ alignItems: 'center', paddingVertical: 8 }}>
@@ -458,7 +475,7 @@ export default function OnboardingModal({
           </>
         ) : null}
 
-        {step === 1 ? (
+        {MASTERY_FEATURE_ENABLED && step === 1 ? (
           <>
             <ScrollView
               style={{ maxHeight: step1ChipMetrics.scrollMax }}

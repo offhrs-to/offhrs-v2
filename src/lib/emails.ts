@@ -449,6 +449,7 @@ export async function sendVendorShopOrderRefunded(
     totalCad: number
     stripeFeeCad: number
     dashboardUrl: string
+    initiatedBy?: 'buyer' | 'seller' | 'platform'
   }
 ) {
   const feeCopy =
@@ -456,12 +457,21 @@ export async function sendVendorShopOrderRefunded(
       ? `The Stripe processing fee of <strong>$${params.stripeFeeCad.toFixed(2)} CAD</strong> on the original transaction is non-refundable by Stripe and remains your responsibility under the offhrs Service Terms.`
       : 'Any Stripe processing fee on the original transaction remains your responsibility under the offhrs Service Terms.'
 
+  const who =
+    params.initiatedBy === 'buyer'
+      ? `<strong>${escapeHtml(params.buyerName)}</strong> cancelled their order for <strong>${escapeHtml(params.productTitle)}</strong> before carrier First Scan. A full refund was issued automatically.`
+      : params.initiatedBy === 'platform'
+        ? `The order for <strong>${escapeHtml(params.productTitle)}</strong> was cancelled by offhrs before carrier First Scan and refunded to the buyer.`
+        : `<strong>${escapeHtml(params.buyerName)}</strong>'s order for <strong>${escapeHtml(params.productTitle)}</strong> was refunded before carrier First Scan.`
+
   await send(
     to,
-    `Marketplace order refunded: ${params.productTitle}`,
+    params.initiatedBy === 'buyer'
+      ? `Buyer cancelled: ${params.productTitle}`
+      : `Marketplace order refunded: ${params.productTitle}`,
     wrap(`
-      ${h2('Marketplace order refunded')}
-      ${p(`<strong>${escapeHtml(params.buyerName)}</strong>'s order for <strong>${escapeHtml(params.productTitle)}</strong> was refunded before carrier First Scan.`)}
+      ${h2(params.initiatedBy === 'buyer' ? 'Buyer cancelled order' : 'Marketplace order refunded')}
+      ${p(who)}
       <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
         <tr><td style="padding:6px 0;font-size:13px;color:#888;">Amount refunded to buyer</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${params.totalCad.toFixed(2)} CAD</td></tr>
         <tr><td style="padding:6px 0;font-size:13px;color:#888;">Stripe processing fee</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${Math.max(0, params.stripeFeeCad).toFixed(2)} CAD</td></tr>
@@ -477,14 +487,23 @@ export async function sendShopBuyerRefunded(params: {
   buyerName: string
   productTitle: string
   totalCad: number
+  cancelledByBuyer?: boolean
 }) {
+  const headline = params.cancelledByBuyer ? 'Cancellation confirmed' : 'Refund issued'
+  const subject = params.cancelledByBuyer
+    ? `Order cancelled: ${params.productTitle}`
+    : `Refund issued: ${params.productTitle}`
+  const lead = params.cancelledByBuyer
+    ? `Hi ${escapeHtml(params.buyerName)}, your cancellation for <strong>${escapeHtml(params.productTitle)}</strong> is confirmed. We've refunded <strong>$${params.totalCad.toFixed(2)} CAD</strong> to your original payment method.`
+    : `Hi ${escapeHtml(params.buyerName)}, your order for <strong>${escapeHtml(params.productTitle)}</strong> has been refunded ($${params.totalCad.toFixed(2)} CAD).`
+
   await send(
     params.to,
-    `Refund issued: ${params.productTitle}`,
+    subject,
     wrap(`
-      ${h2('Refund issued')}
-      ${p(`Hi ${escapeHtml(params.buyerName)}, your order for <strong>${escapeHtml(params.productTitle)}</strong> has been refunded ($${params.totalCad.toFixed(2)} CAD).`)}
-      ${p('The refund will appear on your original payment method. This order was cancelled before the carrier scanned the parcel.')}
+      ${h2(headline)}
+      ${p(lead)}
+      ${p('Refunds usually appear in 5–10 business days, depending on your bank. This order was cancelled before the carrier scanned the parcel (or before pickup was completed).')}
     `)
   )
 }

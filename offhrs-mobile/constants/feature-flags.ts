@@ -3,5 +3,6 @@
  * digging through git history.
  */
 
-/** Home mastery bar, intro mastery slides, and onboarding experience-level steps. */
+/** Home mastery bar, intro mastery slides, and onboarding interest/experience steps.
+ *  When false, signup only asks for location. */
 export const MASTERY_FEATURE_ENABLED = false;

@@ -40,8 +40,8 @@ export function shopCancelReturnDisclosure(params: {
   const snad = params.snadDays ?? SHOP_SNAD_RETURN_DAYS
   const cancel =
     params.fulfillmentType === 'pickup'
-      ? 'You may cancel for a full refund before pickup is completed, when permitted by the platform.'
-      : 'You may cancel for a full refund before the carrier First Scan (when the label can still be voided). After First Scan, cancellation of the paid order is generally blocked.'
+      ? 'You may cancel for a full refund in Profile → Orders before pickup is completed. The seller or offhrs may also refund when permitted.'
+      : 'You may cancel for a full refund in Profile → Orders before the carrier First Scan (when the label can still be voided). After First Scan, cancellation of the paid order is generally blocked.'
   const remorse = params.buyerRemorseReturns
     ? "Buyer's-remorse returns may be available as disclosed by the seller."
     : "This listing does not accept buyer's-remorse returns."

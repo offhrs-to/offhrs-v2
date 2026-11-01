@@ -1,4 +1,5 @@
 import { resolveApiUser } from '@/lib/api-auth-user'
+import { canCancelShopOrder } from '@/lib/shop/fulfillment'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -62,6 +63,10 @@ export async function GET(request: NextRequest) {
         first_scan_at: row.first_scan_at ?? null,
         delivered_at: row.delivered_at ?? null,
         picked_up_at: row.picked_up_at ?? null,
+        can_cancel: canCancelShopOrder({
+          first_scan_at: row.first_scan_at ?? null,
+          status: row.status,
+        }),
       }
     })
 

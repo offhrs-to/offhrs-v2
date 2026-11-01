@@ -228,8 +228,6 @@ export function SignInForm({
           )}
         </Pressable>
 
-        {showHeaderLogo ? <StudioJoinCard /> : null}
-
         <Pressable
           onPress={() => router.push('/contact')}
           disabled={loading}
@@ -244,13 +242,15 @@ export function SignInForm({
             borderWidth: 1,
             borderColor: DesignColors.lightGreenBorder,
             backgroundColor: DesignColors.inputBg,
-            marginBottom: 24,
+            marginBottom: 12,
           }}
         >
           <Text style={{ fontSize: 16, fontWeight: '600', color: DesignColors.primary }}>
             Contact us
           </Text>
         </Pressable>
+
+        {showHeaderLogo ? <StudioJoinCard style={{ marginTop: 0 }} /> : null}
 
         <View style={{ marginTop: 14, alignSelf: 'stretch' }}>
           <Text

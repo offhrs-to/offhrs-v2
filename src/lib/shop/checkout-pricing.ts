@@ -147,7 +147,7 @@ export async function resolveShopCheckoutPricing(
 
   // Hold postage (+ handling) on the platform for Shippo labels. GST/HST for
   // registered vendors stays in the Connect transfer so the seller remits it
-  // (same as workshops). Seller net ≈ item + tax − 5% (− Stripe fee when the
+  // (same as workshops). Seller net ≈ item + tax − 3% (− Stripe fee when the
   // platform pays processing).
   let applicationFeeAmount = platformFeeCents + estimatedStripeFeeCents + shippingCents
 

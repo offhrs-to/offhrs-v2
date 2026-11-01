@@ -141,10 +141,11 @@ export default function ServiceTermsPage() {
 
         <h3 className="mt-4">3.2 Processing rules</h3>
         <p>
-          Stripe standard processing fees (currently 2.9% + $0.30 CAD on Canadian-issued cards, with higher
-          rates for international or premium cards) apply to the gross transaction sum cleared from the
-          consumer&rsquo;s card. This base includes any tax, delivery fees, and material margins added by the
-          Vendor.
+          Stripe&rsquo;s standard card-processing fee (currently <strong>2.9% + CA$0.30</strong> per successful
+          transaction for domestic cards, as published by Stripe at stripe.com/en-ca/pricing) applies to the
+          gross transaction sum cleared from the consumer&rsquo;s card. International cards and other payment
+          methods may incur additional fees under Stripe&rsquo;s published pricing. This base includes any tax,
+          delivery fees, and material margins added by the Vendor.
         </p>
         <p>
           <strong>
@@ -165,11 +166,12 @@ export default function ServiceTermsPage() {
           consumer&rsquo;s original payment method.
         </p>
         <p>
-          For Marketplace Orders, refunds before carrier First Scan (or before completed pickup) may be issued
-          when permitted by the Platform and carrier label-void rules. When a Marketplace Order is refunded,
-          the full amount you paid (including shipping and applicable tax) is returned to your original payment
-          method. After First Scan, Platform cancellation of the paid order is generally blocked; see Section
-          3.5 for quality claims.
+          For Marketplace Orders, you may cancel for a full refund from <strong>Profile → Orders</strong> before
+          carrier First Scan or before completed pickup when permitted by the Platform and carrier label-void
+          rules. The Vendor (or offhrs, for example after a missed ship-by window) may also refund in that
+          window. When a Marketplace Order is refunded, the full amount you paid (including shipping and
+          applicable tax) is returned to your original payment method. After First Scan, Platform cancellation of
+          the paid order is generally blocked; see Section 3.5 for quality claims.
         </p>
         <p>
           <strong>
