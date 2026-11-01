@@ -22,7 +22,7 @@ export function getCategoryMasterImageSource(category: string | null | undefined
 }
 
 /**
- * Photo tiles for the Workshops “What sparks your curiosity?” category grid.
+ * Photo tiles for the Home “What sparks your curiosity?” category grid.
  * Separate from master line-art so skill badges / event fallbacks stay unchanged.
  */
 export function getCategoryTileImageSource(category: string | null | undefined): number {

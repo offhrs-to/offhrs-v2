@@ -1,3 +1,4 @@
+import CuriosityCategoryGrid from '@/components/CuriosityCategoryGrid';
 import HomeCarouselSectionHeader from '@/components/HomeCarouselSectionHeader';
 import MasteryProgressionSection from '@/components/MasteryProgressionSection';
 import UpcomingTorontoCarousel from '@/components/UpcomingTorontoCarousel';
@@ -512,6 +513,11 @@ export default function HomeScreen() {
           refreshNonce={homeRefreshNonce}
           onItemsChange={onNearYouItemsChange}
           onOpenEvent={openEventById}
+        />
+
+        <CuriosityCategoryGrid
+          searchQuery={qParam}
+          titleMarginTop={CAROUSEL_SECTION_GAP}
         />
       </ScrollView>
 
