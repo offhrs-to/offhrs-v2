@@ -44,6 +44,7 @@ export type ShopVendorSummary = {
   shop_pickup_province?: string | null;
   shop_pickup_postal_code?: string | null;
   shop_pickup_hours?: string | null;
+  shop_pickup_arrange_by_contact?: boolean;
 };
 
 /** Ontario internet-sale disclosure copy from product API (precomputed server-side). */
@@ -104,6 +105,10 @@ export type ShopOrderListItem = {
   picked_up_at?: string | null;
   /** Server: true until carrier First Scan (ship) or until pickup completed. */
   can_cancel?: boolean;
+  vendor_contact_email?: string | null;
+  pickup_address?: string | null;
+  pickup_hours?: string | null;
+  pickup_arrange_by_contact?: boolean;
 };
 
 export function formatShopOrderStatus(order: ShopOrderListItem): string {
@@ -240,4 +245,27 @@ export function shopOrderCanCancel(order: ShopOrderListItem): boolean {
 export function shopOrderCanClaim(order: ShopOrderListItem): boolean {
   if (order.delivered_at || order.picked_up_at) return true;
   return order.status === 'completed' || order.status === 'shipped';
+}
+
+export function buildShopSellerMailto(order: ShopOrderListItem): string | null {
+  const email = order.vendor_contact_email?.trim();
+  if (!email) return null;
+  const subject = encodeURIComponent(
+    order.fulfillment_type === 'pickup'
+      ? `Pickup arrangement — ${order.product_title}`
+      : `Order question — ${order.product_title}`
+  );
+  const lines = [
+    `Hi ${order.vendor_name},`,
+    '',
+    order.fulfillment_type === 'pickup'
+      ? `I'd like to arrange pickup for my order of ${order.product_title}.`
+      : `I have a question about my order of ${order.product_title}.`,
+    '',
+    `Order ID: ${order.id}`,
+    '',
+    'Thanks,',
+  ];
+  const body = encodeURIComponent(lines.join('\n'));
+  return `mailto:${email}?subject=${subject}&body=${body}`;
 }

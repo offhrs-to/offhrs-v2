@@ -237,12 +237,15 @@ export function DashboardShell({
 
         {/*
           min-h-0 is required so flex-1 + overflow-y-auto can scroll inside the
-          dvh shell instead of growing the page and leaving a blank region under
-          the form (where the public marketing footer used to sit).
+          locked partners-app shell. Inner min-h-full + flex-col keeps the
+          legal footer at the bottom of the viewport when page content is short,
+          and after the content when the page scrolls.
         */}
         <main className="min-h-0 flex-1 overflow-y-auto">
-          {children}
-          <PartnerDashboardFooter />
+          <div className="flex min-h-full flex-col">
+            <div className="min-w-0 flex-1">{children}</div>
+            <PartnerDashboardFooter />
+          </div>
         </main>
       </div>
     </div>

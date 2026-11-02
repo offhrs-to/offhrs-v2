@@ -54,11 +54,15 @@ export function shopDeliveryDisclosure(params: {
   shipByDays?: number | null
   madeToOrder?: boolean
   pickupHours?: string | null
+  arrangeByContact?: boolean
 }): string {
   if (params.fulfillmentType === 'pickup') {
+    if (params.arrangeByContact) {
+      return 'Local pickup. Contact the seller from Profile → Orders to arrange a pickup time.'
+    }
     const hours = params.pickupHours?.trim()
     return hours
-      ? `Local pickup. Coordinate with the seller. Hours: ${hours}`
+      ? `Local pickup. Hours: ${hours}. Contact the seller from Profile → Orders with questions.`
       : 'Local pickup. Coordinate timing with the seller in Profile → Orders.'
   }
   const days = params.shipByDays ?? SHOP_DEFAULT_SHIP_BY_BUSINESS_DAYS

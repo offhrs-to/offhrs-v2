@@ -22,6 +22,7 @@ type Settings = {
   shop_pickup_province: string
   shop_pickup_postal_code: string
   shop_pickup_hours: string
+  shop_pickup_arrange_by_contact: boolean
   shop_return_policy: string
   canada_ship_attested: boolean
   shop_status: string
@@ -44,6 +45,7 @@ const empty: Settings = {
   shop_pickup_province: '',
   shop_pickup_postal_code: '',
   shop_pickup_hours: '',
+  shop_pickup_arrange_by_contact: false,
   shop_return_policy: '',
   canada_ship_attested: false,
   shop_status: 'off',
@@ -296,8 +298,26 @@ export function ShippingSettingsPanel({ onSaved }: { onSaved?: () => void }) {
                 value={settings.shop_pickup_hours}
                 onChange={(e) => setSettings((s) => ({ ...s, shop_pickup_hours: e.target.value }))}
                 placeholder="e.g. Saturdays 10am–2pm, or by appointment"
+                disabled={settings.shop_pickup_arrange_by_contact}
               />
             </div>
+            <label className="sm:col-span-2 flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={settings.shop_pickup_arrange_by_contact}
+                onChange={(e) =>
+                  setSettings((s) => ({
+                    ...s,
+                    shop_pickup_arrange_by_contact: e.target.checked,
+                  }))
+                }
+              />
+              <span>
+                Contact seller to arrange pickup (buyers email you from Profile → Orders instead of
+                using fixed hours)
+              </span>
+            </label>
           </div>
         </div>
       ) : null}

@@ -33,6 +33,7 @@ import { normalizeProfilePhone } from '@/lib/profile-phone';
 import { geocodeAddress, reverseGeocodeCanadianPostal } from '@/lib/geocode';
 import { deleteAuthenticatedUserAccount } from '@/lib/delete-account';
 import {
+  buildShopSellerMailto,
   cancelShopOrder,
   createShopOrderClaim,
   fetchShopOrders,
@@ -856,6 +857,16 @@ export default function ProfileScreen() {
                     <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginTop: 4 }}>
                       {o.fulfillment_type === 'pickup' ? 'Pickup' : 'Shipping'} · {formatShopOrderStatus(o)}
                     </Text>
+                    {o.fulfillment_type === 'pickup' && o.pickup_address ? (
+                      <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginTop: 4, lineHeight: 16 }}>
+                        Pickup: {o.pickup_address.replace(/\n/g, ', ')}
+                        {o.pickup_arrange_by_contact
+                          ? ' · Contact seller to arrange time'
+                          : o.pickup_hours
+                            ? ` · ${o.pickup_hours}`
+                            : ''}
+                      </Text>
+                    ) : null}
                     {o.tracking_number ? (
                       <Pressable
                         onPress={() => {
@@ -864,6 +875,29 @@ export default function ProfileScreen() {
                       >
                         <Text style={{ fontSize: 12, color: DesignColors.primary, marginTop: 4, fontWeight: '600' }}>
                           {o.tracking_url ? `Track ${o.tracking_number}` : `Tracking ${o.tracking_number}`}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                    {buildShopSellerMailto(o) ? (
+                      <Pressable
+                        onPress={() => {
+                          const url = buildShopSellerMailto(o);
+                          if (!url) {
+                            Alert.alert(
+                              'Email unavailable',
+                              'This seller has not shared a contact email yet. Try hello@offhrs.app.'
+                            );
+                            return;
+                          }
+                          void Linking.openURL(url).catch(() => {
+                            Alert.alert('Could not open mail', 'Please email the seller from your device.');
+                          });
+                        }}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}
+                      >
+                        <MaterialCommunityIcons name="email-outline" size={16} color={DesignColors.primary} />
+                        <Text style={{ fontSize: 12, color: DesignColors.primary, fontWeight: '600' }}>
+                          {o.fulfillment_type === 'pickup' ? 'Email seller about pickup' : 'Email seller'}
                         </Text>
                       </Pressable>
                     ) : null}

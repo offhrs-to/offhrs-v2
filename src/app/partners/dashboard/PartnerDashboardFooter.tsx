@@ -3,7 +3,7 @@ import Link from 'next/link'
 /** Compact legal links for the partner app chrome (not the public marketing footer). */
 export function PartnerDashboardFooter() {
   return (
-    <footer className="mt-auto border-t border-partner-border bg-white px-6 py-4">
+    <footer className="mt-auto shrink-0 border-t border-partner-border bg-white px-6 py-4">
       <div className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
         <p className="text-xs text-muted-foreground">
           © {new Date().getFullYear()} Offhrs. All rights reserved.

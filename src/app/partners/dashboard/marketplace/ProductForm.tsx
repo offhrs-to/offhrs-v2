@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { WorkshopRichTextField } from '@/components/WorkshopRichTextField'
 import { SHOP_CATEGORIES, type ShopCategory } from '@/lib/shop/categories'
 import { SHOP_DEFAULT_SHIP_BY_BUSINESS_DAYS } from '@/lib/shop/fees'
@@ -11,6 +12,26 @@ import {
   workshopRichTextPlainLength,
   WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH,
 } from '@/lib/workshop-rich-text'
+
+type PickupDetails = {
+  line1: string
+  line2: string
+  city: string
+  province: string
+  postal_code: string
+  hours: string
+  arrange_by_contact: boolean
+}
+
+const emptyPickup = (): PickupDetails => ({
+  line1: '',
+  line2: '',
+  city: '',
+  province: '',
+  postal_code: '',
+  hours: '',
+  arrange_by_contact: false,
+})
 
 export type ShopProductFormValues = {
   id?: string
@@ -70,6 +91,8 @@ export function ProductForm({
     category: (initial?.category as ShopCategory) ?? 'Pottery',
     image_urls: initial?.image_urls ?? [],
   }))
+  const [pickup, setPickup] = useState<PickupDetails>(emptyPickup)
+  const [pickupLoading, setPickupLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -83,8 +106,42 @@ export function ProductForm({
     })
   }, [initial])
 
+  useEffect(() => {
+    let cancelled = false
+    async function loadPickup() {
+      setPickupLoading(true)
+      try {
+        const res = await fetch('/api/partners/marketplace/shipping')
+        const data = await res.json()
+        if (!res.ok || cancelled) return
+        const s = data.settings ?? {}
+        setPickup({
+          line1: s.shop_pickup_line1 ?? '',
+          line2: s.shop_pickup_line2 ?? '',
+          city: s.shop_pickup_city ?? '',
+          province: s.shop_pickup_province ?? '',
+          postal_code: s.shop_pickup_postal_code ?? '',
+          hours: s.shop_pickup_hours ?? '',
+          arrange_by_contact: Boolean(s.shop_pickup_arrange_by_contact),
+        })
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) setPickupLoading(false)
+      }
+    }
+    void loadPickup()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   function set<K extends keyof ShopProductFormValues>(key: K, value: ShopProductFormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function setPickupField<K extends keyof PickupDetails>(key: K, value: PickupDetails[K]) {
+    setPickup((prev) => ({ ...prev, [key]: value }))
   }
 
   async function uploadImage(file: File) {
@@ -122,6 +179,25 @@ export function ProductForm({
       return
     }
     try {
+      if (values.pickup_available) {
+        const pickupRes = await fetch('/api/partners/marketplace/pickup', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shop_pickup_enabled: true,
+            shop_pickup_line1: pickup.line1,
+            shop_pickup_line2: pickup.line2,
+            shop_pickup_city: pickup.city,
+            shop_pickup_province: pickup.province,
+            shop_pickup_postal_code: pickup.postal_code,
+            shop_pickup_hours: pickup.hours,
+            shop_pickup_arrange_by_contact: pickup.arrange_by_contact,
+          }),
+        })
+        const pickupData = await pickupRes.json()
+        if (!pickupRes.ok) throw new Error(pickupData.error || 'Could not save pickup details')
+      }
+
       const payload = { ...values, status }
       const url = values.id
         ? `/api/partners/shop-products/${values.id}`
@@ -314,12 +390,104 @@ export function ProductForm({
           <input
             type="checkbox"
             checked={values.pickup_available}
-            disabled={!pickupShopEnabled}
             onChange={(e) => set('pickup_available', e.target.checked)}
           />
-          Pickup available{!pickupShopEnabled ? ' (enable in shipping settings)' : ''}
+          Pickup available
         </label>
       </div>
+
+      {values.pickup_available ? (
+        <div className="space-y-3 rounded-md border border-partner-border bg-partner-canvas/40 p-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">Pickup location &amp; timing</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Shared across all pickup products. Buyers see this at checkout
+              {!pickupShopEnabled
+                ? ' — saving will also turn on local pickup in shipping settings'
+                : ''}
+              .
+            </p>
+          </div>
+          {pickupLoading ? (
+            <p className="text-sm text-muted-foreground">Loading pickup details…</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label htmlFor="pickup_line1">Pickup address</Label>
+                <Input
+                  id="pickup_line1"
+                  className={inputClass}
+                  value={pickup.line1}
+                  onChange={(e) => setPickupField('line1', e.target.value)}
+                  placeholder="Street address"
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label htmlFor="pickup_line2">Address line 2 (optional)</Label>
+                <Input
+                  id="pickup_line2"
+                  className={inputClass}
+                  value={pickup.line2}
+                  onChange={(e) => setPickupField('line2', e.target.value)}
+                  placeholder="Unit, suite, studio"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pickup_city">City</Label>
+                <Input
+                  id="pickup_city"
+                  className={inputClass}
+                  value={pickup.city}
+                  onChange={(e) => setPickupField('city', e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pickup_province">Province</Label>
+                <Input
+                  id="pickup_province"
+                  className={inputClass}
+                  value={pickup.province}
+                  onChange={(e) => setPickupField('province', e.target.value)}
+                  placeholder="ON"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pickup_postal">Postal code</Label>
+                <Input
+                  id="pickup_postal"
+                  className={inputClass}
+                  value={pickup.postal_code}
+                  onChange={(e) => setPickupField('postal_code', e.target.value)}
+                  placeholder="M5V 2T6"
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label htmlFor="pickup_hours">Available pickup date / time</Label>
+                <Textarea
+                  id="pickup_hours"
+                  rows={2}
+                  value={pickup.hours}
+                  onChange={(e) => setPickupField('hours', e.target.value)}
+                  placeholder="e.g. Saturdays 10am–2pm, or weekdays after 5pm"
+                  disabled={pickup.arrange_by_contact}
+                />
+              </div>
+              <label className="sm:col-span-2 flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={pickup.arrange_by_contact}
+                  onChange={(e) => setPickupField('arrange_by_contact', e.target.checked)}
+                />
+                <span>
+                  Contact seller to arrange pickup (buyers email you from their order history instead of
+                  using fixed hours)
+                </span>
+              </label>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         <Label>Images (up to 8)</Label>

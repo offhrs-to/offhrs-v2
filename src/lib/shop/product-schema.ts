@@ -85,6 +85,7 @@ export const shopShippingSettingsSchema = z.object({
     .nullable()
     .or(z.literal('')),
   shop_pickup_hours: z.string().max(500).optional().nullable(),
+  shop_pickup_arrange_by_contact: z.boolean().optional(),
   shop_return_policy: z.string().max(4000).optional().nullable(),
   canada_ship_attested: z.boolean(),
   shop_status: z.enum(['off', 'draft', 'live', 'paused']).optional(),
@@ -103,7 +104,12 @@ export const shopShippingSettingsSchema = z.object({
   if (!postal) {
     ctx.addIssue({ code: 'custom', message: 'Pickup postal code is required', path: ['shop_pickup_postal_code'] })
   }
-  if (!data.shop_pickup_hours?.trim()) {
-    ctx.addIssue({ code: 'custom', message: 'Pickup hours are required', path: ['shop_pickup_hours'] })
+  const arrange = data.shop_pickup_arrange_by_contact === true
+  if (!arrange && !data.shop_pickup_hours?.trim()) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Add pickup hours, or check “Contact seller to arrange pickup”',
+      path: ['shop_pickup_hours'],
+    })
   }
 })

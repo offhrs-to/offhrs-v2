@@ -16,7 +16,7 @@ const PRODUCT_SELECT =
   'id, title, description, price_cad, category, quantity, status, weight_g, length_cm, width_cm, height_cm, fragile, pickup_available, made_to_order, ship_by_business_days, buyer_remorse_returns, image_urls, created_at, vendor_id'
 
 const VENDOR_SELECT =
-  'id, business_name, slug, bio, website_url, location_address, shop_pickup_enabled, shop_pickup_line1, shop_pickup_line2, shop_pickup_city, shop_pickup_province, shop_pickup_postal_code, shop_pickup_hours, ship_from_line1, ship_from_line2, ship_from_city, ship_from_province, ship_from_postal_code, ship_from_country, marketplace_enabled, shop_status, marketplace_qa_status, status'
+  'id, business_name, slug, bio, website_url, location_address, shop_pickup_enabled, shop_pickup_line1, shop_pickup_line2, shop_pickup_city, shop_pickup_province, shop_pickup_postal_code, shop_pickup_hours, shop_pickup_arrange_by_contact, ship_from_line1, ship_from_line2, ship_from_city, ship_from_province, ship_from_postal_code, ship_from_country, marketplace_enabled, shop_status, marketplace_qa_status, status'
 
 function vendorIsLive(vendor: {
   marketplace_enabled?: boolean | null
@@ -55,6 +55,7 @@ function formatProductResponse(
   const madeToOrder = product.made_to_order === true
   const buyerRemorse = product.buyer_remorse_returns !== false
   const pickupHours = (vendor?.shop_pickup_hours as string | null) ?? null
+  const arrangeByContact = vendor?.shop_pickup_arrange_by_contact === true
 
   return {
     product: {
@@ -77,6 +78,7 @@ function formatProductResponse(
           shop_pickup_province: vendor.shop_pickup_province ?? null,
           shop_pickup_postal_code: vendor.shop_pickup_postal_code ?? null,
           shop_pickup_hours: pickupHours,
+          shop_pickup_arrange_by_contact: arrangeByContact,
         }
       : null,
     purchase_disclosures: {
@@ -91,6 +93,7 @@ function formatProductResponse(
       delivery_pickup: shopDeliveryDisclosure({
         fulfillmentType: 'pickup',
         pickupHours,
+        arrangeByContact,
       }),
       cancel_return_ship: shopCancelReturnDisclosure({
         fulfillmentType: 'ship',

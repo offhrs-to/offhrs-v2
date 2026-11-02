@@ -43,6 +43,7 @@ export type ShopVendorForCheckout = {
   shop_pickup_province: string | null
   shop_pickup_postal_code: string | null
   shop_pickup_hours: string | null
+  shop_pickup_arrange_by_contact?: boolean | null
   marketplace_enabled: boolean
   shop_status: string
   marketplace_qa_status: string
@@ -70,7 +71,7 @@ export async function loadPublishedShopProduct(
   const { data: vendor } = await admin
     .from('vendor_profiles')
     .select(
-      'id, business_name, stripe_account_id, location_address, ship_from_name, ship_from_line1, ship_from_line2, ship_from_city, ship_from_province, ship_from_postal_code, ship_from_country, ship_from_phone, shipping_handling_fee_cad, shop_pickup_enabled, shop_pickup_line1, shop_pickup_line2, shop_pickup_city, shop_pickup_province, shop_pickup_postal_code, shop_pickup_hours, marketplace_enabled, shop_status, marketplace_qa_status, status, gst_hst_registered'
+      'id, business_name, stripe_account_id, location_address, ship_from_name, ship_from_line1, ship_from_line2, ship_from_city, ship_from_province, ship_from_postal_code, ship_from_country, ship_from_phone, shipping_handling_fee_cad, shop_pickup_enabled, shop_pickup_line1, shop_pickup_line2, shop_pickup_city, shop_pickup_province, shop_pickup_postal_code, shop_pickup_hours, shop_pickup_arrange_by_contact, marketplace_enabled, shop_status, marketplace_qa_status, status, gst_hst_registered'
     )
     .eq('id', product.vendor_id)
     .maybeSingle()

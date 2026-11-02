@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc 3.12.1" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>offhrs legal review</title>
+  <title>00-COVER-AND-QUESTIONS</title>
   <style>
     /* Default styles provided by pandoc.
     ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -187,9 +187,12 @@
 </header>
 <h1 id="offhrs-legal-tax-review-package">offhrs — Legal / tax review
 package</h1>
-<p><strong>Prepared:</strong> October 28, 2026<br />
+<p><strong>Prepared:</strong> November 1, 2026<br />
 <strong>Live site:</strong> https://offhrs.app<br />
-<strong>Policy version date shown on site:</strong> October 28, 2026</p>
+<strong>Policy version date shown on site:</strong> November 1,
+2026<br />
+<strong>Partner portal:</strong> https://partners.offhrs.app (same app
+as https://offhrs.app/partners)</p>
 <p><strong>Not legal or tax advice.</strong> This cover note is for
 counsel / CPA engagement only.</p>
 <h2 id="documents-in-this-package-pdfs">Documents in this package
@@ -251,33 +254,59 @@ https://offhrs.app/partners/shopify-sync</p>
 engagement)</h2>
 <ul>
 <li>Ontario-based platform; consumer apps + partner dashboard at
-offhrs.app<br />
-</li>
+<code>partners.offhrs.app</code></li>
 <li><strong>Workshops (Lite / Pro):</strong> Stripe Connect Express; 0%
-platform commission on tickets; Stripe processing ~2.9% + $0.30 CAD
-borne by vendor; 13% Ontario HST on Stripe SaaS subscriptions<br />
-</li>
+platform commission on tickets; Stripe’s standard card fee currently
+<strong>2.9% + CA$0.30</strong> per successful domestic-card transaction
+(as published by Stripe; international cards may cost more), borne by
+vendor; 13% Ontario HST on Stripe SaaS subscriptions</li>
 <li><strong>Shopify Sync:</strong> $29 CAD / 30-day trial; billed via
 <strong>Shopify Billing</strong> (not Stripe); guests book on Shopify
-checkout; 0% commission by offhrs on those orders<br />
-</li>
+checkout; 0% commission by offhrs on those orders; uninstalling the app
+cancels Sync billing via Shopify</li>
 <li><strong>Artist Marketplace:</strong> Canada-only shipping;
 <strong>3%</strong> platform fee on item subtotal + Stripe processing;
 prepaid Canada Post labels via Shippo (buyer shipping held by platform
-for postage); sellers may be GST/HST-registered or not<br />
-</li>
+for postage); sellers may be GST/HST-registered or not</li>
 <li><strong>Decided product tax model (code today):</strong> collect
 Marketplace GST/HST at checkout <strong>only when the vendor is
 GST/HST-registered</strong>, into their Connect account; vendor remits.
-Do <strong>not</strong> collect for unregistered vendors<br />
-</li>
+Do <strong>not</strong> collect for unregistered vendors. Shipping
+postage is held by the platform; GST/HST for registered vendors is
+<strong>paid out</strong> to the vendor to remit (not conflated with
+shipping)</li>
+<li><strong>Marketplace cancellations:</strong> Buyer may self-cancel
+from <strong>Profile → Orders</strong> before carrier First Scan (or
+before pickup completion) for an automatic full refund; seller and
+offhrs may also refund in that window. After First Scan, cancel/refund
+is blocked; damaged / SNAD claims within 14 days</li>
 <li><strong>Refunds:</strong> Stripe processing fee stays with the
 vendor on refunds (workshops + Marketplace pre–First Scan), same as
-workshops<br />
-</li>
-<li>Partner clickwrap records assent to ToU, Privacy, DPA, and
-Marketplace Seller Addendum (versioned)</li>
+workshops</li>
+<li><strong>Phone / notices:</strong> Mobile numbers are optional;
+transactional notices are email (Resend), not SMS</li>
+<li><strong>Retention:</strong> Transaction / tax fields retained up to
+six (6) years for CRA; no automated purge cron today (records kept).
+Partner post-termination: Bookings CSV export in dashboard;
+Marketplace/client exports on request to hello@offhrs.app within 30
+days</li>
+<li>Partner clickwrap records assent to ToU, Privacy, Service Terms,
+DPA, Cookies, Content Policy, and Marketplace Seller Addendum
+(versioned)</li>
 </ul>
+<h2 id="whats-new-in-this-november-1-pack-vs-october-28">What’s new in
+this November 1 pack (vs October 28)</h2>
+<ol type="1">
+<li>Stripe fee language aligned to Stripe Canada published wording (2.9%
++ CA$0.30 domestic)</li>
+<li>Buyer Marketplace self-cancel (Profile → Orders) reflected in ToU,
+Service Terms, Seller Addendum, and checkout disclosures</li>
+<li>DPA: optional mobile numbers; no automated SMS; export window
+clarified (Bookings CSV + email request)</li>
+<li>Confirmed: no Full License plan; Marketplace platform fee is
+<strong>3%</strong> (not 5%)</li>
+<li>Partner portal URL remains <strong>partners.offhrs.app</strong></li>
+</ol>
 <hr />
 <h2 id="questions-for-ontario-counsel-marketplace-e-commerce">Questions
 for Ontario counsel (marketplace / e-commerce)</h2>
@@ -294,6 +323,10 @@ disclose more prominently?<br />
 <li><strong>Returns</strong> — Buyer’s-remorse “no returns” vs mandatory
 damaged / SNAD within 14 days: compliant for Canada (incl. Ontario
 consumer protection angles)?<br />
+</li>
+<li><strong>Buyer self-cancel before First Scan</strong> — Is the
+Profile → Orders cancel + auto full refund path adequately disclosed for
+Ontario internet agreements / CPA?<br />
 </li>
 <li><strong>Seller of Record + limited commercial agent</strong> — Is
 this framing enough for Marketplace goods, or do we need stronger /
@@ -315,17 +348,22 @@ disclosures (seller identity / address shown at checkout), may
 home-based sellers show a business mailing address instead of a home
 address?<br />
 </li>
-<li><strong>Shopify Sync</strong> — Terms now say Sync is billed through
+<li><strong>Shopify Sync</strong> — Terms say Sync is billed through
 <strong>Shopify Billing</strong> (not Stripe). Any consumer/merchant
 disclosure issues with a dual billing model (Stripe SaaS vs
 Shopify-billed Sync)?<br />
 </li>
 <li><strong>Clickwrap</strong> — Is recording ToU / Privacy / DPA /
-Seller Addendum version + IP / UA / timestamp at signup (and re-accept
-for existing vendors) adequate assent?</li>
+Seller Addendum (and related policies) version + IP / UA / timestamp at
+signup (and re-accept for existing vendors) adequate assent?<br />
+</li>
+<li><strong>Data retention</strong> — Stating retention “up to six
+years” for CRA while keeping records indefinitely (no purge job) — any
+issue, or should we commit to a hard deletion schedule?</li>
 </ol>
 <p>Please return either written approval of the current text or redlines
-we can apply, then we will bump the policy date and redeploy.</p>
+we can apply, then we will bump the policy date if needed and
+redeploy.</p>
 <hr />
 <h2 id="questions-for-cpa-tax-counsel-gsthst">Questions for CPA / tax
 counsel (GST/HST)</h2>
