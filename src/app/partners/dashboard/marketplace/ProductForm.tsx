@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Reorder } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -106,7 +107,6 @@ export function ProductForm({
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [dragImageIndex, setDragImageIndex] = useState<number | null>(null)
 
   useEffect(() => {
     setValues({
@@ -535,53 +535,68 @@ export function ProductForm({
         <Label>Images (up to 8)</Label>
         {values.image_urls.length > 1 ? (
           <p className="text-xs text-muted-foreground">
-            Drag thumbnails to set display order. The first image is the cover buyers see first.
+            Drag a thumbnail (or use ← →) to set order. The first image is the cover.
           </p>
         ) : null}
-        <div className="flex flex-wrap gap-2">
+        <Reorder.Group
+          axis="x"
+          values={values.image_urls}
+          onReorder={(image_urls) => set('image_urls', image_urls)}
+          className="flex flex-wrap gap-2"
+        >
           {values.image_urls.map((url, index) => (
-            <div
-              key={`${url}-${index}`}
-              draggable
-              onDragStart={(e) => {
-                setDragImageIndex(index)
-                e.dataTransfer.effectAllowed = 'move'
-                e.dataTransfer.setData('text/plain', String(index))
-              }}
-              onDragOver={(e) => {
-                e.preventDefault()
-                e.dataTransfer.dropEffect = 'move'
-              }}
-              onDrop={(e) => {
-                e.preventDefault()
-                const from =
-                  dragImageIndex ?? Number.parseInt(e.dataTransfer.getData('text/plain'), 10)
-                if (Number.isFinite(from)) reorderImages(from, index)
-                setDragImageIndex(null)
-              }}
-              onDragEnd={() => setDragImageIndex(null)}
-              className={
-                'relative h-20 w-20 cursor-grab overflow-hidden rounded-md border bg-white active:cursor-grabbing ' +
-                (dragImageIndex === index
-                  ? 'border-foreground/40 opacity-60'
-                  : 'border-partner-border')
-              }
-              title="Drag to reorder"
+            <Reorder.Item
+              key={url}
+              value={url}
+              className="relative h-20 w-20 list-none overflow-hidden rounded-md border border-partner-border bg-white"
+              whileDrag={{ scale: 1.06, zIndex: 20, boxShadow: '0 8px 20px rgba(0,0,0,0.18)' }}
+              style={{ cursor: values.image_urls.length > 1 ? 'grab' : 'default' }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="pointer-events-none h-full w-full object-cover" />
+              <img
+                src={url}
+                alt=""
+                draggable={false}
+                className="pointer-events-none h-full w-full object-cover"
+              />
               {index === 0 ? (
-                <span className="absolute bottom-0.5 left-0.5 rounded bg-black/65 px-1 text-[9px] font-medium text-white">
+                <span className="pointer-events-none absolute bottom-0.5 left-0.5 rounded bg-black/65 px-1 text-[9px] font-medium text-white">
                   Cover
                 </span>
               ) : (
-                <span className="absolute bottom-0.5 left-0.5 rounded bg-black/50 px-1 text-[9px] text-white">
+                <span className="pointer-events-none absolute bottom-0.5 left-0.5 rounded bg-black/50 px-1 text-[9px] text-white">
                   {index + 1}
                 </span>
               )}
+              {values.image_urls.length > 1 ? (
+                <div className="absolute bottom-0.5 right-0.5 flex gap-0.5">
+                  <button
+                    type="button"
+                    aria-label="Move image earlier"
+                    disabled={index === 0}
+                    className="rounded bg-black/60 px-1 text-[10px] leading-none text-white disabled:opacity-30"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => reorderImages(index, index - 1)}
+                  >
+                    ←
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Move image later"
+                    disabled={index === values.image_urls.length - 1}
+                    className="rounded bg-black/60 px-1 text-[10px] leading-none text-white disabled:opacity-30"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => reorderImages(index, index + 1)}
+                  >
+                    →
+                  </button>
+                </div>
+              ) : null}
               <button
                 type="button"
+                aria-label="Remove image"
                 className="absolute right-0.5 top-0.5 rounded bg-black/60 px-1 text-[10px] text-white"
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={() =>
                   set(
                     'image_urls',
@@ -591,9 +606,9 @@ export function ProductForm({
               >
                 ×
               </button>
-            </div>
+            </Reorder.Item>
           ))}
-        </div>
+        </Reorder.Group>
         <Input
           type="file"
           accept="image/jpeg,image/png,image/webp"
