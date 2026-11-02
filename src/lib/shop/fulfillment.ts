@@ -13,6 +13,7 @@ import {
   voidShippoLabel,
   type ShippoAddressInput,
 } from '@/lib/shop/shippo'
+import { estimateCanadianStripeFee } from '@/lib/stripe-charge-fees'
 
 export type ShopOrderRow = {
   id: string
@@ -375,7 +376,7 @@ async function refundShopApplicationFeeExceptStripeFee(
   let retainCents =
     estimatedStripeFeeCents > 0
       ? estimatedStripeFeeCents
-      : Number.isFinite(fromMetadata)
+      : Number.isFinite(fromMetadata) && fromMetadata > 0
         ? fromMetadata
         : 0
 
@@ -386,13 +387,24 @@ async function refundShopApplicationFeeExceptStripeFee(
       : pi.transfer_data?.destination?.id) ||
     null
 
+  let feesPaidByAccount = false
   if (accountId) {
     try {
       const account = await stripe.accounts.retrieve(accountId)
-      if (account.controller?.fees?.payer === 'account') retainCents = 0
+      if (account.controller?.fees?.payer === 'account') {
+        feesPaidByAccount = true
+        retainCents = 0
+      }
     } catch {
       /* Checkout includes the Stripe estimate in the fee when the payer is unknown. */
     }
+  }
+
+  // Express accounts use fees.payer=application: if we returned the whole
+  // application fee, the platform would eat Stripe's non-refundable card fee.
+  // Fall back to the CAD estimate when metadata/order estimate is missing.
+  if (!feesPaidByAccount && retainCents <= 0 && typeof charge.amount === 'number') {
+    retainCents = Math.round(estimateCanadianStripeFee(charge.amount / 100).feeCad * 100)
   }
 
   const fee =
