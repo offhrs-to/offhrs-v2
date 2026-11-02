@@ -7,8 +7,27 @@ import {
   WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH,
 } from '@/lib/workshop-rich-text'
 
+/** HTML number inputs / Postgres numerics may arrive as strings. */
+const cadAmount = z.coerce.number().min(0).max(100000)
+const nonNegInt = z.coerce.number().int().min(0).max(100000)
+const weightGrams = z.preprocess((value) => {
+  if (value === '' || value == null) return value
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? Math.round(n) : value
+}, z.number().int().min(1, 'Weight must be at least 1 g').max(30000))
+const dimensionCm = z.coerce
+  .number()
+  .min(0.1, 'Each dimension must be at least 0.1 cm')
+  .max(200)
+const shipByDays = z.preprocess((value) => {
+  if (value === '' || value == null) return SHOP_DEFAULT_SHIP_BY_BUSINESS_DAYS
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n) || n < 1) return SHOP_DEFAULT_SHIP_BY_BUSINESS_DAYS
+  return Math.round(n)
+}, z.number().int().min(1).max(30))
+
 export const shopProductWriteSchema = z.object({
-  title: z.string().min(2).max(120),
+  title: z.string().trim().min(2, 'Title must be at least 2 characters').max(120),
   description: z
     .string()
     .max(6000)
@@ -33,25 +52,23 @@ export const shopProductWriteSchema = z.object({
       }
     }),
   category: z.enum(SHOP_CATEGORY_ENUM),
-  price_cad: z.number().min(0).max(100000),
-  quantity: z.number().int().min(0).max(100000),
-  weight_g: z.number().int().min(1).max(30000),
-  length_cm: z.number().min(0.1).max(200),
-  width_cm: z.number().min(0.1).max(200),
-  height_cm: z.number().min(0.1).max(200),
+  price_cad: cadAmount,
+  quantity: nonNegInt,
+  weight_g: weightGrams,
+  length_cm: dimensionCm,
+  width_cm: dimensionCm,
+  height_cm: dimensionCm,
   fragile: z.boolean().optional().default(false),
   pickup_available: z.boolean().optional().default(false),
   made_to_order: z.boolean().optional().default(false),
-  ship_by_business_days: z
-    .number()
-    .int()
-    .min(1)
-    .max(30)
-    .optional()
-    .default(SHOP_DEFAULT_SHIP_BY_BUSINESS_DAYS),
+  ship_by_business_days: shipByDays.optional().default(SHOP_DEFAULT_SHIP_BY_BUSINESS_DAYS),
   buyer_remorse_returns: z.boolean().optional().default(false),
   status: z.enum(['draft', 'published', 'archived']).default('draft'),
-  image_urls: z.array(z.string().url()).max(8).optional().default([]),
+  image_urls: z
+    .array(z.string().url('Each image must be a valid URL'))
+    .max(8)
+    .optional()
+    .default([]),
 })
 
 export type ShopProductWrite = z.infer<typeof shopProductWriteSchema>

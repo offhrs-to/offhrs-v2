@@ -6,6 +6,7 @@ import {
 } from '@/lib/shop/access'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { zodErrorMessage } from '@/lib/shop/zod-api-error'
 
 const pickupSchema = z
   .object({
@@ -92,9 +93,11 @@ export async function PUT(request: NextRequest) {
 
     const parsed = pickupSchema.safeParse(await request.json().catch(() => ({})))
     if (!parsed.success) {
-      const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0]
       return NextResponse.json(
-        { error: first || 'Validation failed', fields: parsed.error.flatten().fieldErrors },
+        {
+          error: zodErrorMessage(parsed.error),
+          fields: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 }
       )
     }

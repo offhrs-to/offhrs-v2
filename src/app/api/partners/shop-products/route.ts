@@ -7,6 +7,7 @@ import {
 } from '@/lib/shop/access'
 import { shopProductWriteSchema } from '@/lib/shop/product-schema'
 import { canPublishShopProducts, marketplacePublishBlockers } from '@/lib/shop/publish-gates'
+import { zodErrorMessage } from '@/lib/shop/zod-api-error'
 
 async function resolveMarketplaceVendor(userId: string) {
   const admin = createAdminClient()
@@ -96,7 +97,10 @@ export async function POST(request: NextRequest) {
     const parsed = shopProductWriteSchema.safeParse(await request.json())
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Validation failed', fields: parsed.error.flatten().fieldErrors },
+        {
+          error: zodErrorMessage(parsed.error),
+          fields: parsed.error.flatten().fieldErrors,
+        },
         { status: 400 }
       )
     }
@@ -107,7 +111,16 @@ export async function POST(request: NextRequest) {
       if (blockers.length) {
         return NextResponse.json({ error: blockers[0], blockers }, { status: 400 })
       }
-      if (data.pickup_available && !vendor.shop_pickup_enabled) {
+      let pickupEnabled = Boolean(vendor.shop_pickup_enabled)
+      if (data.pickup_available && !pickupEnabled) {
+        const { data: again } = await admin
+          .from('vendor_profiles')
+          .select('shop_pickup_enabled')
+          .eq('id', vendor.id)
+          .maybeSingle()
+        pickupEnabled = Boolean(again?.shop_pickup_enabled)
+      }
+      if (data.pickup_available && !pickupEnabled) {
         return NextResponse.json(
           { error: 'Enable pickup in shipping settings before offering pickup on a listing.' },
           { status: 400 }

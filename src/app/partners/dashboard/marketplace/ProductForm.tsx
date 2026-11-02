@@ -13,6 +13,16 @@ import {
   WORKSHOP_RICH_TEXT_MAX_PLAIN_LENGTH,
 } from '@/lib/workshop-rich-text'
 
+function apiErrorMessage(data: { error?: string; fields?: Record<string, string[] | undefined> }): string {
+  if (data.fields) {
+    const firstField = Object.values(data.fields)
+      .flat()
+      .find((m): m is string => typeof m === 'string' && m.length > 0)
+    if (firstField) return firstField
+  }
+  return data.error || 'Save failed'
+}
+
 type PickupDetails = {
   line1: string
   line2: string
@@ -96,6 +106,7 @@ export function ProductForm({
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dragImageIndex, setDragImageIndex] = useState<number | null>(null)
 
   useEffect(() => {
     setValues({
@@ -195,10 +206,30 @@ export function ProductForm({
           }),
         })
         const pickupData = await pickupRes.json()
-        if (!pickupRes.ok) throw new Error(pickupData.error || 'Could not save pickup details')
+        if (!pickupRes.ok) throw new Error(apiErrorMessage(pickupData) || 'Could not save pickup details')
       }
 
-      const payload = { ...values, status }
+      const payload = {
+        title: values.title,
+        description: values.description,
+        category: values.category,
+        price_cad: Number(values.price_cad),
+        quantity: Math.max(0, Math.round(Number(values.quantity) || 0)),
+        weight_g: Math.max(1, Math.round(Number(values.weight_g) || 1)),
+        length_cm: Number(values.length_cm),
+        width_cm: Number(values.width_cm),
+        height_cm: Number(values.height_cm),
+        fragile: values.fragile,
+        pickup_available: values.pickup_available,
+        made_to_order: values.made_to_order,
+        ship_by_business_days: Math.min(
+          30,
+          Math.max(1, Math.round(Number(values.ship_by_business_days) || SHOP_DEFAULT_SHIP_BY_BUSINESS_DAYS))
+        ),
+        buyer_remorse_returns: values.buyer_remorse_returns,
+        status,
+        image_urls: values.image_urls,
+      }
       const url = values.id
         ? `/api/partners/shop-products/${values.id}`
         : '/api/partners/shop-products'
@@ -208,13 +239,24 @@ export function ProductForm({
         body: JSON.stringify(payload),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Save failed')
+      if (!res.ok) throw new Error(apiErrorMessage(data))
       onSaved()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed')
     } finally {
       setSaving(false)
     }
+  }
+
+  function reorderImages(from: number, to: number) {
+    if (from === to || from < 0 || to < 0) return
+    setValues((prev) => {
+      const next = [...prev.image_urls]
+      const [moved] = next.splice(from, 1)
+      if (!moved) return prev
+      next.splice(to, 0, moved)
+      return { ...prev, image_urls: next }
+    })
   }
 
   const inputClass =
@@ -491,18 +533,59 @@ export function ProductForm({
 
       <div className="space-y-2">
         <Label>Images (up to 8)</Label>
+        {values.image_urls.length > 1 ? (
+          <p className="text-xs text-muted-foreground">
+            Drag thumbnails to set display order. The first image is the cover buyers see first.
+          </p>
+        ) : null}
         <div className="flex flex-wrap gap-2">
-          {values.image_urls.map((url) => (
-            <div key={url} className="relative h-20 w-20 overflow-hidden rounded-md border border-partner-border">
+          {values.image_urls.map((url, index) => (
+            <div
+              key={`${url}-${index}`}
+              draggable
+              onDragStart={(e) => {
+                setDragImageIndex(index)
+                e.dataTransfer.effectAllowed = 'move'
+                e.dataTransfer.setData('text/plain', String(index))
+              }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                const from =
+                  dragImageIndex ?? Number.parseInt(e.dataTransfer.getData('text/plain'), 10)
+                if (Number.isFinite(from)) reorderImages(from, index)
+                setDragImageIndex(null)
+              }}
+              onDragEnd={() => setDragImageIndex(null)}
+              className={
+                'relative h-20 w-20 cursor-grab overflow-hidden rounded-md border bg-white active:cursor-grabbing ' +
+                (dragImageIndex === index
+                  ? 'border-foreground/40 opacity-60'
+                  : 'border-partner-border')
+              }
+              title="Drag to reorder"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="h-full w-full object-cover" />
+              <img src={url} alt="" className="pointer-events-none h-full w-full object-cover" />
+              {index === 0 ? (
+                <span className="absolute bottom-0.5 left-0.5 rounded bg-black/65 px-1 text-[9px] font-medium text-white">
+                  Cover
+                </span>
+              ) : (
+                <span className="absolute bottom-0.5 left-0.5 rounded bg-black/50 px-1 text-[9px] text-white">
+                  {index + 1}
+                </span>
+              )}
               <button
                 type="button"
                 className="absolute right-0.5 top-0.5 rounded bg-black/60 px-1 text-[10px] text-white"
                 onClick={() =>
                   set(
                     'image_urls',
-                    values.image_urls.filter((u) => u !== url)
+                    values.image_urls.filter((_, i) => i !== index)
                   )
                 }
               >
