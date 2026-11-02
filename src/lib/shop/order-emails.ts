@@ -47,7 +47,7 @@ export async function notifyShopOrderCreated(
   const { data: vendor } = await admin
     .from('vendor_profiles')
     .select(
-      'id, user_id, business_name, website_url, location_address, shop_pickup_hours, ship_from_line1, ship_from_line2, ship_from_city, ship_from_province, ship_from_postal_code, ship_from_country'
+      'id, user_id, business_name, website_url, location_address, shop_pickup_hours, shop_pickup_arrange_by_contact, ship_from_line1, ship_from_line2, ship_from_city, ship_from_province, ship_from_postal_code, ship_from_country'
     )
     .eq('id', order.vendor_id)
     .maybeSingle()
