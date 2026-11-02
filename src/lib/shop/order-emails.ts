@@ -92,6 +92,7 @@ export async function notifyShopOrderCreated(
           shipByDays: order.ship_by_business_days,
           madeToOrder: product?.made_to_order === true,
           pickupHours: vendor?.shop_pickup_hours,
+          arrangeByContact: vendor?.shop_pickup_arrange_by_contact === true,
         }),
         cancelReturnDisclosure: shopCancelReturnDisclosure({
           fulfillmentType,

@@ -189,7 +189,11 @@ export default function ShopCheckoutScreen() {
                 Pickup address not configured by seller.
               </Text>
             )}
-            {pickupVendor.shop_pickup_hours ? (
+            {pickupVendor.shop_pickup_arrange_by_contact ? (
+              <Text style={{ marginTop: 8, fontSize: 13, color: DesignColors.mediumGray, lineHeight: 18 }}>
+                After checkout, email the seller from Profile → Orders to arrange pickup.
+              </Text>
+            ) : pickupVendor.shop_pickup_hours ? (
               <Text style={{ marginTop: 8, fontSize: 13, color: DesignColors.mediumGray }}>
                 Hours: {pickupVendor.shop_pickup_hours}
               </Text>

@@ -519,7 +519,15 @@ export function ProductForm({
                   type="checkbox"
                   className="mt-1"
                   checked={pickup.arrange_by_contact}
-                  onChange={(e) => setPickupField('arrange_by_contact', e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked
+                    setPickup((prev) => ({
+                      ...prev,
+                      arrange_by_contact: checked,
+                      // Drop fixed hours so they are not kept/shown when arranging by contact.
+                      hours: checked ? '' : prev.hours,
+                    }))
+                  }}
                 />
                 <span>
                   Contact seller to arrange pickup (buyers email you from their order history instead of

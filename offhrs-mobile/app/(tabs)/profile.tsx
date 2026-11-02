@@ -878,7 +878,7 @@ export default function ProfileScreen() {
                         </Text>
                       </Pressable>
                     ) : null}
-                    {buildShopSellerMailto(o) ? (
+                    {o.status !== 'refunded' && o.status !== 'cancelled' ? (
                       <Pressable
                         onPress={() => {
                           const url = buildShopSellerMailto(o);

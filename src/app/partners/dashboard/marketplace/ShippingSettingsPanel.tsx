@@ -310,6 +310,7 @@ export function ShippingSettingsPanel({ onSaved }: { onSaved?: () => void }) {
                   setSettings((s) => ({
                     ...s,
                     shop_pickup_arrange_by_contact: e.target.checked,
+                    shop_pickup_hours: e.target.checked ? '' : s.shop_pickup_hours,
                   }))
                 }
               />

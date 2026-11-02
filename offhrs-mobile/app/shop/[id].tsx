@@ -366,7 +366,11 @@ export default function ShopProductScreen() {
                   The maker has not published pickup details yet.
                 </Text>
               )}
-              {vendor.shop_pickup_hours ? (
+              {vendor.shop_pickup_arrange_by_contact ? (
+                <Text style={{ marginTop: 8, fontSize: 13, color: DesignColors.mediumGray, lineHeight: 18 }}>
+                  Contact the seller from Profile → Orders after purchase to arrange a pickup time.
+                </Text>
+              ) : vendor.shop_pickup_hours ? (
                 <Text style={{ marginTop: 8, fontSize: 13, color: DesignColors.mediumGray }}>
                   Hours: {vendor.shop_pickup_hours}
                 </Text>

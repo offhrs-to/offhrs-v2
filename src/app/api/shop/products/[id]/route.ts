@@ -54,8 +54,10 @@ function formatProductResponse(
   const shipBy = Number(product.ship_by_business_days ?? 5)
   const madeToOrder = product.made_to_order === true
   const buyerRemorse = product.buyer_remorse_returns !== false
-  const pickupHours = (vendor?.shop_pickup_hours as string | null) ?? null
   const arrangeByContact = vendor?.shop_pickup_arrange_by_contact === true
+  const pickupHours = arrangeByContact
+    ? null
+    : ((vendor?.shop_pickup_hours as string | null) ?? null)
 
   return {
     product: {

@@ -160,7 +160,10 @@ export async function PUT(request: NextRequest) {
       shop_pickup_postal_code: data.shop_pickup_enabled
         ? data.shop_pickup_postal_code?.trim().toUpperCase().replace(/\s+/g, ' ') || null
         : null,
-      shop_pickup_hours: data.shop_pickup_enabled ? data.shop_pickup_hours?.trim() || null : null,
+      shop_pickup_hours:
+        data.shop_pickup_enabled && data.shop_pickup_arrange_by_contact !== true
+          ? data.shop_pickup_hours?.trim() || null
+          : null,
       shop_pickup_arrange_by_contact: data.shop_pickup_enabled
         ? data.shop_pickup_arrange_by_contact === true
         : false,

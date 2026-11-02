@@ -86,10 +86,14 @@ export async function GET(request: NextRequest) {
         vendor_slug: vp?.slug ?? null,
         vendor_contact_email: uid ? emailByUserId.get(uid) ?? null : null,
         pickup_address: isPickup ? formatPickupAddress(vp) : null,
-        pickup_hours: isPickup ? (vp?.shop_pickup_hours ?? null) : null,
         pickup_arrange_by_contact: isPickup
           ? Boolean(vp?.shop_pickup_arrange_by_contact)
           : false,
+        pickup_hours: isPickup
+          ? vp?.shop_pickup_arrange_by_contact
+            ? null
+            : (vp?.shop_pickup_hours ?? null)
+          : null,
         tracking_number: row.tracking_number ?? null,
         tracking_url: row.tracking_url ?? null,
         tracking_status: row.tracking_status ?? null,
