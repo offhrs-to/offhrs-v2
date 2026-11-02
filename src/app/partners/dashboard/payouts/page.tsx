@@ -44,7 +44,7 @@ async function loadConnectBalanceCad(accountId: string): Promise<{
   pendingCad: number
 } | null> {
   try {
-    const bal = await stripe().balance.retrieve({ stripeAccount: accountId })
+    const bal = await stripe().balance.retrieve({}, { stripeAccount: accountId })
     const sum = (buckets: Stripe.Balance.Available[] | Stripe.Balance.Pending[]) =>
       buckets.filter((b) => b.currency === 'cad').reduce((acc, b) => acc + b.amount, 0) / 100
     return {
