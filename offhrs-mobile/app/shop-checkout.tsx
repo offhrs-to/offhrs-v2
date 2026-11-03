@@ -8,9 +8,14 @@ import {
   type ShopVendorSummary,
 } from '@/lib/shop-api';
 import { runShopCheckout } from '@/lib/shop-checkout-mobile';
+import {
+  fetchPlaceAddress,
+  fetchPlaceSuggestions,
+  type PlaceSuggestion,
+} from '@/lib/places-autocomplete';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { goBack } from '@/lib/go-back';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -68,6 +73,10 @@ export default function ShopCheckoutScreen() {
   const [provincePickerOpen, setProvincePickerOpen] = useState(false);
   const [pickupVendor, setPickupVendor] = useState<ShopVendorSummary | null>(null);
   const [disclosures, setDisclosures] = useState<ShopPurchaseDisclosures | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [addressSuggestLoading, setAddressSuggestLoading] = useState(false);
+  const addressSuggestSeq = useRef(0);
+  const addressDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!params.productId) return;
@@ -81,6 +90,52 @@ export default function ShopCheckoutScreen() {
         setDisclosures(null);
       });
   }, [fulfillment, params.productId]);
+
+  useEffect(() => {
+    return () => {
+      if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
+    };
+  }, []);
+
+  function onStreetAddressChange(text: string) {
+    setLine1(text);
+    if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
+    if (text.trim().length < 3) {
+      setAddressSuggestions([]);
+      setAddressSuggestLoading(false);
+      return;
+    }
+    setAddressSuggestLoading(true);
+    const seq = ++addressSuggestSeq.current;
+    addressDebounceRef.current = setTimeout(() => {
+      void fetchPlaceSuggestions(text).then((suggestions) => {
+        if (seq !== addressSuggestSeq.current) return;
+        setAddressSuggestions(suggestions);
+        setAddressSuggestLoading(false);
+      });
+    }, 280);
+  }
+
+  async function applyAddressSuggestion(suggestion: PlaceSuggestion) {
+    setAddressSuggestions([]);
+    setAddressSuggestLoading(true);
+    try {
+      const address = await fetchPlaceAddress(suggestion.place_id);
+      if (!address) {
+        setLine1(suggestion.main_text || suggestion.description);
+        return;
+      }
+      setLine1(address.line1);
+      if (address.line2) setLine2(address.line2);
+      setCity(address.city);
+      if (address.province && isCaProvinceCode(address.province)) {
+        setProvince(address.province);
+      }
+      if (address.postal_code) setPostalCode(address.postal_code);
+    } finally {
+      setAddressSuggestLoading(false);
+    }
+  }
 
   const onPay = async () => {
     if (!params.productId) return;
@@ -218,11 +273,50 @@ export default function ShopCheckoutScreen() {
             <Text style={{ marginTop: 12, fontWeight: '600' }}>Street address</Text>
             <TextInput
               value={line1}
-              onChangeText={setLine1}
-              placeholder="123 Main Street"
+              onChangeText={onStreetAddressChange}
+              placeholder="Start typing a Canadian address"
               autoCorrect={false}
               style={inputStyle}
             />
+            {addressSuggestLoading ? (
+              <Text style={{ marginTop: 6, fontSize: 12, color: DesignColors.mediumGray }}>
+                Looking up addresses…
+              </Text>
+            ) : null}
+            {addressSuggestions.length > 0 ? (
+              <View
+                style={{
+                  marginTop: 6,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: DesignColors.lightGreenBorder,
+                  backgroundColor: '#fff',
+                  overflow: 'hidden',
+                }}
+              >
+                {addressSuggestions.map((s) => (
+                  <Pressable
+                    key={s.place_id}
+                    onPress={() => void applyAddressSuggestion(s)}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      borderBottomWidth: 1,
+                      borderBottomColor: DesignColors.lightGreenBorder,
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.charcoal }}>
+                      {s.main_text}
+                    </Text>
+                    {s.secondary_text ? (
+                      <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginTop: 2 }}>
+                        {s.secondary_text}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
 
             <Text style={{ marginTop: 12, fontWeight: '600' }}>Apt / unit (optional)</Text>
             <TextInput

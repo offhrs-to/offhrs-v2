@@ -43,6 +43,14 @@ import {
   type WorkshopEventRow,
 } from '@/lib/workshops-events-query';
 import { workshopEventIsFull } from '@/lib/workshop-event-utils';
+import { fetchShopProducts, type ShopProductListItem } from '@/lib/shop-api';
+import { Image } from 'expo-image';
+
+type ProfileSection = 'workshops' | 'shop';
+
+function formatCad(price: number): string {
+  return `$${price.toFixed(2)}`;
+}
 
 interface Vendor {
   id: string;
@@ -136,8 +144,17 @@ const VendorWorkshopCard = memo(function VendorWorkshopCard({
 });
 
 export default function VendorProfileScreen() {
-  const { id, eventId: eventIdParam, vendorProfileId: vendorProfileIdParam } =
-    useLocalSearchParams<{ id: string; eventId?: string; vendorProfileId?: string }>();
+  const {
+    id,
+    eventId: eventIdParam,
+    vendorProfileId: vendorProfileIdParam,
+    section: sectionParam,
+  } = useLocalSearchParams<{
+    id: string;
+    eventId?: string;
+    vendorProfileId?: string;
+    section?: string;
+  }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
@@ -162,6 +179,14 @@ export default function VendorProfileScreen() {
   const [vendorContactEmail, setVendorContactEmail] = useState<string | null>(null);
   const [vendorInstagramHandle, setVendorInstagramHandle] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [section, setSection] = useState<ProfileSection>(
+    sectionParam === 'shop' ? 'shop' : 'workshops'
+  );
+  const [shopVendorId, setShopVendorId] = useState<string | null>(null);
+  const [shopProducts, setShopProducts] = useState<ShopProductListItem[]>([]);
+  const [shopLoading, setShopLoading] = useState(false);
+  const shopCardWidth =
+    (Dimensions.get('window').width - DesignSpacing.horizontalPadding * 2 - 12) / 2;
 
   const loadVendorProfile = useCallback(async () => {
     if (!id) return;
@@ -200,12 +225,27 @@ export default function VendorProfileScreen() {
       ]);
 
       let eventRows: WorkshopEventRow[] = [];
+      let resolvedShopVendorId: string | null = profileIdHint;
       if (vendorRes.data) {
         setVendor(vendorRes.data);
         eventRows = await fetchVendorProfileEvents(id);
         // Partner listings may be linked by vendor_profile_id before legacy vendor_id is populated.
         if (eventRows.length === 0 && profileIdHint) {
           eventRows = await fetchVendorProfileEventsByProfileId(profileIdHint);
+        }
+        if (!resolvedShopVendorId) {
+          resolvedShopVendorId =
+            eventRows.find((e) => e.vendor_profile_id)?.vendor_profile_id?.trim() || null;
+        }
+        if (!resolvedShopVendorId && vendorRes.data.name?.trim()) {
+          const { data: byName } = await supabase
+            .from('vendor_profiles')
+            .select('id')
+            .ilike('business_name', vendorRes.data.name.trim())
+            .in('status', ['trialing', 'active', 'past_due'])
+            .limit(1)
+            .maybeSingle();
+          resolvedShopVendorId = byName?.id ?? null;
         }
       } else {
         const profileLookupId = profileIdHint || id;
@@ -221,12 +261,15 @@ export default function VendorProfileScreen() {
             name: profile.business_name?.trim() || 'Partner studio',
           });
           eventRows = await fetchVendorProfileEventsByProfileId(profile.id);
+          resolvedShopVendorId = profile.id;
         } else {
           setVendor(null);
+          resolvedShopVendorId = null;
         }
       }
 
       setEvents(eventRows);
+      setShopVendorId(resolvedShopVendorId);
 
       const revs = (reviewsRes.data ?? []) as Review[];
       setReviews(revs);
@@ -244,9 +287,37 @@ export default function VendorProfileScreen() {
   }, [loadCoreData, loadVendorProfile]);
 
   useEffect(() => {
+    if (sectionParam === 'shop' || sectionParam === 'workshops') {
+      setSection(sectionParam);
+    }
+  }, [sectionParam]);
+
+  useEffect(() => {
     void loadCoreData();
     void loadVendorProfile();
   }, [loadCoreData, loadVendorProfile]);
+
+  useEffect(() => {
+    if (!shopVendorId) {
+      setShopProducts([]);
+      return;
+    }
+    let cancelled = false;
+    setShopLoading(true);
+    void fetchShopProducts({ vendor_id: shopVendorId, limit: 40 })
+      .then((res) => {
+        if (!cancelled) setShopProducts(res.products);
+      })
+      .catch(() => {
+        if (!cancelled) setShopProducts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setShopLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [shopVendorId]);
 
   useEffect(() => {
     if (!id || !user?.id) {
@@ -417,6 +488,45 @@ export default function VendorProfileScreen() {
     [openWorkshop]
   );
 
+  const renderShopItem = useCallback(
+    ({ item }: { item: ShopProductListItem }) => {
+      const image = item.image_urls?.[0];
+      return (
+        <Pressable
+          onPress={() => router.push(`/shop/${item.id}`)}
+          style={{
+            width: shopCardWidth,
+            backgroundColor: '#fff',
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: DesignColors.lightGreenBorder,
+            overflow: 'hidden',
+            marginBottom: 12,
+          }}
+        >
+          <View style={{ aspectRatio: 1, backgroundColor: DesignColors.creamBg }}>
+            {image ? (
+              <Image source={{ uri: image }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+            ) : (
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 11, color: DesignColors.mediumGray }}>No image</Text>
+              </View>
+            )}
+          </View>
+          <View style={{ padding: 8 }}>
+            <Text numberOfLines={2} style={{ fontSize: 13, fontWeight: '600', color: DesignColors.charcoal }}>
+              {item.title}
+            </Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: DesignColors.primary, marginTop: 4 }}>
+              {formatCad(item.price_cad)}
+            </Text>
+          </View>
+        </Pressable>
+      );
+    },
+    [router, shopCardWidth]
+  );
+
   const listHeader = (
     <>
         <View style={{ marginTop: DesignSpacing.contentPaddingTop, marginBottom: 24 }}>
@@ -432,7 +542,9 @@ export default function VendorProfileScreen() {
           <Text style={{ fontSize: 28, fontWeight: '700', color: DesignColors.charcoal }}>
             {vendor?.name ?? 'Workshop host'}
           </Text>
-          <Text style={{ fontSize: 15, color: DesignColors.mediumGray, marginTop: 4 }}>Workshop host</Text>
+          <Text style={{ fontSize: 15, color: DesignColors.mediumGray, marginTop: 4 }}>
+            {shopProducts.length > 0 ? 'Workshops & marketplace' : 'Workshop host'}
+          </Text>
         {profileLoading && !vendorBio && !vendorWebsiteUrl ? (
           <ActivityIndicator size="small" color={DesignColors.primary} style={{ marginTop: 12 }} />
         ) : null}
@@ -592,10 +704,56 @@ export default function VendorProfileScreen() {
         </ScrollView>
       )}
 
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: 8,
+          marginBottom: 16,
+          padding: 4,
+          borderRadius: 12,
+          backgroundColor: '#FFF',
+          borderWidth: 1,
+          borderColor: DesignColors.lightGreenBorder,
+        }}
+      >
+        {(
+          [
+            { key: 'workshops' as const, label: 'Workshops', count: events.length },
+            { key: 'shop' as const, label: 'Shop', count: shopProducts.length },
+          ] as const
+        ).map((tab) => {
+          const active = section === tab.key;
+          return (
+            <Pressable
+              key={tab.key}
+              onPress={() => setSection(tab.key)}
+              style={{
+                flex: 1,
+                paddingVertical: 10,
+                borderRadius: 8,
+                alignItems: 'center',
+                backgroundColor: active ? DesignColors.primary : 'transparent',
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: '700',
+                  color: active ? '#FFF' : DesignColors.charcoal,
+                }}
+              >
+                {tab.label}
+                {tab.count > 0 ? ` (${tab.count})` : ''}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <Text style={{ fontSize: 18, fontWeight: '700', color: DesignColors.charcoal, marginBottom: 16 }}>
-        Upcoming Workshops
+        {section === 'shop' ? 'Marketplace' : 'Upcoming Workshops'}
       </Text>
-      {eventsLoading ? (
+      {(section === 'workshops' && eventsLoading) || (section === 'shop' && shopLoading) ? (
         <ActivityIndicator color={DesignColors.primary} style={{ marginBottom: 24 }} />
       ) : null}
     </>
@@ -627,12 +785,35 @@ export default function VendorProfileScreen() {
   return (
     <>
       <FlatList
-        data={eventsLoading ? [] : events}
+        key={section}
+        data={
+          section === 'shop'
+            ? shopLoading
+              ? []
+              : shopProducts
+            : eventsLoading
+              ? []
+              : events
+        }
         keyExtractor={(item) => String(item.id)}
-        renderItem={renderWorkshopItem}
+        renderItem={
+          section === 'shop'
+            ? (renderShopItem as never)
+            : (renderWorkshopItem as never)
+        }
+        numColumns={section === 'shop' ? 2 : 1}
+        columnWrapperStyle={
+          section === 'shop' ? { justifyContent: 'space-between', gap: 12 } : undefined
+        }
         ListHeaderComponent={listHeader}
         ListEmptyComponent={
-          eventsLoading ? null : (
+          section === 'shop' ? (
+            shopLoading ? null : (
+              <Text style={{ color: DesignColors.mediumGray, marginBottom: 24 }}>
+                No marketplace items from this maker yet.
+              </Text>
+            )
+          ) : eventsLoading ? null : (
             <Text style={{ color: DesignColors.mediumGray, marginBottom: 24 }}>
               No upcoming workshops from this vendor.
             </Text>

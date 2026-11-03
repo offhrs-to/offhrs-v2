@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const q = searchParams.get('q')?.trim() ?? ''
     const category = searchParams.get('category')?.trim()
+    const vendorId = searchParams.get('vendor_id')?.trim() ?? ''
     const sort = searchParams.get('sort') ?? 'newest'
     const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') ?? 20)))
     const offset = Math.max(0, Number(searchParams.get('offset') ?? 0))
@@ -27,6 +28,10 @@ export async function GET(request: NextRequest) {
       .eq('vendor_profiles.marketplace_qa_status', 'approved')
       .in('vendor_profiles.status', ['trialing', 'active', 'past_due'])
       .gt('quantity', 0)
+
+    if (vendorId) {
+      query = query.eq('vendor_id', vendorId)
+    }
 
     if (category && category !== 'All') {
       query = query.eq('category', category)

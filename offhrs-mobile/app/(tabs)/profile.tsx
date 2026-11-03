@@ -855,6 +855,13 @@ export default function ProfileScreen() {
                       {o.vendor_name} · ${o.total_cad.toFixed(2)} CAD
                     </Text>
                     <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginTop: 4 }}>
+                      Purchased{' '}
+                      {new Date(o.paid_at || o.created_at || Date.now()).toLocaleDateString('en-CA', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                      {' · '}
                       {o.fulfillment_type === 'pickup' ? 'Pickup' : 'Shipping'} · {formatShopOrderStatus(o)}
                     </Text>
                     {o.fulfillment_type === 'pickup' && o.pickup_address ? (

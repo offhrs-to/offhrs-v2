@@ -213,9 +213,26 @@ export default function ShopProductScreen() {
           <Text style={{ fontSize: 22, fontWeight: '700', color: DesignColors.charcoal, marginTop: 16 }}>
             {product.title}
           </Text>
-          <Text style={{ fontSize: 14, color: DesignColors.mediumGray, marginTop: 4 }}>
-            by {vendor?.business_name ?? 'Maker'}
-          </Text>
+          {vendor?.id ? (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/vendors/[id]',
+                  params: { id: vendor.id, vendorProfileId: vendor.id, section: 'shop' },
+                })
+              }
+              hitSlop={8}
+              style={{ alignSelf: 'flex-start', marginTop: 4 }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: '600', color: DesignColors.primary }}>
+                by {vendor.business_name ?? 'Maker'}
+              </Text>
+            </Pressable>
+          ) : (
+            <Text style={{ fontSize: 14, color: DesignColors.mediumGray, marginTop: 4 }}>
+              by {vendor?.business_name ?? 'Maker'}
+            </Text>
+          )}
           <Text style={{ fontSize: 20, fontWeight: '700', color: DesignColors.primary, marginTop: 8 }}>
             {formatCad(product.price_cad)}
           </Text>

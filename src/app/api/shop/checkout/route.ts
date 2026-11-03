@@ -126,7 +126,10 @@ export async function POST(request: NextRequest) {
           ship_to_postal_code: body.ship_address?.postal_code ?? '',
         },
         description: `${vendor.business_name ?? 'Maker'} — ${product.title}`,
-        receipt_email: body.buyer_email,
+        // Intentionally omit receipt_email: buyers already get our branded
+        // order confirmation from notifications@offhrs.app (seller identity,
+        // cancel/return disclosures). Stripe's generic "Receipt from offhrs"
+        // would be a duplicate.
       })
     } catch (piErr) {
       console.error('Shop PaymentIntent create error:', piErr)

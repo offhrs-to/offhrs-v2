@@ -96,6 +96,7 @@ export type ShopOrderListItem = {
   fulfillment_type: string;
   ship_by_business_days: number;
   paid_at: string | null;
+  created_at?: string | null;
   vendor_name: string;
   tracking_number?: string | null;
   tracking_url?: string | null;
@@ -138,6 +139,7 @@ async function shopHeaders(): Promise<Record<string, string>> {
 export async function fetchShopProducts(params?: {
   q?: string;
   category?: string;
+  vendor_id?: string;
   sort?: string;
   limit?: number;
   offset?: number;
@@ -145,6 +147,7 @@ export async function fetchShopProducts(params?: {
   const sp = new URLSearchParams();
   if (params?.q) sp.set('q', params.q);
   if (params?.category) sp.set('category', params.category);
+  if (params?.vendor_id) sp.set('vendor_id', params.vendor_id);
   if (params?.sort) sp.set('sort', params.sort);
   if (params?.limit != null) sp.set('limit', String(params.limit));
   if (params?.offset != null) sp.set('offset', String(params.offset));
