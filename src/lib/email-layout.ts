@@ -14,6 +14,10 @@ const RULE = '#E5E2DC'
 const ACCENT = '#5D755D'
 const ACCENT_SOFT = '#EDF2ED'
 
+/** Matches offhrs web UI (`SF Pro Display` → system → Inter), not O'sric serif. */
+const FONT_SANS =
+  "'SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,'Inter',sans-serif"
+
 export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -43,12 +47,12 @@ export function wrapEmailHtml(body: string): string {
             </td>
           </tr>
           <tr>
-            <td style="padding:36px 32px 40px;font-family:Georgia,'Times New Roman',Times,serif;">
+            <td style="padding:36px 32px 40px;font-family:${FONT_SANS};">
               ${body}
             </td>
           </tr>
           <tr>
-            <td style="padding:20px 32px 28px;border-top:1px solid ${RULE};background:${CREAM};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+            <td style="padding:20px 32px 28px;border-top:1px solid ${RULE};background:${CREAM};font-family:${FONT_SANS};">
               <p style="margin:0 0 6px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:${MUTED};">offhrs</p>
               <p style="margin:0;font-size:12px;line-height:1.5;color:${MUTED};">
                 Toronto, ON ·
@@ -68,19 +72,19 @@ export function wrapEmailHtml(body: string): string {
 
 /** Small caps eyebrow above the title. */
 export function emailEyebrow(text: string): string {
-  return `<p style="margin:0 0 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:${ACCENT};">${escapeHtml(text)}</p>`
+  return `<p style="margin:0 0 12px;font-family:${FONT_SANS};font-size:11px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:${ACCENT};">${escapeHtml(text)}</p>`
 }
 
 export function emailTitle(text: string): string {
-  return `<h1 style="margin:0 0 16px;font-family:Georgia,'Times New Roman',Times,serif;font-size:28px;font-weight:400;line-height:1.25;letter-spacing:-0.02em;color:${INK};">${text}</h1>`
+  return `<h1 style="margin:0 0 16px;font-family:${FONT_SANS};font-size:26px;font-weight:700;line-height:1.25;letter-spacing:-0.02em;color:${INK};">${text}</h1>`
 }
 
 export function emailLead(html: string): string {
-  return `<p style="margin:0 0 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:${MUTED};">${html}</p>`
+  return `<p style="margin:0 0 24px;font-family:${FONT_SANS};font-size:15px;line-height:1.65;color:${MUTED};">${html}</p>`
 }
 
 export function emailNote(html: string): string {
-  return `<p style="margin:0 0 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:${MUTED};">${html}</p>`
+  return `<p style="margin:0 0 20px;font-family:${FONT_SANS};font-size:14px;line-height:1.6;color:${MUTED};">${html}</p>`
 }
 
 export function emailButton(href: string, label: string, tone: 'primary' | 'danger' = 'primary'): string {
@@ -88,7 +92,7 @@ export function emailButton(href: string, label: string, tone: 'primary' | 'dang
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 4px;">
   <tr>
     <td style="border-radius:999px;background:${bg};">
-      <a href="${href}" style="display:inline-block;padding:12px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:999px;">${escapeHtml(label)}</a>
+      <a href="${href}" style="display:inline-block;padding:12px 28px;font-family:${FONT_SANS};font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:999px;">${escapeHtml(label)}</a>
     </td>
   </tr>
 </table>`
@@ -101,8 +105,8 @@ export function emailDetails(rows: EmailDetailRow[]): string {
   const inner = rows
     .map(
       (row, i) => `<tr>
-      <td style="padding:${i === 0 ? '0' : '12px'} 0 ${i === rows.length - 1 ? '0' : '12px'};border-bottom:${i === rows.length - 1 ? '0' : `1px solid ${RULE}`};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;letter-spacing:0.04em;text-transform:uppercase;color:${MUTED};width:38%;vertical-align:top;">${escapeHtml(row.label)}</td>
-      <td style="padding:${i === 0 ? '0' : '12px'} 0 ${i === rows.length - 1 ? '0' : '12px'};border-bottom:${i === rows.length - 1 ? '0' : `1px solid ${RULE}`};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;color:${INK};vertical-align:top;">${row.valueHtml}</td>
+      <td style="padding:${i === 0 ? '0' : '12px'} 0 ${i === rows.length - 1 ? '0' : '12px'};border-bottom:${i === rows.length - 1 ? '0' : `1px solid ${RULE}`};font-family:${FONT_SANS};font-size:12px;letter-spacing:0.04em;text-transform:uppercase;color:${MUTED};width:38%;vertical-align:top;">${escapeHtml(row.label)}</td>
+      <td style="padding:${i === 0 ? '0' : '12px'} 0 ${i === rows.length - 1 ? '0' : '12px'};border-bottom:${i === rows.length - 1 ? '0' : `1px solid ${RULE}`};font-family:${FONT_SANS};font-size:14px;line-height:1.5;color:${INK};vertical-align:top;">${row.valueHtml}</td>
     </tr>`
     )
     .join('')
