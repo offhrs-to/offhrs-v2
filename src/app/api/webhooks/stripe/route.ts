@@ -9,6 +9,14 @@ import {
   subscriptionTierFromStripePriceId,
   type PartnerSubscriptionTier,
 } from '@/lib/stripe-partner-plans'
+import {
+  emailButton,
+  emailEyebrow,
+  emailLead,
+  emailNote,
+  emailTitle,
+  wrapEmailHtml,
+} from '@/lib/email-layout'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { Resend } from 'resend'
@@ -26,12 +34,12 @@ const APP_URL =
 async function sendEmail(to: string, subject: string, html: string) {
   if (!process.env.RESEND_API_KEY) return
   const resend = new Resend(process.env.RESEND_API_KEY)
-  const from = process.env.RESEND_FROM_EMAIL ?? 'offhrs <noreply@offhrs.app>'
+  const from = process.env.RESEND_FROM_EMAIL ?? 'offhrs <notifications@offhrs.app>'
   await resend.emails.send({ from, to, subject, html }).catch(console.error)
 }
 
 function emailHtml(body: string): string {
-  return `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#1a1a1a;">${body}</div>`
+  return wrapEmailHtml(body)
 }
 
 function planLabelForTier(tier: PartnerSubscriptionTier): string {
@@ -284,22 +292,15 @@ async function handleStripeEvent(
           authUser.user.email,
           `Welcome to offhrs Partners, ${vendor?.business_name}!`,
           emailHtml(`
-            <h2 style="font-size:22px;font-weight:700;margin-bottom:8px;">You're in! 🎉</h2>
-            <p style="color:#555;font-size:14px;line-height:1.6;">
-              Your 30-day free trial has started on the <strong>${planLabel}</strong> plan.
-              After the trial, you&apos;ll be billed ${monthlyAmountLabelForTier(subscription_tier)} unless you cancel before then.
-              Next step: set up payouts and publish your first workshop session.
-            </p>
-            <p style="color:#555;font-size:14px;line-height:1.6;margin-top:16px;">
-              <strong>GST/HST on workshop tickets:</strong> If you&apos;re registered with the CRA, open
-              <strong>Settings → Workshop sales tax</strong> and turn it on with your registration number
-              before you publish paid workshops. If you&apos;re a small supplier and not registered, leave it
-              off and click <strong>Save tax settings</strong> so we don&apos;t add tax at checkout.
-            </p>
-            <a href="${APP_URL}/partners/dashboard"
-               style="display:inline-block;margin-top:24px;padding:12px 28px;background:#5D755D;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
-              Go to dashboard
-            </a>
+            ${emailEyebrow('Partners')}
+            ${emailTitle('Welcome aboard')}
+            ${emailLead(
+              `Your 30-day free trial has started on the <strong style="color:#2D302B;">${planLabel}</strong> plan. After the trial, you&apos;ll be billed ${monthlyAmountLabelForTier(subscription_tier)} unless you cancel before then. Next step: set up payouts and publish your first workshop session.`
+            )}
+            ${emailNote(
+              `<strong style="color:#2D302B;">GST/HST on workshop tickets:</strong> If you&apos;re registered with the CRA, open <strong style="color:#2D302B;">Settings → Workshop sales tax</strong> and turn it on with your registration number before you publish paid workshops. If you&apos;re a small supplier and not registered, leave it off and click <strong style="color:#2D302B;">Save tax settings</strong>.`
+            )}
+            ${emailButton(`${APP_URL}/partners/dashboard`, 'Go to dashboard')}
           `)
         )
       }
@@ -337,15 +338,12 @@ async function handleStripeEvent(
             authUser.user.email,
             'Your offhrs trial ends in 3 days',
             emailHtml(`
-              <h2 style="font-size:22px;font-weight:700;margin-bottom:8px;">Trial ending soon</h2>
-              <p style="color:#555;font-size:14px;line-height:1.6;">
-                Your free trial ends in 3 days. After that, you&apos;ll be billed ${amountLine}.
-                No action needed if you'd like to continue — we'll charge the card on file.
-              </p>
-              <a href="${APP_URL}/partners/dashboard/settings"
-                 style="display:inline-block;margin-top:24px;padding:12px 28px;background:#5D755D;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
-                Manage subscription
-              </a>
+              ${emailEyebrow('Billing')}
+              ${emailTitle('Trial ending soon')}
+              ${emailLead(
+                `Your free trial ends in 3 days. After that, you&apos;ll be billed ${amountLine}. No action needed if you&apos;d like to continue — we&apos;ll charge the card on file.`
+              )}
+              ${emailButton(`${APP_URL}/partners/dashboard/settings`, 'Manage subscription')}
             `)
           )
         }
@@ -429,15 +427,12 @@ async function handleStripeEvent(
             authUser.user.email,
             'Your offhrs subscription has been canceled',
             emailHtml(`
-              <h2 style="font-size:22px;font-weight:700;margin-bottom:8px;">Subscription canceled</h2>
-              <p style="color:#555;font-size:14px;line-height:1.6;">
-                Your offhrs Partners subscription has ended. Your data is retained for 30 days.
-                You can reactivate at any time.
-              </p>
-              <a href="${APP_URL}/partners/signup"
-                 style="display:inline-block;margin-top:24px;padding:12px 28px;background:#5D755D;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
-                Reactivate
-              </a>
+              ${emailEyebrow('Account')}
+              ${emailTitle('Subscription canceled')}
+              ${emailLead(
+                'Your offhrs Partners subscription has ended. Your data is retained for 30 days. You can reactivate at any time.'
+              )}
+              ${emailButton(`${APP_URL}/partners/signup`, 'Reactivate')}
             `)
           )
         }
@@ -466,15 +461,12 @@ async function handleStripeEvent(
           authUser.user.email,
           'Action required: payment failed for offhrs Partners',
           emailHtml(`
-            <h2 style="font-size:22px;font-weight:700;margin-bottom:8px;">Payment failed</h2>
-            <p style="color:#555;font-size:14px;line-height:1.6;">
-              We couldn't charge your card for your offhrs Partners subscription.
-              Please update your payment method within 3 days to avoid account suspension.
-            </p>
-            <a href="${APP_URL}/partners/dashboard/settings"
-               style="display:inline-block;margin-top:24px;padding:12px 28px;background:#c0392b;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
-              Update payment method
-            </a>
+            ${emailEyebrow('Action required')}
+            ${emailTitle('Payment failed')}
+            ${emailLead(
+              'We couldn&apos;t charge your card for your offhrs Partners subscription. Please update your payment method within 3 days to avoid account suspension.'
+            )}
+            ${emailButton(`${APP_URL}/partners/dashboard/settings`, 'Update payment method', 'danger')}
           `)
         )
       }

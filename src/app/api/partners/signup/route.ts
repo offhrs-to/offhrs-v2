@@ -1,5 +1,14 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { CATEGORY_ENUM } from '@/constants/categories'
+import {
+  emailButton,
+  emailEyebrow,
+  emailLead,
+  emailNote,
+  emailTitle,
+  escapeHtml,
+  wrapEmailHtml,
+} from '@/lib/email-layout'
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { z } from 'zod'
@@ -415,7 +424,7 @@ export async function POST(request: NextRequest) {
     }
 
     const resend = new Resend(resendKey)
-    const from = process.env.RESEND_FROM_EMAIL ?? 'offhrs <noreply@offhrs.app>'
+    const from = process.env.RESEND_FROM_EMAIL ?? 'offhrs <notifications@offhrs.app>'
 
     // Generate a Supabase email verification token
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
@@ -458,28 +467,18 @@ export async function POST(request: NextRequest) {
       from,
       to: email,
       subject: `Verify your email — offhrs Partners`,
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
-          <h2 style="font-size:22px;font-weight:700;color:#1a1a1a;margin-bottom:8px;">
-            Welcome to offhrs, ${business_name}!
-          </h2>
-          <p style="color:#555;font-size:14px;line-height:1.6;">
-            Click the button below to verify your email address and continue setting up your account.
-          </p>
-          <p style="color:#555;font-size:14px;line-height:1.6;margin-top:16px;">
-            Once you&apos;re in the dashboard: if you&apos;re GST/HST-registered with the CRA, enable
-            <strong>Settings → Workshop sales tax</strong> before your first paid booking. Small suppliers
-            should leave it off and save their choice.
-          </p>
-          <a href="${verifyUrl}"
-             style="display:inline-block;margin-top:24px;padding:12px 28px;background:#5D755D;color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
-            Verify email
-          </a>
-          <p style="margin-top:32px;color:#999;font-size:12px;">
-            If you didn't sign up for offhrs Partners, you can safely ignore this email.
-          </p>
-        </div>
-      `,
+      html: wrapEmailHtml(`
+          ${emailEyebrow('Partners')}
+          ${emailTitle(`Welcome, ${escapeHtml(business_name)}`)}
+          ${emailLead(
+            'Click the button below to verify your email address and continue setting up your account.'
+          )}
+          ${emailNote(
+            `Once you&apos;re in the dashboard: if you&apos;re GST/HST-registered with the CRA, enable <strong style="color:#2D302B;">Settings → Workshop sales tax</strong> before your first paid booking. Small suppliers should leave it off and save their choice.`
+          )}
+          ${emailButton(verifyUrl, 'Verify email')}
+          ${emailNote('If you didn&apos;t sign up for offhrs Partners, you can safely ignore this email.')}
+      `),
     })
 
     if (sendError) {

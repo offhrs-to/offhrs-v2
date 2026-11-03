@@ -1,43 +1,30 @@
 /**
- * Centralized email sending via Resend.
- * All 11 notification templates live here.
+ * Centralized transactional email sending via Resend.
+ * Layout: editorial cream / ink / sage shell (O'sric-inspired, offhrs brand).
  */
 import { Resend } from 'resend'
+import {
+  emailButton,
+  emailCode,
+  emailDetails,
+  emailEyebrow,
+  emailLead,
+  emailMoney,
+  emailNote,
+  emailStrong,
+  emailTitle,
+  escapeHtml,
+  wrapEmailHtml,
+} from '@/lib/email-layout'
 import { generateIcs } from './ics'
 import { formatWorkshopDateTimeForDisplay, formatWorkshopDateTimeShort } from './workshop-timezone'
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? 'offhrs <noreply@offhrs.app>'
+export { wrapEmailHtml }
 
-/** Official wordmark — always served from production so preview deploys render correctly in inboxes. */
-const EMAIL_LOGO_URL = 'https://offhrs.app/logo.png'
+const FROM = process.env.RESEND_FROM_EMAIL ?? 'offhrs <notifications@offhrs.app>'
 
 function wrap(body: string): string {
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:24px;background:#F5F2EE;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
-    <div style="background:#5D755D;padding:20px 24px;">
-      <img src="${EMAIL_LOGO_URL}" alt="offhrs" width="140" height="36" style="display:block;height:36px;width:auto;max-width:160px;border:0;" />
-    </div>
-    <div style="padding:28px 24px 32px;">${body}</div>
-    <div style="padding:14px 24px;border-top:1px solid #E8E4DE;text-align:center;">
-      <p style="margin:0;font-size:12px;color:#aaa;">offhrs · Toronto, ON · <a href="https://offhrs.app" style="color:#5D755D;text-decoration:none;">offhrs.app</a></p>
-    </div>
-  </div>
-</body>
-</html>`.trim()
-}
-
-function h2(text: string) {
-  return `<h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1a1a1a;">${text}</h2>`
-}
-function p(text: string) {
-  return `<p style="margin:0 0 16px;font-size:14px;color:#555;line-height:1.6;">${text}</p>`
-}
-function btn(href: string, text: string, color = '#5D755D') {
-  return `<a href="${href}" style="display:inline-block;margin-top:8px;padding:12px 28px;background:${color};color:#fff;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">${text}</a>`
+  return wrapEmailHtml(body)
 }
 
 function resend() {
@@ -45,7 +32,12 @@ function resend() {
   return new Resend(process.env.RESEND_API_KEY)
 }
 
-async function send(to: string | string[], subject: string, html: string, attachments?: { filename: string; content: string }[]) {
+async function send(
+  to: string | string[],
+  subject: string,
+  html: string,
+  attachments?: { filename: string; content: string }[]
+) {
   const client = resend()
   if (!client) {
     throw new Error('RESEND_API_KEY is not configured')
@@ -68,17 +60,22 @@ async function send(to: string | string[], subject: string, html: string, attach
   }
 }
 
-// ── Vendor emails ────────────────────────────────────────────────────────────
+// ── Vendor / Partners ────────────────────────────────────────────────────────
 
 export async function sendVendorWelcome(to: string, businessName: string, dashboardUrl: string) {
   await send(
     to,
     `Welcome to offhrs Partners, ${businessName}!`,
     wrap(`
-      ${h2('You\'re in! 🎉')}
-      ${p(`Your 30-day free trial has started, <strong>${businessName}</strong>. Next: connect your calendar and create your first session.`)}
-      ${p(`<strong>GST/HST on workshop tickets:</strong> If you&apos;re registered with the CRA, open <strong>Settings → Workshop sales tax</strong> and turn it on with your registration number before you publish paid workshops. If you&apos;re a small supplier and not registered, leave it off and click <strong>Save tax settings</strong> so we don&apos;t add tax at checkout.`)}
-      ${btn(dashboardUrl, 'Go to dashboard')}
+      ${emailEyebrow('Partners')}
+      ${emailTitle('Welcome aboard')}
+      ${emailLead(
+        `Your 30-day free trial has started, ${emailStrong(businessName)}. Next: connect payouts and create your first session.`
+      )}
+      ${emailNote(
+        `<strong style="color:#2D302B;">GST/HST on workshop tickets:</strong> If you&apos;re registered with the CRA, open <strong style="color:#2D302B;">Settings → Workshop sales tax</strong> and turn it on with your registration number before you publish paid workshops. If you&apos;re a small supplier and not registered, leave it off and click <strong style="color:#2D302B;">Save tax settings</strong>.`
+      )}
+      ${emailButton(dashboardUrl, 'Go to dashboard')}
     `)
   )
 }
@@ -93,9 +90,12 @@ export async function sendVendorTrialEnding(
     to,
     'Your offhrs trial ends soon',
     wrap(`
-      ${h2(`${daysLeft} day${daysLeft !== 1 ? 's' : ''} left in your trial`)}
-      ${p(`Your free trial ends in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}. After that, you'll be billed ${monthlyLine}. No action needed if you'd like to continue.`)}
-      ${btn(settingsUrl, 'Manage subscription')}
+      ${emailEyebrow('Billing')}
+      ${emailTitle(`${daysLeft} day${daysLeft !== 1 ? 's' : ''} left in your trial`)}
+      ${emailLead(
+        `Your free trial ends in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}. After that, you&apos;ll be billed ${escapeHtml(monthlyLine)}. No action needed if you&apos;d like to continue.`
+      )}
+      ${emailButton(settingsUrl, 'Manage subscription')}
     `)
   )
 }
@@ -105,9 +105,12 @@ export async function sendVendorDunning(to: string, updateUrl: string) {
     to,
     'Action required: payment failed for offhrs Partners',
     wrap(`
-      ${h2('Payment failed')}
-      ${p('We couldn\'t charge your card for your offhrs Partners subscription. Please update your payment method within <strong>3 days</strong> to avoid account suspension.')}
-      ${btn(updateUrl, 'Update payment method', '#c0392b')}
+      ${emailEyebrow('Action required')}
+      ${emailTitle('Payment failed')}
+      ${emailLead(
+        'We couldn&apos;t charge your card for your offhrs Partners subscription. Please update your payment method within <strong style="color:#2D302B;">3 days</strong> to avoid account suspension.'
+      )}
+      ${emailButton(updateUrl, 'Update payment method', 'danger')}
     `)
   )
 }
@@ -117,9 +120,12 @@ export async function sendVendorSuspended(to: string, reactivateUrl: string) {
     to,
     'Your offhrs account has been suspended',
     wrap(`
-      ${h2('Account suspended')}
-      ${p('Your account has been suspended due to a failed payment. Your data is retained. Reactivate anytime by updating your billing.')}
-      ${btn(reactivateUrl, 'Reactivate account')}
+      ${emailEyebrow('Account')}
+      ${emailTitle('Account suspended')}
+      ${emailLead(
+        'Your account has been suspended due to a failed payment. Your data is retained. Reactivate anytime by updating your billing.'
+      )}
+      ${emailButton(reactivateUrl, 'Reactivate account')}
     `)
   )
 }
@@ -136,19 +142,22 @@ export async function sendVendorBookingNotification(
     dashboardUrl: string
   }
 ) {
-  const { businessName, attendeeName, attendeeEmail, sessionTitle, sessionDate, amountCad, dashboardUrl } = params
+  const { attendeeName, attendeeEmail, sessionTitle, sessionDate, amountCad, dashboardUrl } = params
   await send(
     to,
     `New booking: ${sessionTitle}`,
     wrap(`
-      ${h2('New booking received')}
-      ${p(`<strong>${attendeeName}</strong> (${attendeeEmail}) just booked <strong>${sessionTitle}</strong>.`)}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Session</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">${sessionTitle}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Date</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${sessionDate}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Amount</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#5D755D;">$${amountCad.toFixed(2)} CAD</td></tr>
-      </table>
-      ${btn(dashboardUrl, 'View in dashboard')}
+      ${emailEyebrow('Workshop')}
+      ${emailTitle('New booking received')}
+      ${emailLead(
+        `${emailStrong(attendeeName)} (${escapeHtml(attendeeEmail)}) just booked ${emailStrong(sessionTitle)}.`
+      )}
+      ${emailDetails([
+        { label: 'Session', valueHtml: escapeHtml(sessionTitle) },
+        { label: 'Date', valueHtml: escapeHtml(sessionDate) },
+        { label: 'Amount', valueHtml: emailMoney(amountCad) },
+      ])}
+      ${emailButton(dashboardUrl, 'View in dashboard')}
     `)
   )
 }
@@ -158,9 +167,10 @@ export async function sendVendorFullyBooked(to: string, sessionTitle: string, da
     to,
     `Fully booked: ${sessionTitle}`,
     wrap(`
-      ${h2('Session fully booked!')}
-      ${p(`<strong>${sessionTitle}</strong> is now fully booked. All spots have been filled.`)}
-      ${btn(dashboardUrl, 'View bookings')}
+      ${emailEyebrow('Workshop')}
+      ${emailTitle('Session fully booked')}
+      ${emailLead(`${emailStrong(sessionTitle)} is now fully booked. All spots have been filled.`)}
+      ${emailButton(dashboardUrl, 'View bookings')}
     `)
   )
 }
@@ -178,29 +188,34 @@ export async function sendVendorBookingRefunded(
   }
 ) {
   const { attendeeName, attendeeEmail, sessionTitle, amountCad, stripeFeeCad, dashboardUrl } = params
-  const attendeeLabel = attendeeEmail ? `${attendeeName} (${attendeeEmail})` : attendeeName
+  const attendeeLabel = attendeeEmail
+    ? `${escapeHtml(attendeeName)} (${escapeHtml(attendeeEmail)})`
+    : escapeHtml(attendeeName)
   const feeCopy =
     stripeFeeCad > 0
-      ? `The Stripe processing fee of <strong>$${stripeFeeCad.toFixed(2)} CAD</strong> on the original transaction is non-refundable by Stripe and remains your responsibility under the offhrs Service Terms.`
+      ? `The Stripe processing fee of ${emailMoney(stripeFeeCad)} on the original transaction is non-refundable by Stripe and remains your responsibility under the offhrs Service Terms.`
       : 'Any Stripe processing fee on the original transaction remains your responsibility under the offhrs Service Terms.'
 
   await send(
     to,
     `Booking refunded: ${sessionTitle}`,
     wrap(`
-      ${h2('Booking refunded')}
-      ${p(`<strong>${attendeeLabel}</strong>'s booking for <strong>${sessionTitle}</strong> was refunded.`)}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Amount refunded to client</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${amountCad.toFixed(2)} CAD</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Stripe processing fee</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${Math.max(0, stripeFeeCad).toFixed(2)} CAD</td></tr>
-      </table>
-      ${p(feeCopy)}
-      ${btn(dashboardUrl, 'View booking')}
+      ${emailEyebrow('Workshop refund')}
+      ${emailTitle('Booking refunded')}
+      ${emailLead(
+        `<strong style="color:#2D302B;">${attendeeLabel}</strong>&apos;s booking for ${emailStrong(sessionTitle)} was refunded.`
+      )}
+      ${emailDetails([
+        { label: 'Refunded to client', valueHtml: emailMoney(amountCad) },
+        { label: 'Stripe fee', valueHtml: emailMoney(Math.max(0, stripeFeeCad)) },
+      ])}
+      ${emailNote(feeCopy)}
+      ${emailButton(dashboardUrl, 'View booking')}
     `)
   )
 }
 
-// ── Consumer emails ──────────────────────────────────────────────────────────
+// ── Consumer workshops ───────────────────────────────────────────────────────
 
 export interface BookingEmailParams {
   attendeeName: string
@@ -227,7 +242,10 @@ function buildIcs(params: BookingEmailParams, method: 'REQUEST' | 'CANCEL' = 'RE
     url: params.vendorWebsite ?? 'https://offhrs.app',
     dtstart: params.sessionDate,
     dtend,
-    organizer: { name: params.vendorName, email: FROM.includes('<') ? FROM.split('<')[1].replace('>', '') : FROM },
+    organizer: {
+      name: params.vendorName,
+      email: FROM.includes('<') ? FROM.split('<')[1].replace('>', '') : FROM,
+    },
     method,
   })
 }
@@ -235,22 +253,35 @@ function buildIcs(params: BookingEmailParams, method: 'REQUEST' | 'CANCEL' = 'RE
 export async function sendConsumerBookingConfirmation(params: BookingEmailParams) {
   const ics = buildIcs(params)
   const dateStr = formatWorkshopDateTimeForDisplay(params.sessionDate)
+  const rows = [
+    { label: 'Session', valueHtml: escapeHtml(params.sessionTitle) },
+    { label: 'Host', valueHtml: escapeHtml(params.vendorName) },
+    { label: 'Date', valueHtml: escapeHtml(dateStr) },
+    ...(params.location
+      ? [{ label: 'Location', valueHtml: escapeHtml(params.location) }]
+      : []),
+    { label: 'Amount paid', valueHtml: emailMoney(params.amountCad) },
+    { label: 'Booking ref', valueHtml: emailCode(params.bookingRef) },
+  ]
 
   await send(
     params.attendeeEmail,
     `You're booked: ${params.sessionTitle}`,
     wrap(`
-      ${h2('Booking confirmed!')}
-      ${p(`Hi ${params.attendeeName}, you're all set for <strong>${params.sessionTitle}</strong> with ${params.vendorName}.`)}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Session</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">${params.sessionTitle}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Date</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${dateStr}</td></tr>
-        ${params.location ? `<tr><td style="padding:6px 0;font-size:13px;color:#888;">Location</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${params.location}</td></tr>` : ''}
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Amount paid</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${params.amountCad.toFixed(2)} CAD</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Booking ref</td><td style="padding:6px 0;font-size:13px;color:#888;font-family:monospace;">${params.bookingRef}</td></tr>
-      </table>
-      ${params.cancellationPolicyLine ? p(`<strong>Cancellation policy:</strong> ${params.cancellationPolicyLine}`) : ''}
-      ${p('A calendar invite is attached. See you there!')}
+      ${emailEyebrow('Workshop confirmation')}
+      ${emailTitle('You\'re booked')}
+      ${emailLead(
+        `Hi ${escapeHtml(params.attendeeName)}, you&apos;re all set for ${emailStrong(params.sessionTitle)} with ${escapeHtml(params.vendorName)}.`
+      )}
+      ${emailDetails(rows)}
+      ${
+        params.cancellationPolicyLine
+          ? emailNote(
+              `<strong style="color:#2D302B;">Cancellation policy:</strong> ${escapeHtml(params.cancellationPolicyLine)}`
+            )
+          : ''
+      }
+      ${emailNote('A calendar invite is attached. See you there.')}
     `),
     [{ filename: 'booking.ics', content: ics }]
   )
@@ -262,18 +293,18 @@ export async function sendConsumerBookingCancelled(params: BookingEmailParams) {
     params.attendeeEmail,
     `Booking cancelled: ${params.sessionTitle}`,
     wrap(`
-      ${h2('Booking cancelled')}
-      ${p(`Your booking for <strong>${params.sessionTitle}</strong> with ${params.vendorName} has been cancelled. If you're eligible for a refund, it will appear on your card within 5–10 business days.`)}
-      ${p(`Booking reference: <code>${params.bookingRef}</code>`)}
+      ${emailEyebrow('Workshop cancellation')}
+      ${emailTitle('Booking cancelled')}
+      ${emailLead(
+        `Your booking for ${emailStrong(params.sessionTitle)} with ${escapeHtml(params.vendorName)} has been cancelled. If you&apos;re eligible for a refund, it will appear on your card within 5–10 business days.`
+      )}
+      ${emailDetails([{ label: 'Booking ref', valueHtml: emailCode(params.bookingRef) }])}
     `),
     [{ filename: 'cancellation.ics', content: ics }]
   )
 }
 
-export async function sendConsumerBookingRescheduled(
-  params: BookingEmailParams,
-  oldDate: Date
-) {
+export async function sendConsumerBookingRescheduled(params: BookingEmailParams, oldDate: Date) {
   const ics = buildIcs(params)
   const oldStr = formatWorkshopDateTimeShort(oldDate)
   const newStr = formatWorkshopDateTimeShort(params.sessionDate)
@@ -282,14 +313,22 @@ export async function sendConsumerBookingRescheduled(
     params.attendeeEmail,
     `Rescheduled: ${params.sessionTitle}`,
     wrap(`
-      ${h2('Your booking has been rescheduled')}
-      ${p(`<strong>${params.sessionTitle}</strong> with ${params.vendorName} has been moved.`)}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Previous date</td><td style="padding:6px 0;font-size:13px;color:#888;text-decoration:line-through;">${oldStr}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">New date</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">${newStr}</td></tr>
-        ${params.location ? `<tr><td style="padding:6px 0;font-size:13px;color:#888;">Location</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${params.location}</td></tr>` : ''}
-      </table>
-      ${p('An updated calendar invite is attached.')}
+      ${emailEyebrow('Workshop update')}
+      ${emailTitle('Your booking was rescheduled')}
+      ${emailLead(
+        `${emailStrong(params.sessionTitle)} with ${escapeHtml(params.vendorName)} has been moved.`
+      )}
+      ${emailDetails([
+        {
+          label: 'Previous date',
+          valueHtml: `<span style="text-decoration:line-through;color:#6B6E68;">${escapeHtml(oldStr)}</span>`,
+        },
+        { label: 'New date', valueHtml: `<strong style="color:#2D302B;">${escapeHtml(newStr)}</strong>` },
+        ...(params.location
+          ? [{ label: 'Location', valueHtml: escapeHtml(params.location) }]
+          : []),
+      ])}
+      ${emailNote('An updated calendar invite is attached.')}
     `),
     [{ filename: 'updated-booking.ics', content: ics }]
   )
@@ -310,13 +349,22 @@ export async function sendConsumerRefundConfirmation(
     to,
     `Refund issued: ${sessionTitle}`,
     wrap(`
-      ${h2('Refund issued - booking cancelled')}
-      ${p(`Hi ${attendeeName}, your booking for <strong>${sessionTitle}</strong> has been cancelled and a refund of <strong>$${amountCad.toFixed(2)} CAD</strong> has been issued to your original payment method.`)}
-      ${p(`Refunds typically appear on your card within 5–10 business days.<br>Booking reference: <code>${bookingRef}</code>`)}
+      ${emailEyebrow('Workshop refund')}
+      ${emailTitle('Refund issued')}
+      ${emailLead(
+        `Hi ${escapeHtml(attendeeName)}, your booking for ${emailStrong(sessionTitle)} has been cancelled and a refund of ${emailMoney(amountCad)} has been issued to your original payment method.`
+      )}
+      ${emailDetails([
+        { label: 'Refund', valueHtml: emailMoney(amountCad) },
+        { label: 'Booking ref', valueHtml: emailCode(bookingRef) },
+      ])}
+      ${emailNote('Refunds typically appear on your card within 5–10 business days.')}
     `),
     attachments
   )
 }
+
+// ── Marketplace ──────────────────────────────────────────────────────────────
 
 export async function sendShopBuyerOrderConfirmation(params: {
   to: string
@@ -338,36 +386,54 @@ export async function sendShopBuyerOrderConfirmation(params: {
   termsVersion: string
   termsUrl: string
 }) {
-  const money = (n: number) => `$${Math.max(0, n).toFixed(2)} CAD`
-  const sellerAddressHtml = params.sellerAddress
-    ? `<tr><td style="padding:6px 0;font-size:13px;color:#888;vertical-align:top;">Seller address</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;white-space:pre-line;">${escapeHtml(params.sellerAddress)}</td></tr>`
-    : ''
-  const sellerWebHtml = params.sellerWebsite
-    ? `<tr><td style="padding:6px 0;font-size:13px;color:#888;">Seller website</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(params.sellerWebsite)}</td></tr>`
-    : ''
+  const money = (n: number) => emailMoney(n)
+  const rows = [
+    { label: 'Order ID', valueHtml: emailCode(params.orderId) },
+    { label: 'Order date', valueHtml: escapeHtml(params.orderDateLabel) },
+    { label: 'Seller', valueHtml: `<strong style="color:#2D302B;">${escapeHtml(params.vendorName)}</strong>` },
+    ...(params.sellerAddress
+      ? [
+          {
+            label: 'Seller address',
+            valueHtml: `<span style="white-space:pre-line;">${escapeHtml(params.sellerAddress)}</span>`,
+          },
+        ]
+      : []),
+    ...(params.sellerWebsite
+      ? [{ label: 'Seller website', valueHtml: escapeHtml(params.sellerWebsite) }]
+      : []),
+    { label: 'Item', valueHtml: `<strong style="color:#2D302B;">${escapeHtml(params.productTitle)}</strong>` },
+    { label: 'Item price', valueHtml: money(params.itemSubtotalCad) },
+    {
+      label: 'Shipping',
+      valueHtml:
+        params.fulfillmentType === 'pickup' ? 'Pickup (no shipping charge)' : money(params.shippingCad),
+    },
+    { label: 'Tax', valueHtml: money(params.taxCad) },
+    { label: 'Total paid', valueHtml: money(params.totalCad) },
+    { label: 'Delivery', valueHtml: escapeHtml(params.deliveryDisclosure) },
+    { label: 'Cancel / returns', valueHtml: escapeHtml(params.cancelReturnDisclosure) },
+    {
+      label: 'Support',
+      valueHtml: `<a href="mailto:${escapeHtml(params.supportEmail)}" style="color:#5D755D;text-decoration:none;">${escapeHtml(params.supportEmail)}</a> · Profile → Orders in the app`,
+    },
+    {
+      label: 'Terms',
+      valueHtml: `Version ${escapeHtml(params.termsVersion)} · <a href="${escapeHtml(params.termsUrl)}" style="color:#5D755D;text-decoration:none;">Terms of Use</a>`,
+    },
+  ]
+
   await send(
     params.to,
     `Order confirmed: ${params.productTitle}`,
     wrap(`
-      ${h2('Order confirmed')}
-      ${p(`Hi ${escapeHtml(params.buyerName)}, thanks for your purchase from <strong>${escapeHtml(params.vendorName)}</strong> on the offhrs Artist Marketplace.`)}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Order ID</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;"><code>${escapeHtml(params.orderId)}</code></td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Order date</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(params.orderDateLabel)}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Seller</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">${escapeHtml(params.vendorName)}</td></tr>
-        ${sellerAddressHtml}
-        ${sellerWebHtml}
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Item</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">${escapeHtml(params.productTitle)}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Item price</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${money(params.itemSubtotalCad)}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Shipping</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${params.fulfillmentType === 'pickup' ? 'Pickup (no shipping charge)' : money(params.shippingCad)}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Tax</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${money(params.taxCad)}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Total paid</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#5D755D;">${money(params.totalCad)}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;vertical-align:top;">Delivery</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(params.deliveryDisclosure)}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;vertical-align:top;">Cancel / returns</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(params.cancelReturnDisclosure)}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Support</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;"><a href="mailto:${escapeHtml(params.supportEmail)}">${escapeHtml(params.supportEmail)}</a> · Profile → Orders in the app</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Terms</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">Version ${escapeHtml(params.termsVersion)} · <a href="${escapeHtml(params.termsUrl)}">Terms of Use</a></td></tr>
-      </table>
-      ${p('View this order anytime in the offhrs app under Profile → Orders.')}
+      ${emailEyebrow('Marketplace order')}
+      ${emailTitle('Order confirmed')}
+      ${emailLead(
+        `Hi ${escapeHtml(params.buyerName)}, thanks for your purchase from ${emailStrong(params.vendorName)} on the offhrs Artist Marketplace.`
+      )}
+      ${emailDetails(rows)}
+      ${emailNote('View this order anytime in the offhrs app under Profile → Orders.')}
     `)
   )
 }
@@ -390,14 +456,20 @@ export async function sendShopSellerNewOrder(params: {
     params.to,
     `New Marketplace order: ${params.productTitle}`,
     wrap(`
-      ${h2('New Marketplace order')}
-      ${p(`<strong>${escapeHtml(params.buyerName)}</strong> purchased <strong>${escapeHtml(params.productTitle)}</strong>.`)}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Total paid</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#5D755D;">$${params.totalCad.toFixed(2)} CAD</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Fulfillment</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${params.fulfillmentType === 'pickup' ? 'Local pickup' : 'Ship'}</td></tr>
-      </table>
-      ${p(action)}
-      ${btn(params.dashboardUrl, 'Open orders')}
+      ${emailEyebrow('Marketplace')}
+      ${emailTitle('New Marketplace order')}
+      ${emailLead(
+        `${emailStrong(params.buyerName)} purchased ${emailStrong(params.productTitle)}.`
+      )}
+      ${emailDetails([
+        { label: 'Total paid', valueHtml: emailMoney(params.totalCad) },
+        {
+          label: 'Fulfillment',
+          valueHtml: params.fulfillmentType === 'pickup' ? 'Local pickup' : 'Ship',
+        },
+      ])}
+      ${emailNote(action)}
+      ${emailButton(params.dashboardUrl, 'Open orders')}
     `)
   )
 }
@@ -412,9 +484,12 @@ export async function sendShopSellerDay3Reminder(params: {
     params.to,
     `Reminder: print label for ${params.productTitle}`,
     wrap(`
-      ${h2('Ship-by reminder')}
-      ${p(`<strong>${escapeHtml(params.productTitle)}</strong> still needs a shipping label. Please print the label and drop it at Canada Post within your ${params.shipByDays}-business-day window.`)}
-      ${btn(params.dashboardUrl, 'Print label')}
+      ${emailEyebrow('Marketplace reminder')}
+      ${emailTitle('Ship-by reminder')}
+      ${emailLead(
+        `${emailStrong(params.productTitle)} still needs a shipping label. Please print the label and drop it at Canada Post within your ${params.shipByDays}-business-day window.`
+      )}
+      ${emailButton(params.dashboardUrl, 'Print label')}
     `)
   )
 }
@@ -426,17 +501,21 @@ export async function sendShopBuyerShipped(params: {
   trackingNumber?: string | null
   trackingUrl?: string | null
 }) {
-  const tracking = params.trackingNumber
-    ? `<tr><td style="padding:6px 0;font-size:13px;color:#888;">Tracking</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(params.trackingNumber)}</td></tr>`
-    : ''
   await send(
     params.to,
     `Your order is on the way: ${params.productTitle}`,
     wrap(`
-      ${h2('Your order is on the way')}
-      ${p(`Hi ${escapeHtml(params.buyerName)}, <strong>${escapeHtml(params.productTitle)}</strong> has been scanned by Canada Post.`)}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">${tracking}</table>
-      ${params.trackingUrl ? btn(params.trackingUrl, 'Track package') : ''}
+      ${emailEyebrow('Marketplace shipping')}
+      ${emailTitle('Your order is on the way')}
+      ${emailLead(
+        `Hi ${escapeHtml(params.buyerName)}, ${emailStrong(params.productTitle)} has been scanned by Canada Post.`
+      )}
+      ${
+        params.trackingNumber
+          ? emailDetails([{ label: 'Tracking', valueHtml: escapeHtml(params.trackingNumber) }])
+          : ''
+      }
+      ${params.trackingUrl ? emailButton(params.trackingUrl, 'Track package') : ''}
     `)
   )
 }
@@ -454,15 +533,15 @@ export async function sendVendorShopOrderRefunded(
 ) {
   const feeCopy =
     params.stripeFeeCad > 0
-      ? `The Stripe processing fee of <strong>$${params.stripeFeeCad.toFixed(2)} CAD</strong> on the original transaction is non-refundable by Stripe and remains your responsibility under the offhrs Service Terms.`
+      ? `The Stripe processing fee of ${emailMoney(params.stripeFeeCad)} on the original transaction is non-refundable by Stripe and remains your responsibility under the offhrs Service Terms.`
       : 'Any Stripe processing fee on the original transaction remains your responsibility under the offhrs Service Terms.'
 
   const who =
     params.initiatedBy === 'buyer'
-      ? `<strong>${escapeHtml(params.buyerName)}</strong> cancelled their order for <strong>${escapeHtml(params.productTitle)}</strong> before carrier First Scan. A full refund was issued automatically.`
+      ? `${emailStrong(params.buyerName)} cancelled their order for ${emailStrong(params.productTitle)} before carrier First Scan. A full refund was issued automatically.`
       : params.initiatedBy === 'platform'
-        ? `The order for <strong>${escapeHtml(params.productTitle)}</strong> was cancelled by offhrs before carrier First Scan and refunded to the buyer.`
-        : `<strong>${escapeHtml(params.buyerName)}</strong>'s order for <strong>${escapeHtml(params.productTitle)}</strong> was refunded before carrier First Scan.`
+        ? `The order for ${emailStrong(params.productTitle)} was cancelled by offhrs before carrier First Scan and refunded to the buyer.`
+        : `${emailStrong(params.buyerName)}&apos;s order for ${emailStrong(params.productTitle)} was refunded before carrier First Scan.`
 
   await send(
     to,
@@ -470,14 +549,15 @@ export async function sendVendorShopOrderRefunded(
       ? `Buyer cancelled: ${params.productTitle}`
       : `Marketplace order refunded: ${params.productTitle}`,
     wrap(`
-      ${h2(params.initiatedBy === 'buyer' ? 'Buyer cancelled order' : 'Marketplace order refunded')}
-      ${p(who)}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Amount refunded to buyer</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${params.totalCad.toFixed(2)} CAD</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Stripe processing fee</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${Math.max(0, params.stripeFeeCad).toFixed(2)} CAD</td></tr>
-      </table>
-      ${p(feeCopy)}
-      ${btn(params.dashboardUrl, 'View Marketplace orders')}
+      ${emailEyebrow(params.initiatedBy === 'buyer' ? 'Marketplace cancellation' : 'Marketplace refund')}
+      ${emailTitle(params.initiatedBy === 'buyer' ? 'Buyer cancelled order' : 'Marketplace order refunded')}
+      ${emailLead(who)}
+      ${emailDetails([
+        { label: 'Refunded to buyer', valueHtml: emailMoney(params.totalCad) },
+        { label: 'Stripe fee', valueHtml: emailMoney(Math.max(0, params.stripeFeeCad)) },
+      ])}
+      ${emailNote(feeCopy)}
+      ${emailButton(params.dashboardUrl, 'View Marketplace orders')}
     `)
   )
 }
@@ -494,16 +574,20 @@ export async function sendShopBuyerRefunded(params: {
     ? `Order cancelled: ${params.productTitle}`
     : `Refund issued: ${params.productTitle}`
   const lead = params.cancelledByBuyer
-    ? `Hi ${escapeHtml(params.buyerName)}, your cancellation for <strong>${escapeHtml(params.productTitle)}</strong> is confirmed. We've refunded <strong>$${params.totalCad.toFixed(2)} CAD</strong> to your original payment method.`
-    : `Hi ${escapeHtml(params.buyerName)}, your order for <strong>${escapeHtml(params.productTitle)}</strong> has been refunded ($${params.totalCad.toFixed(2)} CAD).`
+    ? `Hi ${escapeHtml(params.buyerName)}, your cancellation for ${emailStrong(params.productTitle)} is confirmed. We&apos;ve refunded ${emailMoney(params.totalCad)} to your original payment method.`
+    : `Hi ${escapeHtml(params.buyerName)}, your order for ${emailStrong(params.productTitle)} has been refunded (${emailMoney(params.totalCad)}).`
 
   await send(
     params.to,
     subject,
     wrap(`
-      ${h2(headline)}
-      ${p(lead)}
-      ${p('Refunds usually appear in 5–10 business days, depending on your bank. This order was cancelled before the carrier scanned the parcel (or before pickup was completed).')}
+      ${emailEyebrow(params.cancelledByBuyer ? 'Marketplace cancellation' : 'Marketplace refund')}
+      ${emailTitle(headline)}
+      ${emailLead(lead)}
+      ${emailDetails([{ label: 'Refund', valueHtml: emailMoney(params.totalCad) }])}
+      ${emailNote(
+        'Refunds usually appear in 5–10 business days, depending on your bank. This order was cancelled before the carrier scanned the parcel (or before pickup was completed).'
+      )}
     `)
   )
 }
@@ -519,14 +603,17 @@ export async function sendShopDisputeOpened(params: {
     params.to,
     `Marketplace dispute opened: ${params.productTitle}`,
     wrap(`
-      ${h2('Chargeback / dispute opened')}
-      ${p(`A Stripe dispute was opened for <strong>${escapeHtml(params.productTitle)}</strong>.`)}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Amount</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#1a1a1a;">$${params.amountCad.toFixed(2)} CAD</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Reason</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;">${escapeHtml(params.reason ?? '—')}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#888;">Dispute ID</td><td style="padding:6px 0;font-size:13px;color:#1a1a1a;"><code>${escapeHtml(params.disputeId)}</code></td></tr>
-      </table>
-      ${p('Please gather evidence (label, tracking, packing/pickup proof) and respond in Stripe. Lost disputes are clawed back from your Connect balance per our Service Terms.')}
+      ${emailEyebrow('Marketplace dispute')}
+      ${emailTitle('Chargeback opened')}
+      ${emailLead(`A Stripe dispute was opened for ${emailStrong(params.productTitle)}.`)}
+      ${emailDetails([
+        { label: 'Amount', valueHtml: emailMoney(params.amountCad) },
+        { label: 'Reason', valueHtml: escapeHtml(params.reason ?? '—') },
+        { label: 'Dispute ID', valueHtml: emailCode(params.disputeId) },
+      ])}
+      ${emailNote(
+        'Please gather evidence (label, tracking, packing/pickup proof) and respond in Stripe. Lost disputes are clawed back from your Connect balance per our Service Terms.'
+      )}
     `)
   )
 }
@@ -541,33 +628,32 @@ export async function sendShopDisputeLost(params: {
     params.to,
     `Marketplace dispute lost: ${params.productTitle}`,
     wrap(`
-      ${h2('Dispute lost')}
-      ${p(`The dispute for <strong>${escapeHtml(params.productTitle)}</strong> was lost. Clawback amount: <strong>$${params.amountCad.toFixed(2)} CAD</strong> (includes Stripe dispute fee where applicable).`)}
-      ${p(params.clawbackOk ? 'The amount was debited from your Connect balance.' : 'Automatic clawback could not complete — offhrs will follow up or retry.')}
+      ${emailEyebrow('Marketplace dispute')}
+      ${emailTitle('Dispute lost')}
+      ${emailLead(
+        `The dispute for ${emailStrong(params.productTitle)} was lost. Clawback amount: ${emailMoney(params.amountCad)} (includes Stripe dispute fee where applicable).`
+      )}
+      ${emailNote(
+        params.clawbackOk
+          ? 'The amount was debited from your Connect balance.'
+          : 'Automatic clawback could not complete — offhrs will follow up or retry.'
+      )}
     `)
   )
 }
 
-export async function sendShopDisputeWon(params: {
-  to: string
-  productTitle: string
-}) {
+export async function sendShopDisputeWon(params: { to: string; productTitle: string }) {
   await send(
     params.to,
     `Marketplace dispute won: ${params.productTitle}`,
     wrap(`
-      ${h2('Dispute won')}
-      ${p(`Good news — the dispute for <strong>${escapeHtml(params.productTitle)}</strong> was won. No clawback is due for this dispute.`)}
+      ${emailEyebrow('Marketplace dispute')}
+      ${emailTitle('Dispute won')}
+      ${emailLead(
+        `Good news — the dispute for ${emailStrong(params.productTitle)} was won. No clawback is due for this dispute.`
+      )}
     `)
   )
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
 
 /** Ops / security alert email. Callers should fire-and-forget. */
@@ -585,9 +671,8 @@ export async function sendSecurityAlertEmail(opts: {
     .filter(Boolean)
   if (recipients.length === 0) return
 
-  const badge = opts.severity === 'critical' ? '#B91C1C' : '#B45309'
   const detailsJson = opts.details
-    ? `<pre style="margin:0 0 16px;padding:12px;background:#F5F2EE;border-radius:8px;font-size:12px;overflow:auto;color:#333;">${escapeHtml(
+    ? `<pre style="margin:0 0 16px;padding:14px 16px;background:#EDF2ED;border:1px solid #E5E2DC;font-size:12px;overflow:auto;color:#2D302B;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;">${escapeHtml(
         JSON.stringify(opts.details, null, 2)
       )}</pre>`
     : ''
@@ -596,17 +681,16 @@ export async function sendSecurityAlertEmail(opts: {
     recipients,
     `[offhrs ${opts.severity.toUpperCase()}] ${opts.eventType}`,
     wrap(`
-      <p style="margin:0 0 12px;"><span style="display:inline-block;padding:4px 10px;border-radius:999px;background:${badge};color:#fff;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">${opts.severity}</span></p>
-      ${h2(opts.eventType)}
-      ${p('A security event was recorded on the offhrs API.')}
-      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:13px;">
-        <tr><td style="padding:4px 0;color:#888;">Time</td><td style="padding:4px 0;color:#1a1a1a;">${escapeHtml(opts.ts ?? new Date().toISOString())}</td></tr>
-        <tr><td style="padding:4px 0;color:#888;">Route</td><td style="padding:4px 0;color:#1a1a1a;">${escapeHtml(opts.route ?? '—')}</td></tr>
-        <tr><td style="padding:4px 0;color:#888;">IP key</td><td style="padding:4px 0;color:#1a1a1a;">${escapeHtml(opts.ipKey ?? '—')}</td></tr>
-      </table>
+      ${emailEyebrow(opts.severity === 'critical' ? 'Critical security' : 'Security warning')}
+      ${emailTitle(escapeHtml(opts.eventType))}
+      ${emailLead('A security event was recorded on the offhrs API.')}
+      ${emailDetails([
+        { label: 'Time', valueHtml: escapeHtml(opts.ts ?? new Date().toISOString()) },
+        { label: 'Route', valueHtml: escapeHtml(opts.route ?? '—') },
+        { label: 'IP key', valueHtml: escapeHtml(opts.ipKey ?? '—') },
+      ])}
       ${detailsJson}
-      ${p('Check Vercel logs for <code>[SECURITY_EVENT]</code> and the <code>security_events</code> table in Supabase.')}
+      ${emailNote('Check Vercel logs for <code>[SECURITY_EVENT]</code> and the <code>security_events</code> table in Supabase.')}
     `)
   )
 }
-
