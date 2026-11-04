@@ -20,7 +20,7 @@ export function MarketingSiteFooter({ showStoreBadges = true }: MarketingSiteFoo
         <p className="mt-5 text-lg font-semibold tracking-tight sm:mt-6 sm:text-xl md:text-2xl">
           Where local art finds its community
         </p>
-        {showStoreBadges ? <StoreBadges variant="light" className="mt-8 sm:mt-10" /> : null}
+        {showStoreBadges ? <StoreBadges variant="onDark" className="mt-8 sm:mt-10" /> : null}
         <FollowUs className={showStoreBadges ? 'mt-10 sm:mt-12' : 'mt-8 sm:mt-10'} tone="onDark" />
       </div>
 

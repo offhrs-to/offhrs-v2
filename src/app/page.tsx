@@ -127,12 +127,22 @@ export default function Home() {
       <ShopifyAppHandoff />
       <FloatingNav />
 
-      {/* Hero — contain on mobile so logo/slogan aren’t cropped; cover on desktop */}
+      {/* Hero — portrait mobile asset fills the phone; landscape cover on desktop */}
       <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-[#F5F2ED]">
         <h1 className="sr-only">
           offhrs — Powered by local artists, made for local artists. Discover workshops and shop local art.
         </h1>
-        {/* Desktop full-bleed */}
+        <div className="absolute inset-0 md:hidden">
+          <Image
+            src="/landing/hero-mobile.png"
+            alt="offhrs — Powered by local artists, made for local artists"
+            fill
+            priority
+            quality={95}
+            className="object-cover object-center"
+            sizes="100vw"
+          />
+        </div>
         <div className="absolute inset-0 hidden md:block">
           <Image
             src="/landing/hero.png"
@@ -144,21 +154,8 @@ export default function Home() {
             sizes="100vw"
           />
         </div>
-        {/* Mobile: show full illustration */}
-        <div className="relative flex flex-1 items-center justify-center px-3 pt-20 pb-2 md:hidden">
-          <Image
-            src="/landing/hero.png"
-            alt="offhrs — Powered by local artists, made for local artists"
-            width={4800}
-            height={2700}
-            priority
-            quality={95}
-            className="h-auto w-full max-h-[min(68svh,560px)] object-contain"
-            sizes="100vw"
-          />
-        </div>
         <div className="relative z-10 mt-auto flex justify-center px-4 pb-[max(env(safe-area-inset-bottom,0px),1.5rem)] pt-4 md:pt-28">
-          <StoreBadges variant="dark" />
+          <StoreBadges />
         </div>
       </section>
 

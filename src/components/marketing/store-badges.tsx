@@ -5,8 +5,11 @@ const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL || '#'
 
 type StoreBadgesProps = {
   className?: string
-  /** Dark badges on light hero / light badges on green CTA */
-  variant?: 'dark' | 'light'
+  /**
+   * `brand` — footer green on any surface (default).
+   * `onDark` — same green with a light ring so badges read on the green footer.
+   */
+  variant?: 'brand' | 'onDark' | 'dark' | 'light'
 }
 
 function AppleIcon({ className }: { className?: string }) {
@@ -17,42 +20,65 @@ function AppleIcon({ className }: { className?: string }) {
   )
 }
 
-function PlayIcon({ className }: { className?: string }) {
+/** Multicolor Google Play mark (blue / green / yellow / red). */
+function PlayIconColor({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden fill="currentColor">
-      <path d="M3.18 23.71c-.12.05-.24.05-.36.02-.25-.07-.42-.3-.42-.56V.83c0-.26.17-.49.42-.56.12-.03.24-.03.36.02l18.12 10.74c.28.17.38.53.21.81-.05.08-.11.14-.19.19L3.18 23.71z" />
+    <svg className={className} viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill="#00C3FF"
+        d="M3 20.5V3.5c0-.6.3-1.1.8-1.4L14.7 12 3.8 21.9c-.5-.3-.8-.8-.8-1.4z"
+      />
+      <path
+        fill="#FFD500"
+        d="m16.8 15.1-2.1-2.1 2.1-2.1 3.4 1.9c.7.4.7 1.1 0 1.5l-3.4 1.8z"
+      />
+      <path
+        fill="#FF3A44"
+        d="M3.8 21.9c.2.1.4.2.7.1L16.8 15.1l-2.1-2.1L3.8 21.9z"
+      />
+      <path
+        fill="#00F076"
+        d="m14.7 12 2.1-2.1L4.5 2.2C4.2 2.1 4 2.1 3.8 2.1L14.7 12z"
+      />
     </svg>
   )
 }
 
-export function StoreBadges({ className = '', variant = 'dark' }: StoreBadgesProps) {
-  const badge =
-    variant === 'light'
-      ? 'bg-white text-neutral-900 hover:bg-neutral-100'
-      : 'bg-neutral-900 text-white hover:bg-neutral-800'
+export function StoreBadges({ className = '', variant = 'brand' }: StoreBadgesProps) {
+  // Legacy aliases: dark/light both map to brand green now
+  const onDark = variant === 'onDark' || variant === 'light'
+  const badge = onDark
+    ? 'bg-heading-dark text-white ring-1 ring-white/35 hover:bg-heading-dark/90'
+    : 'bg-heading-dark text-white hover:bg-heading-dark/90'
 
   return (
-    <div className={`flex flex-col items-stretch justify-center gap-2.5 min-[380px]:flex-row min-[380px]:items-center sm:gap-3 ${className}`}>
+    <div
+      className={`flex flex-col items-stretch justify-center gap-2.5 min-[380px]:flex-row min-[380px]:items-center sm:gap-3 ${className}`}
+    >
       <Link
         href={APP_STORE_URL}
-        className={`inline-flex w-full max-w-[14rem] items-center gap-3 rounded-xl px-4 py-2.5 transition-colors sm:w-auto sm:min-w-[11.5rem] ${badge}`}
+        className={`inline-flex h-[3.25rem] w-full max-w-[14rem] items-center gap-2.5 rounded-xl px-3.5 transition-colors min-[380px]:w-[12.5rem] sm:max-w-none ${badge}`}
         aria-label="Download on the App Store"
       >
         <AppleIcon className="h-7 w-7 shrink-0" />
-        <span className="flex flex-col leading-tight text-left">
-          <span className="text-[10px] uppercase tracking-wide opacity-80">Download on the</span>
-          <span className="text-sm font-semibold">App Store</span>
+        <span className="flex min-w-0 flex-col text-left leading-none">
+          <span className="text-[7.5px] font-medium uppercase tracking-[0.06em] text-white/80">
+            Download on the
+          </span>
+          <span className="mt-1 text-[15px] font-semibold tracking-tight">App Store</span>
         </span>
       </Link>
       <Link
         href={PLAY_STORE_URL}
-        className={`inline-flex w-full max-w-[14rem] items-center gap-3 rounded-xl px-4 py-2.5 transition-colors sm:w-auto sm:min-w-[11.5rem] ${badge}`}
+        className={`inline-flex h-[3.25rem] w-full max-w-[14rem] items-center gap-2.5 rounded-xl px-3.5 transition-colors min-[380px]:w-[12.5rem] sm:max-w-none ${badge}`}
         aria-label="Get it on Google Play"
       >
-        <PlayIcon className="h-6 w-6 shrink-0" />
-        <span className="flex flex-col leading-tight text-left">
-          <span className="text-[10px] uppercase tracking-wide opacity-80">Get it on</span>
-          <span className="text-sm font-semibold">Google Play</span>
+        <PlayIconColor className="h-7 w-7 shrink-0" />
+        <span className="flex min-w-0 flex-col text-left leading-none">
+          <span className="text-[7.5px] font-medium uppercase tracking-[0.06em] text-white/80">
+            Get it on
+          </span>
+          <span className="mt-1 text-[15px] font-semibold tracking-tight">Google Play</span>
         </span>
       </Link>
     </div>

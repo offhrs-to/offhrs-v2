@@ -279,14 +279,14 @@ export default function PartnersLandingPage() {
         }
       />
 
-      {/* Hero — contain on mobile so logo/slogan aren’t cropped; cover on desktop */}
+      {/* Hero — portrait mobile asset fills the phone; landscape cover on desktop */}
       <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-[#F5F2ED]">
         <h1 className="sr-only">
           offhrs Partners — Teach what you love, sell what you make
         </h1>
-        <div className="absolute inset-0 hidden md:block">
+        <div className="absolute inset-0 md:hidden">
           <Image
-            src="/landing/partners-hero.png"
+            src="/landing/partners-hero-mobile.png"
             alt="offhrs Partners — Teach what you love, sell what you make"
             fill
             priority
@@ -295,15 +295,14 @@ export default function PartnersLandingPage() {
             sizes="100vw"
           />
         </div>
-        <div className="relative flex flex-1 items-center justify-center px-3 pt-20 pb-8 md:hidden">
+        <div className="absolute inset-0 hidden md:block">
           <Image
             src="/landing/partners-hero.png"
             alt="offhrs Partners — Teach what you love, sell what you make"
-            width={4800}
-            height={2700}
+            fill
             priority
             quality={95}
-            className="h-auto w-full max-h-[min(78svh,640px)] object-contain"
+            className="object-cover object-center"
             sizes="100vw"
           />
         </div>
