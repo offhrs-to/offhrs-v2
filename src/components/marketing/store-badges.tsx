@@ -6,8 +6,8 @@ const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL || '#'
 type StoreBadgesProps = {
   className?: string
   /**
-   * `brand` — footer green on any surface (default).
-   * `onDark` — same green with a light ring so badges read on the green footer.
+   * `brand` — white badges with black text + thin black outline (hero).
+   * `onDark` — white badges with black text for the green footer.
    */
   variant?: 'brand' | 'onDark' | 'dark' | 'light'
 }
@@ -45,11 +45,12 @@ function PlayIconColor({ className }: { className?: string }) {
 }
 
 export function StoreBadges({ className = '', variant = 'brand' }: StoreBadgesProps) {
-  // Legacy aliases: dark/light both map to brand green now
+  // White chips everywhere; hero (`brand`) adds a thin black outline for contrast on cream.
   const onDark = variant === 'onDark' || variant === 'light'
   const badge = onDark
-    ? 'bg-heading-dark text-white ring-1 ring-white/35 hover:bg-heading-dark/90'
-    : 'bg-heading-dark text-white hover:bg-heading-dark/90'
+    ? 'bg-white text-neutral-900 hover:bg-neutral-100'
+    : 'bg-white text-neutral-900 ring-1 ring-neutral-900 hover:bg-neutral-50'
+  const eyebrow = 'text-neutral-600'
 
   return (
     <div
@@ -62,7 +63,7 @@ export function StoreBadges({ className = '', variant = 'brand' }: StoreBadgesPr
       >
         <AppleIcon className="h-7 w-7 shrink-0" />
         <span className="flex min-w-0 flex-col text-left leading-none">
-          <span className="text-[7.5px] font-medium uppercase tracking-[0.06em] text-white/80">
+          <span className={`text-[7.5px] font-medium uppercase tracking-[0.06em] ${eyebrow}`}>
             Download on the
           </span>
           <span className="mt-1 text-[15px] font-semibold tracking-tight">App Store</span>
@@ -75,7 +76,7 @@ export function StoreBadges({ className = '', variant = 'brand' }: StoreBadgesPr
       >
         <PlayIconColor className="h-7 w-7 shrink-0" />
         <span className="flex min-w-0 flex-col text-left leading-none">
-          <span className="text-[7.5px] font-medium uppercase tracking-[0.06em] text-white/80">
+          <span className={`text-[7.5px] font-medium uppercase tracking-[0.06em] ${eyebrow}`}>
             Get it on
           </span>
           <span className="mt-1 text-[15px] font-semibold tracking-tight">Google Play</span>
