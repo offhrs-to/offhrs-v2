@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
     ],
     localPatterns: [
       { pathname: '/categories/**' },
+      { pathname: '/landing/**' },
       { pathname: '/logo.png' },
     ],
   },

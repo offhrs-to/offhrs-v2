@@ -1,7 +1,6 @@
 'use client'
 
 import { useId } from 'react'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { siInstagram, siTiktok, type SimpleIcon } from 'simple-icons'
 
@@ -49,6 +48,8 @@ function BrandIcon({
 }
 
 function isConsumerAppPath(pathname: string): boolean {
+  // Marketing pages use FloatingNav + in-page Follow Us instead.
+  if (pathname === '/' || pathname === '/contact') return false
   if (pathname.startsWith('/partners') || pathname.startsWith('/admin')) {
     return false
   }
@@ -71,13 +72,6 @@ export function SocialLinksBar() {
       className="fixed top-0 right-0 z-[100] flex flex-col items-center gap-0.5 p-2 pt-[max(env(safe-area-inset-top,0px),0.5rem)] pr-[max(env(safe-area-inset-right,0px),0.5rem)] pointer-events-auto"
       aria-label="Social media"
     >
-      <Link
-        href="/partners"
-        prefetch={false}
-        className="mb-0.5 inline-flex items-center justify-center rounded-full bg-heading-dark px-3 py-1 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-heading-dark/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-heading-dark/50"
-      >
-        Partners
-      </Link>
       <a
         href={INSTAGRAM_URL}
         target="_blank"

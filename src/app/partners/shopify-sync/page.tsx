@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { OffhrsLogoLink } from '@/components/offhrs-logo'
+import { FloatingNav, navPillSignIn } from '@/components/marketing/floating-nav'
+import { MarketingSiteFooter } from '@/components/marketing/site-footer'
+import { IconCheck } from '@/components/marketing/doodle-icons'
 import {
   PARTNER_TRIAL_LABEL,
   SHOPIFY_SYNC_MONTHLY_CAD,
@@ -24,6 +26,8 @@ export const metadata: Metadata = {
     images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'offhrs' }],
   },
 }
+
+const codeChip = 'rounded-lg bg-[#EDF2ED] px-1.5 py-0.5 text-[13px] font-medium text-neutral-900'
 
 const steps = [
   {
@@ -52,8 +56,8 @@ const steps = [
     body: (
       <>
         On each workshop product in Shopify Admin, open{' '}
-        <span className="font-medium text-[#1a1a1a]">Publishing</span> and enable the{' '}
-        <span className="font-medium text-[#1a1a1a]">offhrs</span> sales channel (not only Online
+        <span className="font-medium text-neutral-900">Publishing</span> and enable the{' '}
+        <span className="font-medium text-neutral-900">offhrs</span> sales channel (not only Online
         Store). Unpublishing from offhrs removes the listing from the app.
       </>
     ),
@@ -65,12 +69,10 @@ const steps = [
       <>
         Each Shopify variant becomes one session on offhrs. Use a Date (or similar) option with a
         clear datetime — for example{' '}
-        <span className="font-medium text-[#1a1a1a]">August 21, 2026 12:00 PM</span> — or set an{' '}
-        <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] font-medium text-[#1a1a1a]">
-          offhrs.starts_at
-        </code>{' '}
-        metafield. Times without a timezone are read as America/Toronto. Variants we can’t parse are
-        skipped (and show as product feedback in Admin).
+        <span className="font-medium text-neutral-900">August 21, 2026 12:00 PM</span> — or set an{' '}
+        <code className={codeChip}>offhrs.starts_at</code> metafield. Times without a timezone are
+        read as America/Toronto. Variants we can’t parse are skipped (and show as product feedback in
+        Admin).
       </>
     ),
   },
@@ -106,44 +108,35 @@ export default async function ShopifySyncGuidePage({
   const afterSignup = onboarding === '1'
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8] text-[#1a1a1a]">
-      <nav className="sticky top-0 z-50 bg-[#FAFAF8]/90 backdrop-blur border-b border-[#E8E6E0]">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <OffhrsLogoLink href="/" priority className="h-9 w-auto max-w-[180px]" width={220} height={52} />
-          <div className="flex items-center gap-4">
-            <Link
-              href="/partners"
-              className="text-sm text-[#555] hover:text-[#1a1a1a] transition-colors"
-            >
-              Pricing
-            </Link>
-            <Link
-              href="/partners/login"
-              className="text-sm text-[#555] hover:text-[#1a1a1a] transition-colors"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/partners/signup?intent=shopify_sync"
-              className="rounded-full bg-[#5D755D] px-5 py-2 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors"
-            >
-              Sign up
-            </Link>
-          </div>
-        </div>
-      </nav>
+    <div className="relative min-h-screen bg-[#F7F5F1] text-neutral-900">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-56 overflow-hidden"
+      >
+        <div className="absolute -left-16 top-0 h-44 w-44 rounded-full bg-[#D9D2C5]/55 blur-3xl" />
+        <div className="absolute right-10 top-4 h-40 w-56 rounded-full bg-[#C9D0C4]/45 blur-3xl" />
+        <div className="absolute left-1/3 top-8 h-32 w-48 rounded-full bg-[#E8DFD2]/50 blur-3xl" />
+      </div>
+
+      <FloatingNav
+        trailing={
+          <Link href="/partners/login" className={`hidden sm:inline-flex ${navPillSignIn}`}>
+            Sign in
+          </Link>
+        }
+      />
 
       {afterSignup && (
-        <div className="border-b border-[#5D755D]/25 bg-[#EDF2ED]">
-          <div className="max-w-3xl mx-auto px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <p className="text-sm text-[#1a1a1a] leading-relaxed">
+        <div className="relative border-b border-heading-dark/20 bg-[#EDF2ED] pt-20">
+          <div className="mx-auto flex max-w-3xl flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm leading-relaxed text-neutral-900">
               Account ready — install offhrs from Shopify Admin, then open{' '}
               <span className="font-medium">Sales channels → offhrs</span> to connect and start the
               Sync trial.
             </p>
             <Link
               href="/partners/dashboard/settings"
-              className="shrink-0 rounded-full bg-[#5D755D] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors text-center"
+              className="shrink-0 rounded-full bg-heading-dark px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-heading-dark/90"
             >
               Partner dashboard
             </Link>
@@ -151,44 +144,46 @@ export default async function ShopifySyncGuidePage({
         </div>
       )}
 
-      <header className="max-w-3xl mx-auto px-6 pt-16 pb-12 text-center">
-        <p className="inline-block rounded-full bg-[#EDF0ED] px-4 py-1 text-xs font-semibold text-[#5D755D] mb-6 tracking-wide uppercase">
+      <header className={`relative mx-auto max-w-3xl px-5 pb-10 text-center sm:px-6 sm:pb-12 ${afterSignup ? 'pt-10 sm:pt-12' : 'pt-24 sm:pt-28 md:pt-36'}`}>
+        <p className="mb-5 inline-block rounded-full bg-[#EDF2ED] px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-heading-dark sm:mb-6 sm:px-4 sm:text-xs">
           {SHOPIFY_SYNC_PLAN_NAME} · ${SHOPIFY_SYNC_MONTHLY_CAD} CAD/month
         </p>
-        <h1 className="font-playfair text-4xl md:text-5xl font-bold leading-tight tracking-tight">
+        <h1 className="text-[1.85rem] font-bold leading-tight tracking-tight sm:text-4xl md:text-5xl">
           How Shopify Sync works
         </h1>
-        <p className="mt-5 text-base text-[#555] leading-relaxed max-w-xl mx-auto">
+        <p className="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-neutral-600 sm:mt-5 sm:text-base">
           Keep Shopify as your booking system. Publish workshop products to the offhrs sales channel
           so Canada (CAD) guests can discover you — then they complete booking on Shopify checkout.
         </p>
       </header>
 
-      <section className="bg-white border-y border-[#E8E6E0] py-16">
-        <div className="max-w-3xl mx-auto px-6">
-          <h2 className="font-playfair text-2xl font-bold mb-8 text-center">What Sync can and can’t do</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 text-left">
+      <section className="relative border-y border-neutral-200/80 bg-white py-16">
+        <div className="mx-auto max-w-3xl px-6">
+          <h2 className="mb-8 text-center text-2xl font-bold tracking-tight sm:text-3xl">
+            What Sync can and can’t do
+          </h2>
+          <div className="grid grid-cols-1 gap-8 text-left sm:grid-cols-2">
             <div>
-              <p className="text-sm font-semibold text-[#5D755D] uppercase tracking-wide mb-4">
+              <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-heading-dark">
                 We can
               </p>
-              <ul className="space-y-3 text-sm text-[#333]">
+              <ul className="space-y-3 text-sm text-neutral-700">
                 {canDo.map((item) => (
                   <li key={item} className="flex items-start gap-2">
-                    <span className="text-[#5D755D] mt-0.5 shrink-0">✓</span>
+                    <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-heading-dark" />
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
             </div>
             <div>
-              <p className="text-sm font-semibold text-[#555] uppercase tracking-wide mb-4">
+              <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-neutral-500">
                 We can’t
               </p>
-              <ul className="space-y-3 text-sm text-[#333]">
+              <ul className="space-y-3 text-sm text-neutral-700">
                 {cannotDo.map((item) => (
                   <li key={item} className="flex items-start gap-2">
-                    <span className="text-[#999] mt-0.5 shrink-0">–</span>
+                    <span className="mt-0.5 shrink-0 text-neutral-400">–</span>
                     <span>{item}</span>
                   </li>
                 ))}
@@ -196,8 +191,8 @@ export default async function ShopifySyncGuidePage({
             </div>
           </div>
 
-          <div className="mt-10 rounded-2xl border border-[#E8E6E0] bg-[#FAFAF8] p-6 text-sm text-[#555] leading-relaxed">
-            <p className="font-semibold text-[#1a1a1a] mb-2">Third-party Shopify apps (e.g. Numos)</p>
+          <div className="mt-10 rounded-2xl border border-neutral-200 bg-[#F7F5F1] p-6 text-sm leading-relaxed text-neutral-600">
+            <p className="mb-2 font-semibold text-neutral-900">Third-party Shopify apps (e.g. Numos)</p>
             <p>
               offhrs Sync does not integrate with Numos or other external apps. If another app writes
               products, variants, dates, or inventory into Shopify, we can still sync that data —
@@ -209,75 +204,74 @@ export default async function ShopifySyncGuidePage({
         </div>
       </section>
 
-      <section className="max-w-3xl mx-auto px-6 py-16">
-        <h2 className="font-playfair text-2xl font-bold mb-3 text-center">Setup checklist</h2>
-        <p className="text-sm text-[#555] text-center mb-12 max-w-md mx-auto">
+      <section className="relative mx-auto max-w-3xl px-6 py-16">
+        <h2 className="mb-3 text-center text-2xl font-bold tracking-tight sm:text-3xl">
+          Setup checklist
+        </h2>
+        <p className="mx-auto mb-12 max-w-md text-center text-sm text-neutral-500">
           Follow these steps once. After you’re live, publish new workshops to offhrs and edit dates
           in Shopify Admin.
         </p>
         <ol className="space-y-8">
           {steps.map((step) => (
             <li key={step.n} className="flex gap-5 text-left">
-              <span className="font-playfair text-2xl font-bold text-[#D9D7CF] shrink-0 w-10">
-                {step.n}
-              </span>
+              <span className="w-10 shrink-0 text-2xl font-bold text-neutral-300">{step.n}</span>
               <div>
-                <h3 className="font-semibold text-[#1a1a1a] mb-1">{step.title}</h3>
-                <p className="text-sm text-[#555] leading-relaxed">{step.body}</p>
+                <h3 className="mb-1 font-semibold text-neutral-900">{step.title}</h3>
+                <p className="text-sm leading-relaxed text-neutral-600">{step.body}</p>
               </div>
             </li>
           ))}
         </ol>
       </section>
 
-      <section className="bg-white border-y border-[#E8E6E0] py-16">
-        <div className="max-w-3xl mx-auto px-6">
-          <h2 className="font-playfair text-2xl font-bold mb-8 text-center">Product tips</h2>
-          <ul className="space-y-4 text-sm text-[#333] leading-relaxed">
+      <section className="relative border-y border-neutral-200/80 bg-white py-16">
+        <div className="mx-auto max-w-3xl px-6">
+          <h2 className="mb-8 text-center text-2xl font-bold tracking-tight sm:text-3xl">
+            Product tips
+          </h2>
+          <ul className="space-y-4 text-sm leading-relaxed text-neutral-700">
             <li className="flex items-start gap-2">
-              <span className="text-[#5D755D] mt-0.5">✓</span>
+              <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-heading-dark" />
               <span>
-                <span className="font-medium text-[#1a1a1a]">One product, many times:</span> use
+                <span className="font-medium text-neutral-900">One product, many times:</span> use
                 variants for each session time under the same product title — they group as one card
                 with time options in the app.
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-[#5D755D] mt-0.5">✓</span>
+              <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-heading-dark" />
               <span>
-                <span className="font-medium text-[#1a1a1a]">Inventory = seats left.</span> When
+                <span className="font-medium text-neutral-900">Inventory = seats left.</span> When
                 quantity hits zero (or the product isn’t Active), we mark the session fully booked.
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-[#5D755D] mt-0.5">✓</span>
+              <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-heading-dark" />
               <span>
-                <span className="font-medium text-[#1a1a1a]">Category</span> defaults to your{' '}
-                <span className="font-medium text-[#1a1a1a]">primary signup category</span> (the
+                <span className="font-medium text-neutral-900">Category</span> defaults to your{' '}
+                <span className="font-medium text-neutral-900">primary signup category</span> (the
                 first one you picked). Override per product with optional metafield{' '}
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">offhrs.category</code>
-                .
+                <code className={codeChip}>offhrs.category</code>.
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-[#5D755D] mt-0.5">✓</span>
+              <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-heading-dark" />
               <span>
-                <span className="font-medium text-[#1a1a1a]">Optional metafields</span> (namespace{' '}
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">offhrs</code>):{' '}
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">starts_at</code>,{' '}
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">book_url</code>{' '}
-                (same-shop Shopify cart or checkout only — the storefront token and channel source
-                are added; otherwise the generated cart link is used),{' '}
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">capacity</code>,{' '}
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">duration_minutes</code>
-                , <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px]">category</code>.
-                Book CTAs use a Shopify cart permalink with channel attribution by default.
+                <span className="font-medium text-neutral-900">Optional metafields</span> (namespace{' '}
+                <code className={codeChip}>offhrs</code>): <code className={codeChip}>starts_at</code>,{' '}
+                <code className={codeChip}>book_url</code> (same-shop Shopify cart or checkout only —
+                the storefront token and channel source are added; otherwise the generated cart link
+                is used), <code className={codeChip}>capacity</code>,{' '}
+                <code className={codeChip}>duration_minutes</code>,{' '}
+                <code className={codeChip}>category</code>. Book CTAs use a Shopify cart permalink
+                with channel attribution by default.
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-[#5D755D] mt-0.5">✓</span>
+              <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-heading-dark" />
               <span>
-                <span className="font-medium text-[#1a1a1a]">Studio address</span> comes from your
+                <span className="font-medium text-neutral-900">Studio address</span> comes from your
                 offhrs partner profile (not the Shopify product) — keep that up to date for map pins.
               </span>
             </li>
@@ -285,118 +279,97 @@ export default async function ShopifySyncGuidePage({
         </div>
       </section>
 
-      <section className="max-w-3xl mx-auto px-6 py-16">
-        <h2 className="font-playfair text-2xl font-bold mb-3 text-center">Date &amp; time formats</h2>
-        <p className="text-sm text-[#555] text-center mb-10 max-w-lg mx-auto leading-relaxed">
-          Each variant needs a parseable <span className="font-medium text-[#1a1a1a]">date and time</span>.
+      <section className="relative mx-auto max-w-3xl px-6 py-16">
+        <h2 className="mb-3 text-center text-2xl font-bold tracking-tight sm:text-3xl">
+          Date &amp; time formats
+        </h2>
+        <p className="mx-auto mb-10 max-w-lg text-center text-sm leading-relaxed text-neutral-500">
+          Each variant needs a parseable <span className="font-medium text-neutral-900">date and time</span>.
           Date-only values are skipped — we never invent a start time. Times without a timezone are
           read as America/Toronto.
         </p>
 
-        <div className="space-y-8 text-left text-sm text-[#333] leading-relaxed">
+        <div className="space-y-8 text-left text-sm leading-relaxed text-neutral-700">
           <div>
-            <p className="font-semibold text-[#1a1a1a] mb-2">Recommended</p>
-            <ul className="space-y-1.5 text-[#555]">
+            <p className="mb-2 font-semibold text-neutral-900">Recommended</p>
+            <ul className="space-y-1.5 text-neutral-600">
               <li>
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
-                  August 21, 2026 12:00 PM
-                </code>
+                <code className={codeChip}>August 21, 2026 12:00 PM</code>
               </li>
               <li>
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
-                  Aug 21, 2026 12:00 PM
-                </code>
+                <code className={codeChip}>Aug 21, 2026 12:00 PM</code>
               </li>
             </ul>
           </div>
 
           <div>
-            <p className="font-semibold text-[#1a1a1a] mb-2">Also accepted</p>
-            <ul className="space-y-1.5 text-[#555]">
+            <p className="mb-2 font-semibold text-neutral-900">Also accepted</p>
+            <ul className="space-y-1.5 text-neutral-600">
               <li>
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
-                  August 21 2026 12:00 PM
-                </code>
+                <code className={codeChip}>August 21 2026 12:00 PM</code>
                 {' / '}
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
-                  Aug 21 2026 12:00 PM
-                </code>
+                <code className={codeChip}>Aug 21 2026 12:00 PM</code>
               </li>
               <li>
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
-                  2026-08-21 12:00 PM
-                </code>
+                <code className={codeChip}>2026-08-21 12:00 PM</code>
                 {' / '}
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
-                  2026-08-21 12:00
-                </code>
+                <code className={codeChip}>2026-08-21 12:00</code>
                 {' / '}
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
-                  2026-08-21T12:00
-                </code>
+                <code className={codeChip}>2026-08-21T12:00</code>
               </li>
               <li>
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
-                  8/21/2026 12:00 PM
-                </code>
+                <code className={codeChip}>8/21/2026 12:00 PM</code>
                 {' / '}
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
-                  8/21/2026 12:00
-                </code>
+                <code className={codeChip}>8/21/2026 12:00</code>
               </li>
               <li>
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
-                  21 August 2026 12:00 PM
-                </code>
+                <code className={codeChip}>21 August 2026 12:00 PM</code>
                 {' / '}
-                <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
-                  21 Aug 2026 12:00 PM
-                </code>
+                <code className={codeChip}>21 Aug 2026 12:00 PM</code>
               </li>
-              <li>ISO strings with a timezone offset or <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">Z</code> (parsed as real instants)</li>
+              <li>
+                ISO strings with a timezone offset or <code className={codeChip}>Z</code> (parsed as
+                real instants)
+              </li>
             </ul>
-            <p className="mt-3 text-[#555]">
-              Ordinals (<code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">21st</code>) and{' '}
-              <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">at</code>{' '}
-              are fine — e.g.{' '}
-              <code className="rounded bg-[#EDF0ED] px-1.5 py-0.5 text-[13px] text-[#1a1a1a]">
-                August 21, 2026 at 12:00 PM
-              </code>
-              .
+            <p className="mt-3 text-neutral-600">
+              Ordinals (<code className={codeChip}>21st</code>) and{' '}
+              <code className={codeChip}>at</code> are fine — e.g.{' '}
+              <code className={codeChip}>August 21, 2026 at 12:00 PM</code>.
             </p>
           </div>
         </div>
       </section>
 
-      <section className="bg-white border-y border-[#E8E6E0] py-20 text-center">
-        <div className="max-w-3xl mx-auto px-6">
-          <h2 className="font-playfair text-3xl font-bold mb-4">
+      <section className="relative border-y border-neutral-200/80 bg-white py-20 text-center">
+        <div className="mx-auto max-w-3xl px-6">
+          <h2 className="mb-4 text-3xl font-bold tracking-tight">
             {afterSignup ? 'Next: install from Shopify' : 'Ready to connect Shopify?'}
           </h2>
-          <p className="text-sm text-[#555] max-w-md mx-auto mb-8 leading-relaxed">
+          <p className="mx-auto mb-8 max-w-md text-sm leading-relaxed text-neutral-500">
             {afterSignup
               ? 'Install the offhrs app from Shopify Admin, then open Sales channels → offhrs to connect and start the Sync trial. Billing runs through Shopify Billing on your Shopify invoice.'
               : 'Create your partner account, continue with Shopify Sync, then install offhrs from Shopify Admin and manage Sync under Sales channels → offhrs.'}
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             {afterSignup ? (
               <Link
                 href="/partners/dashboard/settings"
-                className="rounded-full bg-[#5D755D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-sm"
+                className="rounded-full bg-heading-dark px-8 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-heading-dark/90"
               >
                 Partner dashboard
               </Link>
             ) : (
               <Link
                 href="/partners/signup?intent=shopify_sync"
-                className="rounded-full bg-[#5D755D] px-8 py-3.5 text-sm font-semibold text-white hover:bg-[#4d634d] transition-colors shadow-sm"
+                className="rounded-full bg-heading-dark px-8 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-heading-dark/90"
               >
                 Create partner account
               </Link>
             )}
             <Link
               href="/partners"
-              className="rounded-full border border-[#D9D7CF] px-8 py-3.5 text-sm font-semibold text-[#1a1a1a] hover:bg-[#F0EDE8] transition-colors"
+              className="rounded-full border border-neutral-300 px-8 py-3.5 text-sm font-semibold text-neutral-900 transition-colors hover:bg-[#F0EDE8]"
             >
               Back to pricing
             </Link>
@@ -404,22 +377,7 @@ export default async function ShopifySyncGuidePage({
         </div>
       </section>
 
-      <footer className="border-t border-[#E8E6E0] py-8">
-        <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#999]">
-          <span>© {new Date().getFullYear()} offhrs. All rights reserved.</span>
-          <div className="flex gap-6">
-            <Link href="/terms" className="hover:text-[#555] transition-colors">
-              Terms
-            </Link>
-            <Link href="/privacy" className="hover:text-[#555] transition-colors">
-              Privacy
-            </Link>
-            <a href="mailto:hello@offhrs.app" className="hover:text-[#555] transition-colors">
-              Support
-            </a>
-          </div>
-        </div>
-      </footer>
+      <MarketingSiteFooter showStoreBadges />
     </div>
   )
 }

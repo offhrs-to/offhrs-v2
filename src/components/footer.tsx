@@ -1,7 +1,21 @@
+'use client'
+
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { OffhrsLogo } from '@/components/offhrs-logo'
 
 export default function Footer() {
+  const pathname = usePathname() ?? '/'
+  // Marketing pages ship their own green CTA + legal footer.
+  if (
+    pathname === '/' ||
+    pathname === '/partners' ||
+    pathname === '/partners/shopify-sync' ||
+    pathname === '/contact'
+  ) {
+    return null
+  }
+
   return (
     <footer className="bg-white border-t border-gray-100 py-6 mt-auto">
       <div className="container mx-auto px-4 flex flex-col items-center justify-center gap-4">
