@@ -2,10 +2,9 @@
 
 import { useId } from 'react'
 import { usePathname } from 'next/navigation'
-import { siInstagram, siTiktok, type SimpleIcon } from 'simple-icons'
+import { siInstagram } from 'simple-icons'
 
 const INSTAGRAM_URL = 'https://www.instagram.com/offhrs_to'
-const TIKTOK_URL = 'https://www.tiktok.com/@offhrs_toronto'
 
 /** Instagram brand gradient (Meta glyph guidelines). */
 const INSTAGRAM_GRADIENT_STOPS = [
@@ -27,22 +26,6 @@ function InstagramBrandIcon({ className, gradientId }: { className?: string; gra
         </linearGradient>
       </defs>
       <path d={siInstagram.path} fill={`url(#${gradientId})`} />
-    </svg>
-  )
-}
-
-function BrandIcon({
-  icon,
-  className,
-  color,
-}: {
-  icon: SimpleIcon
-  className?: string
-  color: string
-}) {
-  return (
-    <svg role="img" viewBox="0 0 24 24" className={className} aria-hidden>
-      <path d={icon.path} fill={color} />
     </svg>
   )
 }
@@ -80,19 +63,6 @@ export function SocialLinksBar() {
         aria-label={`offhrs on ${siInstagram.title}`}
       >
         <InstagramBrandIcon gradientId={instagramGradientId} className="h-[18px] w-[18px]" />
-      </a>
-      <a
-        href={TIKTOK_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`${linkBaseClass} hover:bg-neutral-100 focus-visible:ring-neutral-400/50`}
-        aria-label={`offhrs on ${siTiktok.title}`}
-      >
-        <BrandIcon
-          icon={siTiktok}
-          color={`#${siTiktok.hex}`}
-          className="h-[18px] w-[18px]"
-        />
       </a>
     </div>
   )

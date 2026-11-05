@@ -1,8 +1,7 @@
 import Link from 'next/link'
-import { siInstagram, siTiktok } from 'simple-icons'
+import { siInstagram } from 'simple-icons'
 
 export const INSTAGRAM_URL = 'https://www.instagram.com/offhrs_to'
-export const TIKTOK_URL = 'https://www.tiktok.com/@offhrs_toronto'
 
 type FollowUsProps = {
   className?: string
@@ -42,16 +41,6 @@ export function FollowUs({ className = '', tone = 'onDark', align = 'center' }: 
         >
           <BrandPath path={siInstagram.path} className="h-5 w-5" />
           <span>Instagram</span>
-        </Link>
-        <Link
-          href={TIKTOK_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`inline-flex items-center gap-2 text-sm font-medium transition-colors ${color}`}
-          aria-label="offhrs on TikTok"
-        >
-          <BrandPath path={siTiktok.path} className="h-5 w-5" />
-          <span>TikTok</span>
         </Link>
       </div>
     </div>

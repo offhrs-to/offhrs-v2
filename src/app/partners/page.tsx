@@ -306,6 +306,24 @@ export default function PartnersLandingPage() {
             sizes="100vw"
           />
         </div>
+        {/* Mobile: Sign in sits where Home store badges sit — nav has no Sign in below sm */}
+        <div className="relative z-10 mt-auto flex flex-col items-center gap-3 px-4 pb-[max(env(safe-area-inset-bottom,0px),1.5rem)] pt-4 sm:hidden">
+          <Link
+            href="/partners/login"
+            className="inline-flex h-[3.25rem] w-full max-w-[16rem] items-center justify-center rounded-xl bg-white text-[15px] font-semibold tracking-tight text-neutral-900 ring-1 ring-neutral-900 transition-colors hover:bg-neutral-50"
+          >
+            Sign in
+          </Link>
+          <p className="text-center text-[13px] text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
+            New here?{' '}
+            <Link
+              href="/partners/signup"
+              className="font-semibold text-white underline underline-offset-2"
+            >
+              {syncOnlySignup ? 'Create an account' : 'Start free trial'}
+            </Link>
+          </p>
+        </div>
       </section>
 
       {/* Why */}
