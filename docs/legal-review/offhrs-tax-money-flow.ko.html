@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>offhrs — 세금·자금 흐름 (현재 구축 기준)</title>
+    <style>
+      :root {
+        --ink: #1a1a1a;
+        --muted: #5c5c5c;
+        --line: #d9ddd6;
+        --canvas: #f7f8f5;
+        --card: #ffffff;
+        --moss: #738a6e;
+        --moss-soft: #e8efe6;
+        --amber: #8a6a20;
+        --amber-soft: #f7f0dd;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', 'Segoe UI', system-ui, sans-serif;
+        color: var(--ink);
+        background: var(--canvas);
+        line-height: 1.45;
+      }
+      .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 28px 24px 32px;
+      }
+      header {
+        margin-bottom: 20px;
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .sub {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13.5px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+      .col {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px 16px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 100%;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--moss);
+      }
+      .badge span {
+        display: inline-flex;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        background: var(--moss-soft);
+        color: var(--moss);
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+      }
+      h2 {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 700;
+      }
+      .blurb {
+        margin: 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      ol.flow {
+        margin: 4px 0 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        flex: 1;
+      }
+      ol.flow li {
+        position: relative;
+        background: var(--canvas);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 13px;
+      }
+      ol.flow li strong {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 2px;
+      }
+      ol.flow li:not(:last-child)::after {
+        content: '↓';
+        position: absolute;
+        left: 50%;
+        bottom: -14px;
+        transform: translateX(-50%);
+        color: var(--moss);
+        font-size: 14px;
+        line-height: 1;
+        background: var(--card);
+        padding: 0 4px;
+        z-index: 1;
+      }
+      ol.flow li:not(:last-child) {
+        margin-bottom: 8px;
+      }
+      .split {
+        display: grid;
+        gap: 8px;
+      }
+      .pill {
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 12.5px;
+        border: 1px solid var(--line);
+      }
+      .pill.yes {
+        background: var(--moss-soft);
+        border-color: #c5d4c2;
+      }
+      .pill.no {
+        background: #f3f3f3;
+      }
+      .note {
+        margin: 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .banner {
+        margin-top: 16px;
+        background: var(--amber-soft);
+        border: 1px solid #e6d7a8;
+        color: var(--amber);
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-size: 13px;
+      }
+      footer {
+        margin-top: 12px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      @media print {
+        body {
+          background: white;
+        }
+        .page {
+          padding: 0;
+          max-width: none;
+        }
+        .col {
+          break-inside: avoid;
+        }
+      }
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <h1>offhrs — 세금·자금 흐름 (현재 구축 기준)</h1>
+        <p class="sub">
+          온타리오 플랫폼 · 마켓플레이스 상품은 캐나다 내 배송만 · Stripe Connect · 2026년 11월 기준 제품 설정
+        </p>
+      </header>
+
+      <div class="grid">
+        <section class="col">
+          <div class="badge"><span>1</span> SaaS</div>
+          <h2>Lite / Pro 구독</h2>
+          <p class="blurb">파트너(스튜디오)용 월 구독 소프트웨어 요금.</p>
+          <ol class="flow">
+            <li>
+              <strong>파트너가 월 요금 결제</strong>
+              Lite 또는 Pro를 Stripe로 청구.
+            </li>
+            <li>
+              <strong>offhrs가 SaaS에 HST 부과</strong>
+              구독료에 대해 해당되는 경우 HST 징수.
+            </li>
+            <li>
+              <strong>offhrs가 SaaS HST 납부</strong>
+              소프트웨어 요금에 대한 플랫폼 납세 의무.
+            </li>
+          </ol>
+          <p class="note">
+            <strong>Shopify Sync</strong>는 체험 후 월 $29 CAD이며 <strong>Shopify Billing</strong>으로 청구됩니다 (Stripe 아님). Shopify에서 결제되는 워크숍 주문에 대한 수수료는 0%입니다.
+          </p>
+        </section>
+
+        <section class="col">
+          <div class="badge"><span>2</span> 워크숍</div>
+          <h2>워크숍 티켓 판매</h2>
+          <p class="blurb">플랫폼 수수료 0%. Stripe 카드 수수료는 벤더 부담.</p>
+          <ol class="flow">
+            <li>
+              <strong>구매자가 워크숍 티켓 결제</strong>
+              offhrs에서 Stripe Connect로 결제.
+            </li>
+            <li>
+              <strong>세금은 벤더 CRA 등록 여부에 따라 결정</strong>
+              Partners → Settings → GST/HST registration에서 설정.
+            </li>
+          </ol>
+          <div class="split">
+            <div class="pill yes">
+              <strong>GST/HST 등록 벤더:</strong> Stripe Tax로 GST/HST 추가 →
+              <em>벤더 Connect 계정</em>으로 징수 → <strong>벤더가 납부(remit)</strong>.
+            </div>
+            <div class="pill no">
+              <strong>미등록 벤더:</strong> 체크아웃에서 GST/HST를 <strong>추가하지 않음</strong>.
+            </div>
+          </div>
+        </section>
+
+        <section class="col">
+          <div class="badge"><span>3</span> 마켓플레이스</div>
+          <h2>Artist Marketplace 상품</h2>
+          <p class="blurb">론칭 시 온타리오 구매자만. CPA 2026년 11월: 마켓플레이스 <strong>모든</strong> 매출에 세금 징수.</p>
+          <ol class="flow">
+            <li>
+              <strong>구매자가 상품 + 배송비 + GST/HST 결제</strong>
+              등록·미등록 판매자 모두 마켓 판매 시 세금 징수.
+            </li>
+            <li>
+              <strong>금액 분배</strong>
+              상품은 벤더 Connect 쪽; 상품 소계의 <strong>3%</strong>(세금·배송 제외)는 offhrs — CPA상 <em>3%에 별도 HST 없음</em>;
+              배송비는 Shippo / Canada Post 라벨용으로 offhrs가 보관.
+            </li>
+            <li>
+              <strong>마켓 세금 납부 주체</strong>
+              판매자 CRA 등록 여부에 따름 (아래). 세금 코드 <code>txcd_99999999</code> 당분간 OK.
+            </li>
+          </ol>
+          <div class="split">
+            <div class="pill yes">
+              <strong>등록 판매자:</strong> GST/HST → Connect → <strong>판매자가 납부</strong>.
+            </div>
+            <div class="pill no">
+              <strong>미등록 판매자:</strong> 체크아웃에서 세금 징수 → <strong>offhrs가 납부</strong> (CPA). <em>기존 “등록만 징수” 코드와 차이 — 구현 필요.</em>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="banner">
+        <strong>CPA 2026년 11월:</strong> marketplace facilitator보다 <em>distribution platform operator</em>에 가깝다.
+        워크숍은 등록 벤더만 세금(벤더 납부). 마켓은 전 매출 징수, 미등록은 플랫폼 납부.
+        PST는 주·품목별 검토. 온타리오 외 구매자에게는 GST 적용 확인.
+      </div>
+      <footer>
+        세무 자문이 아닙니다. CPA 방향(2026년 11월)과 제품 갭을 반영합니다. 약관: https://offhrs.app/terms/
+      </footer>
+    </div>
+  </body>
+</html>

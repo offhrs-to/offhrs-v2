@@ -5,7 +5,8 @@
  *
  * @see https://stripe.com/docs/tax/tax-codes
  */
+/** CPA Nov 2026: txcd_99999999 (General – Tangible Goods) is fine for launch. */
 export const SHOP_GOODS_STRIPE_TAX_CODE =
-  process.env.STRIPE_SHOP_GOODS_TAX_CODE?.trim() || 'txcd_30011000'
+  process.env.STRIPE_SHOP_GOODS_TAX_CODE?.trim() || 'txcd_99999999'
 
 export { WORKSHOP_STRIPE_TAX_CODE } from '@/lib/stripe-tax-constants'

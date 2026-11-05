@@ -502,20 +502,32 @@ export async function refundShopOrderPreScan(params: {
 
   if (order.stripe_tax_transaction_id) {
     try {
-      const { data: vendorRow } = await admin
-        .from('vendor_profiles')
-        .select('stripe_account_id')
-        .eq('id', order.vendor_id)
-        .maybeSingle()
-      const connectedAccountId = vendorRow?.stripe_account_id?.trim() || null
-      if (connectedAccountId) {
+      let remitter: 'vendor' | 'platform' = 'vendor'
+      try {
+        const piMeta = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id)
+        if (piMeta.metadata?.tax_remitter === 'platform') remitter = 'platform'
+      } catch {
+        /* default vendor for older orders */
+      }
+      let connectedAccountId: string | null = null
+      if (remitter === 'vendor') {
+        const { data: vendorRow } = await admin
+          .from('vendor_profiles')
+          .select('stripe_account_id')
+          .eq('id', order.vendor_id)
+          .maybeSingle()
+        connectedAccountId = vendorRow?.stripe_account_id?.trim() || null
+        if (!connectedAccountId) {
+          console.error('shop tax reversal skipped: missing vendor Stripe account', order.id)
+        }
+      }
+      if (remitter === 'platform' || connectedAccountId) {
         await reverseShopTaxTransaction(stripe, {
+          remitter,
           connectedAccountId,
           taxTransactionId: order.stripe_tax_transaction_id,
           paymentIntentId: order.stripe_payment_intent_id,
         })
-      } else {
-        console.error('shop tax reversal skipped: missing vendor Stripe account', order.id)
       }
     } catch (taxErr) {
       console.error('shop tax reversal failed', taxErr)

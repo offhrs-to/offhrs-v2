@@ -182,8 +182,9 @@ export async function POST(request: NextRequest) {
 
     if (taxCalculationId) {
       try {
+        const remitter = pi.metadata.tax_remitter === 'platform' ? 'platform' : 'vendor'
         let connectedAccountId = pi.metadata.stripe_account_id?.trim() || null
-        if (!connectedAccountId) {
+        if (remitter === 'vendor' && !connectedAccountId) {
           const { data: vendorRow } = await admin
             .from('vendor_profiles')
             .select('stripe_account_id')
@@ -191,10 +192,8 @@ export async function POST(request: NextRequest) {
             .maybeSingle()
           connectedAccountId = vendorRow?.stripe_account_id?.trim() || null
         }
-        if (!connectedAccountId) {
-          throw new Error('Missing vendor Stripe account for shop tax commit')
-        }
         const taxTxId = await commitShopTaxTransaction(stripe, {
+          remitter,
           connectedAccountId,
           calculationId: taxCalculationId,
           reference: `shop_order_${order.id}`,

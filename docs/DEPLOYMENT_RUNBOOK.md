@@ -68,7 +68,7 @@ Until signed off: Preview / tiny smoke tests OK; delay scaling GMV and live labe
 | # | Issue | Options |
 |---|--------|---------|
 | A | Marketplace pre-scan refunds: who absorbs Stripe card fee? | **Decided (Oct 15, 2026): B — vendor bears**, same as workshops. |
-| B | Marketplace tax for GST/HST-**registered** vendors | **Decided: collect at checkout only for registered vendors into their Connect account; vendor remits (same as workshops). Do not collect for unregistered vendors.** |
+| B | Marketplace GST/HST + Ontario launch (CPA Nov 2026) | **Implemented in code** — see `docs/legal-review/MARKETPLACE-TAX-ONTARIO-LAUNCH.md`. CPA: closer to **distribution platform operator**. SaaS HST (offhrs). Workshops: registered-only → vendor remits. Marketplace: tax on **all** sales; registered → Connect/vendor remits; unregistered → **platform remits**; no separate HST on 3%. Tax code `txcd_99999999`. **Launch geography: Ontario buyers only.** Founder: deploy, confirm platform Stripe Tax CA registration, smoke tests, counsel glance at Seller Addendum. |
 | C | Existing $49 Pro subscribers | **Decided: migrate all to $39.** No grandfathering. Founder believes there are no active Pro trials. |
 
 **AGENT can start without A/B:** account deletion (#1) and vendor Terms assent (#2) below.
@@ -126,7 +126,7 @@ Terms **wording** for Marketplace + Shopify Sync is live. These are the remainin
 
 ## 1.5 Refund fee + tax scope — **BOTH**
 
-Decisions are in Part 0.2. Code collects Marketplace GST/HST only when `gst_hst_registered` is true, into the vendor Connect account (vendor remits, same as workshops). Pre-scan refunds keep the Stripe processing fee with the vendor. Shipping remains platform-held for Shippo. Counsel/CPA should still confirm before scaling GMV. **YOU** moves any live Pro subscription still on the $49 Price onto the $39 Price (Part 4).
+Decisions are in Part 0.2 (CPA Nov 2026). **Workshops** still: tax only for registered vendors → Connect → vendor remits. **Marketplace** must collect tax on **all** sales; unregistered → **platform remits** (not yet fully built — still registered-only in code). No separate HST on the 3% fee per CPA. Pre-scan refunds: vendor bears Stripe fee. Shipping remains platform-held for Shippo. **YOU** moves any live Pro subscription still on the $49 Price onto the $39 Price (Part 4).
 
 ---
 

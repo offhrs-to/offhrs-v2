@@ -9,8 +9,15 @@ import { shopRatesBodySchema } from '@/lib/shop/checkout-schema'
 import {
   loadPublishedShopProduct,
   shopHighValueFlags,
+  vendorPickupAddress,
   vendorShipFromAddress,
 } from '@/lib/shop/checkout'
+import {
+  assertOntarioPickupLocation,
+  assertOntarioShipTo,
+  isOntarioPostalCode,
+  MARKETPLACE_ONTARIO_ONLY_MESSAGE,
+} from '@/lib/shop/marketplace-launch-scope'
 import { fetchShippoRates, isShippoConfigured } from '@/lib/shop/shippo'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
@@ -61,6 +68,14 @@ export async function POST(request: NextRequest) {
       if (!product.pickup_available || !vendor.shop_pickup_enabled) {
         return NextResponse.json({ error: 'Pickup is not available for this item' }, { status: 422 })
       }
+      const pickup = vendorPickupAddress(vendor)
+      const onPickup = assertOntarioPickupLocation({
+        province: pickup?.province,
+        postal_code: pickup?.postal_code,
+      })
+      if (!onPickup.ok) {
+        return NextResponse.json({ error: onPickup.error }, { status: 422 })
+      }
       return NextResponse.json({
         fulfillment_type: 'pickup',
         shipping_cad: 0,
@@ -69,11 +84,15 @@ export async function POST(request: NextRequest) {
         ship_by_business_days: product.ship_by_business_days,
         made_to_order: product.made_to_order,
         high_value: highValue,
+        marketplace_launch_province: 'ON',
       })
     }
 
     if (!postal_code) {
       return NextResponse.json({ error: 'Canadian postal code required for shipping' }, { status: 422 })
+    }
+    if (!isOntarioPostalCode(postal_code)) {
+      return NextResponse.json({ error: MARKETPLACE_ONTARIO_ONLY_MESSAGE }, { status: 422 })
     }
 
     const shipFrom = vendorShipFromAddress(vendor)
@@ -97,6 +116,13 @@ export async function POST(request: NextRequest) {
     const taxAddr = customerTaxAddressFromPostal(postal_code)
     if (!taxAddr) {
       return NextResponse.json({ error: 'Enter a valid Canadian postal code' }, { status: 422 })
+    }
+    const onShip = assertOntarioShipTo({
+      province: taxAddr.state,
+      postal_code: taxAddr.postal_code,
+    })
+    if (!onShip.ok) {
+      return NextResponse.json({ error: onShip.error }, { status: 422 })
     }
 
     const destCity =

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>offhrs — Tax &amp; money flow (as built)</title>
+    <style>
+      :root {
+        --ink: #1a1a1a;
+        --muted: #5c5c5c;
+        --line: #d9ddd6;
+        --canvas: #f7f8f5;
+        --card: #ffffff;
+        --moss: #738a6e;
+        --moss-soft: #e8efe6;
+        --amber: #8a6a20;
+        --amber-soft: #f7f0dd;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        color: var(--ink);
+        background: var(--canvas);
+        line-height: 1.35;
+      }
+      .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 28px 24px 32px;
+      }
+      header {
+        margin-bottom: 20px;
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .sub {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+      .col {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px 16px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 100%;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--moss);
+      }
+      .badge span {
+        display: inline-flex;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        background: var(--moss-soft);
+        color: var(--moss);
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+      }
+      h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+      .blurb {
+        margin: 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      ol.flow {
+        margin: 4px 0 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        flex: 1;
+      }
+      ol.flow li {
+        position: relative;
+        background: var(--canvas);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 13px;
+      }
+      ol.flow li strong {
+        display: block;
+        font-size: 13px;
+        margin-bottom: 2px;
+      }
+      ol.flow li:not(:last-child)::after {
+        content: '↓';
+        position: absolute;
+        left: 50%;
+        bottom: -14px;
+        transform: translateX(-50%);
+        color: var(--moss);
+        font-size: 14px;
+        line-height: 1;
+        background: var(--card);
+        padding: 0 4px;
+        z-index: 1;
+      }
+      ol.flow li:not(:last-child) {
+        margin-bottom: 8px;
+      }
+      .split {
+        display: grid;
+        gap: 8px;
+      }
+      .pill {
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 12.5px;
+        border: 1px solid var(--line);
+      }
+      .pill.yes {
+        background: var(--moss-soft);
+        border-color: #c5d4c2;
+      }
+      .pill.no {
+        background: #f3f3f3;
+      }
+      .note {
+        margin: 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .banner {
+        margin-top: 16px;
+        background: var(--amber-soft);
+        border: 1px solid #e6d7a8;
+        color: var(--amber);
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-size: 13px;
+      }
+      footer {
+        margin-top: 12px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      @media print {
+        body {
+          background: white;
+        }
+        .page {
+          padding: 0;
+          max-width: none;
+        }
+        .col {
+          break-inside: avoid;
+        }
+      }
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <h1>offhrs — Tax &amp; money flow (as built)</h1>
+        <p class="sub">
+          Ontario platform · Canada-only Marketplace goods · Stripe Connect · Product configuration as of Nov 2026
+        </p>
+      </header>
+
+      <div class="grid">
+        <section class="col">
+          <div class="badge"><span>1</span> SaaS</div>
+          <h2>Lite / Pro subscription</h2>
+          <p class="blurb">Monthly software fee for Partners (workshops tooling).</p>
+          <ol class="flow">
+            <li>
+              <strong>Partner pays monthly fee</strong>
+              Lite or Pro billed on Stripe.
+            </li>
+            <li>
+              <strong>offhrs charges HST on SaaS</strong>
+              Where applicable on the subscription.
+            </li>
+            <li>
+              <strong>offhrs remits SaaS HST</strong>
+              Platform obligation on the software fee.
+            </li>
+          </ol>
+          <p class="note">
+            <strong>Shopify Sync</strong> is $29 CAD/month after trial, billed via <strong>Shopify Billing</strong> (not Stripe). 0% commission on Shopify workshop checkouts.
+          </p>
+        </section>
+
+        <section class="col">
+          <div class="badge"><span>2</span> Workshops</div>
+          <h2>Workshop ticket sales</h2>
+          <p class="blurb">0% platform commission. Stripe card fees borne by the vendor.</p>
+          <ol class="flow">
+            <li>
+              <strong>Buyer pays workshop ticket</strong>
+              Checkout on offhrs via Stripe Connect.
+            </li>
+            <li>
+              <strong>Tax depends on vendor CRA status</strong>
+              Controlled in Partners → Settings → GST/HST registration.
+            </li>
+          </ol>
+          <div class="split">
+            <div class="pill yes">
+              <strong>If GST/HST-registered:</strong> Stripe Tax adds GST/HST → collected into the
+              <em>vendor Connect account</em> → <strong>vendor remits</strong>.
+            </div>
+            <div class="pill no">
+              <strong>If not registered:</strong> checkout does <strong>not</strong> add GST/HST.
+            </div>
+          </div>
+        </section>
+
+        <section class="col">
+          <div class="badge"><span>3</span> Marketplace</div>
+          <h2>Artist Marketplace goods</h2>
+          <p class="blurb">Ontario buyers only at launch. CPA Nov 2026: tax on <strong>all</strong> Marketplace sales.</p>
+          <ol class="flow">
+            <li>
+              <strong>Buyer pays item + shipping + GST/HST</strong>
+              Tax collected on every Marketplace sale (registered and unregistered sellers).
+            </li>
+            <li>
+              <strong>Money split</strong>
+              Item toward vendor Connect; <strong>3% of item subtotal</strong> (ex-tax, ex-shipping) to offhrs — <em>no separate HST on the 3%</em> per CPA; shipping held by offhrs for Shippo / Canada Post labels.
+            </li>
+            <li>
+              <strong>Who remits Marketplace tax</strong>
+              Depends on seller CRA registration (see below). Tax code <code>txcd_99999999</code> OK for now.
+            </li>
+          </ol>
+          <div class="split">
+            <div class="pill yes">
+              <strong>Registered seller:</strong> GST/HST into Connect → <strong>seller remits</strong>.
+            </div>
+            <div class="pill no">
+              <strong>Unregistered seller:</strong> still collect tax at checkout → <strong>offhrs remits</strong> (CPA). <em>Engineering gap vs older registered-only build.</em>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="banner">
+        <strong>CPA Nov 2026:</strong> Treat as closer to a <em>distribution platform operator</em> than a marketplace facilitator.
+        Workshops stay registered-only (vendor remits). Marketplace = tax on all sales; unregistered → platform remits.
+        PST: review by province / item type. Ensure GST for buyers outside Ontario.
+      </div>
+      <footer>
+        Not tax advice. Reflects CPA direction Nov 2026 + product gaps called out above. Live terms:
+        https://offhrs.app/terms/
+      </footer>
+    </div>
+  </body>
+</html>

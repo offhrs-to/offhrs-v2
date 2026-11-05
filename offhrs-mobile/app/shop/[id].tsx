@@ -306,10 +306,13 @@ export default function ShopProductScreen() {
           {isPurchasable && fulfillment === 'ship' ? (
             <View style={{ marginTop: 16 }}>
               <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8 }}>Your postal code</Text>
+              <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginBottom: 8 }}>
+                Ontario shipping only for launch (codes starting with K, L, M, N, or P).
+              </Text>
               <TextInput
                 value={postalCode}
                 onChangeText={setPostalCode}
-                placeholder="A1A 1A1"
+                placeholder="M5V 2T6"
                 autoCapitalize="characters"
                 style={{
                   borderWidth: 1,

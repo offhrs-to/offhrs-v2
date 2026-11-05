@@ -2,7 +2,7 @@
   "expo": {
     "name": "offhrs-mobile",
     "slug": "offhrs-mobile",
-    "version": "1.4.3",
+    "version": "1.4.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "splash": {
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.offhrs.app.offhrs",
-      "buildNumber": "62",
+      "buildNumber": "64",
       "usesAppleSignIn": true,
       "backgroundColor": "#ECEFE5",
       "infoPlist": {
@@ -28,7 +28,7 @@
     },
     "android": {
       "package": "com.offhrs.app",
-      "versionCode": 56,
+      "versionCode": 57,
       "launchMode": "singleTask",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -93,7 +93,7 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "runtimeVersion": "1.4.3",
+    "runtimeVersion": "1.4.4",
     "updates": {
       "url": "https://u.expo.dev/1014e351-ffd9-4953-b655-a54559e93f12"
     },

@@ -83,10 +83,11 @@ transaction)**, which is borne by you as the vendor.
 Marketplace goods: **3%** platform fee on the item subtotal (excluding tax and shipping),
 **plus** Stripe processing (about 2.9% + $0.30 CAD). Buyer shipping (Canada Post quote + any
 handling fee you set) is **held by offhrs** for prepaid Canada Post labels — not paid out as
-merchandise earnings. If you are GST/HST-registered, tax is collected into your Stripe Connect
-account and you remit it (same as workshops). Unregistered vendors are not charged GST/HST at
-Marketplace checkout. Pro includes Marketplace access; a free Marketplace-only plan is also
-available. Lite does not include Marketplace. See `/terms/marketplace-seller-addendum`.
+merchandise earnings. Launch shipping/pickup is **Ontario buyers only**. GST/HST is collected
+on **all** Marketplace sales: registered vendors remit via Connect; if you are not registered,
+offhrs remits. No separate HST on the 3% fee. Pro includes Marketplace access; a free
+Marketplace-only plan is also available. Lite does not include Marketplace. See
+`/terms/marketplace-seller-addendum`.
 
 ### How do Marketplace orders and shipping work?
 Buyers pay in the app **Shop** tab. You fulfill under **Marketplace → Orders**: print the
@@ -136,12 +137,14 @@ it are automatically refunded, and the workshop is hidden from customers.
 ## Taxes
 
 ### How is sales tax handled?
-**Workshops and Artist Marketplace goods:** GST/HST is calculated with **Stripe Tax on your
-connected account** after you open Settings → GST/HST registration and confirm you are
-CRA-registered. If you are not registered, leave that off — checkout will not include
-GST/HST. When registered, remittance is your liability for both workshops and Marketplace
-goods. Buyer shipping on Marketplace orders is held by offhrs for prepaid labels (not paid
-out as merchandise earnings). See `/terms/marketplace-seller-addendum`.
+**Workshops:** GST/HST is calculated with **Stripe Tax on your connected account** only after
+you confirm CRA registration in Settings. If you are not registered, workshop checkout does
+not include GST/HST; remittance is your liability when registered.
+
+**Artist Marketplace:** GST/HST is collected on **all** sales. Registered vendors: tax lands
+in Connect and you remit. Unregistered vendors: offhrs collects and remits. Launch sales are
+**Ontario buyers only**. Buyer shipping is held by offhrs for prepaid labels (not paid out as
+merchandise earnings). See `/terms/marketplace-seller-addendum`.
 
 ### When is tax shown to the customer?
 Tax is calculated **at checkout**, not while browsing. The customer sees the

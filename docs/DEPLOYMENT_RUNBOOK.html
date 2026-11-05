@@ -300,19 +300,14 @@ CRA (blocking for “real money” Marketplace)</h2>
 href="https://offhrs.app/terms/marketplace-seller-addendum">Marketplace
 Seller Addendum</a> (checklist:
 <code>docs/MARKETPLACE_PHASE0_OPS.md</code> §2).</li>
-<li>Engage CPA / tax lawyer on GST/HST <strong>platform
-operator</strong> treatment for Marketplace
-(<code>docs/MARKETPLACE_PHASE0_OPS.md</code> §3). Ask:
-<ul>
-<li>Collect tax only for <strong>unregistered</strong> vendors, or for
-all?</li>
-<li>Is the <strong>5% platform fee</strong> taxable to registered
-vendors?</li>
-<li>Any BC/SK/MB/QC PST/QST platform duties?</li>
-</ul></li>
-<li>Confirm Stripe Tax Canada registrations match that opinion.</li>
-<li>Confirm goods tax code: usually <code>txcd_99999999</code> (General
-– Tangible Goods).</li>
+<li>CPA Nov 2026 answered (tax on all Marketplace sales; unregistered →
+offhrs remits; no HST on 3% fee). Code + Seller Addendum updated —
+<code>docs/legal-review/MARKETPLACE-TAX-ONTARIO-LAUNCH.md</code>. Ask
+counsel for a quick OK before scaling GMV; confirm platform Stripe Tax
+<strong>Canada</strong> registration is active; remit platform-collected
+tax each CRA period. Launch geography: <strong>Ontario only</strong>
+(expand later; revisit PST then).</li>
+<li>Confirm goods tax code remains <code>txcd_99999999</code>.</li>
 </ol>
 <p>Until signed off: Preview / tiny smoke tests OK; delay scaling GMV
 and live label spend.</p>
@@ -344,14 +339,19 @@ code)</h2>
 </tr>
 <tr>
 <td>B</td>
-<td>Marketplace tax for GST/HST-<strong>registered</strong> vendors</td>
-<td>Wait for CPA; then branch <code>checkout-pricing</code> on
-<code>gst_hst_registered</code>.</td>
+<td>Marketplace GST/HST + Ontario launch (CPA Nov 2026)</td>
+<td><strong>Implemented in code</strong> — see
+<code>docs/legal-review/MARKETPLACE-TAX-ONTARIO-LAUNCH.md</code>. Tax on
+<strong>all</strong> Marketplace sales; registered → Connect/vendor
+remits; unregistered → platform remits; no separate HST on 3%; tax code
+<code>txcd_99999999</code>; <strong>Ontario buyers only</strong>.
+Founder: deploy, confirm platform Stripe Tax CA, smoke tests, counsel
+glance.</td>
 </tr>
 <tr>
 <td>C</td>
 <td>Existing $49 Pro subscribers</td>
-<td>Grandfather vs migrate to $39.</td>
+<td><strong>Decided: migrate all to $39.</strong> No grandfathering.</td>
 </tr>
 </tbody>
 </table>

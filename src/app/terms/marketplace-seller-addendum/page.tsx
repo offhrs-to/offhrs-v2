@@ -42,7 +42,11 @@ export default function MarketplaceSellerAddendumPage() {
             domestic cards, as published by Stripe; international cards and other methods may cost more),
             separate from workshop bookings (0% commission).
           </li>
-          <li>Sales and shipping are <strong>Canada only</strong> (CAD). You must ship from a Canadian address.</li>
+          <li>
+            Sales are in CAD. You must ship from a Canadian address. At initial launch,{' '}
+            <strong>buyers must be in Ontario</strong> (Ontario ship-to or Ontario pickup location).
+            Expansion to other provinces may follow.
+          </li>
           <li>
             Buyer-paid shipping (Canada Post rate quote plus any handling fee you set) is collected at checkout
             and <strong>held by offhrs</strong> to purchase prepaid labels on offhrs&rsquo; Shippo account. You
@@ -50,12 +54,12 @@ export default function MarketplaceSellerAddendumPage() {
             <strong>not</strong> merchandise revenue and are <strong>not</strong> paid out as seller earnings.
           </li>
           <li>
-            If you are registered for GST/HST, offhrs calculates and collects applicable GST/HST on
-            Marketplace sales at checkout into your Stripe Connect account (same model as workshop
-            tickets). That tax is paid out to you with the order and you remain responsible for remitting
-            it to the CRA. If you are not registered, offhrs does not collect GST/HST on Marketplace
-            checkout. You must keep your registration status and number accurate in dashboard tax
-            settings (see the Terms of Use, Section 2).
+            offhrs calculates and collects applicable GST/HST on <strong>all</strong> Marketplace sales at
+            checkout. If you are registered for GST/HST, that tax is paid out to your Stripe Connect account
+            and you remain responsible for remitting it to the CRA. If you are not registered, offhrs retains
+            and remits the collected tax. There is no separate GST/HST charge on the 3% platform fee while tax
+            is collected on the sale. You must keep your registration status and number accurate in dashboard
+            tax settings (see the Terms of Use, Section 2).
           </li>
           <li>
             Your approximate Marketplace payout is the item subtotal minus the 3% platform fee and Stripe

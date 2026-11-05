@@ -591,11 +591,13 @@ export function SettingsClient({ vendor, email, subscription, hasNativePlan }: S
         <CardContent className="space-y-4 p-5">
         <h2 className="text-sm font-semibold text-foreground mb-1">GST/HST registration</h2>
         <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-          offhrs adds GST/HST at checkout only when you confirm you are registered with the CRA.
-          This covers workshop tickets and Artist Marketplace goods. Tax is collected into your
-          Stripe Connect account and you remit it to the CRA. If you are not registered, leave
-          this off — checkout will not add GST/HST. Buyer-paid shipping on Marketplace orders is
-          still held by offhrs for prepaid labels and is not seller earnings.
+          <strong>Workshops:</strong> GST/HST is added only when you confirm you are registered with
+          the CRA — tax goes to your Stripe Connect account and you remit. Leave this off if you are
+          not registered (workshop tickets stay without GST/HST).{' '}
+          <strong>Artist Marketplace:</strong> GST/HST is collected on all goods sales. If you are
+          registered, tax goes to Connect and you remit; if not, offhrs remits. Launch shipping is
+          Ontario buyers only. Buyer-paid shipping is held by offhrs for prepaid labels and is not
+          seller earnings.
         </p>
         <form onSubmit={saveTaxSettings} className="space-y-4">
           <label className="flex items-start gap-3 cursor-pointer">

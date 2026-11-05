@@ -1,5 +1,5 @@
 import { DesignColors, DesignSpacing } from '@/constants/design-template';
-import { CA_PROVINCES, isCaProvinceCode, provinceLabel } from '@/constants/ca-provinces';
+import { isCaProvinceCode, provinceLabel } from '@/constants/ca-provinces';
 import { useAuth } from '@/contexts/AuthContext';
 import { parseCanadianPostalCode } from '@/lib/canadianPostalCode';
 import {
@@ -21,7 +21,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Linking,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -67,10 +66,10 @@ export default function ShopCheckoutScreen() {
   const [line1, setLine1] = useState('');
   const [line2, setLine2] = useState('');
   const [city, setCity] = useState('');
-  const [province, setProvince] = useState('ON');
+  // Launch scope: Artist Marketplace ships within Ontario only.
+  const [province] = useState('ON');
   const [postalCode, setPostalCode] = useState(params.postalCode ?? '');
   const [submitting, setSubmitting] = useState(false);
-  const [provincePickerOpen, setProvincePickerOpen] = useState(false);
   const [pickupVendor, setPickupVendor] = useState<ShopVendorSummary | null>(null);
   const [disclosures, setDisclosures] = useState<ShopPurchaseDisclosures | null>(null);
   const [addressSuggestions, setAddressSuggestions] = useState<PlaceSuggestion[]>([]);
@@ -128,8 +127,11 @@ export default function ShopCheckoutScreen() {
       setLine1(address.line1);
       if (address.line2) setLine2(address.line2);
       setCity(address.city);
-      if (address.province && isCaProvinceCode(address.province)) {
-        setProvince(address.province);
+      if (address.province && isCaProvinceCode(address.province) && address.province !== 'ON') {
+        Alert.alert(
+          'Ontario only',
+          'Artist Marketplace currently ships within Ontario only. Choose an Ontario address.'
+        );
       }
       if (address.postal_code) setPostalCode(address.postal_code);
     } finally {
@@ -149,8 +151,12 @@ export default function ShopCheckoutScreen() {
         Alert.alert('Address required', 'Enter a complete Canadian shipping address.');
         return;
       }
-      if (!isCaProvinceCode(province)) {
-        Alert.alert('Province required', 'Select a province or territory.');
+      const fsa = postal.replace(/\s/g, '').charAt(0).toUpperCase();
+      if (!['K', 'L', 'M', 'N', 'P'].includes(fsa)) {
+        Alert.alert(
+          'Ontario only',
+          'Artist Marketplace currently ships within Ontario only (postal codes starting with K, L, M, N, or P).'
+        );
         return;
       }
     }
@@ -329,19 +335,19 @@ export default function ShopCheckoutScreen() {
             <Text style={{ marginTop: 12, fontWeight: '600' }}>City</Text>
             <TextInput value={city} onChangeText={setCity} placeholder="City" style={inputStyle} />
 
-            <Text style={{ marginTop: 12, fontWeight: '600' }}>Province / territory</Text>
-            <Pressable
-              onPress={() => setProvincePickerOpen(true)}
-              style={[inputStyle, { justifyContent: 'center' }]}
-            >
-              <Text style={{ color: DesignColors.charcoal }}>{provinceLabel(province)}</Text>
-            </Pressable>
+            <Text style={{ marginTop: 12, fontWeight: '600' }}>Province</Text>
+            <View style={[inputStyle, { justifyContent: 'center', backgroundColor: '#F4F6F2' }]}>
+              <Text style={{ color: DesignColors.charcoal }}>{provinceLabel(province)} (launch)</Text>
+            </View>
+            <Text style={{ marginTop: 6, fontSize: 12, color: DesignColors.mediumGray }}>
+              Artist Marketplace currently ships within Ontario only.
+            </Text>
 
             <Text style={{ marginTop: 12, fontWeight: '600' }}>Postal code</Text>
             <TextInput
               value={postalCode}
               onChangeText={setPostalCode}
-              placeholder="A1A 1A1"
+              placeholder="M5V 2T6"
               autoCapitalize="characters"
               style={inputStyle}
             />
@@ -496,67 +502,6 @@ export default function ShopCheckoutScreen() {
         </Pressable>
       </ScrollView>
 
-      <Modal
-        visible={provincePickerOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setProvincePickerOpen(false)}
-      >
-        <Pressable
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.45)',
-            justifyContent: 'flex-end',
-          }}
-          onPress={() => setProvincePickerOpen(false)}
-        >
-          <Pressable
-            onPress={(e) => e.stopPropagation()}
-            style={{
-              backgroundColor: '#fff',
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              maxHeight: '70%',
-              paddingBottom: insets.bottom + 12,
-            }}
-          >
-            <View
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                borderBottomWidth: 1,
-                borderBottomColor: DesignColors.lightGreenBorder,
-              }}
-            >
-              <Text style={{ fontSize: 17, fontWeight: '700', color: DesignColors.charcoal }}>
-                Select province / territory
-              </Text>
-            </View>
-            <ScrollView>
-              {CA_PROVINCES.map((p) => (
-                <Pressable
-                  key={p.code}
-                  onPress={() => {
-                    setProvince(p.code);
-                    setProvincePickerOpen(false);
-                  }}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 14,
-                    borderBottomWidth: 1,
-                    borderBottomColor: DesignColors.lightGreenBorder,
-                    backgroundColor: province === p.code ? '#E8F0E5' : '#fff',
-                  }}
-                >
-                  <Text style={{ fontWeight: '600', color: DesignColors.charcoal }}>
-                    {p.code} — {p.name}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </KeyboardAvoidingView>
   );
 }

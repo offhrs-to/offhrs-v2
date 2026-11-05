@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
           tax_cad: String(pricing.taxCad),
           total_cad: String(pricing.totalCad),
           tax_calculation: pricing.taxCalculationId,
+          tax_remitter: pricing.taxRemitter,
           platform_fee_cents: String(pricing.platformFeeCents),
           estimated_stripe_fee_cents: String(pricing.estimatedStripeFeeCents),
           application_fee_cents: String(pricing.applicationFeeAmount),

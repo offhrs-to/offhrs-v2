@@ -91,7 +91,7 @@ export async function GET() {
         type: 'onboarding_tax_settings',
         title: 'Confirm your GST/HST status',
         message:
-          'Open Settings → GST/HST registration and confirm whether you are registered with the CRA. If you are registered, enter your BN so workshop and Marketplace checkout can collect tax into your Connect account for you to remit. If you are not registered, leave it off and save — we will not add GST/HST.',
+          'Open Settings → GST/HST registration and confirm whether you are registered with the CRA. If registered, enter your BN so workshop and Marketplace tax can go to your Connect account for you to remit. If not registered, leave it off: workshops stay without GST/HST; Marketplace still collects tax and offhrs remits.',
         createdAt: (vendor.created_at as string) || new Date().toISOString(),
         href: '/partners/dashboard/settings',
       })

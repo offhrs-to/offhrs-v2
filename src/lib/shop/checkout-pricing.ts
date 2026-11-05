@@ -1,7 +1,10 @@
 import 'server-only'
 
 import { customerTaxAddressFromPostal } from '@/lib/canadian-postal-province'
-import { buildShopPriceWithoutTax, calculateShopOrderTax } from '@/lib/stripe-shop-tax'
+import {
+  calculateShopOrderTax,
+  type ShopTaxRemitter,
+} from '@/lib/stripe-shop-tax'
 import { shopCheckoutBodySchema } from '@/lib/shop/checkout-schema'
 import {
   loadPublishedShopProduct,
@@ -10,6 +13,10 @@ import {
   vendorShipFromAddress,
   type ShopVendorForCheckout,
 } from '@/lib/shop/checkout'
+import {
+  assertOntarioPickupLocation,
+  assertOntarioShipTo,
+} from '@/lib/shop/marketplace-launch-scope'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { z } from 'zod'
 import Stripe from 'stripe'
@@ -25,6 +32,8 @@ export type ShopCheckoutPricing = {
   totalCad: number
   amountTotalCents: number
   taxCalculationId: string
+  /** vendor = Connect remits; platform = offhrs remits (unregistered sellers). */
+  taxRemitter: ShopTaxRemitter
   platformFeeCents: number
   estimatedStripeFeeCents: number
   applicationFeeAmount: number
@@ -60,9 +69,23 @@ export async function resolveShopCheckoutPricing(
     if (!pickupAddr) {
       throw new CheckoutPricingError('Seller pickup location is not configured', 422)
     }
+    const onPickup = assertOntarioPickupLocation({
+      province: pickupAddr.province,
+      postal_code: pickupAddr.postal_code,
+    })
+    if (!onPickup.ok) {
+      throw new CheckoutPricingError(onPickup.error, 422)
+    }
   } else {
     if (!body.ship_address) {
       throw new CheckoutPricingError('Shipping address required', 422)
+    }
+    const onShip = assertOntarioShipTo({
+      province: body.ship_address.province,
+      postal_code: body.ship_address.postal_code,
+    })
+    if (!onShip.ok) {
+      throw new CheckoutPricingError(onShip.error, 422)
     }
     if (!body.shippo_rate_id || !body.shippo_shipment_id || body.shippo_rate_amount_cad == null) {
       throw new CheckoutPricingError('Select a shipping rate', 422)
@@ -81,60 +104,54 @@ export async function resolveShopCheckoutPricing(
     shippoShipmentId = body.shippo_shipment_id
   }
 
-  // Collect GST/HST only for CRA-registered vendors, into their Connect account
-  // (vendor remits — same as workshops). Unregistered vendors: no tax.
-  const collectsGstHst = vendor.gst_hst_registered === true
+  // CPA Nov 2026: collect GST/HST on all Marketplace sales.
+  // Registered → Connect / vendor remits. Unregistered → platform remits.
+  const customerTaxAddr =
+    body.fulfillment_type === 'ship' && body.ship_address
+      ? customerTaxAddressFromPostal(body.ship_address.postal_code, {
+          state: body.ship_address.province,
+          city: body.ship_address.city,
+          line1: body.ship_address.line1,
+        })
+      : body.fulfillment_type === 'pickup'
+        ? (() => {
+            const pickup = vendorPickupAddress(vendor)
+            if (!pickup) return null
+            return customerTaxAddressFromPostal(pickup.postal_code, {
+              state: pickup.province,
+              city: pickup.city,
+              line1: pickup.line1,
+            })
+          })()
+        : null
+
+  if (!customerTaxAddr) {
+    throw new CheckoutPricingError('Valid Ontario address required for tax calculation', 422)
+  }
+
+  if (!vendor.stripe_account_id) {
+    throw new CheckoutPricingError('Seller payout account is not configured', 422)
+  }
 
   let taxBreakdown
-  if (!collectsGstHst) {
-    taxBreakdown = buildShopPriceWithoutTax(itemSubtotalCad, shippingCad)
-  } else {
-    const customerTaxAddr =
-      body.fulfillment_type === 'ship' && body.ship_address
-        ? customerTaxAddressFromPostal(body.ship_address.postal_code, {
-            state: body.ship_address.province,
-            city: body.ship_address.city,
-            line1: body.ship_address.line1,
-          })
-        : body.fulfillment_type === 'pickup'
-          ? (() => {
-              const pickup = vendorPickupAddress(vendor)
-              if (!pickup) return null
-              return customerTaxAddressFromPostal(pickup.postal_code, {
-                state: pickup.province,
-                city: pickup.city,
-                line1: pickup.line1,
-              })
-            })()
-          : null
-
-    if (!customerTaxAddr) {
-      throw new CheckoutPricingError('Valid Canadian address required for tax calculation', 422)
-    }
-
-    if (!vendor.stripe_account_id) {
-      throw new CheckoutPricingError('Seller payout account is not configured', 422)
-    }
-
-    try {
-      taxBreakdown = await calculateShopOrderTax(stripe, {
-        connectedAccountId: vendor.stripe_account_id,
-        itemSubtotalCad,
-        shippingCad,
-        customerAddress: customerTaxAddr,
-        reference: `shop_product_${product.id}`,
-        vendorLocationAddress: vendor.location_address,
-        gstHstRegistered: true,
-      })
-    } catch (taxErr) {
-      console.error('Shop tax calculation error:', taxErr)
-      const detail = taxErr instanceof Stripe.errors.StripeError ? taxErr.message : undefined
-      throw new CheckoutPricingError(
-        detail ??
-          'Could not calculate tax for this order. The seller may need to complete tax setup in Stripe.',
-        422
-      )
-    }
+  try {
+    taxBreakdown = await calculateShopOrderTax(stripe, {
+      connectedAccountId: vendor.stripe_account_id,
+      itemSubtotalCad,
+      shippingCad,
+      customerAddress: customerTaxAddr,
+      reference: `shop_product_${product.id}`,
+      vendorLocationAddress: vendor.location_address,
+      gstHstRegistered: vendor.gst_hst_registered === true,
+    })
+  } catch (taxErr) {
+    console.error('Shop tax calculation error:', taxErr)
+    const detail = taxErr instanceof Stripe.errors.StripeError ? taxErr.message : undefined
+    throw new CheckoutPricingError(
+      detail ??
+        'Could not calculate tax for this order. Please try again or contact support.',
+      422
+    )
   }
 
   const platformFeeCents = shopPlatformFeeCents(Math.round(itemSubtotalCad * 100))
@@ -144,18 +161,22 @@ export async function resolveShopCheckoutPricing(
   )
 
   const shippingCents = Math.round(shippingCad * 100)
+  const taxCents = Math.round(taxBreakdown.taxCad * 100)
 
-  // Hold postage (+ handling) on the platform for Shippo labels. GST/HST for
-  // registered vendors stays in the Connect transfer so the seller remits it
-  // (same as workshops). Seller net ≈ item + tax − 3% (− Stripe fee when the
-  // platform pays processing).
+  // Hold postage (+ handling) on the platform for Shippo labels.
+  // Registered: tax stays in Connect transfer (vendor remits).
+  // Unregistered: add tax to application fee so offhrs retains/remits it.
   let applicationFeeAmount = platformFeeCents + estimatedStripeFeeCents + shippingCents
+  if (taxBreakdown.remitter === 'platform') {
+    applicationFeeAmount += taxCents
+  }
 
   try {
     const connectedAccount = await stripe.accounts.retrieve(vendor.stripe_account_id!)
     const feePayer = connectedAccount.controller?.fees?.payer
     if (feePayer === 'account') {
-      applicationFeeAmount = platformFeeCents + shippingCents
+      applicationFeeAmount =
+        platformFeeCents + shippingCents + (taxBreakdown.remitter === 'platform' ? taxCents : 0)
     }
   } catch {
     /* keep combined fee */
@@ -179,6 +200,7 @@ export async function resolveShopCheckoutPricing(
     totalCad: taxBreakdown.totalCad,
     amountTotalCents: taxBreakdown.amountTotalCents,
     taxCalculationId: taxBreakdown.calculationId,
+    taxRemitter: taxBreakdown.remitter,
     platformFeeCents,
     estimatedStripeFeeCents,
     applicationFeeAmount,
