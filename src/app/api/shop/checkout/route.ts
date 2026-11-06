@@ -126,7 +126,19 @@ export async function POST(request: NextRequest) {
           ship_to_province: body.ship_address?.province ?? '',
           ship_to_postal_code: body.ship_address?.postal_code ?? '',
         },
-        description: `${vendor.business_name ?? 'Maker'} — ${product.title}`,
+        // Stripe Payment details has no Tax row; bake HST into the description
+        // for Dashboard clearance (amount still includes tax in the charge).
+        description: (() => {
+          const base = `${vendor.business_name ?? 'Maker'} — ${product.title}`
+          const tax = Number(pricing.taxCad)
+          if (!(tax > 0) || !Number.isFinite(tax)) return base
+          const taxLabel = tax.toFixed(2)
+          const remitterNote =
+            pricing.taxRemitter === 'platform' ? ' (platform remits)' : ' (vendor remits)'
+          const withTax = `${base} · incl. HST $${taxLabel}${remitterNote}`
+          // Stripe description soft limit for clean Dashboard display.
+          return withTax.length <= 200 ? withTax : `${base} · incl. HST $${taxLabel}`
+        })(),
         // Intentionally omit receipt_email: buyers already get our branded
         // order confirmation from notifications@offhrs.app (seller identity,
         // cancel/return disclosures). Stripe's generic "Receipt from offhrs"
