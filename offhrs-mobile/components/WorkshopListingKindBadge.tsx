@@ -5,7 +5,7 @@ import {
   type WorkshopListingKindFields,
 } from '@/lib/workshop-listing-kind';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Platform, View } from 'react-native';
+import { Alert, Platform, Pressable } from 'react-native';
 
 type Props = {
   event?: WorkshopListingKindFields;
@@ -15,8 +15,8 @@ type Props = {
 };
 
 /**
- * Decorative listing-type chip (vendor-hosted / redirect / app-listed).
- * Non-interactive — for quick view overlay and pilot notice education.
+ * Listing-type chip (vendor-hosted / redirect / app-listed).
+ * Tap shows a short explanation of what that listing kind means.
  */
 export default function WorkshopListingKindBadge({
   event,
@@ -27,12 +27,13 @@ export default function WorkshopListingKindBadge({
   const meta = getWorkshopListingKindMeta(kindProp ?? event ?? 'app_listed');
 
   return (
-    <View
-      accessible
-      accessibilityRole="image"
-      accessibilityLabel={meta.label}
-      pointerEvents="none"
-      style={{
+    <Pressable
+      onPress={() => Alert.alert(meta.label, meta.description)}
+      accessibilityRole="button"
+      accessibilityLabel={`${meta.label}. ${meta.description}`}
+      accessibilityHint="Shows what this listing type means"
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      style={({ pressed }) => ({
         width: size,
         height: size,
         borderRadius: size / 2,
@@ -41,10 +42,11 @@ export default function WorkshopListingKindBadge({
         borderColor: DesignColors.lightGreenBorder,
         alignItems: 'center',
         justifyContent: 'center',
+        opacity: pressed ? 0.85 : 1,
         elevation: Platform.OS === 'android' ? 4 : undefined,
-      }}
+      })}
     >
       <MaterialCommunityIcons name={meta.icon} size={iconSize} color={DesignColors.primary} />
-    </View>
+    </Pressable>
   );
 }

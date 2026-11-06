@@ -8,5 +8,5 @@ export type ShopCheckoutAddress = {
 };
 
 export type ShopCheckoutResult =
-  | { ok: true; orderId?: string }
+  | { ok: true; orderId?: string; message?: string }
   | { ok: false; cancelled?: boolean; message: string };

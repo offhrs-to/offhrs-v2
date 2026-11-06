@@ -862,7 +862,11 @@ export default function ProfileScreen() {
                         day: 'numeric',
                       })}
                       {' · '}
-                      {o.fulfillment_type === 'pickup' ? 'Pickup' : 'Shipping'} · {formatShopOrderStatus(o)}
+                      {o.fulfillment_type === 'pickup' ? 'Pickup' : 'Shipping'}
+                      {' · '}
+                      <Text style={{ fontWeight: '700', color: DesignColors.primary }}>
+                        {formatShopOrderStatus(o)}
+                      </Text>
                     </Text>
                     {o.fulfillment_type === 'pickup' && o.pickup_address ? (
                       <Text style={{ fontSize: 12, color: DesignColors.mediumGray, marginTop: 4, lineHeight: 16 }}>

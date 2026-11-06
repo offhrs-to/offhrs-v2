@@ -70,6 +70,7 @@ export default function ShopCheckoutScreen() {
   const [province] = useState('ON');
   const [postalCode, setPostalCode] = useState(params.postalCode ?? '');
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [pickupVendor, setPickupVendor] = useState<ShopVendorSummary | null>(null);
   const [disclosures, setDisclosures] = useState<ShopPurchaseDisclosures | null>(null);
   const [addressSuggestions, setAddressSuggestions] = useState<PlaceSuggestion[]>([]);
@@ -141,6 +142,8 @@ export default function ShopCheckoutScreen() {
 
   const onPay = async () => {
     if (!params.productId) return;
+    // Sync lock: React state alone can miss double-taps while PaymentSheet lags.
+    if (submittingRef.current || submitting) return;
     if (!name.trim() || !email.trim()) {
       Alert.alert('Details required', 'Enter your name and email.');
       return;
@@ -161,38 +164,45 @@ export default function ShopCheckoutScreen() {
       }
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
-    const result = await runShopCheckout({
-      productId: params.productId,
-      fulfillmentType: fulfillment,
-      buyerName: name.trim(),
-      buyerEmail: email.trim(),
-      ...(fulfillment === 'ship'
-        ? {
-            shipAddress: {
-              name: name.trim(),
-              line1: line1.trim(),
-              line2: line2.trim() || undefined,
-              city: city.trim(),
-              province: province.trim(),
-              postal_code: parseCanadianPostalCode(postalCode) ?? postalCode.trim(),
-            },
-            shippoRateId: params.rateId || undefined,
-            shippoShipmentId: params.shipmentId || undefined,
-            shippoRateAmountCad: params.rateAmount ? Number(params.rateAmount) : undefined,
-          }
-        : {}),
-    });
-    setSubmitting(false);
+    try {
+      const result = await runShopCheckout({
+        productId: params.productId,
+        fulfillmentType: fulfillment,
+        buyerName: name.trim(),
+        buyerEmail: email.trim(),
+        ...(fulfillment === 'ship'
+          ? {
+              shipAddress: {
+                name: name.trim(),
+                line1: line1.trim(),
+                line2: line2.trim() || undefined,
+                city: city.trim(),
+                province: province.trim(),
+                postal_code: parseCanadianPostalCode(postalCode) ?? postalCode.trim(),
+              },
+              shippoRateId: params.rateId || undefined,
+              shippoShipmentId: params.shipmentId || undefined,
+              shippoRateAmountCad: params.rateAmount ? Number(params.rateAmount) : undefined,
+            }
+          : {}),
+      });
 
-    if (result.ok) {
-      Alert.alert('Order placed', 'Thank you! View your order in Profile → Orders.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/profile') },
-      ]);
-      return;
+      if (result.ok) {
+        Alert.alert(
+          'Order placed',
+          result.message ?? 'Thank you! View your order in Profile → Orders.',
+          [{ text: 'OK', onPress: () => router.replace('/(tabs)/profile') }]
+        );
+        return;
+      }
+      if (result.cancelled) return;
+      Alert.alert('Checkout', result.message);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
-    if (result.cancelled) return;
-    Alert.alert('Checkout', result.message);
   };
 
   const summaryItem = itemPrice;

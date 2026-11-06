@@ -493,23 +493,42 @@ function WorkshopQuickViewModal({
               >
                 <MaterialCommunityIcons name="close" size={24} color={DesignColors.charcoal} />
               </Pressable>
-              <View style={{ alignItems: 'flex-end', gap: 8 }}>
-                <WorkshopListingKindBadge event={view} />
-                <View style={{ flexDirection: 'row', gap: 8 }}>
+              <WorkshopListingKindBadge event={view} />
+            </View>
+            </View>
+
+            <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  gap: 10,
+                }}
+              >
+                <Pressable
+                  onPress={canOpenVendor ? openVendorPage : undefined}
+                  disabled={!canOpenVendor}
+                  accessibilityRole={canOpenVendor ? 'button' : undefined}
+                  accessibilityLabel={canOpenVendor ? `View workshop host for ${view.title}` : undefined}
+                  style={{ flex: 1, minWidth: 0 }}
+                >
+                  <Text style={{ fontSize: 19, fontWeight: '700', color: DesignColors.charcoal }}>
+                    {view.title}
+                  </Text>
+                </Pressable>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -2 }}>
                   <Pressable
                     onPress={() => void shareWorkshopEvent({ id: view.id, title: view.title })}
                     accessibilityRole="button"
                     accessibilityLabel="Share workshop"
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                     style={({ pressed }) => ({
-                      width: 44,
-                      height: 44,
-                      borderRadius: 22,
-                      backgroundColor: 'rgba(255,255,255,0.95)',
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      opacity: pressed ? 0.85 : 1,
-                      elevation: Platform.OS === 'android' ? 4 : undefined,
+                      opacity: pressed ? 0.7 : 1,
                     })}
                   >
                     <MaterialCommunityIcons name="share-variant" size={22} color={DesignColors.primary} />
@@ -519,16 +538,14 @@ function WorkshopQuickViewModal({
                     disabled={saving}
                     accessibilityRole="button"
                     accessibilityLabel={saved ? 'Remove from saved workshops' : 'Save workshop'}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                     style={({ pressed }) => ({
-                      width: 44,
-                      height: 44,
-                      borderRadius: 22,
-                      backgroundColor: 'rgba(255,255,255,0.95)',
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      opacity: pressed ? 0.85 : 1,
-                      elevation: Platform.OS === 'android' ? 4 : undefined,
+                      opacity: pressed ? 0.7 : 1,
                     })}
                   >
                     {saving ? (
@@ -539,18 +556,6 @@ function WorkshopQuickViewModal({
                   </Pressable>
                 </View>
               </View>
-            </View>
-            </View>
-
-            <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
-              <Pressable
-                onPress={canOpenVendor ? openVendorPage : undefined}
-                disabled={!canOpenVendor}
-                accessibilityRole={canOpenVendor ? 'button' : undefined}
-                accessibilityLabel={canOpenVendor ? `View workshop host for ${view.title}` : undefined}
-              >
-                <Text style={{ fontSize: 19, fontWeight: '700', color: DesignColors.charcoal }}>{view.title}</Text>
-              </Pressable>
               {vendorName ? (
                 <Pressable
                   onPress={canOpenVendor ? openVendorPage : undefined}

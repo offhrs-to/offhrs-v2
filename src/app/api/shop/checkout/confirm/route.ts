@@ -10,6 +10,7 @@ import { commitShopTaxTransaction } from '@/lib/stripe-shop-tax'
 import { shopConfirmBodySchema } from '@/lib/shop/checkout-schema'
 import { currentShopTermsVersion } from '@/lib/shop/ontario-disclosures'
 import { notifyShopOrderCreated } from '@/lib/shop/order-emails'
+import { refundShopOrderPreScan, type ShopOrderRow } from '@/lib/shop/fulfillment'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
@@ -92,9 +93,66 @@ export async function POST(request: NextRequest) {
       .eq('id', productId)
       .maybeSingle()
 
+    // Accidental double-tap / lag: same buyer already confirmed this product seconds ago.
+    // Keep the first order and auto-refund this PaymentIntent.
+    const duplicateWindowIso = new Date(Date.now() - 3 * 60 * 1000).toISOString()
+    const { data: recentSameProduct } = await admin
+      .from('shop_orders')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('product_id', productId)
+      .neq('status', 'refunded')
+      .neq('status', 'cancelled')
+      .gte('paid_at', duplicateWindowIso)
+      .neq('stripe_payment_intent_id', paymentIntentId)
+      .order('paid_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (recentSameProduct?.id) {
+      try {
+        await stripe.refunds.create({
+          payment_intent: paymentIntentId,
+          reverse_transfer: true,
+          refund_application_fee: true,
+        })
+      } catch (refundErr) {
+        console.error('shop duplicate checkout auto-refund failed', refundErr)
+        return NextResponse.json(
+          {
+            error:
+              'Duplicate payment detected. Contact support — your first order is already placed.',
+            order_id: recentSameProduct.id,
+          },
+          { status: 409 }
+        )
+      }
+      return NextResponse.json({
+        success: true,
+        order_id: recentSameProduct.id,
+        duplicate_refunded: true,
+      })
+    }
+
     if (!product || product.status !== 'published' || product.quantity < 1) {
+      try {
+        await stripe.refunds.create({
+          payment_intent: paymentIntentId,
+          reverse_transfer: true,
+          refund_application_fee: true,
+        })
+      } catch (refundErr) {
+        console.error('shop OOS auto-refund failed', refundErr)
+        return NextResponse.json(
+          { error: 'Product is no longer available. Contact support for a refund.' },
+          { status: 409 }
+        )
+      }
       return NextResponse.json(
-        { error: 'Product is no longer available. Contact support for a refund.' },
+        {
+          error: 'Product just sold out. Your payment was refunded automatically.',
+          refunded: true,
+        },
         { status: 409 }
       )
     }
@@ -178,6 +236,31 @@ export async function POST(request: NextRequest) {
 
     if (decErr || !decremented) {
       console.error('shop inventory decrement failed', decErr)
+      // Race: another confirm took the last unit after this order inserted.
+      try {
+        const { data: fullOrder } = await admin
+          .from('shop_orders')
+          .select('*')
+          .eq('id', order.id)
+          .single()
+        if (fullOrder) {
+          await refundShopOrderPreScan({
+            admin,
+            stripe,
+            order: fullOrder as ShopOrderRow,
+            initiatedBy: 'platform',
+          })
+        }
+      } catch (raceRefundErr) {
+        console.error('shop inventory race refund failed', raceRefundErr)
+      }
+      return NextResponse.json(
+        {
+          error: 'Product just sold out. Your payment was refunded automatically.',
+          refunded: true,
+        },
+        { status: 409 }
+      )
     }
 
     if (taxCalculationId) {

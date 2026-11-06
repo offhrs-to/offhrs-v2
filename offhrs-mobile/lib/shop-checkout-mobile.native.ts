@@ -114,12 +114,22 @@ export async function runShopCheckout(params: {
   const confirmData = (await confirmRes.json().catch(() => ({}))) as {
     error?: string;
     order_id?: string;
+    duplicate_refunded?: boolean;
+    refunded?: boolean;
   };
 
   if (!confirmRes.ok) {
     return {
       ok: false,
       message: confirmData.error ?? 'Payment succeeded but order confirmation failed.',
+    };
+  }
+
+  if (confirmData.duplicate_refunded) {
+    return {
+      ok: true,
+      orderId: confirmData.order_id,
+      message: 'You already placed this order — the duplicate charge was refunded.',
     };
   }
 
