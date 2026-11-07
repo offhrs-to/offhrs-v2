@@ -1,3 +1,4 @@
+import { normalizeShopCategory } from '@/lib/shop/categories'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (category && category !== 'All') {
-      query = query.eq('category', category)
+      query = query.eq('category', normalizeShopCategory(category))
     }
 
     if (q) {
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
         id: row.id,
         title: row.title,
         price_cad: Number(row.price_cad),
-        category: row.category,
+        category: normalizeShopCategory(row.category),
         image_urls: row.image_urls ?? [],
         vendor_id: row.vendor_id,
         vendor_name: vp?.business_name ?? 'Maker',

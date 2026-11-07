@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { SHOP_CATEGORY_ENUM } from '@/lib/shop/categories'
+import { normalizeShopCategory, SHOP_CATEGORY_ENUM } from '@/lib/shop/categories'
 import { SHOP_DEFAULT_SHIP_BY_BUSINESS_DAYS } from '@/lib/shop/fees'
 import {
   sanitizeWorkshopHtml,
@@ -51,7 +51,10 @@ export const shopProductWriteSchema = z.object({
         return z.NEVER
       }
     }),
-  category: z.enum(SHOP_CATEGORY_ENUM),
+  category: z.preprocess(
+    (value) => normalizeShopCategory(typeof value === 'string' ? value : null),
+    z.enum(SHOP_CATEGORY_ENUM)
+  ),
   price_cad: cadAmount,
   quantity: nonNegInt,
   weight_g: weightGrams,

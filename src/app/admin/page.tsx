@@ -434,6 +434,12 @@ export default function AdminPage() {
               Shop orders →
             </Link>
             <Link
+              href="/admin/marketplace-tax"
+              className="text-sm font-medium text-moss hover:text-moss-dark hover:underline"
+            >
+              Marketplace tax (platform) →
+            </Link>
+            <Link
               href="/admin/saas"
               className="text-sm font-medium text-moss hover:text-moss-dark hover:underline"
             >

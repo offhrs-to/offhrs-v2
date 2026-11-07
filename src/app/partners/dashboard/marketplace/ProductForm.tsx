@@ -7,7 +7,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { WorkshopRichTextField } from '@/components/WorkshopRichTextField'
-import { SHOP_CATEGORIES, type ShopCategory } from '@/lib/shop/categories'
+import {
+  normalizeShopCategory,
+  SHOP_CATEGORIES,
+  type ShopCategory,
+} from '@/lib/shop/categories'
 import { SHOP_DEFAULT_SHIP_BY_BUSINESS_DAYS } from '@/lib/shop/fees'
 import {
   workshopRichTextPlainLength,
@@ -67,7 +71,7 @@ export type ShopProductFormValues = {
 const emptyValues = (): ShopProductFormValues => ({
   title: '',
   description: '',
-  category: 'Pottery',
+  category: 'Ceramics',
   price_cad: 0,
   quantity: 1,
   weight_g: 500,
@@ -99,7 +103,7 @@ export function ProductForm({
   const [values, setValues] = useState<ShopProductFormValues>(() => ({
     ...emptyValues(),
     ...initial,
-    category: (initial?.category as ShopCategory) ?? 'Pottery',
+    category: normalizeShopCategory(initial?.category),
     image_urls: initial?.image_urls ?? [],
   }))
   const [pickup, setPickup] = useState<PickupDetails>(emptyPickup)
@@ -112,7 +116,7 @@ export function ProductForm({
     setValues({
       ...emptyValues(),
       ...initial,
-      category: (initial?.category as ShopCategory) ?? 'Pottery',
+      category: normalizeShopCategory(initial?.category),
       image_urls: initial?.image_urls ?? [],
     })
   }, [initial])

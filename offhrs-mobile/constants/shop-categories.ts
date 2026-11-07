@@ -1,10 +1,10 @@
 /** Shop product categories — mirrors web src/lib/shop/categories.ts */
 export const SHOP_CATEGORIES = [
-  'Pottery',
-  'Prints',
-  'Jewelry',
+  'Ceramics',
+  'Prints & Paintings',
+  'Jewelry & Metalwork',
   'Textiles',
-  'Home',
   'Sculpture',
+  'Home & Lifestyle',
   'Other',
 ] as const;

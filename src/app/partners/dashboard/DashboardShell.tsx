@@ -202,52 +202,49 @@ export function DashboardShell({
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <div className="flex h-full max-h-full overflow-hidden bg-partner-canvas">
-      <aside className="hidden h-full min-h-0 w-56 shrink-0 flex-col border-r border-partner-border bg-white md:flex">
-        <SidebarNav
-          pathname={pathname}
-          hasNativePlan={hasNativePlan}
-          hasMarketplaceAccess={hasMarketplaceAccess}
-        />
-      </aside>
+    <div className="flex h-full max-h-full flex-col overflow-hidden bg-partner-canvas">
+      {/* Sidebar + content fill remaining height above the single shell footer */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <aside className="hidden h-full min-h-0 w-56 shrink-0 flex-col border-r border-partner-border bg-white md:flex">
+          <SidebarNav
+            pathname={pathname}
+            hasNativePlan={hasNativePlan}
+            hasMarketplaceAccess={hasMarketplaceAccess}
+          />
+        </aside>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex shrink-0 items-center justify-between border-b border-partner-border bg-white px-4 py-3 md:hidden">
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Open menu">
-                <Menu className="size-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-56 gap-0 p-0 sm:max-w-[14rem]" showCloseButton>
-              <SheetHeader className="sr-only">
-                <SheetTitle>Partner navigation</SheetTitle>
-              </SheetHeader>
-              <SidebarNav
-                pathname={pathname}
-                hasNativePlan={hasNativePlan}
-                hasMarketplaceAccess={hasMarketplaceAccess}
-                onNavigate={() => setMobileOpen(false)}
-              />
-            </SheetContent>
-          </Sheet>
-          <BrandMark className="min-w-0 flex-1 justify-center" />
-          <div className="w-8" />
-        </header>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="flex shrink-0 items-center justify-between border-b border-partner-border bg-white px-4 py-3 md:hidden">
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon-sm" aria-label="Open menu">
+                  <Menu className="size-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-56 gap-0 p-0 sm:max-w-[14rem]" showCloseButton>
+                <SheetHeader className="sr-only">
+                  <SheetTitle>Partner navigation</SheetTitle>
+                </SheetHeader>
+                <SidebarNav
+                  pathname={pathname}
+                  hasNativePlan={hasNativePlan}
+                  hasMarketplaceAccess={hasMarketplaceAccess}
+                  onNavigate={() => setMobileOpen(false)}
+                />
+              </SheetContent>
+            </Sheet>
+            <BrandMark className="min-w-0 flex-1 justify-center" />
+            <div className="w-8" />
+          </header>
 
-        {/*
-          min-h-0 is required so flex-1 + overflow-y-auto can scroll inside the
-          locked partners-app shell. Inner min-h-full + flex-col keeps the
-          legal footer at the bottom of the viewport when page content is short,
-          and after the content when the page scrolls.
-        */}
-        <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="flex min-h-full flex-col">
-            <div className="min-w-0 flex-1">{children}</div>
-            <PartnerDashboardFooter />
-          </div>
-        </main>
+          {/* min-h-0 so flex-1 + overflow-y-auto can scroll inside the locked shell */}
+          <main className="min-h-0 flex-1 overflow-y-auto">
+            <div className="min-w-0">{children}</div>
+          </main>
+        </div>
       </div>
+
+      <PartnerDashboardFooter />
     </div>
   )
 }

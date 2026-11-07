@@ -7,11 +7,19 @@ import { OffhrsLogo } from '@/components/offhrs-logo'
 export default function Footer() {
   const pathname = usePathname() ?? '/'
   // Marketing pages ship their own green CTA + legal footer.
+  // Partner dashboard / app chrome uses PartnerDashboardFooter in the shell.
   if (
     pathname === '/' ||
     pathname === '/partners' ||
     pathname === '/partners/shopify-sync' ||
-    pathname === '/contact'
+    pathname === '/contact' ||
+    pathname.startsWith('/partners/dashboard') ||
+    pathname === '/partners/accept-terms' ||
+    pathname.startsWith('/partners/accept-terms/') ||
+    pathname === '/partners/checkout' ||
+    pathname.startsWith('/partners/checkout/') ||
+    pathname === '/partners/suspended' ||
+    pathname.startsWith('/partners/suspended/')
   ) {
     return null
   }

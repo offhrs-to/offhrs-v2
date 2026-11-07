@@ -193,6 +193,7 @@ export async function POST(request: NextRequest) {
         shipping_collected_cad: shippingCad,
         tax_cad: taxCad,
         total_cad: totalCad,
+        tax_remitter: pi.metadata.tax_remitter === 'platform' ? 'platform' : 'vendor',
         platform_fee_cents: Number(pi.metadata.platform_fee_cents ?? 0),
         estimated_stripe_fee_cents: Number(pi.metadata.estimated_stripe_fee_cents ?? 0),
         postage_held: fulfillmentType === 'ship',
