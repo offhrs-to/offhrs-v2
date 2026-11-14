@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { ensurePartnerBillingPortalConfiguration } from '@/lib/stripe-partner-billing-portal'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
@@ -35,9 +36,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No billing account found' }, { status: 404 })
     }
 
+    let configuration: string | undefined
+    try {
+      const configId = await ensurePartnerBillingPortalConfiguration(stripe)
+      if (configId) configuration = configId
+    } catch (configErr) {
+      console.warn('Partner billing portal configuration:', configErr)
+    }
+
     const session = await stripe.billingPortal.sessions.create({
       customer: vendor.stripe_customer_id,
       return_url: `${APP_URL}/partners/dashboard/settings`,
+      ...(configuration ? { configuration } : {}),
     })
 
     return NextResponse.json({ url: session.url })

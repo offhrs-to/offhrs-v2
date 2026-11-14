@@ -19,6 +19,7 @@ export type PartnerNotificationDto = {
     | 'workshop_reminder'
     | 'onboarding_tax_settings'
     | 'shop_order_new'
+    | 'shop_order_refund'
   title: string
   message: string
   createdAt: string

@@ -19,7 +19,7 @@ export type WorkshopListingKindMeta = {
 const KIND_META: Record<WorkshopListingKind, Omit<WorkshopListingKindMeta, 'kind'>> = {
   vendor_hosted: {
     label: 'Vendor-hosted',
-    description: 'Hosts publish on offhrs. Book and pay securely in the app.',
+    description: 'Vendor-managed workshop on offhrs. Book and pay securely in the app.',
     icon: 'storefront-check',
   },
   vendor_redirect: {

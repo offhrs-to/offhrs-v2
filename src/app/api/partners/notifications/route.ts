@@ -19,6 +19,7 @@ export type PartnerNotificationDto = {
     | 'workshop_reminder'
     | 'onboarding_tax_settings'
     | 'shop_order_new'
+    | 'shop_order_refund'
   title: string
   message: string
   createdAt: string
@@ -76,11 +77,13 @@ export async function GET() {
         .lte('date', tomorrowEnd),
       admin
         .from('shop_orders')
-        .select('id, product_title, status, paid_at, created_at, total_cad, fulfillment_type, buyer_name')
+        .select(
+          'id, product_title, status, paid_at, created_at, refunded_at, total_cad, fulfillment_type, buyer_name, estimated_stripe_fee_cents'
+        )
         .eq('vendor_id', vendorId)
-        .gte('paid_at', sinceIso)
+        .or(`paid_at.gte.${sinceIso},refunded_at.gte.${sinceIso}`)
         .order('paid_at', { ascending: false })
-        .limit(40),
+        .limit(60),
     ])
 
     const notifications: PartnerNotificationDto[] = []
@@ -171,14 +174,35 @@ export async function GET() {
     for (const o of shopOrdersRes.data ?? []) {
       const amt = o.total_cad != null ? cadFormatter.format(Number(o.total_cad)) : ''
       const pickup = o.fulfillment_type === 'pickup'
-      notifications.push({
-        id: `shop:order:${o.id}`,
-        type: 'shop_order_new',
-        title: pickup ? 'New pickup order' : 'New Marketplace order',
-        message: `${o.buyer_name ?? 'A buyer'} purchased "${o.product_title ?? 'an item'}"${amt ? ` (${amt})` : ''}.`,
-        createdAt: (o.paid_at as string) || (o.created_at as string),
-        href: '/partners/dashboard/marketplace?tab=orders',
-      })
+      const paidAt = o.paid_at ? new Date(o.paid_at as string) : null
+      if (paidAt && paidAt >= sinceDate) {
+        notifications.push({
+          id: `shop:order:${o.id}`,
+          type: 'shop_order_new',
+          title: pickup ? 'New pickup order' : 'New Marketplace order',
+          message: `${o.buyer_name ?? 'A buyer'} purchased "${o.product_title ?? 'an item'}"${amt ? ` (${amt})` : ''}.`,
+          createdAt: (o.paid_at as string) || (o.created_at as string),
+          href: '/partners/dashboard/marketplace?tab=orders',
+        })
+      }
+
+      const refundedAt = o.refunded_at ? new Date(o.refunded_at as string) : null
+      if (refundedAt && refundedAt >= sinceDate) {
+        const feeCad = Math.max(0, Number(o.estimated_stripe_fee_cents ?? 0)) / 100
+        const feeNote =
+          feeCad > 0
+            ? ` The Stripe processing fee of ${cadFormatter.format(feeCad)} on the original transaction is non-refundable by Stripe and remains the vendor's responsibility per our Service Terms.`
+            : ''
+        const refundClause = amt ? ` (${amt} refunded to the buyer)` : ''
+        notifications.push({
+          id: `shop:refund:${o.id}`,
+          type: 'shop_order_refund',
+          title: pickup ? 'Pickup order cancelled' : 'Marketplace order cancelled',
+          message: `${o.buyer_name ?? 'A buyer'}'s order for "${o.product_title ?? 'an item'}" was cancelled${refundClause}.${feeNote}`,
+          createdAt: refundedAt.toISOString(),
+          href: '/partners/dashboard/marketplace?tab=orders',
+        })
+      }
     }
 
     notifications.sort((a, b) => {
