@@ -69,6 +69,8 @@ export default function SaasAdminPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [actionMsg, setActionMsg] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -90,6 +92,41 @@ export default function SaasAdminPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  async function runVendorAction(vendor: VendorRow, action: 'remove' | 'suspend') {
+    const label = vendor.business_name || vendor.slug || vendor.id
+    const confirmMsg =
+      action === 'remove'
+        ? `Permanently remove "${label}"?\n\nDeletes their partner profile, products, and login (if they have no consumer activity). Use for empty fraudulent signups.`
+        : `Suspend "${label}"?\n\nCancels billing, turns off Marketplace, keeps the row for audit. Prefer this if they have any orders.`
+    if (!window.confirm(confirmMsg)) return
+
+    setBusyId(vendor.id)
+    setActionMsg(null)
+    try {
+      const res = await fetch(`/api/admin/vendors/${vendor.id}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setActionMsg(data.error || `Failed to ${action} vendor`)
+        return
+      }
+      setActionMsg(
+        action === 'remove'
+          ? `Removed ${label}${data.preservedConsumerAccount ? ' (consumer login kept)' : ''}`
+          : `Suspended ${label}`
+      )
+      await load()
+    } catch {
+      setActionMsg(`Failed to ${action} vendor`)
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -192,14 +229,15 @@ export default function SaasAdminPage() {
 
         {/* Vendor management table */}
         <div className="bg-white border border-[#E8E4DE] rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#F0EDE8]">
+          <div className="px-5 py-4 border-b border-[#F0EDE8] flex items-center justify-between gap-3">
             <h2 className="text-sm font-semibold text-[#1a1a1a]">Vendor management</h2>
+            {actionMsg && <p className="text-xs text-[#5D755D]">{actionMsg}</p>}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#F0EDE8]">
-                  {['Business', 'Plan', 'Marketplace', 'Email', 'Status', 'Signed up', 'Trial/Billing ends', 'Connect', 'Sessions', 'Bookings'].map((h) => (
+                  {['Business', 'Plan', 'Marketplace', 'Email', 'Status', 'Signed up', 'Trial/Billing ends', 'Connect', 'Sessions', 'Bookings', 'Actions'].map((h) => (
                     <th key={h} className="text-left text-xs font-medium text-[#888] px-4 py-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -257,6 +295,26 @@ export default function SaasAdminPage() {
                     <td className="px-4 py-3 text-center">{v.stripe_connect_completed ? '✓' : '✗'}</td>
                     <td className="px-4 py-3 text-center text-sm font-medium">{v.sessions}</td>
                     <td className="px-4 py-3 text-center text-sm font-medium">{v.bookings}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={busyId === v.id || v.status === 'canceled'}
+                          onClick={() => runVendorAction(v, 'suspend')}
+                          className="text-xs px-2 py-1 rounded-lg border border-[#E8E4DE] text-[#555] hover:bg-[#F5F2EE] disabled:opacity-40"
+                        >
+                          Suspend
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyId === v.id}
+                          onClick={() => runVendorAction(v, 'remove')}
+                          className="text-xs px-2 py-1 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-40"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
