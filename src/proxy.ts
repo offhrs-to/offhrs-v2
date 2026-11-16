@@ -69,6 +69,11 @@ export async function proxy(request: NextRequest) {
   ) {
     requestHeaders.set('x-offhrs-partners-app', '1')
   }
+  // Dashboard needs a locked viewport (footer pin + sidebar stretch); other app
+  // pages (accept-terms / checkout / suspended) still scroll the partners shell.
+  if (pathname.startsWith('/partners/dashboard')) {
+    requestHeaders.set('x-offhrs-partners-dashboard', '1')
+  }
 
   let supabaseResponse = NextResponse.next({
     request: { headers: requestHeaders },

@@ -115,15 +115,17 @@ function SidebarNav({
   hasMarketplaceAccess: boolean
   onNavigate?: () => void
 }) {
+  // Same shell for Marketplace-only, Lite, Pro, and Shopify Sync — only the
+  // filtered nav items change; the stretch layout must stay identical.
   const navItems = visibleNavItems(hasNativePlan, hasMarketplaceAccess)
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="border-b border-partner-border px-4 py-5">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-partner-border px-4 py-5">
         <BrandMark />
       </div>
 
-      <nav className="flex-1 space-y-0.5 px-3 py-4">
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
         {navItems.map((item) => {
           const active = item.exact ? pathname === item.href : pathname.startsWith(item.href)
           return (
@@ -132,7 +134,7 @@ function SidebarNav({
         })}
       </nav>
 
-      <div className="space-y-1 border-t border-partner-border px-3 pb-4 pt-3">
+      <div className="shrink-0 space-y-1 border-t border-partner-border px-3 pb-4 pt-3">
         <Link
           href="/partners/dashboard/faq"
           onClick={onNavigate}
@@ -202,10 +204,10 @@ export function DashboardShell({
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <div className="flex h-full max-h-full flex-col overflow-hidden bg-partner-canvas">
-      {/* Sidebar + content fill remaining height above the single shell footer */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="hidden h-full min-h-0 w-56 shrink-0 flex-col border-r border-partner-border bg-white md:flex">
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-partner-canvas">
+      {/* Sidebar + content fill remaining height above the pinned shell footer */}
+      <div className="flex min-h-0 flex-1 items-stretch overflow-hidden">
+        <aside className="hidden min-h-0 w-56 shrink-0 flex-col self-stretch border-r border-partner-border bg-white md:flex">
           <SidebarNav
             pathname={pathname}
             hasNativePlan={hasNativePlan}
@@ -238,7 +240,7 @@ export function DashboardShell({
           </header>
 
           {/* min-h-0 so flex-1 + overflow-y-auto can scroll inside the locked shell */}
-          <main className="min-h-0 flex-1 overflow-y-auto">
+          <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <div className="min-w-0">{children}</div>
           </main>
         </div>

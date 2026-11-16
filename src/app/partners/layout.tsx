@@ -22,11 +22,16 @@ export default async function PartnersLayout({ children }: { children: React.Rea
   }
 
   // App chrome (no public marketing footer): fill the locked partners-app
-  // viewport. Non-dashboard pages (accept-terms, checkout) scroll here;
-  // the dashboard layout sets overflow-hidden and scrolls inside the shell.
+  // viewport. Dashboard locks height so the shell footer pins and the sidebar
+  // stretches; accept-terms / checkout / suspended scroll inside this wrapper.
   if (headerList.get('x-offhrs-partners-app') === '1') {
+    const isDashboard = headerList.get('x-offhrs-partners-dashboard') === '1'
     return (
-      <div className={`${playfair.variable} h-full overflow-y-auto bg-partner-canvas`}>
+      <div
+        className={`${playfair.variable} flex h-full min-h-0 flex-1 flex-col bg-partner-canvas ${
+          isDashboard ? 'overflow-hidden' : 'overflow-y-auto'
+        }`}
+      >
         {children}
       </div>
     )

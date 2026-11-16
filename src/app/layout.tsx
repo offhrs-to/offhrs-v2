@@ -87,12 +87,15 @@ export default async function RootLayout({
 
   if (isPartnersApp) {
     return (
-      <html lang="en" className="h-full overflow-hidden">
+      <html lang="en" className="h-dvh max-h-dvh overflow-hidden">
         <head>{supabaseUrl && <link rel="preconnect" href={supabaseUrl} />}</head>
-        <body className={`${inter.variable} h-full overflow-hidden font-sans`}>
+        <body
+          className={`${inter.variable} flex h-dvh max-h-dvh flex-col overflow-hidden font-sans`}
+        >
           <AuthProviderWrapper>
             <SupabaseConfigBanner />
-            {children}
+            {/* flex-1 min-h-0 keeps the height chain intact if the config banner shows */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
             <CookieConsentBanner />
           </AuthProviderWrapper>
         </body>
